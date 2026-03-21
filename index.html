@@ -677,18 +677,33 @@ function handleFile(file) {
 // ════════════════════════════════════════════════════════════════════════
 // UPLOAD: PROCESAR IMAGEN
 // ════════════════════════════════════════════════════════════════════════
-function processImage(file) {
-  const img = new Image();
+async function processImage(file) {
   const url = URL.createObjectURL(file);
-  img.onload = async () => {
-    renderDithered(img, img.naturalWidth, img.naturalHeight, ctxUP, false, true);
-    URL.revokeObjectURL(url);
-    upCanvas.classList.add('visible');
-    dropZone.style.display = 'none';
-    const blob = await canvasToBlob(ctxUP);
-    setUploadResultReady(blob, 'png');
-  };
-  img.src = url;
+  let source, w, h;
+
+  // createImageBitmap con colorSpaceConversion:'none' devuelve los valores
+  // gamma-encoded del archivo tal cual, sin que Android Chrome los linealice
+  // (lo que causaba que todo se viera muy oscuro en Android vs iOS).
+  try {
+    source = await createImageBitmap(file, { colorSpaceConversion: 'none' });
+    w = source.width; h = source.height;
+  } catch (_) {
+    // Fallback: img element (iOS, Safari antiguo)
+    source = await new Promise((res, rej) => {
+      const img = new Image();
+      img.onload  = () => res(img);
+      img.onerror = rej;
+      img.src = url;
+    });
+    w = source.naturalWidth; h = source.naturalHeight;
+  }
+
+  renderDithered(source, w, h, ctxUP, false, true);
+  URL.revokeObjectURL(url);
+  upCanvas.classList.add('visible');
+  dropZone.style.display = 'none';
+  const blob = await canvasToBlob(ctxUP);
+  setUploadResultReady(blob, 'png');
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -805,7 +820,16 @@ document.getElementById('btnStart').addEventListener('click', async () => {
 // ════════════════════════════════════════════════════════════════════════
 // SERVICE WORKER
 // ════════════════════════════════════════════════════════════════════════
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    // Cuando el nuevo SW activa, recarga la página para servir la versión fresca
+    reg.addEventListener('updatefound', () => {
+      reg.installing.addEventListener('statechange', function() {
+        if (this.state === 'activated') location.reload();
+      });
+    });
+  }).catch(() => {});
+}
 </script>
 </body>
 </html>

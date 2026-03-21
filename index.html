@@ -219,6 +219,42 @@
       padding: 0 20px; z-index: 10;
     }
     #barUpload.visible { display: flex; }
+
+    /* ── ASCII canvas ───────────────────────────────────────────────── */
+    #asciiCanvas {
+      position: fixed;
+      top: 40px; bottom: 96px;
+      left: 0; right: 0;
+      margin: auto;
+      display: none;
+      background: #000;
+    }
+    #asciiCanvas.visible { display: block; }
+
+    /* ── ASCII bar ──────────────────────────────────────────────────── */
+    #barAscii {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 96px; background: var(--ink); border-top: 2px solid var(--dark);
+      align-items: center; justify-content: space-around;
+      padding: 0 20px; z-index: 10;
+    }
+    #barAscii.visible { display: flex; }
+
+    /* ── ASCII cols slider ──────────────────────────────────────────── */
+    .ascii-density {
+      position: fixed; top: 48px; left: 12px; z-index: 10;
+      display: none; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .ascii-density.visible { display: flex; }
+    .ascii-density label { color: var(--dark); font-size: 9px; letter-spacing: 1px; }
+    .density-btn {
+      width: 36px; height: 22px; background: none;
+      border: 2px solid var(--dark); color: var(--dark);
+      font-family: monospace; font-size: 8px; font-weight: bold;
+      cursor: pointer; transition: .1s;
+    }
+    .density-btn.active { border-color: var(--paper); color: var(--paper); }
   </style>
 </head>
 <body>
@@ -233,10 +269,13 @@
 <div class="tab-bar">
   <button class="tab active" id="tabCam">📷 CÁMARA</button>
   <button class="tab"        id="tabUp" >📂 SUBIR</button>
+  <button class="tab"        id="tabAscii">🔤 ASCII</button>
 </div>
 
 <!-- Canvas cámara (modo cámara) -->
 <canvas id="display"></canvas>
+<!-- Canvas ASCII -->
+<canvas id="asciiCanvas"></canvas>
 
 <!-- Splash -->
 <div id="splash">
@@ -306,6 +345,31 @@
   </button>
 </div>
 
+<!-- ASCII density selector -->
+<div class="ascii-density" id="asciiDensity">
+  <label>DENSITY</label>
+  <button class="density-btn" data-cols="48">SM</button>
+  <button class="density-btn active" data-cols="80">MD</button>
+  <button class="density-btn" data-cols="120">LG</button>
+</div>
+
+<!-- ASCII upload input (reuse fileInput via js) -->
+
+<!-- Barra ASCII -->
+<div id="barAscii">
+  <button class="btn" id="btnAsciiUpload" aria-label="Subir foto">
+    <div class="btn-icon">📂</div>
+    <span class="btn-label">SUBIR</span>
+  </button>
+  <button class="btn btn-center" id="btnAsciiCapture" aria-label="Capturar">
+    <div class="btn-icon">●</div>
+  </button>
+  <button class="btn" id="btnAsciiShare" aria-label="Compartir" style="opacity:.4" disabled>
+    <div class="btn-icon">↑</div>
+    <span class="btn-label">SHARE</span>
+  </button>
+</div>
+
 <!-- Barra upload -->
 <div id="barUpload">
   <button class="btn" id="btnChoose" aria-label="Elegir archivo">
@@ -335,8 +399,14 @@ const PALETTES = [
   { name: 'Papel',      paper: [212,200,170], ink: [ 30, 20, 10] },
   { name: 'Lo-fi',      paper: [242,196,206], ink: [ 45, 10, 20] },
 ];
-let activePal = 0;
+let activePal  = 0;
 let legacyMode = false;
+
+// ════════════════════════════════════════════════════════════════════════
+// ASCII — set de caracteres (oscuro → claro) y resolución de la cuadrícula
+// ════════════════════════════════════════════════════════════════════════
+const ASCII_CHARS = '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/|()1{}?-_+~<>i!lI;:,". ';
+let asciiCols = 80;   // columnas de texto (cambia con density buttons)
 
 // ════════════════════════════════════════════════════════════════════════
 // BAYER 8×8
@@ -369,22 +439,26 @@ const uploadVid = document.getElementById('uploadVid');
 const small     = document.getElementById('small');
 const scanCvs   = document.getElementById('scanCvs');
 const display   = document.getElementById('display');
-const upCanvas  = document.getElementById('uploadCanvas');
-const splash    = document.getElementById('splash');
-const flash     = document.getElementById('flash');
-const fpsEl     = document.getElementById('fps');
+const upCanvas   = document.getElementById('uploadCanvas');
+const asciiCvs   = document.getElementById('asciiCanvas');
+const splash     = document.getElementById('splash');
+const flash      = document.getElementById('flash');
+const fpsEl      = document.getElementById('fps');
 
 small.width  = DSI_W; small.height  = DSI_H;
 scanCvs.width= OUT_W; scanCvs.height= OUT_H;
 display.width= OUT_W; display.height= OUT_H;
+asciiCvs.width = OUT_W; asciiCvs.height = OUT_H;
 
-const ctxS  = small.getContext('2d',   { willReadFrequently: true });
-const ctxD  = display.getContext('2d', { willReadFrequently: false });
-const ctxUP = upCanvas.getContext('2d',{ willReadFrequently: false });
-const ctxSc = scanCvs.getContext('2d');
-ctxS.imageSmoothingEnabled  = false;
-ctxD.imageSmoothingEnabled  = false;
-ctxUP.imageSmoothingEnabled = false;
+const ctxS    = small.getContext('2d',    { willReadFrequently: true });
+const ctxD    = display.getContext('2d',  { willReadFrequently: false });
+const ctxUP   = upCanvas.getContext('2d', { willReadFrequently: false });
+const ctxSc   = scanCvs.getContext('2d');
+const ctxAscii = asciiCvs.getContext('2d');
+ctxS.imageSmoothingEnabled     = false;
+ctxD.imageSmoothingEnabled     = false;
+ctxUP.imageSmoothingEnabled    = false;
+ctxAscii.imageSmoothingEnabled = false;
 
 // ════════════════════════════════════════════════════════════════════════
 // LAYOUT
@@ -518,6 +592,56 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
+// ASCII ART RENDER
+// ════════════════════════════════════════════════════════════════════════
+function renderASCII(source, srcW, srcH, mirror) {
+  // 1. Bajar la imagen a 256×192 para sampling
+  const [cx, cy, cw, ch] = cropCoords(srcW, srcH);
+  ctxS.save();
+  if (mirror) { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
+  ctxS.drawImage(source, cx, cy, cw, ch, 0, 0, DSI_W, DSI_H);
+  ctxS.restore();
+  const { data: px } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
+
+  const pal  = PALETTES[activePal];
+  const rows = Math.round(asciiCols * DSI_H / DSI_W);  // mantiene 4:3
+  const cW   = OUT_W / asciiCols;
+  const cH   = OUT_H / rows;
+  const sCW  = DSI_W / asciiCols;
+  const sCH  = DSI_H / rows;
+
+  // 2. Fondo con color papel de la paleta
+  ctxAscii.fillStyle = `rgb(${pal.paper})`;
+  ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
+
+  // 3. Caracteres con color tinta
+  const fontSize = Math.max(6, Math.floor(cH * 0.92));
+  ctxAscii.font          = `bold ${fontSize}px monospace`;
+  ctxAscii.fillStyle     = `rgb(${pal.ink})`;
+  ctxAscii.textBaseline  = 'top';
+
+  const nChars = ASCII_CHARS.length;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < asciiCols; c++) {
+      // Promedio de gris en la celda de la fuente
+      let gSum = 0, cnt = 0;
+      const x0 = Math.floor(c * sCW),   x1 = Math.min(Math.ceil((c+1) * sCW), DSI_W);
+      const y0 = Math.floor(r * sCH),   y1 = Math.min(Math.ceil((r+1) * sCH), DSI_H);
+      for (let py = y0; py < y1; py++)
+        for (let pxX = x0; pxX < x1; pxX++) {
+          const i = (py * DSI_W + pxX) << 2;
+          gSum += (px[i]*77 + px[i+1]*150 + px[i+2]*29) >> 8;
+          cnt++;
+        }
+      const gray  = cnt ? (gSum / cnt) | 0 : 128;
+      const ci    = Math.min(Math.floor((255 - gray) / 256 * nChars), nChars - 1);
+      const ch    = ASCII_CHARS[ci];
+      if (ch !== ' ') ctxAscii.fillText(ch, c * cW, r * cH);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════
 // CÁMARA
 // ════════════════════════════════════════════════════════════════════════
 let facingMode = 'environment', stream = null;
@@ -536,9 +660,9 @@ document.getElementById('btnFlip').addEventListener('click', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// RENDER LOOP (cámara)
+// RENDER LOOPS (cámara flipnote + cámara ascii)
 // ════════════════════════════════════════════════════════════════════════
-let cameraRunning = false;
+let cameraRunning = false, asciiRunning = false;
 let lastFPSt = performance.now(), frames = 0;
 
 function cameraLoop(t) {
@@ -552,6 +676,12 @@ function cameraLoop(t) {
   requestAnimationFrame(cameraLoop);
 }
 
+function asciiLoop() {
+  if (!asciiRunning) return;
+  if (vid.videoWidth) renderASCII(vid, vid.videoWidth, vid.videoHeight, facingMode === 'user');
+  requestAnimationFrame(asciiLoop);
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // TABS
 // ════════════════════════════════════════════════════════════════════════
@@ -559,27 +689,35 @@ let activeTab = 'cam';
 
 function switchTab(tab) {
   activeTab = tab;
-  document.getElementById('tabCam').classList.toggle('active', tab === 'cam');
-  document.getElementById('tabUp' ).classList.toggle('active', tab === 'up');
+  document.getElementById('tabCam'  ).classList.toggle('active', tab === 'cam');
+  document.getElementById('tabUp'   ).classList.toggle('active', tab === 'up');
+  document.getElementById('tabAscii').classList.toggle('active', tab === 'ascii');
 
-  const isCam = tab === 'cam';
+  const isCam   = tab === 'cam';
+  const isUp    = tab === 'up';
+  const isAscii = tab === 'ascii';
+
   display.style.display = isCam ? 'block' : 'none';
-  document.getElementById('uploadSection').classList.toggle('visible', !isCam);
-  document.getElementById('barCam'   ).style.display = isCam ? '' : 'none';
-  document.getElementById('barUpload').classList.toggle('visible', !isCam);
-  document.getElementById('btnFlip'  ).style.display = isCam ? '' : 'none';
+  asciiCvs.classList.toggle('visible', isAscii);
+  document.getElementById('uploadSection' ).classList.toggle('visible', isUp);
+  document.getElementById('barCam'        ).style.display = isCam   ? '' : 'none';
+  document.getElementById('barUpload'     ).classList.toggle('visible', isUp);
+  document.getElementById('barAscii'      ).classList.toggle('visible', isAscii);
+  document.getElementById('asciiDensity'  ).classList.toggle('visible', isAscii);
+  document.getElementById('btnFlip'       ).style.display = isCam   ? '' : 'none';
+  document.getElementById('palettes'      ).style.display = isUp    ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
 
-  if (isCam) {
-    cameraRunning = true;
-    if (stream) requestAnimationFrame(cameraLoop);
-  } else {
-    cameraRunning = false;
-  }
+  cameraRunning = isCam;
+  asciiRunning  = isAscii;
+
+  if (isCam   && stream) requestAnimationFrame(cameraLoop);
+  if (isAscii && stream) requestAnimationFrame(asciiLoop);
 }
 
-document.getElementById('tabCam').addEventListener('click', () => switchTab('cam'));
-document.getElementById('tabUp' ).addEventListener('click', () => switchTab('up'));
+document.getElementById('tabCam'  ).addEventListener('click', () => switchTab('cam'));
+document.getElementById('tabUp'   ).addEventListener('click', () => switchTab('up'));
+document.getElementById('tabAscii').addEventListener('click', () => switchTab('ascii'));
 
 // ════════════════════════════════════════════════════════════════════════
 // UTILIDADES: guardar y compartir
@@ -877,6 +1015,63 @@ document.getElementById('btnStart').addEventListener('click', async () => {
   splash.classList.add('hidden');
   cameraRunning = true;
   requestAnimationFrame(cameraLoop);
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// ASCII — DENSITY BUTTONS
+// ════════════════════════════════════════════════════════════════════════
+document.querySelectorAll('.density-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    asciiCols = Number(btn.dataset.cols);
+    document.querySelectorAll('.density-btn').forEach(b => b.classList.toggle('active', b === btn));
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// ASCII — CAPTURA (foto desde cámara)
+// ════════════════════════════════════════════════════════════════════════
+document.getElementById('btnAsciiCapture').addEventListener('click', async () => {
+  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+  const blob = await canvasToBlob(ctxAscii);
+  await _shareOrDownload(blob, 'ascii_' + Date.now() + '.png');
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// ASCII — SUBIR FOTO
+// ════════════════════════════════════════════════════════════════════════
+const asciiFileInput = document.createElement('input');
+asciiFileInput.type   = 'file';
+asciiFileInput.accept = 'image/*';
+
+document.getElementById('btnAsciiUpload').addEventListener('click', () => asciiFileInput.click());
+
+asciiFileInput.addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+
+  const url = URL.createObjectURL(file);
+  let source, w, h;
+  try {
+    source = await createImageBitmap(file, { colorSpaceConversion: 'none' });
+    w = source.width; h = source.height;
+  } catch (_) {
+    source = await new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => res(img); img.onerror = rej; img.src = url;
+    });
+    w = source.naturalWidth; h = source.naturalHeight;
+  }
+  renderASCII(source, w, h, false);
+  URL.revokeObjectURL(url);
+
+  // Activar botón share
+  const btnShare = document.getElementById('btnAsciiShare');
+  btnShare.disabled = false; btnShare.style.opacity = '1';
+  btnShare.onclick = async () => {
+    const blob = await canvasToBlob(ctxAscii);
+    await _shareOrDownload(blob, 'ascii_' + Date.now() + '.png');
+  };
 });
 
 // ════════════════════════════════════════════════════════════════════════

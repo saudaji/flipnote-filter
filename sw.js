@@ -1,4 +1,4 @@
-const CACHE = 'flipnote-filter-v21';
+const CACHE = 'flipnote-filter-v22';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e =>

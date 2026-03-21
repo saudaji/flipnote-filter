@@ -12,9 +12,8 @@
   <title>Flipnote Filter</title>
   <style>
     *, *::before, *::after {
-      margin: 0; padding: 0; box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
+      margin:0; padding:0; box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
     :root { --ink:#0F380F; --dark:#306230; --mid:#8BAC0F; --paper:#9BBC0F; }
     html, body {
@@ -43,12 +42,60 @@
     }
     .tab:last-child { border-right:none; }
     .tab.active { color:var(--paper); background:rgba(155,188,15,.08); }
-    .tab:active  { background:var(--dark); }
+    .tab:active { background:var(--dark); }
 
-    /* ── Main canvas ── */
+    /* ── Camera canvas ── */
     #display {
       image-rendering:pixelated; image-rendering:crisp-edges;
       position:fixed; top:40px; bottom:96px; left:0; right:0; margin:auto;
+    }
+
+    /* ════════════════════════════════════════════════════
+       ASCII AREA — wraps canvas + panel
+    ════════════════════════════════════════════════════ */
+    #asciiArea {
+      display:none;
+      position:fixed; top:40px; bottom:96px; left:0; right:0;
+      align-items:center; justify-content:center;
+    }
+    #asciiArea.visible { display:flex; }
+
+    #asciiCanvas {
+      image-rendering:pixelated; image-rendering:crisp-edges;
+      background:#000; flex-shrink:0; display:block;
+    }
+
+    /* Panel: hidden by default, shown via body.ascii-edit */
+    #asciiPanel {
+      display:none; overflow-y:auto;
+      background:var(--ink);
+      -webkit-overflow-scrolling:touch;
+    }
+    body.ascii-edit #asciiPanel { display:block; }
+
+    /* ── DESKTOP: two-column split (≥768px) ── */
+    @media (min-width:768px) {
+      body.ascii-edit #asciiArea {
+        flex-direction:row; align-items:stretch; justify-content:flex-start;
+      }
+      body.ascii-edit #asciiCanvas { flex-shrink:0; align-self:center; }
+      body.ascii-edit #asciiPanel {
+        width:284px; flex-shrink:0; height:100%;
+        border-left:2px solid var(--dark); overflow-y:auto;
+      }
+    }
+
+    /* ── MOBILE: image on top, params below, scroll within area ── */
+    @media (max-width:767px) {
+      body.ascii-edit #asciiArea {
+        flex-direction:column; align-items:center;
+        justify-content:flex-start; overflow-y:auto;
+      }
+      body.ascii-edit #asciiCanvas { flex-shrink:0; }
+      body.ascii-edit #asciiPanel {
+        flex-shrink:0; width:100%;
+        border-top:2px solid var(--dark);
+      }
     }
 
     /* ── Bottom bar ── */
@@ -156,13 +203,6 @@
     #barUpload { display:none; position:fixed; bottom:0; left:0; right:0; height:96px; background:var(--ink); border-top:2px solid var(--dark); align-items:center; justify-content:space-around; padding:0 20px; z-index:10; }
     #barUpload.visible { display:flex; }
 
-    /* ── ASCII canvas ── */
-    #asciiCanvas {
-      position:fixed; top:40px; bottom:96px; left:0; right:0;
-      margin:auto; display:none; background:#000;
-    }
-    #asciiCanvas.visible { display:block; }
-
     /* ── ASCII bottom bar ── */
     #barAscii {
       display:none; position:fixed; bottom:0; left:0; right:0;
@@ -172,15 +212,7 @@
     }
     #barAscii.visible { display:flex; }
 
-    /* ── ASCII settings panel ── */
-    #asciiPanel {
-      display:none;
-      position:fixed; bottom:96px; left:0; right:0;
-      max-height:55vh; overflow-y:auto;
-      background:var(--ink); border-top:2px solid var(--dark);
-      z-index:15; -webkit-overflow-scrolling:touch;
-    }
-    #asciiPanel.visible { display:block; }
+    /* ── ASCII panel controls ── */
     .ac-section { padding:6px 12px 4px; }
     .ac-section + .ac-section { border-top:1px solid var(--dark); }
     .ac-title { color:var(--mid); font-size:9px; letter-spacing:2px; text-transform:uppercase; margin-bottom:5px; padding-top:2px; }
@@ -198,6 +230,25 @@
     .ac-btn { flex:1; min-width:50px; background:none; border:1px solid var(--dark); color:var(--paper); font-family:monospace; font-size:9px; letter-spacing:.5px; text-transform:uppercase; padding:7px 4px; cursor:pointer; transition:background .1s; white-space:nowrap; }
     .ac-btn:active { background:var(--dark); }
     .ac-btn.ac-reset { border-color:var(--mid); color:var(--mid); }
+
+    /* ── Pythonization ── */
+    #pythonSection { padding:6px 12px 8px; border-top:1px solid var(--dark); }
+    #btnPython {
+      width:100%; background:none; border:2px solid #3776AB;
+      color:#3776AB; font-family:monospace; font-size:10px;
+      font-weight:bold; letter-spacing:1px; text-transform:uppercase;
+      padding:8px; cursor:pointer; transition:.15s; margin-bottom:6px;
+    }
+    #btnPython.active {
+      background:#3776AB; color:#FFD43B;
+      border-color:#FFD43B; box-shadow:0 0 8px rgba(55,118,171,.5);
+    }
+    #btnPython:active { opacity:.8; }
+    #chaosRow { display:none; align-items:center; gap:6px; }
+    #chaosRow.visible { display:flex; }
+    #chaosRow .ac-lbl { color:#FFD43B; }
+    #chaosRow input[type="range"] { accent-color:#FFD43B; }
+    #chaosRow .ac-val { color:#3776AB; }
   </style>
 </head>
 <body>
@@ -214,7 +265,125 @@
 </div>
 
 <canvas id="display"></canvas>
-<canvas id="asciiCanvas"></canvas>
+
+<!-- ASCII area: canvas + panel together for split layout -->
+<div id="asciiArea">
+  <canvas id="asciiCanvas"></canvas>
+
+  <!-- ASCII settings panel (inside asciiArea for split layout) -->
+  <div id="asciiPanel">
+    <!-- Pythonization -->
+    <div id="pythonSection">
+      <button id="btnPython">🐍 Pythonization</button>
+      <div id="chaosRow" class="ac-row">
+        <span class="ac-lbl">Chaos</span>
+        <span class="ac-val" id="vChaos">0</span>
+        <input type="range" id="acChaos" min="0" max="100" value="0">
+      </div>
+    </div>
+
+    <div class="ac-section">
+      <div class="ac-title">Output</div>
+      <div class="ac-row">
+        <span class="ac-lbl">Characters</span>
+        <span class="ac-val" id="vChars">100</span>
+        <input type="range" id="acChars" min="1" max="500" value="100">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Gradient</span>
+        <select id="acGradient">
+          <option value="normal">Normal</option>
+          <option value="reverse">Reverse</option>
+          <option value="block">Block</option>
+          <option value="minimal">Minimal</option>
+        </select>
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Space Density</span>
+        <span class="ac-val" id="vSpace">1</span>
+        <input type="range" id="acSpace" min="1" max="10" value="1">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Quality</span>
+        <select id="acQuality">
+          <option value="none">None</option>
+          <option value="smooth">Smooth</option>
+          <option value="sharp">Sharp</option>
+        </select>
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Frame</span>
+        <span class="ac-val" id="vFrame">0px</span>
+        <input type="range" id="acFrame" min="0" max="50" value="0">
+      </div>
+    </div>
+
+    <div class="ac-section">
+      <div class="ac-title">Image</div>
+      <div class="ac-row">
+        <span class="ac-lbl">Brightness</span>
+        <span class="ac-val" id="vBright">100%</span>
+        <input type="range" id="acBright" min="0" max="200" value="100">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Contrast</span>
+        <span class="ac-val" id="vContrast">100%</span>
+        <input type="range" id="acContrast" min="0" max="200" value="100">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Saturation</span>
+        <span class="ac-val" id="vSat">100%</span>
+        <input type="range" id="acSat" min="0" max="200" value="100">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Hue</span>
+        <span class="ac-val" id="vHue">0°</span>
+        <input type="range" id="acHue" min="0" max="360" value="0">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Grayscale</span>
+        <span class="ac-val" id="vGray">0%</span>
+        <input type="range" id="acGray" min="0" max="100" value="0">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Sepia</span>
+        <span class="ac-val" id="vSepia">0%</span>
+        <input type="range" id="acSepia" min="0" max="100" value="0">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Invert</span>
+        <span class="ac-val" id="vInvert">0%</span>
+        <input type="range" id="acInvert" min="0" max="100" value="0">
+      </div>
+    </div>
+
+    <div class="ac-section">
+      <div class="ac-title">Effects</div>
+      <div class="ac-row">
+        <label class="ac-lbl"><input type="checkbox" id="cbThresh"> Threshold</label>
+        <span class="ac-val" id="vThresh">128</span>
+        <input type="range" id="acThresh" min="0" max="255" value="128" disabled>
+      </div>
+      <div class="ac-row">
+        <label class="ac-lbl"><input type="checkbox" id="cbSharp"> Sharpness</label>
+        <span class="ac-val" id="vSharp">9</span>
+        <input type="range" id="acSharp" min="0" max="20" value="9" disabled>
+      </div>
+      <div class="ac-row">
+        <label class="ac-lbl"><input type="checkbox" id="cbEdge"> Edge Detect</label>
+        <span class="ac-val" id="vEdge">1.0</span>
+        <input type="range" id="acEdge" min="0" max="50" value="10" disabled>
+      </div>
+    </div>
+
+    <div class="ac-btn-row">
+      <button class="ac-btn" id="acCopy">📋 COPY</button>
+      <button class="ac-btn" id="acTxt">TXT</button>
+      <button class="ac-btn" id="acPng">PNG</button>
+      <button class="ac-btn ac-reset" id="acReset">RESET</button>
+    </div>
+  </div><!-- #asciiPanel -->
+</div><!-- #asciiArea -->
 
 <div id="splash">
   <div class="logo">FLIPNOTE<br>FILTER<span>CAMERA EFFECT</span></div>
@@ -268,110 +437,6 @@
     <div class="btn-icon">↑</div>
     <span class="btn-label">SHARE</span>
   </button>
-</div>
-
-<!-- ASCII settings panel -->
-<div id="asciiPanel">
-  <div class="ac-section">
-    <div class="ac-title">Output</div>
-    <div class="ac-row">
-      <span class="ac-lbl">Characters</span>
-      <span class="ac-val" id="vChars">100</span>
-      <input type="range" id="acChars" min="1" max="500" value="100">
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Gradient</span>
-      <select id="acGradient">
-        <option value="normal">Normal</option>
-        <option value="reverse">Reverse</option>
-        <option value="block">Block</option>
-        <option value="minimal">Minimal</option>
-      </select>
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Space Density</span>
-      <span class="ac-val" id="vSpace">1</span>
-      <input type="range" id="acSpace" min="1" max="10" value="1">
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Quality</span>
-      <select id="acQuality">
-        <option value="none">None</option>
-        <option value="smooth">Smooth</option>
-        <option value="sharp">Sharp</option>
-      </select>
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Frame</span>
-      <span class="ac-val" id="vFrame">0px</span>
-      <input type="range" id="acFrame" min="0" max="50" value="0">
-    </div>
-  </div>
-
-  <div class="ac-section">
-    <div class="ac-title">Image</div>
-    <div class="ac-row">
-      <span class="ac-lbl">Brightness</span>
-      <span class="ac-val" id="vBright">100%</span>
-      <input type="range" id="acBright" min="0" max="200" value="100">
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Contrast</span>
-      <span class="ac-val" id="vContrast">100%</span>
-      <input type="range" id="acContrast" min="0" max="200" value="100">
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Saturation</span>
-      <span class="ac-val" id="vSat">100%</span>
-      <input type="range" id="acSat" min="0" max="200" value="100">
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Hue</span>
-      <span class="ac-val" id="vHue">0°</span>
-      <input type="range" id="acHue" min="0" max="360" value="0">
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Grayscale</span>
-      <span class="ac-val" id="vGray">0%</span>
-      <input type="range" id="acGray" min="0" max="100" value="0">
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Sepia</span>
-      <span class="ac-val" id="vSepia">0%</span>
-      <input type="range" id="acSepia" min="0" max="100" value="0">
-    </div>
-    <div class="ac-row">
-      <span class="ac-lbl">Invert</span>
-      <span class="ac-val" id="vInvert">0%</span>
-      <input type="range" id="acInvert" min="0" max="100" value="0">
-    </div>
-  </div>
-
-  <div class="ac-section">
-    <div class="ac-title">Effects</div>
-    <div class="ac-row">
-      <label class="ac-lbl"><input type="checkbox" id="cbThresh"> Threshold</label>
-      <span class="ac-val" id="vThresh">128</span>
-      <input type="range" id="acThresh" min="0" max="255" value="128" disabled>
-    </div>
-    <div class="ac-row">
-      <label class="ac-lbl"><input type="checkbox" id="cbSharp"> Sharpness</label>
-      <span class="ac-val" id="vSharp">9</span>
-      <input type="range" id="acSharp" min="0" max="20" value="9" disabled>
-    </div>
-    <div class="ac-row">
-      <label class="ac-lbl"><input type="checkbox" id="cbEdge"> Edge Detect</label>
-      <span class="ac-val" id="vEdge">1.0</span>
-      <input type="range" id="acEdge" min="0" max="50" value="10" disabled>
-    </div>
-  </div>
-
-  <div class="ac-btn-row">
-    <button class="ac-btn" id="acCopy">📋 COPY</button>
-    <button class="ac-btn" id="acTxt">TXT</button>
-    <button class="ac-btn" id="acPng">PNG</button>
-    <button class="ac-btn ac-reset" id="acReset">RESET</button>
-  </div>
 </div>
 
 <div id="barAscii">
@@ -434,25 +499,28 @@ const ASCII_GRADIENTS = {
   minimal: ' .:-=+*#@',
 };
 
-let asciiCols      = 100;
-let acBrightVal    = 100;
-let acContrastVal  = 100;
-let acSatVal       = 100;
-let acHueVal       = 0;
-let acGrayVal      = 0;
-let acSepiaVal     = 0;
-let acInvertVal    = 0;
-let acThreshOn     = false;
-let acThreshVal    = 128;
-let acSharpOn      = false;
-let acSharpVal     = 9;
-let acEdgeOn       = false;
-let acEdgeVal      = 1.0;
-let acGradientVal  = 'normal';
-let acSpaceVal     = 1;
-let acQualityVal   = 'none';
-let acFrameVal     = 0;
-let lastAsciiText  = '';
+let asciiCols     = 100;
+let acBrightVal   = 100;
+let acContrastVal = 100;
+let acSatVal      = 100;
+let acHueVal      = 0;
+let acGrayVal     = 0;
+let acSepiaVal    = 0;
+let acInvertVal   = 0;
+let acThreshOn    = false;  let acThreshVal   = 128;
+let acSharpOn     = false;  let acSharpVal    = 9;
+let acEdgeOn      = false;  let acEdgeVal     = 1.0;
+let acGradientVal = 'normal';
+let acSpaceVal    = 1;
+let acQualityVal  = 'none';
+let acFrameVal    = 0;
+let lastAsciiText = '';
+
+// Pythonization
+let pythonMode = false;
+let chaosVal   = 0;
+const PY_BLUE  = [55, 118, 171];
+const PY_YELL  = [255, 212, 59];
 
 // ════════════════════════════════════════════════════════════════════
 // BAYER 8×8
@@ -473,16 +541,17 @@ const OUT_W = DSI_W * SCALE, OUT_H = DSI_H * SCALE; // 1024×768
 // ════════════════════════════════════════════════════════════════════
 // DOM
 // ════════════════════════════════════════════════════════════════════
-const vid       = document.getElementById('vid');
-const uploadVid = document.getElementById('uploadVid');
-const small     = document.getElementById('small');
-const scanCvs   = document.getElementById('scanCvs');
-const display   = document.getElementById('display');
-const upCanvas  = document.getElementById('uploadCanvas');
-const asciiCvs  = document.getElementById('asciiCanvas');
-const splash    = document.getElementById('splash');
-const flash     = document.getElementById('flash');
-const fpsEl     = document.getElementById('fps');
+const vid        = document.getElementById('vid');
+const uploadVid  = document.getElementById('uploadVid');
+const small      = document.getElementById('small');
+const scanCvs    = document.getElementById('scanCvs');
+const display    = document.getElementById('display');
+const upCanvas   = document.getElementById('uploadCanvas');
+const asciiCvs   = document.getElementById('asciiCanvas');
+const asciiArea  = document.getElementById('asciiArea');
+const splash     = document.getElementById('splash');
+const flash      = document.getElementById('flash');
+const fpsEl      = document.getElementById('fps');
 
 small.width   = DSI_W; small.height   = DSI_H;
 scanCvs.width = OUT_W; scanCvs.height = OUT_H;
@@ -498,7 +567,7 @@ ctxS.imageSmoothingEnabled = false;
 ctxD.imageSmoothingEnabled = false;
 ctxUP.imageSmoothingEnabled= false;
 
-// Higher-res sampling canvas for ASCII (512×384 = 4× more pixels than DSi)
+// Higher-res ASCII sampling canvas (512×384)
 const asciiSample = document.createElement('canvas');
 asciiSample.width = 512; asciiSample.height = 384;
 const ctxAS = asciiSample.getContext('2d', { willReadFrequently:true });
@@ -506,14 +575,34 @@ const ctxAS = asciiSample.getContext('2d', { willReadFrequently:true });
 // ════════════════════════════════════════════════════════════════════
 // LAYOUT
 // ════════════════════════════════════════════════════════════════════
+let asciiPanelOpen = false;
+const PANEL_W = 284; // desktop panel width px
+
 function relayout() {
   const aspect = OUT_W / OUT_H;
-  const avW = window.innerWidth, avH = window.innerHeight - 40 - 96;
+  const avH = window.innerHeight - 40 - 96;
+  const avW = window.innerWidth;
+
+  // Camera / upload canvas (always centered)
   let w, h;
   if (avW / avH > aspect) { h = avH; w = h * aspect; }
   else                     { w = avW; h = w / aspect; }
-  display.style.width   = w + 'px';  display.style.height  = h + 'px';
-  asciiCvs.style.width  = w + 'px';  asciiCvs.style.height = h + 'px';
+  display.style.width = w + 'px'; display.style.height = h + 'px';
+
+  // ASCII canvas sizing
+  let aw, ah;
+  if (asciiPanelOpen && avW >= 768) {
+    // Desktop: left column = viewport minus panel
+    const colW = avW - PANEL_W;
+    if (colW / avH > aspect) { ah = avH; aw = ah * aspect; }
+    else                      { aw = colW; ah = aw / aspect; }
+  } else if (asciiPanelOpen) {
+    // Mobile: full width, natural height
+    aw = avW; ah = aw / aspect;
+  } else {
+    aw = w; ah = h;
+  }
+  asciiCvs.style.width = aw + 'px'; asciiCvs.style.height = ah + 'px';
 }
 window.addEventListener('resize', relayout);
 relayout();
@@ -587,21 +676,20 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
     const fsErr = new Float32Array(DSI_W * DSI_H);
     for (let y = 0; y < DSI_H; y++) {
       for (let x = 0; x < DSI_W; x++) {
-        const idx = y * DSI_W + x;
-        const i   = idx << 2;
+        const idx = y * DSI_W + x, i = idx << 2;
         const raw  = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
         const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
         const g    = Math.max(0, Math.min(255, gray + fsErr[idx]));
         const isInk = g < 128;
         const e = g - (isInk ? 0 : 255);
-        if (x + 1 < DSI_W)              fsErr[idx + 1]           += e * 7 / 16;
+        if (x + 1 < DSI_W)    fsErr[idx + 1]         += e * 7 / 16;
         if (y + 1 < DSI_H) {
-          if (x > 0)                     fsErr[idx + DSI_W - 1]   += e * 3 / 16;
-                                         fsErr[idx + DSI_W]        += e * 5 / 16;
-          if (x + 1 < DSI_W)             fsErr[idx + DSI_W + 1]   += e * 1 / 16;
+          if (x > 0)           fsErr[idx + DSI_W - 1] += e * 3 / 16;
+                               fsErr[idx + DSI_W]      += e * 5 / 16;
+          if (x + 1 < DSI_W)  fsErr[idx + DSI_W + 1] += e * 1 / 16;
         }
-        lowBuf[i]   = isInk ? IR : PR; lowBuf[i+1] = isInk ? IG : PG;
-        lowBuf[i+2] = isInk ? IB : PB; lowBuf[i+3] = 255;
+        lowBuf[i]=isInk?IR:PR; lowBuf[i+1]=isInk?IG:PG;
+        lowBuf[i+2]=isInk?IB:PB; lowBuf[i+3]=255;
       }
     }
     ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
@@ -613,12 +701,12 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
   for (let y = 0; y < DSI_H; y++) {
     const row8 = (y & 7) << 3;
     for (let x = 0; x < DSI_W; x++) {
-      const i    = (y * DSI_W + x) << 2;
+      const i   = (y * DSI_W + x) << 2;
       const raw  = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
       const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
       const isInk = gray < BAYER8[row8 + (x & 7)];
-      lowBuf[i]   = isInk ? IR : PR; lowBuf[i+1] = isInk ? IG : PG;
-      lowBuf[i+2] = isInk ? IB : PB; lowBuf[i+3] = 255;
+      lowBuf[i]=isInk?IR:PR; lowBuf[i+1]=isInk?IG:PG;
+      lowBuf[i+2]=isInk?IB:PB; lowBuf[i+3]=255;
     }
   }
   ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
@@ -630,52 +718,45 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
 // ASCII: per-pixel luminance with image adjustments
 // ════════════════════════════════════════════════════════════════════
 function asciiPixelLum(r, g, b) {
-  // Brightness
   if (acBrightVal !== 100) {
     const f = acBrightVal / 100;
-    r = Math.min(255, r * f); g = Math.min(255, g * f); b = Math.min(255, b * f);
+    r=Math.min(255,r*f); g=Math.min(255,g*f); b=Math.min(255,b*f);
   }
-  // Contrast
   if (acContrastVal !== 100) {
     const f = acContrastVal / 100;
-    r = Math.max(0, Math.min(255, (r - 128) * f + 128));
-    g = Math.max(0, Math.min(255, (g - 128) * f + 128));
-    b = Math.max(0, Math.min(255, (b - 128) * f + 128));
+    r=Math.max(0,Math.min(255,(r-128)*f+128));
+    g=Math.max(0,Math.min(255,(g-128)*f+128));
+    b=Math.max(0,Math.min(255,(b-128)*f+128));
   }
-  // Hue rotation (CSS-compatible matrix)
   if (acHueVal !== 0) {
-    const rad = acHueVal * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
-    const nr = r*(0.213+cos*0.787-sin*0.213) + g*(0.213-cos*0.213+sin*0.143) + b*(0.213-cos*0.213-sin*0.787);
-    const ng = r*(0.715-cos*0.715-sin*0.715) + g*(0.715+cos*0.285+sin*0.140) + b*(0.715-cos*0.715+sin*0.715);
-    const nb = r*(0.072-cos*0.072+sin*0.928) + g*(0.072-cos*0.072-sin*0.283) + b*(0.072+cos*0.928+sin*0.072);
-    r = Math.max(0,Math.min(255,nr)); g = Math.max(0,Math.min(255,ng)); b = Math.max(0,Math.min(255,nb));
+    const rad=acHueVal*Math.PI/180, cos=Math.cos(rad), sin=Math.sin(rad);
+    const nr=r*(0.213+cos*0.787-sin*0.213)+g*(0.213-cos*0.213+sin*0.143)+b*(0.213-cos*0.213-sin*0.787);
+    const ng=r*(0.715-cos*0.715-sin*0.715)+g*(0.715+cos*0.285+sin*0.140)+b*(0.715-cos*0.715+sin*0.715);
+    const nb=r*(0.072-cos*0.072+sin*0.928)+g*(0.072-cos*0.072-sin*0.283)+b*(0.072+cos*0.928+sin*0.072);
+    r=Math.max(0,Math.min(255,nr)); g=Math.max(0,Math.min(255,ng)); b=Math.max(0,Math.min(255,nb));
   }
-  // Saturation
   if (acSatVal !== 100) {
-    const lum = r*0.299 + g*0.587 + b*0.114, f = acSatVal / 100;
-    r = Math.max(0,Math.min(255, lum + (r-lum)*f));
-    g = Math.max(0,Math.min(255, lum + (g-lum)*f));
-    b = Math.max(0,Math.min(255, lum + (b-lum)*f));
+    const lum=r*0.299+g*0.587+b*0.114, f=acSatVal/100;
+    r=Math.max(0,Math.min(255,lum+(r-lum)*f));
+    g=Math.max(0,Math.min(255,lum+(g-lum)*f));
+    b=Math.max(0,Math.min(255,lum+(b-lum)*f));
   }
-  // Sepia
   if (acSepiaVal > 0) {
-    const s = acSepiaVal / 100;
-    const sr = r*(1-s) + (r*.393+g*.769+b*.189)*s;
-    const sg = g*(1-s) + (r*.349+g*.686+b*.168)*s;
-    const sb = b*(1-s) + (r*.272+g*.534+b*.131)*s;
+    const s=acSepiaVal/100;
+    const sr=r*(1-s)+(r*.393+g*.769+b*.189)*s;
+    const sg=g*(1-s)+(r*.349+g*.686+b*.168)*s;
+    const sb=b*(1-s)+(r*.272+g*.534+b*.131)*s;
     r=Math.min(255,sr); g=Math.min(255,sg); b=Math.min(255,sb);
   }
-  // Invert
   if (acInvertVal > 0) {
-    const s = acInvertVal / 100;
+    const s=acInvertVal/100;
     r=r*(1-s)+(255-r)*s; g=g*(1-s)+(255-g)*s; b=b*(1-s)+(255-b)*s;
   }
-  // Grayscale
   if (acGrayVal > 0) {
-    const lum = r*0.299 + g*0.587 + b*0.114, f = acGrayVal / 100;
+    const lum=r*0.299+g*0.587+b*0.114, f=acGrayVal/100;
     r=r*(1-f)+lum*f; g=g*(1-f)+lum*f; b=b*(1-f)+lum*f;
   }
-  return Math.max(0, Math.min(255, (r*77 + g*150 + b*29) / 256)) | 0;
+  return Math.max(0, Math.min(255, (r*77+g*150+b*29)/256)) | 0;
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -683,8 +764,6 @@ function asciiPixelLum(r, g, b) {
 // ════════════════════════════════════════════════════════════════════
 function renderASCII(source, srcW, srcH, mirror) {
   const SW = 512, SH = 384;
-
-  // 1. Draw source → 512×384 sample canvas
   const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
   ctxAS.save();
   if (mirror) { ctxAS.translate(SW, 0); ctxAS.scale(-1, 1); }
@@ -695,44 +774,40 @@ function renderASCII(source, srcW, srcH, mirror) {
 
   const { data: px } = ctxAS.getImageData(0, 0, SW, SH);
 
-  // 2. Build grayscale array with image adjustments
+  // Build grayscale array with image adjustments
   const gray = new Float32Array(SW * SH);
   for (let i = 0; i < SW * SH; i++) {
     const p = i << 2;
     gray[i] = asciiPixelLum(px[p], px[p+1], px[p+2]);
   }
 
-  // 3. Sharpness (unsharp mask via Laplacian)
+  // Sharpness
   if (acSharpOn && acSharpVal > 0) {
-    const s = acSharpVal * 0.03;
-    const tmp = new Float32Array(gray);
-    for (let y = 1; y < SH-1; y++) {
+    const s = acSharpVal * 0.03, tmp = new Float32Array(gray);
+    for (let y = 1; y < SH-1; y++)
       for (let x = 1; x < SW-1; x++) {
         const i = y*SW+x;
         const lap = tmp[i]*4 - tmp[i-1] - tmp[i+1] - tmp[i-SW] - tmp[i+SW];
         gray[i] = Math.max(0, Math.min(255, tmp[i] + s * lap));
       }
-    }
   }
 
-  // 4. Edge detection (Sobel blend)
+  // Edge detection
   if (acEdgeOn && acEdgeVal > 0) {
-    const ef = acEdgeVal / 5;
-    const tmp = new Float32Array(gray);
-    for (let y = 1; y < SH-1; y++) {
+    const ef = acEdgeVal / 5, tmp = new Float32Array(gray);
+    for (let y = 1; y < SH-1; y++)
       for (let x = 1; x < SW-1; x++) {
         const i = y*SW+x;
-        const gx = -tmp[(y-1)*SW+(x-1)] - 2*tmp[y*SW+(x-1)] - tmp[(y+1)*SW+(x-1)]
-                  + tmp[(y-1)*SW+(x+1)] + 2*tmp[y*SW+(x+1)] + tmp[(y+1)*SW+(x+1)];
-        const gy = -tmp[(y-1)*SW+(x-1)] - 2*tmp[(y-1)*SW+x] - tmp[(y-1)*SW+(x+1)]
-                  + tmp[(y+1)*SW+(x-1)] + 2*tmp[(y+1)*SW+x] + tmp[(y+1)*SW+(x+1)];
-        const edge = Math.min(255, Math.sqrt(gx*gx + gy*gy) / 4);
-        gray[i] = Math.max(0, Math.min(255, tmp[i]*(1-ef) + edge*ef));
+        const gx = -tmp[(y-1)*SW+(x-1)]-2*tmp[y*SW+(x-1)]-tmp[(y+1)*SW+(x-1)]
+                   +tmp[(y-1)*SW+(x+1)]+2*tmp[y*SW+(x+1)]+tmp[(y+1)*SW+(x+1)];
+        const gy = -tmp[(y-1)*SW+(x-1)]-2*tmp[(y-1)*SW+x]-tmp[(y-1)*SW+(x+1)]
+                   +tmp[(y+1)*SW+(x-1)]+2*tmp[(y+1)*SW+x]+tmp[(y+1)*SW+(x+1)];
+        const edge = Math.min(255, Math.sqrt(gx*gx+gy*gy)/4);
+        gray[i] = Math.max(0, Math.min(255, tmp[i]*(1-ef)+edge*ef));
       }
-    }
   }
 
-  // 5. Auto-levels
+  // Auto-levels
   let minG = 255, maxG = 0;
   for (let i = 0; i < gray.length; i++) {
     if (gray[i] < minG) minG = gray[i];
@@ -740,7 +815,7 @@ function renderASCII(source, srcW, srcH, mirror) {
   }
   const rng = maxG - minG || 1;
 
-  // 6. Setup output
+  // Setup output
   const grad   = ASCII_GRADIENTS[acGradientVal] || ASCII_GRADIENTS.normal;
   const nChars = grad.length;
   const fw     = OUT_W - 2 * acFrameVal;
@@ -752,29 +827,30 @@ function renderASCII(source, srcW, srcH, mirror) {
   const sCH    = SH / rows;
 
   const pal = PALETTES[activePal];
-  ctxAscii.fillStyle = `rgb(${pal.paper})`;
+
+  // Background
+  ctxAscii.fillStyle = pythonMode ? '#000' : `rgb(${pal.paper})`;
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
 
   const fontSize = Math.max(4, Math.floor(cH * 0.92));
   ctxAscii.font         = `bold ${fontSize}px monospace`;
-  ctxAscii.fillStyle    = `rgb(${pal.ink})`;
   ctxAscii.textBaseline = 'top';
   ctxAscii.imageSmoothingEnabled = false;
 
-  const lines = [];
+  const chaosN = chaosVal / 100;
+  const lines  = [];
+
   for (let r = 0; r < rows; r++) {
     let line = '';
     for (let c = 0; c < asciiCols; c++) {
-      // Average gray in cell
       let gSum = 0, cnt = 0;
-      const x0 = Math.floor(c * sCW), x1 = Math.min(Math.ceil((c+1) * sCW), SW);
-      const y0 = Math.floor(r * sCH), y1 = Math.min(Math.ceil((r+1) * sCH), SH);
+      const x0 = Math.floor(c * sCW), x1 = Math.min(Math.ceil((c+1)*sCW), SW);
+      const y0 = Math.floor(r * sCH), y1 = Math.min(Math.ceil((r+1)*sCH), SH);
       for (let py = y0; py < y1; py++)
         for (let px = x0; px < x1; px++)
           gSum += gray[py * SW + px], cnt++;
 
       const raw = cnt ? gSum / cnt : 128;
-
       let lum;
       if (acThreshOn) {
         lum = raw < acThreshVal ? 0 : 255;
@@ -790,6 +866,15 @@ function renderASCII(source, srcW, srcH, mirror) {
       line += ch;
 
       if (ci >= acSpaceVal) {
+        if (pythonMode) {
+          // Color: blue vs yellow based on luminosity + chaos
+          const lumN = lum / 255;            // 0=dark, 1=bright
+          const probYellow = lumN * (1 - chaosN) + Math.random() * chaosN;
+          const col = probYellow > 0.5 ? PY_YELL : PY_BLUE;
+          ctxAscii.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+        } else {
+          ctxAscii.fillStyle = `rgb(${pal.ink})`;
+        }
         ctxAscii.fillText(ch, acFrameVal + c * cW, acFrameVal + r * cH);
       }
     }
@@ -821,16 +906,13 @@ document.getElementById('btnFlip').addEventListener('click', () => {
 // ════════════════════════════════════════════════════════════════════
 let cameraRunning = false, asciiRunning = false;
 let lastFPSt = performance.now(), frames = 0;
-// Static source for ASCII upload (prevents camera loop from overwriting it)
 let asciiStaticSrc = null, asciiStaticW = 0, asciiStaticH = 0;
 
 function cameraLoop(t) {
   if (!cameraRunning) return;
   if (vid.videoWidth) renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
   frames++;
-  if (t - lastFPSt >= 1000) {
-    fpsEl.textContent = frames + ' fps'; frames = 0; lastFPSt = t;
-  }
+  if (t - lastFPSt >= 1000) { fpsEl.textContent = frames + ' fps'; frames = 0; lastFPSt = t; }
   requestAnimationFrame(cameraLoop);
 }
 
@@ -854,7 +936,6 @@ function asciiSettingsChanged() {
 // TABS
 // ════════════════════════════════════════════════════════════════════
 let activeTab = 'cam';
-let asciiPanelOpen = false;
 
 function switchTab(tab) {
   activeTab = tab;
@@ -864,7 +945,7 @@ function switchTab(tab) {
 
   const isCam = tab==='cam', isUp = tab==='up', isAscii = tab==='ascii';
   display.style.display = isCam ? 'block' : 'none';
-  asciiCvs.classList.toggle('visible', isAscii);
+  asciiArea.classList.toggle('visible', isAscii);
   document.getElementById('uploadSection').classList.toggle('visible', isUp);
   document.getElementById('barCam'   ).style.display = isCam ? '' : 'none';
   document.getElementById('barUpload').classList.toggle('visible', isUp);
@@ -873,19 +954,15 @@ function switchTab(tab) {
   document.getElementById('palettes' ).style.display = isUp  ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
 
-  // ASCII panel: only accessible in ASCII tab
+  // Blue theme + panel
+  document.body.classList.toggle('ascii-mode', isAscii);
   if (!isAscii) {
     asciiPanelOpen = false;
-    document.getElementById('asciiPanel').classList.remove('visible');
+    document.body.classList.remove('ascii-edit');
     clearAsciiStatic();
   }
 
-  // Blue theme
-  document.body.classList.toggle('ascii-mode', isAscii);
-
-  cameraRunning = isCam;
-  asciiRunning  = isAscii;
-
+  cameraRunning = isCam; asciiRunning = isAscii;
   if (isCam   && stream) requestAnimationFrame(cameraLoop);
   if (isAscii && stream) requestAnimationFrame(asciiLoop);
 }
@@ -894,14 +971,16 @@ document.getElementById('tabCam'  ).addEventListener('click', () => switchTab('c
 document.getElementById('tabUp'   ).addEventListener('click', () => switchTab('up'));
 document.getElementById('tabAscii').addEventListener('click', () => switchTab('ascii'));
 
-// ASCII panel toggle
+// ASCII EDIT panel toggle
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {
   asciiPanelOpen = !asciiPanelOpen;
-  document.getElementById('asciiPanel').classList.toggle('visible', asciiPanelOpen);
+  document.body.classList.toggle('ascii-edit', asciiPanelOpen);
+  relayout();
+  asciiSettingsChanged();
 });
 
 // ════════════════════════════════════════════════════════════════════
-// UTILS: download / share
+// UTILS
 // ════════════════════════════════════════════════════════════════════
 function _download(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -909,7 +988,6 @@ function _download(blob, filename) {
   document.body.appendChild(a); a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
 }
-
 async function _shareOrDownload(blob, filename) {
   const file = new File([blob], filename, { type:blob.type });
   if (navigator.canShare?.({ files:[file] })) {
@@ -918,7 +996,6 @@ async function _shareOrDownload(blob, filename) {
   }
   _download(blob, filename);
 }
-
 function canvasToBlob(ctx) {
   return new Promise(r => ctx.canvas.toBlob(r, 'image/png'));
 }
@@ -928,21 +1005,21 @@ function canvasToBlob(ctx) {
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('btnCapture').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  const blob = await canvasToBlob(ctxD);
-  await _shareOrDownload(blob, 'flipnote_' + Date.now() + '.png');
+  await _shareOrDownload(await canvasToBlob(ctxD), 'flipnote_' + Date.now() + '.png');
 });
 
 // ════════════════════════════════════════════════════════════════════
 // RECORD (camera)
 // ════════════════════════════════════════════════════════════════════
-let recorder = null, recChunks = [], lastBlob = null, recMime = '';
+let recorder=null, recChunks=[], lastBlob=null, recMime='';
 const btnRec = document.getElementById('btnRecord');
 let recTimer = null;
 
 function startRecTimer() {
   let s = 0;
   recTimer = setInterval(() => {
-    s++; const mm=String(s/60|0).padStart(2,'0'), ss=String(s%60).padStart(2,'0');
+    s++;
+    const mm=String(s/60|0).padStart(2,'0'), ss=String(s%60).padStart(2,'0');
     btnRec.querySelector('.btn-label').textContent = mm+':'+ss;
   }, 1000);
 }
@@ -953,180 +1030,123 @@ btnRec.addEventListener('click', async () => {
     if (typeof display.captureStream !== 'function') {
       alert('⚠️ Grabación no disponible.\nUsa Chrome en Android o guarda fotos con ●.'); return;
     }
-    const mimes = ['video/mp4','video/webm;codecs=vp9','video/webm'];
-    recMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
-    recChunks = []; lastBlob = null;
-    try {
-      recorder = new MediaRecorder(display.captureStream(30), {
-        ...(recMime ? { mimeType:recMime } : {}), videoBitsPerSecond:6_000_000,
-      });
-    } catch(e) { alert('Error: ' + e.message); return; }
-    recorder.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
-    recorder.onstop = async () => {
-      if (!recChunks.length) return;
-      const ext = recMime.includes('mp4') ? 'mp4' : 'webm';
-      lastBlob = new Blob(recChunks, { type:recMime||'video/webm' });
-      await _shareOrDownload(lastBlob, 'flipnote_' + Date.now() + '.' + ext);
+    const mimes=['video/mp4','video/webm;codecs=vp9','video/webm'];
+    recMime=mimes.find(m=>MediaRecorder.isTypeSupported(m))??'';
+    recChunks=[]; lastBlob=null;
+    try { recorder=new MediaRecorder(display.captureStream(30),{...(recMime?{mimeType:recMime}:{}),videoBitsPerSecond:6_000_000}); }
+    catch(e){alert('Error: '+e.message);return;}
+    recorder.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
+    recorder.onstop=async()=>{
+      if(!recChunks.length)return;
+      const ext=recMime.includes('mp4')?'mp4':'webm';
+      lastBlob=new Blob(recChunks,{type:recMime||'video/webm'});
+      await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+ext);
     };
     recorder.start(200); startRecTimer();
-    btnRec.classList.add('recording');
-    btnRec.querySelector('.btn-icon').textContent = '⏹';
+    btnRec.classList.add('recording'); btnRec.querySelector('.btn-icon').textContent='⏹';
   } else {
     recorder.stop(); stopRecTimer();
-    btnRec.classList.remove('recording');
-    btnRec.querySelector('.btn-icon').textContent = '⏺';
+    btnRec.classList.remove('recording'); btnRec.querySelector('.btn-icon').textContent='⏺';
   }
 });
-
 document.getElementById('btnShare').addEventListener('click', async () => {
-  if (!lastBlob) { alert('Graba un video primero.'); return; }
-  const ext = recMime.includes('mp4') ? 'mp4' : 'webm';
-  await _shareOrDownload(lastBlob, 'flipnote_' + Date.now() + '.' + ext);
+  if(!lastBlob){alert('Graba un video primero.');return;}
+  await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+(recMime.includes('mp4')?'mp4':'webm'));
 });
 
 // ════════════════════════════════════════════════════════════════════
-// UPLOAD: FPS selector
+// UPLOAD
 // ════════════════════════════════════════════════════════════════════
 let uploadFPS = 12;
 document.querySelectorAll('.fps-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    uploadFPS = Number(btn.dataset.fps);
-    document.querySelectorAll('.fps-btn').forEach(b => b.classList.toggle('active', b===btn));
+    uploadFPS=Number(btn.dataset.fps);
+    document.querySelectorAll('.fps-btn').forEach(b=>b.classList.toggle('active',b===btn));
   });
 });
 
-// ════════════════════════════════════════════════════════════════════
-// UPLOAD: file handling
-// ════════════════════════════════════════════════════════════════════
-const fileInput   = document.getElementById('fileInput');
-const dropZone    = document.getElementById('dropZone');
-const fpsRow      = document.getElementById('fpsRow');
-const progressWrap= document.getElementById('progressWrap');
-const progressFill= document.getElementById('progressFill');
-const progressLabel=document.getElementById('progressLabel');
-const progressPct = document.getElementById('progressPct');
+const fileInput    = document.getElementById('fileInput');
+const dropZone     = document.getElementById('dropZone');
+const fpsRow       = document.getElementById('fpsRow');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressLabel= document.getElementById('progressLabel');
+const progressPct  = document.getElementById('progressPct');
 
-function setProgress(pct, label) {
-  progressFill.style.width = pct + '%';
-  progressPct.textContent  = Math.round(pct) + '%';
-  if (label) progressLabel.textContent = label;
-}
-function showProgress(show) { progressWrap.classList.toggle('visible', show); }
+function setProgress(pct,label){progressFill.style.width=pct+'%';progressPct.textContent=Math.round(pct)+'%';if(label)progressLabel.textContent=label;}
+function showProgress(show){progressWrap.classList.toggle('visible',show);}
 
-function setUploadResultReady(blob, ext) {
-  const fname = 'flipnote_' + Date.now() + '.' + ext;
-  const btnSave  = document.getElementById('btnSaveResult');
-  const btnShare = document.getElementById('btnShareResult');
-  btnSave.disabled  = false; btnSave.style.opacity  = '1';
-  btnShare.disabled = false; btnShare.style.opacity = '1';
-  btnSave.onclick  = () => _shareOrDownload(blob, fname);
-  btnShare.onclick = () => _shareOrDownload(blob, fname);
+function setUploadResultReady(blob,ext){
+  const fname='flipnote_'+Date.now()+'.'+ext;
+  const btnSave=document.getElementById('btnSaveResult');
+  const btnShr =document.getElementById('btnShareResult');
+  btnSave.disabled=false;btnSave.style.opacity='1';
+  btnShr.disabled=false; btnShr.style.opacity='1';
+  btnSave.onclick=()=>_shareOrDownload(blob,fname);
+  btnShr.onclick =()=>_shareOrDownload(blob,fname);
 }
 
-function openFilePicker() { fileInput.click(); }
-dropZone.addEventListener('click', openFilePicker);
-document.getElementById('btnChoose').addEventListener('click', openFilePicker);
-dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop',      e  => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
-fileInput.addEventListener('change',   e  => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; });
+function openFilePicker(){fileInput.click();}
+dropZone.addEventListener('click',openFilePicker);
+document.getElementById('btnChoose').addEventListener('click',openFilePicker);
+dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('dragover');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop',     e=>{e.preventDefault();dropZone.classList.remove('dragover');handleFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change',  e=>{if(e.target.files[0])handleFile(e.target.files[0]);e.target.value='';});
 
-function handleFile(file) {
-  if (!file) return;
-  const isVideo = file.type.startsWith('video/');
-  const isImage = file.type.startsWith('image/');
-  if (!isVideo && !isImage) { alert('Formato no soportado.'); return; }
-  fpsRow.style.display = isVideo ? 'flex' : 'none';
-  showProgress(false); setProgress(0, 'Procesando…');
-  const btnSave  = document.getElementById('btnSaveResult');
-  const btnShare = document.getElementById('btnShareResult');
-  btnSave.disabled  = true; btnSave.style.opacity  = '.4';
-  btnShare.disabled = true; btnShare.style.opacity = '.4';
-  if (isImage) processImage(file);
-  else         processVideo(file);
+function handleFile(file){
+  if(!file)return;
+  const isVideo=file.type.startsWith('video/'), isImage=file.type.startsWith('image/');
+  if(!isVideo&&!isImage){alert('Formato no soportado.');return;}
+  fpsRow.style.display=isVideo?'flex':'none';
+  showProgress(false);setProgress(0,'Procesando…');
+  const btnSave=document.getElementById('btnSaveResult'),btnShr=document.getElementById('btnShareResult');
+  btnSave.disabled=true;btnSave.style.opacity='.4';btnShr.disabled=true;btnShr.style.opacity='.4';
+  if(isImage)processImage(file);else processVideo(file);
 }
 
-async function processImage(file) {
-  const url = URL.createObjectURL(file);
-  let source, w, h;
-  try {
-    source = await createImageBitmap(file, { colorSpaceConversion:'none' });
-    w = source.width; h = source.height;
-  } catch(_) {
-    source = await new Promise((res, rej) => {
-      const img = new Image();
-      img.onload = () => res(img); img.onerror = rej; img.src = url;
-    });
-    w = source.naturalWidth; h = source.naturalHeight;
-  }
-  renderDithered(source, w, h, ctxUP, false, true);
+async function processImage(file){
+  const url=URL.createObjectURL(file);
+  let source,w,h;
+  try{source=await createImageBitmap(file,{colorSpaceConversion:'none'});w=source.width;h=source.height;}
+  catch(_){source=await new Promise((res,rej)=>{const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url;});w=source.naturalWidth;h=source.naturalHeight;}
+  renderDithered(source,w,h,ctxUP,false,true);
   URL.revokeObjectURL(url);
-  upCanvas.classList.add('visible');
-  dropZone.style.display = 'none';
-  const blob = await canvasToBlob(ctxUP);
-  setUploadResultReady(blob, 'png');
+  upCanvas.classList.add('visible');dropZone.style.display='none';
+  setUploadResultReady(await canvasToBlob(ctxUP),'png');
 }
 
-let uploadProcessing = false;
-async function processVideo(file) {
-  if (uploadProcessing) return;
-  uploadProcessing = true;
-  if (typeof upCanvas.captureStream !== 'function') {
-    alert('⚠️ Tu navegador no soporta grabación de video desde canvas.\nPuedes subir fotos sin problema.\nPara video usa Chrome en Android.');
-    uploadProcessing = false; return;
+let uploadProcessing=false;
+async function processVideo(file){
+  if(uploadProcessing)return;uploadProcessing=true;
+  if(typeof upCanvas.captureStream!=='function'){alert('⚠️ Tu navegador no soporta grabación de video desde canvas.\nPuedes subir fotos sin problema.\nPara video usa Chrome en Android.');uploadProcessing=false;return;}
+  const url=URL.createObjectURL(file);uploadVid.src=url;uploadVid.muted=true;
+  await new Promise((res,rej)=>{uploadVid.onloadedmetadata=res;uploadVid.onerror=()=>rej(new Error('Error'));});
+  const duration=uploadVid.duration,vW=uploadVid.videoWidth,vH=uploadVid.videoHeight;
+  upCanvas.classList.add('visible');dropZone.style.display='none';showProgress(true);setProgress(0,'Iniciando…');
+  let audioStream=null;
+  try{const ac=new(window.AudioContext||window.webkitAudioContext)();const sn=ac.createMediaElementSource(uploadVid);const dn=ac.createMediaStreamDestination();sn.connect(dn);audioStream=dn.stream;}catch(_){}
+  const cs=upCanvas.captureStream(uploadFPS);
+  const ct=[...cs.getVideoTracks(),...(audioStream?.getAudioTracks()??[])];
+  const comb=new MediaStream(ct);
+  const mimes=['video/mp4','video/webm;codecs=vp9','video/webm'];
+  const mime=mimes.find(m=>MediaRecorder.isTypeSupported(m))??'';
+  const chunks=[];
+  const rec=new MediaRecorder(comb,{...(mime?{mimeType:mime}:{}),videoBitsPerSecond:4_000_000});
+  rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+  let lastFT=-1;const fi=1/uploadFPS;let rafID;
+  function tick(){
+    if(uploadVid.paused||uploadVid.ended)return;
+    const ct=uploadVid.currentTime;
+    if(ct-lastFT>=fi-0.005){lastFT=ct;renderDithered(uploadVid,vW,vH,ctxUP,false);setProgress(duration>0?(ct/duration)*100:0,`Procesando… (${Math.ceil(duration-ct)}s)`);}
+    rafID=requestAnimationFrame(tick);
   }
-  const url = URL.createObjectURL(file);
-  uploadVid.src = url; uploadVid.muted = true;
-  await new Promise((res, rej) => { uploadVid.onloadedmetadata=res; uploadVid.onerror=()=>rej(new Error('Error')); });
-  const duration = uploadVid.duration;
-  const vW = uploadVid.videoWidth, vH = uploadVid.videoHeight;
-  upCanvas.classList.add('visible'); dropZone.style.display='none';
-  showProgress(true); setProgress(0,'Iniciando…');
-  let audioStream = null;
-  try {
-    const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    const srcNode  = audioCtx.createMediaElementSource(uploadVid);
-    const destNode = audioCtx.createMediaStreamDestination();
-    srcNode.connect(destNode);
-    audioStream = destNode.stream;
-  } catch(_) {}
-  const canvasStream   = upCanvas.captureStream(uploadFPS);
-  const combinedTracks = [...canvasStream.getVideoTracks(), ...(audioStream?.getAudioTracks()??[])];
-  const combined       = new MediaStream(combinedTracks);
-  const mimes  = ['video/mp4','video/webm;codecs=vp9','video/webm'];
-  const mime   = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
-  const chunks = [];
-  const rec = new MediaRecorder(combined, { ...(mime?{mimeType:mime}:{}), videoBitsPerSecond:4_000_000 });
-  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-  let lastFrameTime = -1;
-  const frameInterval = 1 / uploadFPS;
-  let rafID;
-  function tick() {
-    if (uploadVid.paused || uploadVid.ended) return;
-    const ct = uploadVid.currentTime;
-    if (ct - lastFrameTime >= frameInterval - 0.005) {
-      lastFrameTime = ct;
-      renderDithered(uploadVid, vW, vH, ctxUP, false);
-      setProgress(duration > 0 ? (ct/duration)*100 : 0, `Procesando… (${Math.ceil(duration-ct)}s)`);
-    }
-    rafID = requestAnimationFrame(tick);
-  }
-  const done = new Promise(resolve => {
-    rec.onstop = async () => {
-      cancelAnimationFrame(rafID); URL.revokeObjectURL(url);
-      if (!chunks.length) { resolve(null); return; }
-      const ext  = mime.includes('mp4') ? 'mp4' : 'webm';
-      const blob = new Blob(chunks, { type:mime||'video/webm' });
-      blob._ext  = ext; resolve(blob);
-    };
-  });
-  rec.start(200); uploadVid.currentTime = 0;
-  await uploadVid.play(); requestAnimationFrame(tick);
-  uploadVid.onended = () => { rec.stop(); };
-  const blob = await done;
-  setProgress(100, 'Listo'); uploadProcessing = false;
-  if (!blob) { alert('No se pudo procesar el video.'); return; }
-  setUploadResultReady(blob, blob._ext ?? 'webm');
+  const done=new Promise(resolve=>{rec.onstop=async()=>{cancelAnimationFrame(rafID);URL.revokeObjectURL(url);if(!chunks.length){resolve(null);return;}const ext=mime.includes('mp4')?'mp4':'webm';const blob=new Blob(chunks,{type:mime||'video/webm'});blob._ext=ext;resolve(blob);};});
+  rec.start(200);uploadVid.currentTime=0;await uploadVid.play();requestAnimationFrame(tick);
+  uploadVid.onended=()=>{rec.stop();};
+  const blob=await done;setProgress(100,'Listo');uploadProcessing=false;
+  if(!blob){alert('No se pudo procesar el video.');return;}
+  setUploadResultReady(blob,blob._ext??'webm');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1144,24 +1164,20 @@ document.getElementById('btnStart').addEventListener('click', async () => {
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('btnAsciiCapture').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  const blob = await canvasToBlob(ctxAscii);
-  await _shareOrDownload(blob, 'ascii_' + Date.now() + '.png');
+  await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_' + Date.now() + '.png');
 });
-
 document.getElementById('btnAsciiShare').addEventListener('click', async () => {
-  const blob = await canvasToBlob(ctxAscii);
-  await _shareOrDownload(blob, 'ascii_' + Date.now() + '.png');
+  await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_' + Date.now() + '.png');
 });
 
 // ════════════════════════════════════════════════════════════════════
-// ASCII UPLOAD (bug fix: use asciiStaticSrc so loop doesn't overwrite)
+// ASCII UPLOAD (static source fix)
 // ════════════════════════════════════════════════════════════════════
 const asciiFileInput = document.createElement('input');
 asciiFileInput.type = 'file'; asciiFileInput.accept = 'image/*';
 
 document.getElementById('btnAsciiUpload').addEventListener('click', () => {
-  clearAsciiStatic(); // resume camera if needed, then replace on file select
-  asciiFileInput.click();
+  clearAsciiStatic(); asciiFileInput.click();
 });
 
 asciiFileInput.addEventListener('change', async e => {
@@ -1173,19 +1189,16 @@ asciiFileInput.addEventListener('change', async e => {
     source = await createImageBitmap(file, { colorSpaceConversion:'none' });
     w = source.width; h = source.height;
   } catch(_) {
-    source = await new Promise((res, rej) => {
-      const img = new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=url;
-    });
+    source = await new Promise((res,rej) => { const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=url; });
     w = source.naturalWidth; h = source.naturalHeight;
   }
   URL.revokeObjectURL(url);
-  // Store as static source so asciiLoop doesn't overwrite with camera
   asciiStaticSrc = source; asciiStaticW = w; asciiStaticH = h;
   renderASCII(source, w, h, false);
 });
 
 // ════════════════════════════════════════════════════════════════════
-// ASCII SETTINGS PANEL CONTROLS
+// ASCII SETTINGS PANEL
 // ════════════════════════════════════════════════════════════════════
 function bindSlider(id, valId, suffix, getter, setter) {
   const el = document.getElementById(id);
@@ -1193,101 +1206,86 @@ function bindSlider(id, valId, suffix, getter, setter) {
   el.addEventListener('input', () => {
     const v = getter(el.value);
     vEl.textContent = v + suffix;
-    setter(v);
-    asciiSettingsChanged();
+    setter(v); asciiSettingsChanged();
   });
 }
 
-bindSlider('acChars',   'vChars',   '',   v => parseInt(v),        v => { asciiCols = v; });
-bindSlider('acSpace',   'vSpace',   '',   v => parseInt(v),        v => { acSpaceVal = v; });
-bindSlider('acFrame',   'vFrame',   'px', v => parseInt(v),        v => { acFrameVal = v; });
-bindSlider('acBright',  'vBright',  '%',  v => parseInt(v),        v => { acBrightVal = v; });
-bindSlider('acContrast','vContrast','%',  v => parseInt(v),        v => { acContrastVal = v; });
-bindSlider('acSat',     'vSat',     '%',  v => parseInt(v),        v => { acSatVal = v; });
-bindSlider('acHue',     'vHue',     '°',  v => parseInt(v),        v => { acHueVal = v; });
-bindSlider('acGray',    'vGray',    '%',  v => parseInt(v),        v => { acGrayVal = v; });
-bindSlider('acSepia',   'vSepia',   '%',  v => parseInt(v),        v => { acSepiaVal = v; });
-bindSlider('acInvert',  'vInvert',  '%',  v => parseInt(v),        v => { acInvertVal = v; });
-bindSlider('acThresh',  'vThresh',  '',   v => parseInt(v),        v => { acThreshVal = v; });
-bindSlider('acSharp',   'vSharp',   '',   v => parseInt(v),        v => { acSharpVal = v; });
-bindSlider('acEdge',    'vEdge',    '',   v => (parseInt(v)/10).toFixed(1), v => { acEdgeVal = parseFloat(v); });
+bindSlider('acChars',   'vChars',   '',   v=>parseInt(v),              v=>{asciiCols=v;});
+bindSlider('acSpace',   'vSpace',   '',   v=>parseInt(v),              v=>{acSpaceVal=v;});
+bindSlider('acFrame',   'vFrame',   'px', v=>parseInt(v),              v=>{acFrameVal=v;});
+bindSlider('acBright',  'vBright',  '%',  v=>parseInt(v),              v=>{acBrightVal=v;});
+bindSlider('acContrast','vContrast','%',  v=>parseInt(v),              v=>{acContrastVal=v;});
+bindSlider('acSat',     'vSat',     '%',  v=>parseInt(v),              v=>{acSatVal=v;});
+bindSlider('acHue',     'vHue',     '°',  v=>parseInt(v),              v=>{acHueVal=v;});
+bindSlider('acGray',    'vGray',    '%',  v=>parseInt(v),              v=>{acGrayVal=v;});
+bindSlider('acSepia',   'vSepia',   '%',  v=>parseInt(v),              v=>{acSepiaVal=v;});
+bindSlider('acInvert',  'vInvert',  '%',  v=>parseInt(v),              v=>{acInvertVal=v;});
+bindSlider('acThresh',  'vThresh',  '',   v=>parseInt(v),              v=>{acThreshVal=v;});
+bindSlider('acSharp',   'vSharp',   '',   v=>parseInt(v),              v=>{acSharpVal=v;});
+bindSlider('acEdge',    'vEdge',    '',   v=>(parseInt(v)/10).toFixed(1), v=>{acEdgeVal=parseFloat(v);});
 
-// Selects
-document.getElementById('acGradient').addEventListener('change', e => {
-  acGradientVal = e.target.value; asciiSettingsChanged();
-});
-document.getElementById('acQuality').addEventListener('change', e => {
-  acQualityVal = e.target.value; asciiSettingsChanged();
-});
+document.getElementById('acGradient').addEventListener('change',e=>{acGradientVal=e.target.value;asciiSettingsChanged();});
+document.getElementById('acQuality' ).addEventListener('change',e=>{acQualityVal=e.target.value;asciiSettingsChanged();});
 
-// Checkboxes
 function bindCheckbox(cbId, sliderId, setter) {
-  const cb = document.getElementById(cbId);
-  const sl = document.getElementById(sliderId);
-  cb.addEventListener('change', () => {
-    setter(cb.checked);
-    sl.disabled = !cb.checked;
-    asciiSettingsChanged();
-  });
+  const cb=document.getElementById(cbId), sl=document.getElementById(sliderId);
+  cb.addEventListener('change',()=>{setter(cb.checked);sl.disabled=!cb.checked;asciiSettingsChanged();});
 }
-bindCheckbox('cbThresh', 'acThresh', v => { acThreshOn = v; });
-bindCheckbox('cbSharp',  'acSharp',  v => { acSharpOn  = v; });
-bindCheckbox('cbEdge',   'acEdge',   v => { acEdgeOn   = v; });
+bindCheckbox('cbThresh','acThresh',v=>{acThreshOn=v;});
+bindCheckbox('cbSharp', 'acSharp', v=>{acSharpOn=v;});
+bindCheckbox('cbEdge',  'acEdge',  v=>{acEdgeOn=v;});
+
+// Pythonization
+document.getElementById('btnPython').addEventListener('click', () => {
+  pythonMode = !pythonMode;
+  document.getElementById('btnPython').classList.toggle('active', pythonMode);
+  document.getElementById('chaosRow').classList.toggle('visible', pythonMode);
+  asciiSettingsChanged();
+});
+bindSlider('acChaos', 'vChaos', '', v=>parseInt(v), v=>{chaosVal=v;});
 
 // Action buttons
 document.getElementById('acCopy').addEventListener('click', () => {
   asciiCvs.toBlob(async blob => {
     try {
-      await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
-      const btn = document.getElementById('acCopy');
-      const orig = btn.textContent;
-      btn.textContent = '✓ COPIED';
-      setTimeout(() => btn.textContent = orig, 1500);
-    } catch(_) { alert('Copy not supported on this device. Use PNG instead.'); }
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      const btn=document.getElementById('acCopy'), orig=btn.textContent;
+      btn.textContent='✓ COPIED'; setTimeout(()=>btn.textContent=orig, 1500);
+    } catch(_) { alert('Copy not supported. Use PNG instead.'); }
   });
 });
-
 document.getElementById('acTxt').addEventListener('click', () => {
   if (!lastAsciiText) return;
-  _download(new Blob([lastAsciiText], { type:'text/plain' }), 'ascii_' + Date.now() + '.txt');
+  _download(new Blob([lastAsciiText],{type:'text/plain'}), 'ascii_'+Date.now()+'.txt');
 });
-
 document.getElementById('acPng').addEventListener('click', async () => {
-  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  const blob = await canvasToBlob(ctxAscii);
-  await _shareOrDownload(blob, 'ascii_' + Date.now() + '.png');
+  flash.classList.add('on'); setTimeout(()=>flash.classList.remove('on'),120);
+  await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_'+Date.now()+'.png');
 });
-
 document.getElementById('acReset').addEventListener('click', () => {
-  const defaults = {
-    acChars:100, acSpace:1, acFrame:0, acBright:100, acContrast:100,
-    acSat:100, acHue:0, acGray:0, acSepia:0, acInvert:0,
-    acThresh:128, acSharp:9, acEdge:10,
-  };
-  const labels = {
-    acChars:['vChars',''], acSpace:['vSpace',''], acFrame:['vFrame','px'],
-    acBright:['vBright','%'], acContrast:['vContrast','%'], acSat:['vSat','%'],
-    acHue:['vHue','°'], acGray:['vGray','%'], acSepia:['vSepia','%'],
-    acInvert:['vInvert','%'], acThresh:['vThresh',''], acSharp:['vSharp',''],
-    acEdge:['vEdge',''],
-  };
-  Object.entries(defaults).forEach(([id, val]) => {
-    const el = document.getElementById(id); if (!el) return;
-    el.value = val;
-    const [lblId, suffix] = labels[id];
-    const display = id === 'acEdge' ? (val/10).toFixed(1) : val;
-    document.getElementById(lblId).textContent = display + suffix;
+  const defs={acChars:100,acSpace:1,acFrame:0,acBright:100,acContrast:100,acSat:100,acHue:0,acGray:0,acSepia:0,acInvert:0,acThresh:128,acSharp:9,acEdge:10};
+  const lbls={acChars:['vChars',''],acSpace:['vSpace',''],acFrame:['vFrame','px'],acBright:['vBright','%'],acContrast:['vContrast','%'],acSat:['vSat','%'],acHue:['vHue','°'],acGray:['vGray','%'],acSepia:['vSepia','%'],acInvert:['vInvert','%'],acThresh:['vThresh',''],acSharp:['vSharp',''],acEdge:['vEdge','']};
+  Object.entries(defs).forEach(([id,val])=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.value=val;
+    const[lblId,suffix]=lbls[id];
+    document.getElementById(lblId).textContent=(id==='acEdge'?(val/10).toFixed(1):val)+suffix;
   });
-  asciiCols=100; acSpaceVal=1; acFrameVal=0; acBrightVal=100; acContrastVal=100;
-  acSatVal=100; acHueVal=0; acGrayVal=0; acSepiaVal=0; acInvertVal=0;
-  acThreshVal=128; acSharpVal=9; acEdgeVal=1.0;
-  acThreshOn=false; acSharpOn=false; acEdgeOn=false;
-  acGradientVal='normal'; acQualityVal='none';
-  document.getElementById('cbThresh').checked = false; document.getElementById('acThresh').disabled = true;
-  document.getElementById('cbSharp' ).checked = false; document.getElementById('acSharp' ).disabled = true;
-  document.getElementById('cbEdge'  ).checked = false; document.getElementById('acEdge'  ).disabled = true;
-  document.getElementById('acGradient').value = 'normal';
-  document.getElementById('acQuality' ).value = 'none';
+  asciiCols=100;acSpaceVal=1;acFrameVal=0;acBrightVal=100;acContrastVal=100;
+  acSatVal=100;acHueVal=0;acGrayVal=0;acSepiaVal=0;acInvertVal=0;
+  acThreshVal=128;acSharpVal=9;acEdgeVal=1.0;
+  acThreshOn=false;acSharpOn=false;acEdgeOn=false;
+  acGradientVal='normal';acQualityVal='none';
+  document.getElementById('cbThresh').checked=false;document.getElementById('acThresh').disabled=true;
+  document.getElementById('cbSharp' ).checked=false;document.getElementById('acSharp' ).disabled=true;
+  document.getElementById('cbEdge'  ).checked=false;document.getElementById('acEdge'  ).disabled=true;
+  document.getElementById('acGradient').value='normal';
+  document.getElementById('acQuality' ).value='none';
+  // Reset pythonization
+  pythonMode=false;chaosVal=0;
+  document.getElementById('btnPython').classList.remove('active');
+  document.getElementById('chaosRow').classList.remove('visible');
+  document.getElementById('acChaos').value=0;document.getElementById('vChaos').textContent='0';
   asciiSettingsChanged();
 });
 
@@ -1301,7 +1299,7 @@ if ('serviceWorker' in navigator) {
         if (this.state === 'activated') location.reload();
       });
     });
-  }).catch(() => {});
+  }).catch(()=>{});
 }
 </script>
 </body>

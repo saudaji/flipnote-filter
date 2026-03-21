@@ -271,15 +271,16 @@
 
     /* ── SONO area ── */
     #sonoArea {
-      display:none; position:fixed; top:40px; bottom:168px; left:0; right:0;
+      display:none; position:fixed; top:40px; bottom:192px; left:0; right:0;
       align-items:center; justify-content:center;
     }
     #sonoArea.visible { display:flex; }
+    body.sono-file #sonoArea { bottom:228px; }
     #sonoCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
 
     /* ── SONO permission overlay ── */
     #sonoPerm {
-      display:none; position:fixed; top:40px; bottom:168px; left:0; right:0;
+      display:none; position:fixed; top:40px; bottom:192px; left:0; right:0;
       flex-direction:column; align-items:center; justify-content:center;
       gap:18px; padding:32px; z-index:11;
     }
@@ -292,13 +293,16 @@
     }
     #btnSonoStart:active { opacity:.8; }
 
-    /* ── SONO HUD (above bar) — 72px, two stacked rows ── */
+    /* ── SONO HUD (above bar) — 96px, stacked rows ── */
     #sonoHUD {
-      display:none; position:fixed; bottom:96px; left:0; right:0; height:72px;
+      display:none; position:fixed; bottom:96px; left:0; right:0; height:96px;
       background:var(--ink); border-top:1px solid var(--dark);
-      align-items:center; padding:6px 16px; gap:10px; z-index:9;
+      flex-direction:column; justify-content:space-around;
+      padding:6px 16px; gap:4px; z-index:9;
     }
     #sonoHUD.visible { display:flex; }
+    body.sono-file #sonoHUD { bottom:132px; }
+    .sono-hud-top { display:flex; align-items:center; gap:10px; }
     #sonoAmpDot {
       width:12px; height:12px; border-radius:50%; flex-shrink:0;
       background:var(--dark); transition:background .08s, box-shadow .08s;
@@ -386,13 +390,54 @@
     body.wmp-pseudo-full #wmpHUD   { z-index:9999 !important; }
     body.wmp-pseudo-full #barWmp   { z-index:9999 !important; }
     body.wmp-pseudo-full { overflow:hidden; }
+
+    /* ── WMP file mode layout adjustments ── */
+    body.wmp-file #wmpArea { bottom:204px; }
+    body.wmp-file #wmpHUD  { bottom:132px; }
+
+    /* ── Progress bars (SONO + WMP) ── */
+    #sonoProgress, #wmpProgress {
+      position:fixed; bottom:96px; left:0; right:0; height:32px;
+      display:none; align-items:center; gap:8px; padding:0 12px; z-index:9;
+    }
+    #sonoProgress { background:var(--ink); border-top:1px solid var(--dark); }
+    #wmpProgress  { background:#0d0d0d; border-top:1px solid #1e1e1e; }
+    body.sono-file #sonoProgress { display:flex; }
+    body.wmp-file  #wmpProgress  { display:flex; }
+    .prog-time { color:var(--paper); font-size:9px; font-family:monospace; white-space:nowrap; min-width:52px; }
+    #wmpProgress .prog-time { color:#00ff41; }
+    .prog-track { flex:1; height:6px; background:rgba(255,255,255,.15); cursor:pointer; position:relative; border-radius:0; }
+    .prog-fill  { height:100%; background:var(--paper); pointer-events:none; width:0%; }
+    #wmpProgress .prog-fill { background:#00ff41; }
+
+    /* ── SONO preset buttons ── */
+    .sono-presets { display:flex; gap:5px; margin-bottom:2px; }
+    .sono-preset-btn {
+      flex:1; background:none; border:1px solid var(--dark); color:var(--dark);
+      font-family:monospace; font-size:9px; font-weight:bold; letter-spacing:.5px;
+      text-transform:uppercase; padding:3px 0; cursor:pointer;
+    }
+    .sono-preset-btn.active { color:var(--paper); border-color:var(--paper); background:rgba(155,188,15,.08); }
+
+    /* ── SONO blend mode buttons ── */
+    .sono-blend-row { display:flex; align-items:center; gap:5px; }
+    .sono-blend-btn {
+      background:none; border:1px solid var(--dark); color:var(--dark);
+      font-family:monospace; font-size:9px; font-weight:bold; letter-spacing:.5px;
+      padding:2px 8px; cursor:pointer;
+    }
+    .sono-blend-btn.active { color:var(--paper); border-color:var(--paper); }
+
+    /* ── WMP RANDOM button ── */
+    #btnWmpRandom.active { color:#ff9900; border-color:#ff9900; background:rgba(255,153,0,.06); }
   </style>
 </head>
 <body>
 
 <video id="vid" autoplay playsinline muted style="display:none"></video>
 <video id="uploadVid" playsinline style="display:none"></video>
-<audio id="wmpAudio" style="display:none"></audio>
+<audio id="wmpAudio"  style="display:none"></audio>
+<audio id="sonoAudio" style="display:none"></audio>
 <canvas id="small"   style="display:none"></canvas>
 <canvas id="scanCvs" style="display:none"></canvas>
 
@@ -624,19 +669,27 @@
   </button>
 </div>
 
-<!-- SONO HUD: amp dot + two stacked slider rows -->
+<!-- SONO HUD: preset row + amp dot + sliders -->
 <div id="sonoHUD">
-  <div id="sonoAmpDot"></div>
-  <div class="sono-sliders">
-    <div class="sono-ctrl">
-      <span class="sono-lbl">FLIP·ASCII</span>
-      <span class="sono-val" id="vSonoMix">0</span>
-      <input type="range" id="sonoMix" min="0" max="100" value="0">
-    </div>
-    <div class="sono-ctrl">
-      <span class="sono-lbl">COLOR CHAOS</span>
-      <span class="sono-val" id="vSonoChaos">0</span>
-      <input type="range" id="sonoChaos" min="0" max="100" value="0">
+  <div class="sono-presets">
+    <button class="sono-preset-btn active" data-preset="0">SONO</button>
+    <button class="sono-preset-btn" data-preset="1">SCOPE</button>
+  </div>
+  <div class="sono-hud-top">
+    <div id="sonoAmpDot"></div>
+    <div class="sono-sliders">
+      <div class="sono-blend-row">
+        <span class="sono-lbl">BLEND</span>
+        <button class="sono-blend-btn active" id="btnBlendFlip">FLIP</button>
+        <button class="sono-blend-btn" id="btnBlendAscii">ASCII</button>
+        <span class="sono-val" id="vSonoMix">0</span>
+        <input type="range" id="sonoMix" min="0" max="100" value="0" style="flex:1;height:3px;accent-color:var(--paper);cursor:pointer;">
+      </div>
+      <div class="sono-ctrl">
+        <span class="sono-lbl">COLOR CHAOS</span>
+        <span class="sono-val" id="vSonoChaos">0</span>
+        <input type="range" id="sonoChaos" min="0" max="100" value="0">
+      </div>
     </div>
   </div>
 </div>
@@ -649,6 +702,10 @@
   </button>
   <button class="btn btn-center" id="btnSonoCapture">
     <div class="btn-icon">●</div>
+  </button>
+  <button class="btn" id="btnSonoFile">
+    <div class="btn-icon">📂</div>
+    <span class="btn-label">FILE</span>
   </button>
   <button class="btn" id="btnSonoShare">
     <div class="btn-icon">↑</div>
@@ -682,6 +739,7 @@
     <button class="wmp-preset-btn"        data-preset="1">FIRE</button>
     <button class="wmp-preset-btn"        data-preset="2">OCEAN</button>
     <button class="wmp-preset-btn"        data-preset="3">ALCHEMY</button>
+    <button class="wmp-preset-btn"        id="btnWmpRandom">RANDOM</button>
   </div>
   <div class="wmp-sliders">
     <div class="wmp-ctrl">
@@ -714,6 +772,24 @@
     <div class="btn-icon">⛶</div>
     <span class="btn-label">FULL</span>
   </button>
+</div>
+
+<!-- SONO audio progress bar -->
+<div id="sonoProgress">
+  <span class="prog-time" id="sonoProgTime">0:00</span>
+  <div class="prog-track" id="sonoProgTrack">
+    <div class="prog-fill" id="sonoProgFill"></div>
+  </div>
+  <span class="prog-time" id="sonoProgDur">0:00</span>
+</div>
+
+<!-- WMP audio progress bar -->
+<div id="wmpProgress">
+  <span class="prog-time" id="wmpProgTime">0:00</span>
+  <div class="prog-track" id="wmpProgTrack">
+    <div class="prog-fill" id="wmpProgFill"></div>
+  </div>
+  <span class="prog-time" id="wmpProgDur">0:00</span>
 </div>
 
 <div id="fps"></div>
@@ -854,8 +930,8 @@ function relayout() {
   }
   asciiCvs.style.width = aw + 'px'; asciiCvs.style.height = ah + 'px';
 
-  // SONO canvas: top:40px bottom:168px (72px HUD + 96px bar)
-  const avHS = window.innerHeight - 40 - 168;
+  // SONO canvas: top:40px bottom:192px (96px HUD + 96px bar), or 228px with file progress
+  const avHS = window.innerHeight - 40 - (document.body.classList.contains('sono-file') ? 228 : 192);
   let sw, sh;
   if (avW / avHS > aspect) { sh = avHS; sw = sh * aspect; }
   else                      { sw = avW;  sh = sw / aspect; }
@@ -863,7 +939,7 @@ function relayout() {
   document.getElementById('sonoCanvas').style.height = sh + 'px';
   // WMP canvas fills its area completely (1024×576 internal)
   if (!wmpPseudoFull) {
-    const avHW = window.innerHeight - 40 - 168;
+    const avHW = window.innerHeight - 40 - (document.body.classList.contains('wmp-file') ? 204 : 168);
     document.getElementById('wmpCanvas').style.width  = avW + 'px';
     document.getElementById('wmpCanvas').style.height = avHW + 'px';
   }
@@ -1585,6 +1661,11 @@ sonoFlipCvs.width  = OUT_W; sonoFlipCvs.height = OUT_H;
 const ctxSonoFlip  = sonoFlipCvs.getContext('2d', { willReadFrequently:false });
 ctxSonoFlip.imageSmoothingEnabled = false;
 
+const sonoLegCvs   = document.createElement('canvas');
+sonoLegCvs.width   = OUT_W; sonoLegCvs.height = OUT_H;
+const ctxSonoLeg   = sonoLegCvs.getContext('2d', { willReadFrequently:false });
+ctxSonoLeg.imageSmoothingEnabled = false;
+
 const sonoAscCvs   = document.createElement('canvas');
 sonoAscCvs.width   = OUT_W; sonoAscCvs.height = OUT_H;
 const ctxSonoAsc   = sonoAscCvs.getContext('2d', { willReadFrequently:false });
@@ -1599,8 +1680,16 @@ let sonoLastRAF    = 0;
 let sonoLastBlob   = null;
 let sonoRecorder   = null, sonoRecChunks = [], sonoRecMime = '';
 let sonoRecTimer   = null;
-let sonoMixVal     = 0;   // 0=all FLIP, 100=all ASCII
+let sonoMixVal     = 0;   // 0=all BLEND, 100=full BLEND
 let sonoChaosVal   = 0;
+let sonoPreset     = 0;   // 0=SONO 1=SCOPE
+let sonoBlendMode  = 'flip'; // 'flip' or 'ascii'
+
+// SONO audio file playback
+const sonoAudioEl  = document.getElementById('sonoAudio');
+let sonoFileUrl    = null;
+let sonoAudioSrcNode = null; // MediaElementAudioSourceNode for sonoAudioEl
+let sonoFileLoaded = false;
 
 // ── HSL helper ───────────────────────────────────────────────────────
 function hslToRgb(h, s, l) {
@@ -1611,7 +1700,7 @@ function hslToRgb(h, s, l) {
 
 // ── Audio analysis ───────────────────────────────────────────────────
 function analyzeAudio() {
-  if (!sonoAnalyser) return { amp:0, pitchNorm:0.1, blowStr:0, bassE:0, midE:0, trebE:0 };
+  if (!sonoAnalyser) return { amp:0, pitchNorm:0.1, blowStr:0, bassE:0, midE:0, trebE:0, timeData:new Uint8Array(2048) };
   const N = sonoAnalyser.frequencyBinCount;
   const freqData = new Uint8Array(N);
   sonoAnalyser.getByteFrequencyData(freqData);
@@ -1651,7 +1740,7 @@ function analyzeAudio() {
   const blowStr = (bassE > 0.08 && trebE < 0.12 && amp > 0.025)
     ? Math.min(1, (bassE - 0.08) * 4) : 0;
 
-  return { amp: Math.min(1, amp * 3.5), pitchNorm, blowStr, bassE, midE, trebE };
+  return { amp: Math.min(1, amp * 3.5), pitchNorm, blowStr, bassE, midE, trebE, timeData };
 }
 
 // ── Audio field generation ────────────────────────────────────────────
@@ -1720,6 +1809,67 @@ function renderSonoFlip(field, audio, chaosN) {
   ctxSonoFlip.drawImage(scanCvs, 0, 0);
 }
 
+// ── SCOPE render on SONO canvas ───────────────────────────────────────
+function renderSonoScope(timeData, sens) {
+  ctxSono.imageSmoothingEnabled = false;
+  ctxSono.fillStyle = '#000';
+  ctxSono.fillRect(0, 0, OUT_W, OUT_H);
+  // Grid
+  ctxSono.strokeStyle = '#002200'; ctxSono.lineWidth = 1;
+  for (let x = 0; x <= OUT_W; x += OUT_W / 8)  { ctxSono.beginPath(); ctxSono.moveTo(x, 0); ctxSono.lineTo(x, OUT_H); ctxSono.stroke(); }
+  for (let y = 0; y <= OUT_H; y += OUT_H / 6)  { ctxSono.beginPath(); ctxSono.moveTo(0, y); ctxSono.lineTo(OUT_W, y); ctxSono.stroke(); }
+  // Waveform
+  const step = OUT_W / timeData.length;
+  ctxSono.strokeStyle = '#00ff41'; ctxSono.lineWidth = 2;
+  ctxSono.shadowColor = '#00ff41'; ctxSono.shadowBlur = 8;
+  ctxSono.beginPath();
+  for (let i = 0; i < timeData.length; i++) {
+    const v = ((timeData[i] - 128) / 128) * sens;
+    const y = OUT_H / 2 + v * OUT_H / 2 * 0.82;
+    i === 0 ? ctxSono.moveTo(0, y) : ctxSono.lineTo(i * step, y);
+  }
+  ctxSono.stroke(); ctxSono.shadowBlur = 0;
+  // Scanlines
+  ctxSono.fillStyle = 'rgba(0,0,0,0.18)';
+  for (let y = 0; y < OUT_H; y += 2) ctxSono.fillRect(0, y, OUT_W, 1);
+}
+
+// ── FLIPNOTE LEGACY render (hard threshold, no dithering) ─────────────
+function renderSonoLegacy(field, audio, chaosN) {
+  const p = PALETTES[activePal];
+  const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
+  const { bassE, midE, trebE } = audio;
+
+  for (let y = 0; y < DSI_H; y++) {
+    for (let x = 0; x < DSI_W; x++) {
+      const i4  = (y * DSI_W + x) << 2;
+      const gray = field[y * DSI_W + x] * 255;
+      const isInk = gray < 128; // hard threshold, no dithering
+      let r = isInk ? IR : PR, g = isInk ? IG : PG, b = isInk ? IB : PB;
+
+      if (chaosN > 0) {
+        const chaosMid = Math.min(1, chaosN * 2);
+        const chaosHi  = Math.max(0, chaosN * 2 - 1);
+        const fR = Math.min(255, bassE * 255 * 2.5);
+        const fG = Math.min(255, midE  * 255 * 2.5);
+        const fB = Math.min(255, trebE * 255 * 2.5);
+        const hue = ((x * 7 + y * 13 + sonoT * 55) % 360) / 360;
+        const [hr, hg, hb] = hslToRgb(hue, 1, 0.5);
+        r = r * (1 - chaosMid) + fR * (chaosMid - chaosHi) + hr * chaosHi;
+        g = g * (1 - chaosMid) + fG * (chaosMid - chaosHi) + hg * chaosHi;
+        b = b * (1 - chaosMid) + fB * (chaosMid - chaosHi) + hb * chaosHi;
+        r = Math.max(0, Math.min(255, r | 0));
+        g = Math.max(0, Math.min(255, g | 0));
+        b = Math.max(0, Math.min(255, b | 0));
+      }
+      lowBuf[i4] = r; lowBuf[i4+1] = g; lowBuf[i4+2] = b; lowBuf[i4+3] = 255;
+    }
+  }
+  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
+  ctxSonoLeg.drawImage(small, 0, 0, OUT_W, OUT_H);
+  // No scanlines for legacy pure pixel art look
+}
+
 // ── ASCII render from sono field ──────────────────────────────────────
 function renderSonoAscii(field, audio, chaosN) {
   const p = PALETTES[activePal];
@@ -1774,6 +1924,13 @@ function renderSonoAscii(field, audio, chaosN) {
   }
 }
 
+// ── Format mm:ss ──────────────────────────────────────────────────────
+function fmtTime(s) {
+  if (!isFinite(s)) return '0:00';
+  const m = Math.floor(s / 60), ss = Math.floor(s % 60);
+  return m + ':' + String(ss).padStart(2, '0');
+}
+
 // ── SONO render loop ──────────────────────────────────────────────────
 function sonoLoop(ts) {
   if (!sonoRunning) return;
@@ -1781,23 +1938,51 @@ function sonoLoop(ts) {
   sonoLastRAF = ts;
 
   const audio  = analyzeAudio();
-  const field  = generateSonoField(audio.amp, audio.pitchNorm, audio.blowStr, sonoT);
   const chaosN = sonoChaosVal / 100;
   const mixN   = sonoMixVal   / 100;
+  const sens   = 1.0;
+
+  // Update SONO file progress bar
+  if (sonoFileLoaded && sonoAudioEl.src) {
+    const cur = sonoAudioEl.currentTime, dur = sonoAudioEl.duration;
+    document.getElementById('sonoProgFill').style.width = (isFinite(dur) && dur > 0 ? (cur / dur) * 100 : 0) + '%';
+    document.getElementById('sonoProgTime').textContent = fmtTime(cur);
+    document.getElementById('sonoProgDur').textContent  = fmtTime(dur);
+  }
 
   ctxSono.globalAlpha = 1;
-  if (mixN < 0.99) {
-    renderSonoFlip(field, audio, chaosN);
-    ctxSono.drawImage(sonoFlipCvs, 0, 0);
+
+  if (sonoPreset === 1) {
+    // SCOPE mode — render scope directly, no blending
+    renderSonoScope(audio.timeData, sens);
   } else {
-    ctxSono.fillStyle = '#000';
-    ctxSono.fillRect(0, 0, OUT_W, OUT_H);
-  }
-  if (mixN > 0.01) {
-    renderSonoAscii(field, audio, chaosN);
-    ctxSono.globalAlpha = mixN;
-    ctxSono.drawImage(sonoAscCvs, 0, 0);
-    ctxSono.globalAlpha = 1;
+    // SONO mode
+    const field = generateSonoField(audio.amp, audio.pitchNorm, audio.blowStr, sonoT);
+
+    // Base layer: SONO visualization always rendered first
+    if (mixN < 0.99) {
+      renderSonoFlip(field, audio, chaosN);
+      ctxSono.globalAlpha = 1;
+      ctxSono.drawImage(sonoFlipCvs, 0, 0);
+    } else {
+      ctxSono.fillStyle = '#000';
+      ctxSono.fillRect(0, 0, OUT_W, OUT_H);
+    }
+
+    // Blend layer on top
+    if (mixN > 0.01) {
+      if (sonoBlendMode === 'flip') {
+        renderSonoLegacy(field, audio, chaosN);
+        ctxSono.globalAlpha = mixN;
+        ctxSono.drawImage(sonoLegCvs, 0, 0);
+        ctxSono.globalAlpha = 1;
+      } else {
+        renderSonoAscii(field, audio, chaosN);
+        ctxSono.globalAlpha = mixN;
+        ctxSono.drawImage(sonoAscCvs, 0, 0);
+        ctxSono.globalAlpha = 1;
+      }
+    }
   }
 
   // Amp dot
@@ -1841,8 +2026,16 @@ function stopSono() {
   }
   sonoRecorder = null;
   if (sonoMicStream) { sonoMicStream.getTracks().forEach(t => t.stop()); sonoMicStream = null; }
-  if (sonoAudioCtx)  { sonoAudioCtx.close(); sonoAudioCtx = null; }
+  if (sonoAudioSrcNode) { try { sonoAudioSrcNode.disconnect(); } catch(_){} sonoAudioSrcNode = null; }
+  if (sonoAudioCtx)  { sonoAudioCtx.close().catch(()=>{}); sonoAudioCtx = null; }
   sonoAnalyser = null;
+  // Clear file mode
+  sonoAudioEl.pause();
+  sonoAudioEl.removeAttribute('src');
+  if (sonoFileUrl) { URL.revokeObjectURL(sonoFileUrl); sonoFileUrl = null; }
+  sonoFileLoaded = false;
+  document.body.classList.remove('sono-file');
+  document.getElementById('btnSonoCapture').querySelector('.btn-icon').textContent = '●';
 }
 
 function enterSono() {
@@ -1868,8 +2061,100 @@ document.getElementById('sonoChaos').addEventListener('input', e => {
   document.getElementById('vSonoChaos').textContent = sonoChaosVal;
 });
 
+// SONO preset buttons
+document.querySelectorAll('.sono-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    sonoPreset = parseInt(btn.dataset.preset);
+    document.querySelectorAll('.sono-preset-btn').forEach((b, j) =>
+      b.classList.toggle('active', j === sonoPreset));
+  });
+});
+
+// SONO blend mode buttons
+document.getElementById('btnBlendFlip').addEventListener('click', () => {
+  sonoBlendMode = 'flip';
+  document.getElementById('btnBlendFlip').classList.add('active');
+  document.getElementById('btnBlendAscii').classList.remove('active');
+});
+document.getElementById('btnBlendAscii').addEventListener('click', () => {
+  sonoBlendMode = 'ascii';
+  document.getElementById('btnBlendAscii').classList.add('active');
+  document.getElementById('btnBlendFlip').classList.remove('active');
+});
+
+// ── SONO load file ────────────────────────────────────────────────────
+async function sonoLoadFile(file) {
+  if (!file || !file.type.startsWith('audio/')) {
+    alert('Solo archivos de audio (MP3, WAV, OGG, etc.)'); return;
+  }
+  // Stop mic if running
+  if (sonoMicStream) { sonoMicStream.getTracks().forEach(t => t.stop()); sonoMicStream = null; }
+  if (sonoAudioSrcNode) { try { sonoAudioSrcNode.disconnect(); } catch(_){} sonoAudioSrcNode = null; }
+  if (sonoAudioCtx) { await sonoAudioCtx.close().catch(()=>{}); sonoAudioCtx = null; }
+  sonoAnalyser = null;
+
+  if (sonoFileUrl) { URL.revokeObjectURL(sonoFileUrl); }
+  sonoFileUrl = URL.createObjectURL(file);
+  sonoAudioEl.src = sonoFileUrl;
+
+  sonoAudioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+  sonoAnalyser  = sonoAudioCtx.createAnalyser();
+  sonoAnalyser.fftSize = 2048;
+  sonoAnalyser.smoothingTimeConstant = 0.75;
+  sonoAudioSrcNode = sonoAudioCtx.createMediaElementSource(sonoAudioEl);
+  sonoAudioSrcNode.connect(sonoAnalyser);
+  sonoAudioSrcNode.connect(sonoAudioCtx.destination); // audible
+
+  sonoFileLoaded = true;
+  document.body.classList.add('sono-file');
+  document.getElementById('btnSonoCapture').querySelector('.btn-icon').textContent = '▶';
+  document.getElementById('sonoPerm').classList.remove('visible');
+
+  await sonoAudioEl.play();
+  document.getElementById('btnSonoCapture').querySelector('.btn-icon').textContent = '⏸';
+
+  if (!sonoRunning) {
+    sonoRunning = true; sonoLastRAF = 0;
+    requestAnimationFrame(sonoLoop);
+  }
+  relayout();
+}
+
+// ── SONO FILE button ──────────────────────────────────────────────────
+const sonoFileInput = document.createElement('input');
+sonoFileInput.type = 'file'; sonoFileInput.accept = 'audio/*';
+sonoFileInput.addEventListener('change', e => {
+  if (e.target.files[0]) sonoLoadFile(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('btnSonoFile').addEventListener('click', () => sonoFileInput.click());
+
+// ── SONO progress bar scrub ───────────────────────────────────────────
+document.getElementById('sonoProgTrack').addEventListener('click', e => {
+  if (!sonoFileLoaded || !sonoAudioEl.duration) return;
+  sonoAudioEl.currentTime = (e.offsetX / e.currentTarget.clientWidth) * sonoAudioEl.duration;
+});
+
+// ── WMP progress bar scrub ────────────────────────────────────────────
+document.getElementById('wmpProgTrack').addEventListener('click', e => {
+  if (!wmpAudioEl.src || !wmpAudioEl.duration) return;
+  wmpAudioEl.currentTime = (e.offsetX / e.currentTarget.clientWidth) * wmpAudioEl.duration;
+});
+
 // ── SONO capture/rec/share/reset ──────────────────────────────────────
 document.getElementById('btnSonoCapture').addEventListener('click', async () => {
+  if (sonoFileLoaded) {
+    // Play/pause toggle
+    if (sonoAudioEl.paused) {
+      await sonoAudioEl.play();
+      document.getElementById('btnSonoCapture').querySelector('.btn-icon').textContent = '⏸';
+      if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; requestAnimationFrame(sonoLoop); }
+    } else {
+      sonoAudioEl.pause();
+      document.getElementById('btnSonoCapture').querySelector('.btn-icon').textContent = '▶';
+    }
+    return;
+  }
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
   await _shareOrDownload(await new Promise(r => sonoCvs.toBlob(r, 'image/png')), 'sono_' + Date.now() + '.png');
 });
@@ -1881,6 +2166,23 @@ document.getElementById('btnSonoShare').addEventListener('click', async () => {
 });
 
 document.getElementById('btnSonoReset').addEventListener('click', () => {
+  if (sonoFileLoaded) {
+    // STOP: clear file mode
+    sonoAudioEl.pause();
+    sonoAudioEl.removeAttribute('src');
+    if (sonoFileUrl) { URL.revokeObjectURL(sonoFileUrl); sonoFileUrl = null; }
+    if (sonoAudioSrcNode) { try { sonoAudioSrcNode.disconnect(); } catch(_){} sonoAudioSrcNode = null; }
+    if (sonoAudioCtx) { sonoAudioCtx.close().catch(()=>{}); sonoAudioCtx = null; }
+    sonoAnalyser = null;
+    sonoFileLoaded = false;
+    document.body.classList.remove('sono-file');
+    document.getElementById('btnSonoCapture').querySelector('.btn-icon').textContent = '●';
+    sonoRunning = false;
+    // Show permission overlay again
+    document.getElementById('sonoPerm').classList.add('visible');
+    relayout();
+    return;
+  }
   sonoT = 0; sonoLastRAF = 0;
   sonoMixVal = 0; sonoChaosVal = 0;
   document.getElementById('sonoMix').value    = 0;
@@ -1974,6 +2276,8 @@ async function wmpStopAudio() {
   if (wmpAudioSrc)  { try { wmpAudioSrc.disconnect(); } catch(_){} wmpAudioSrc = null; }
   if (wmpAudioCtx)  { await wmpAudioCtx.close().catch(()=>{}); wmpAudioCtx = null; }
   wmpAnalyser = null;
+  document.body.classList.remove('wmp-file');
+  if (wmpFileUrl) { URL.revokeObjectURL(wmpFileUrl); wmpFileUrl = null; }
   const ppBtn = document.getElementById('btnWmpPlayPause');
   ppBtn.disabled = true; ppBtn.querySelector('.btn-icon').textContent = '▶';
 }
@@ -2019,6 +2323,8 @@ async function wmpLoadFile(file) {
     const ppBtn = document.getElementById('btnWmpPlayPause');
     ppBtn.disabled = false; ppBtn.querySelector('.btn-icon').textContent = '⏸';
     document.getElementById('wmpPerm').classList.remove('visible');
+    document.body.classList.add('wmp-file');
+    relayout();
     wmpRunning = true; requestAnimationFrame(wmpLoop);
   } catch(e) {
     document.getElementById('wmpPermErr').textContent = '⚠ ' + e.message;
@@ -2399,6 +2705,22 @@ function renderAlchemy(freqData, timeData, sens, trailsN) {
   ctxWmp.restore();
 }
 
+// ── WMP RANDOM state ──────────────────────────────────────────────────
+let wmpRandom      = false;
+let wmpRandTimer   = 0;
+let wmpRandBlend   = 0;
+let wmpRandBlendDur= 0;
+let wmpRandFromPre = 0;
+let wmpRandToPre   = 1;
+const wmpRandOffCvs = document.createElement('canvas');
+wmpRandOffCvs.width = WW; wmpRandOffCvs.height = WH;
+const wmpRandOffCtx = wmpRandOffCvs.getContext('2d');
+
+function _wmpNextPreset(current) {
+  const choices = [0, 1, 2, 3].filter(p => p !== current);
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
 // ── Main loop ─────────────────────────────────────────────────────────
 function wmpLoop() {
   if (!wmpRunning) return;
@@ -2411,24 +2733,79 @@ function wmpLoop() {
   const sens    = 0.4 + (wmpSensVal / 100) * 1.6;
   const trailsN = wmpTrailsVal / 100;
   wmpAlchemyAngle += 0.010; // global time — used by Fire, Ocean, Alchemy
+
+  // Update WMP file progress bar
+  if (document.body.classList.contains('wmp-file') && wmpAudioEl.src) {
+    const cur = wmpAudioEl.currentTime, dur = wmpAudioEl.duration;
+    document.getElementById('wmpProgFill').style.width = (isFinite(dur) && dur > 0 ? (cur / dur) * 100 : 0) + '%';
+    document.getElementById('wmpProgTime').textContent = fmtTime(cur);
+    document.getElementById('wmpProgDur').textContent  = fmtTime(dur);
+  }
+
+  // RANDOM: handle crossfade timer
+  if (wmpRandom && wmpRandBlend === 0) {
+    wmpRandTimer--;
+    if (wmpRandTimer <= 0) {
+      wmpRandOffCtx.drawImage(wmpCvs, 0, 0); // snapshot current frame
+      wmpRandBlendDur = Math.floor((2 + Math.random() * 2) * 60);
+      wmpRandBlend = 0.001;
+      // Switch to toPreset immediately — it renders fresh underneath the snapshot
+      wmpPreset = wmpRandToPre;
+      document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(b =>
+        b.classList.toggle('active', parseInt(b.dataset.preset) === wmpPreset));
+    }
+  }
+
   switch (wmpPreset) {
     case 0: renderScopeGreen(timeData, sens); break;
     case 1: renderFireStorm(freqData, sens); break;
     case 2: renderOceanMist(freqData, timeData, sens, trailsN); break;
     case 3: renderAlchemy(freqData, timeData, sens, trailsN); break;
   }
+
+  // RANDOM: overlay snapshot fading out during crossfade
+  if (wmpRandom && wmpRandBlend > 0) {
+    const fadeOut = Math.max(0, 1 - wmpRandBlend);
+    ctxWmp.globalAlpha = fadeOut;
+    ctxWmp.drawImage(wmpRandOffCvs, 0, 0);
+    ctxWmp.globalAlpha = 1;
+    wmpRandBlend += 1 / wmpRandBlendDur;
+    if (wmpRandBlend >= 1) {
+      wmpRandBlend = 0;
+      wmpRandFromPre = wmpPreset;
+      wmpRandToPre   = _wmpNextPreset(wmpPreset);
+      wmpRandTimer   = Math.floor((8 + Math.random() * 12) * 60);
+    }
+  }
+
   requestAnimationFrame(wmpLoop);
 }
 
 // ── Controls ──────────────────────────────────────────────────────────
-document.querySelectorAll('.wmp-preset-btn').forEach(btn => {
+document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(btn => {
   btn.addEventListener('click', () => {
     wmpPreset = parseInt(btn.dataset.preset);
-    document.querySelectorAll('.wmp-preset-btn').forEach((b,j) =>
-      b.classList.toggle('active', j === wmpPreset));
+    document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(b =>
+      b.classList.toggle('active', parseInt(b.dataset.preset) === wmpPreset));
     wmpPeaks.fill(0); wmpPeakHold.fill(0);
     ctxWmp.fillStyle = '#000'; ctxWmp.fillRect(0, 0, WW, WH);
+    // If random is on, update fromPreset
+    if (wmpRandom) {
+      wmpRandFromPre = wmpPreset;
+      wmpRandToPre   = _wmpNextPreset(wmpPreset);
+    }
   });
+});
+
+document.getElementById('btnWmpRandom').addEventListener('click', () => {
+  wmpRandom = !wmpRandom;
+  document.getElementById('btnWmpRandom').classList.toggle('active', wmpRandom);
+  if (wmpRandom) {
+    wmpRandFromPre = wmpPreset;
+    wmpRandToPre   = _wmpNextPreset(wmpRandFromPre);
+    wmpRandTimer   = Math.floor((8 + Math.random() * 12) * 60);
+    wmpRandBlend   = 0; wmpRandBlendDur = 0;
+  }
 });
 document.getElementById('wmpSens').addEventListener('input', e => {
   wmpSensVal = parseInt(e.target.value);

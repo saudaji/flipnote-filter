@@ -469,16 +469,20 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
   const base  = autoLevels ? minG : 0;
 
   if (legacyMode) {
-    // ── Flipnote Legacy: threshold duro, B&W puro, nearest-neighbor ──
-    // > 128 brillo → blanco puro (255,255,255)
-    // ≤ 128 brillo → negro puro (0,0,0)
-    // Sin dithering, sin scanlines, sin antialiasing.
+    // ── Flipnote Legacy: threshold adaptativo, B&W puro, nearest-neighbor ──
+    // El threshold se calcula como el gris PROMEDIO del frame → siempre
+    // habrá aproximadamente mitad de pixels negros y mitad blancos sin
+    // importar si la escena está sub o sobreexpuesta.
+    let gTotal = 0;
+    for (let i = 0; i < src.length; i += 4)
+      gTotal += (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+    const thresh = (gTotal / (DSI_W * DSI_H)) | 0;
+
     for (let y = 0; y < DSI_H; y++) {
       for (let x = 0; x < DSI_W; x++) {
         const i   = (y * DSI_W + x) << 2;
         const raw = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
-        const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
-        const v = gray > 128 ? 255 : 0;
+        const v = raw > thresh ? 255 : 0;
         lowBuf[i] = v; lowBuf[i+1] = v; lowBuf[i+2] = v; lowBuf[i+3] = 255;
       }
     }

@@ -271,7 +271,7 @@
 
     /* ── SONO area ── */
     #sonoArea {
-      display:none; position:fixed; top:40px; bottom:148px; left:0; right:0;
+      display:none; position:fixed; top:40px; bottom:168px; left:0; right:0;
       align-items:center; justify-content:center;
     }
     #sonoArea.visible { display:flex; }
@@ -279,7 +279,7 @@
 
     /* ── SONO permission overlay ── */
     #sonoPerm {
-      display:none; position:fixed; top:40px; bottom:148px; left:0; right:0;
+      display:none; position:fixed; top:40px; bottom:168px; left:0; right:0;
       flex-direction:column; align-items:center; justify-content:center;
       gap:18px; padding:32px; z-index:11;
     }
@@ -292,23 +292,22 @@
     }
     #btnSonoStart:active { opacity:.8; }
 
-    /* ── SONO HUD (above bar) ── */
+    /* ── SONO HUD (above bar) — 72px, two stacked rows ── */
     #sonoHUD {
-      display:none; position:fixed; bottom:96px; left:0; right:0; height:52px;
+      display:none; position:fixed; bottom:96px; left:0; right:0; height:72px;
       background:var(--ink); border-top:1px solid var(--dark);
-      align-items:center; justify-content:center; padding:0 20px;
-      gap:20px; z-index:9;
+      align-items:center; padding:6px 16px; gap:10px; z-index:9;
     }
     #sonoHUD.visible { display:flex; }
-    .sono-ctrl { display:flex; align-items:center; gap:5px; flex:1; min-width:0; max-width:200px; }
-    .sono-lbl { color:var(--mid); font-size:9px; letter-spacing:1.5px; white-space:nowrap; min-width:42px; }
-    .sono-val { color:var(--paper); font-size:9px; min-width:22px; text-align:right; flex-shrink:0; }
-    .sono-ctrl input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
     #sonoAmpDot {
-      width:12px; height:12px; border-radius:50%;
-      background:var(--dark); flex-shrink:0;
-      transition:background .08s, box-shadow .08s;
+      width:12px; height:12px; border-radius:50%; flex-shrink:0;
+      background:var(--dark); transition:background .08s, box-shadow .08s;
     }
+    .sono-sliders { display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; }
+    .sono-ctrl { display:flex; align-items:center; gap:6px; }
+    .sono-lbl { color:var(--mid); font-size:9px; letter-spacing:1px; white-space:nowrap; min-width:44px; }
+    .sono-val { color:var(--paper); font-size:9px; min-width:20px; text-align:right; flex-shrink:0; }
+    .sono-ctrl input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
 
     /* ── SONO bottom bar ── */
     #barSono {
@@ -320,12 +319,74 @@
     #barSono.visible { display:flex; }
     #btnSonoRec.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
     #btnSonoRec.recording .btn-label { color:#ff6666; }
+
+    /* ══════════════════════════════════════════════════════
+       WMP XP VISUALIZER
+    ══════════════════════════════════════════════════════ */
+    #wmpArea {
+      display:none; position:fixed; top:40px; bottom:168px; left:0; right:0;
+      background:#000; overflow:hidden;
+    }
+    #wmpArea.visible { display:block; }
+    #wmpCanvas { display:block; width:100%; height:100%; image-rendering:pixelated; }
+
+    /* ── WMP permission / source select overlay ── */
+    #wmpPerm {
+      display:none; position:fixed; top:40px; bottom:168px; left:0; right:0;
+      flex-direction:column; align-items:center; justify-content:center;
+      gap:20px; padding:32px; z-index:11; background:rgba(0,0,0,.85);
+    }
+    #wmpPerm.visible { display:flex; }
+    .wmp-perm-title { color:#9bbc0f; font-size:13px; letter-spacing:3px; text-align:center; }
+    .wmp-src-row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+    .wmp-src-btn {
+      background:none; border:2px solid var(--dark); color:var(--paper);
+      font-family:monospace; font-size:11px; font-weight:bold;
+      letter-spacing:1px; padding:12px 22px; cursor:pointer; transition:.1s;
+    }
+    .wmp-src-btn:hover { border-color:var(--paper); }
+    .wmp-src-btn:active { background:var(--dark); }
+    #wmpPermErr { color:#ff6666; font-size:10px; font-family:monospace; text-align:center; min-height:14px; }
+
+    /* ── WMP HUD (72px, two rows) ── */
+    #wmpHUD {
+      display:none; position:fixed; bottom:96px; left:0; right:0; height:72px;
+      background:#0d0d0d; border-top:1px solid #1e1e1e;
+      flex-direction:column; justify-content:space-around;
+      padding:6px 14px; gap:4px; z-index:9;
+    }
+    #wmpHUD.visible { display:flex; }
+    .wmp-presets { display:flex; gap:5px; }
+    .wmp-preset-btn {
+      flex:1; background:none; border:1px solid #333; color:#555;
+      font-family:monospace; font-size:9px; font-weight:bold;
+      letter-spacing:.5px; text-transform:uppercase;
+      padding:3px 0; cursor:pointer; transition:.1s;
+    }
+    .wmp-preset-btn.active { color:#00ff41; border-color:#00ff41; background:rgba(0,255,65,.06); }
+    .wmp-preset-btn:active { background:#1a1a1a; }
+    .wmp-sliders { display:flex; gap:14px; align-items:center; }
+    .wmp-ctrl { display:flex; align-items:center; gap:5px; flex:1; min-width:0; }
+    .wmp-lbl { color:#555; font-size:9px; letter-spacing:1px; min-width:40px; white-space:nowrap; }
+    .wmp-val { color:#888; font-size:9px; min-width:20px; text-align:right; flex-shrink:0; }
+    .wmp-ctrl input[type="range"] { flex:1; height:3px; accent-color:#00ff41; cursor:pointer; }
+
+    /* ── WMP bottom bar ── */
+    #barWmp {
+      display:none; position:fixed; bottom:0; left:0; right:0;
+      height:96px; background:#0d0d0d; border-top:2px solid #1e1e1e;
+      align-items:center; justify-content:space-around;
+      padding:0 20px; z-index:10;
+    }
+    #barWmp.visible { display:flex; }
+    #btnWmpPlayPause:disabled { opacity:.3; }
   </style>
 </head>
 <body>
 
 <video id="vid" autoplay playsinline muted style="display:none"></video>
 <video id="uploadVid" playsinline style="display:none"></video>
+<audio id="wmpAudio" style="display:none"></audio>
 <canvas id="small"   style="display:none"></canvas>
 <canvas id="scanCvs" style="display:none"></canvas>
 
@@ -334,6 +395,7 @@
   <button class="tab"        id="tabUp" >📂 SUBIR</button>
   <button class="tab"        id="tabAscii">🔤 ASCII</button>
   <button class="tab"        id="tabSono" >🔊 SONO</button>
+  <button class="tab"        id="tabWmp"  >📺 WMP</button>
 </div>
 
 <canvas id="display"></canvas>
@@ -556,19 +618,20 @@
   </button>
 </div>
 
-<!-- SONO HUD: MIX + COLOR CHAOS + amp dot -->
+<!-- SONO HUD: amp dot + two stacked slider rows -->
 <div id="sonoHUD">
-  <div class="sono-ctrl">
-    <span class="sono-lbl">FLIP·MIX</span>
-    <span class="sono-val" id="vSonoMix">0</span>
-    <input type="range" id="sonoMix" min="0" max="100" value="0">
-    <span class="sono-lbl" style="min-width:28px;text-align:right">ASCII</span>
-  </div>
   <div id="sonoAmpDot"></div>
-  <div class="sono-ctrl">
-    <span class="sono-lbl">CHAOS</span>
-    <span class="sono-val" id="vSonoChaos">0</span>
-    <input type="range" id="sonoChaos" min="0" max="100" value="0">
+  <div class="sono-sliders">
+    <div class="sono-ctrl">
+      <span class="sono-lbl">FLIP·ASCII</span>
+      <span class="sono-val" id="vSonoMix">0</span>
+      <input type="range" id="sonoMix" min="0" max="100" value="0">
+    </div>
+    <div class="sono-ctrl">
+      <span class="sono-lbl">COLOR CHAOS</span>
+      <span class="sono-val" id="vSonoChaos">0</span>
+      <input type="range" id="sonoChaos" min="0" max="100" value="0">
+    </div>
   </div>
 </div>
 
@@ -591,6 +654,62 @@
   </button>
 </div>
 
+<!-- WMP area -->
+<div id="wmpArea">
+  <canvas id="wmpCanvas"></canvas>
+</div>
+
+<!-- WMP source/permission overlay -->
+<div id="wmpPerm">
+  <p class="wmp-perm-title">ELIGE FUENTE DE AUDIO</p>
+  <div class="wmp-src-row">
+    <button class="wmp-src-btn" id="btnWmpMicPerm">🎙 MICRÓFONO</button>
+    <button class="wmp-src-btn" id="btnWmpFilePerm">📂 ARCHIVO</button>
+  </div>
+  <p id="wmpPermErr"></p>
+</div>
+
+<!-- WMP HUD -->
+<div id="wmpHUD">
+  <div class="wmp-presets">
+    <button class="wmp-preset-btn active" data-preset="0">SCOPE</button>
+    <button class="wmp-preset-btn"        data-preset="1">FIRE</button>
+    <button class="wmp-preset-btn"        data-preset="2">OCEAN</button>
+    <button class="wmp-preset-btn"        data-preset="3">ALCHEMY</button>
+  </div>
+  <div class="wmp-sliders">
+    <div class="wmp-ctrl">
+      <span class="wmp-lbl">SENS</span>
+      <span class="wmp-val" id="vWmpSens">50</span>
+      <input type="range" id="wmpSens" min="1" max="200" value="50">
+    </div>
+    <div class="wmp-ctrl">
+      <span class="wmp-lbl">TRAILS</span>
+      <span class="wmp-val" id="vWmpTrails">30</span>
+      <input type="range" id="wmpTrails" min="0" max="100" value="30">
+    </div>
+  </div>
+</div>
+
+<!-- WMP bottom bar -->
+<div id="barWmp">
+  <button class="btn" id="btnWmpMicBar">
+    <div class="btn-icon">🎙</div>
+    <span class="btn-label">MIC</span>
+  </button>
+  <button class="btn btn-center" id="btnWmpPlayPause" disabled>
+    <div class="btn-icon">▶</div>
+  </button>
+  <button class="btn" id="btnWmpFileBar">
+    <div class="btn-icon">📂</div>
+    <span class="btn-label">FILE</span>
+  </button>
+  <button class="btn" id="btnWmpFull">
+    <div class="btn-icon">⛶</div>
+    <span class="btn-label">FULL</span>
+  </button>
+</div>
+
 <div id="fps"></div>
 
 <script>
@@ -604,6 +723,10 @@ const PALETTES = [
   { name:'Terminal',  paper:[18,18,18],    ink:[57,255,20]  },
   { name:'Papel',     paper:[212,200,170], ink:[30,20,10]   },
   { name:'Lo-fi',     paper:[242,196,206], ink:[45,10,20]   },
+  { name:'Verde Flip',paper:[168,212,0],   ink:[74,124,0]   },  // #a8d400 / #4a7c00
+  { name:'SONO Red',  paper:[255,180,180], ink:[208,46,46]  },  // #d02e2e
+  { name:'WMP Blue',  paper:[100,160,255], ink:[0,40,160]   },  // #0057ff / #0078d4
+  { name:'ASCII Blue',paper:[192,192,255], ink:[12,12,216]  },  // #0c0cd8
 ];
 let activePal  = 0;
 let legacyMode = false;
@@ -724,13 +847,17 @@ function relayout() {
   }
   asciiCvs.style.width = aw + 'px'; asciiCvs.style.height = ah + 'px';
 
-  // SONO canvas: top:40px bottom:148px (52px HUD + 96px bar)
-  const avHS = window.innerHeight - 40 - 148;
+  // SONO canvas: top:40px bottom:168px (72px HUD + 96px bar)
+  const avHS = window.innerHeight - 40 - 168;
   let sw, sh;
   if (avW / avHS > aspect) { sh = avHS; sw = sh * aspect; }
   else                      { sw = avW;  sh = sw / aspect; }
   document.getElementById('sonoCanvas').style.width  = sw + 'px';
   document.getElementById('sonoCanvas').style.height = sh + 'px';
+  // WMP canvas fills its area completely (1024×576 internal)
+  const avHW = window.innerHeight - 40 - 168;
+  document.getElementById('wmpCanvas').style.width  = avW + 'px';
+  document.getElementById('wmpCanvas').style.height = avHW + 'px';
 }
 window.addEventListener('resize', relayout);
 relayout();
@@ -755,6 +882,7 @@ PALETTES.forEach((p, i) => {
   s.addEventListener('click', () => {
     activePal = i;
     document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===i));
+    asciiSettingsChanged(); // re-render if ASCII static image is loaded
   });
   document.getElementById('palettes').appendChild(s);
 });
@@ -1071,19 +1199,24 @@ function switchTab(tab) {
   document.getElementById('tabUp'   ).classList.toggle('active', tab==='up');
   document.getElementById('tabAscii').classList.toggle('active', tab==='ascii');
   document.getElementById('tabSono' ).classList.toggle('active', tab==='sono');
+  document.getElementById('tabWmp'  ).classList.toggle('active', tab==='wmp');
 
-  const isCam = tab==='cam', isUp = tab==='up', isAscii = tab==='ascii', isSono = tab==='sono';
+  const isCam = tab==='cam', isUp = tab==='up', isAscii = tab==='ascii';
+  const isSono = tab==='sono', isWmp = tab==='wmp';
   display.style.display = isCam ? 'block' : 'none';
   asciiArea.classList.toggle('visible', isAscii);
   document.getElementById('sonoArea').classList.toggle('visible', isSono);
+  document.getElementById('wmpArea' ).classList.toggle('visible', isWmp);
   document.getElementById('uploadSection').classList.toggle('visible', isUp);
   document.getElementById('barCam'   ).style.display = isCam  ? '' : 'none';
   document.getElementById('barUpload').classList.toggle('visible', isUp);
   document.getElementById('barAscii' ).classList.toggle('visible', isAscii);
   document.getElementById('barSono'  ).classList.toggle('visible', isSono);
   document.getElementById('sonoHUD'  ).classList.toggle('visible', isSono);
+  document.getElementById('barWmp'   ).classList.toggle('visible', isWmp);
+  document.getElementById('wmpHUD'   ).classList.toggle('visible', isWmp);
   document.getElementById('btnFlip'  ).style.display = isCam  ? '' : 'none';
-  document.getElementById('palettes' ).style.display = (isUp || isSono) ? 'none' : '';
+  document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp) ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
 
   // Themes
@@ -1097,6 +1230,8 @@ function switchTab(tab) {
   }
   if (!isSono) stopSono();
   if (isSono)  enterSono();
+  if (!isWmp)  stopWmp();
+  if (isWmp)   enterWmp();
 
   cameraRunning = isCam; asciiRunning = isAscii;
   if (isCam   && stream) requestAnimationFrame(cameraLoop);
@@ -1107,6 +1242,7 @@ document.getElementById('tabCam'  ).addEventListener('click', () => switchTab('c
 document.getElementById('tabUp'   ).addEventListener('click', () => switchTab('up'));
 document.getElementById('tabAscii').addEventListener('click', () => switchTab('ascii'));
 document.getElementById('tabSono' ).addEventListener('click', () => switchTab('sono'));
+document.getElementById('tabWmp'  ).addEventListener('click', () => switchTab('wmp'));
 
 // ASCII EDIT panel toggle
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {
@@ -1784,6 +1920,336 @@ btnSonoRec.addEventListener('click', async () => {
     btnSonoRec.querySelector('.btn-icon').textContent = '⏺';
   }
 });
+
+// ════════════════════════════════════════════════════════════════════
+// WMP XP VISUALIZER
+// ════════════════════════════════════════════════════════════════════
+const wmpCvs    = document.getElementById('wmpCanvas');
+const wmpAudioEl= document.getElementById('wmpAudio');
+wmpCvs.width    = 1024; wmpCvs.height = 576;
+const ctxWmp    = wmpCvs.getContext('2d');
+ctxWmp.imageSmoothingEnabled = false;
+
+// ── State ─────────────────────────────────────────────────────────────
+let wmpRunning   = false;
+let wmpAudioCtx  = null;
+let wmpAnalyser  = null;
+let wmpMicStream = null;
+let wmpFileUrl   = null;
+let wmpAudioSrc  = null;   // MediaElementAudioSourceNode
+let wmpPreset    = 0;      // 0=Scope 1=Fire 2=Ocean 3=Alchemy
+let wmpSensVal   = 50;
+let wmpTrailsVal = 30;
+let wmpAlchemyAngle = 0;
+const wmpPeaks   = new Float32Array(512);
+const wmpPeakHold= new Int32Array(512);
+const WW = 1024, WH = 576;  // internal canvas size
+
+// Precomputed fire gradient (created after canvas exists)
+let wmpFireGrd = null;
+function wmpBuildGradients() {
+  wmpFireGrd = ctxWmp.createLinearGradient(0, WH, 0, 0);
+  wmpFireGrd.addColorStop(0,    '#0a0000');
+  wmpFireGrd.addColorStop(0.18, '#cc0000');
+  wmpFireGrd.addColorStop(0.50, '#ff6600');
+  wmpFireGrd.addColorStop(0.78, '#ffee00');
+  wmpFireGrd.addColorStop(1,    '#ffffff');
+}
+wmpBuildGradients();
+
+// ── Audio setup ───────────────────────────────────────────────────────
+async function wmpStopAudio() {
+  wmpRunning = false;
+  if (wmpMicStream) { wmpMicStream.getTracks().forEach(t => t.stop()); wmpMicStream = null; }
+  if (wmpAudioEl)   { wmpAudioEl.pause(); wmpAudioEl.removeAttribute('src'); }
+  if (wmpAudioSrc)  { try { wmpAudioSrc.disconnect(); } catch(_){} wmpAudioSrc = null; }
+  if (wmpAudioCtx)  { await wmpAudioCtx.close().catch(()=>{}); wmpAudioCtx = null; }
+  wmpAnalyser = null;
+  const ppBtn = document.getElementById('btnWmpPlayPause');
+  ppBtn.disabled = true; ppBtn.querySelector('.btn-icon').textContent = '▶';
+}
+
+async function wmpStartMic() {
+  await wmpStopAudio();
+  document.getElementById('wmpPermErr').textContent = '';
+  try {
+    wmpMicStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    wmpAudioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    wmpAnalyser  = wmpAudioCtx.createAnalyser();
+    wmpAnalyser.fftSize = 2048;
+    wmpAnalyser.smoothingTimeConstant = 0.82;
+    wmpAudioCtx.createMediaStreamSource(wmpMicStream).connect(wmpAnalyser);
+    wmpBuildGradients();
+    document.getElementById('wmpPerm').classList.remove('visible');
+    wmpRunning = true; requestAnimationFrame(wmpLoop);
+  } catch(e) {
+    document.getElementById('wmpPermErr').textContent = '⚠ ' + e.message;
+  }
+}
+
+async function wmpLoadFile(file) {
+  if (!file || !file.type.startsWith('audio/')) {
+    document.getElementById('wmpPermErr').textContent = '⚠ Solo archivos de audio (MP3, WAV, OGG)';
+    return;
+  }
+  await wmpStopAudio();
+  document.getElementById('wmpPermErr').textContent = '';
+  try {
+    if (wmpFileUrl) { URL.revokeObjectURL(wmpFileUrl); }
+    wmpFileUrl       = URL.createObjectURL(file);
+    wmpAudioEl.src   = wmpFileUrl;
+    wmpAudioCtx      = new (window.AudioContext || window.webkitAudioContext)();
+    wmpAnalyser      = wmpAudioCtx.createAnalyser();
+    wmpAnalyser.fftSize = 2048;
+    wmpAnalyser.smoothingTimeConstant = 0.82;
+    wmpAudioSrc      = wmpAudioCtx.createMediaElementSource(wmpAudioEl);
+    wmpAudioSrc.connect(wmpAnalyser);
+    wmpAudioSrc.connect(wmpAudioCtx.destination); // audible
+    wmpBuildGradients();
+    await wmpAudioEl.play();
+    const ppBtn = document.getElementById('btnWmpPlayPause');
+    ppBtn.disabled = false; ppBtn.querySelector('.btn-icon').textContent = '⏸';
+    document.getElementById('wmpPerm').classList.remove('visible');
+    wmpRunning = true; requestAnimationFrame(wmpLoop);
+  } catch(e) {
+    document.getElementById('wmpPermErr').textContent = '⚠ ' + e.message;
+  }
+}
+
+function stopWmp() {
+  wmpStopAudio();
+}
+function enterWmp() {
+  if (!wmpAnalyser) {
+    document.getElementById('wmpPerm').classList.add('visible');
+  } else {
+    document.getElementById('wmpPerm').classList.remove('visible');
+    if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
+  }
+}
+
+// ── Render helpers ────────────────────────────────────────────────────
+function wmpTrailClear(trailsN) {
+  const a = 1 - trailsN * 0.94;
+  ctxWmp.fillStyle = `rgba(0,0,0,${a.toFixed(3)})`;
+  ctxWmp.fillRect(0, 0, WW, WH);
+}
+
+// ── Preset 0: Scope Green ─────────────────────────────────────────────
+function renderScopeGreen(timeData, sens) {
+  ctxWmp.fillStyle = '#000';
+  ctxWmp.fillRect(0, 0, WW, WH);
+  // Grid
+  ctxWmp.strokeStyle = '#002200'; ctxWmp.lineWidth = 1;
+  for (let x = 0; x <= WW; x += 80)  { ctxWmp.beginPath(); ctxWmp.moveTo(x,0); ctxWmp.lineTo(x,WH); ctxWmp.stroke(); }
+  for (let y = 0; y <= WH; y += 48)  { ctxWmp.beginPath(); ctxWmp.moveTo(0,y); ctxWmp.lineTo(WW,y); ctxWmp.stroke(); }
+  // Center line
+  ctxWmp.strokeStyle = '#004400'; ctxWmp.lineWidth = 1;
+  ctxWmp.beginPath(); ctxWmp.moveTo(0, WH/2); ctxWmp.lineTo(WW, WH/2); ctxWmp.stroke();
+  // Waveform
+  const step = WW / timeData.length;
+  ctxWmp.strokeStyle = '#00ff41'; ctxWmp.lineWidth = 1.5;
+  ctxWmp.shadowColor = '#00ff41'; ctxWmp.shadowBlur = 6;
+  ctxWmp.beginPath();
+  for (let i = 0; i < timeData.length; i++) {
+    const v = ((timeData[i] - 128) / 128) * sens;
+    const y = WH / 2 + v * WH / 2 * 0.82;
+    i === 0 ? ctxWmp.moveTo(0, y) : ctxWmp.lineTo(i * step, y);
+  }
+  ctxWmp.stroke(); ctxWmp.shadowBlur = 0;
+  // Scanlines
+  ctxWmp.fillStyle = 'rgba(0,0,0,0.18)';
+  for (let y = 0; y < WH; y += 2) ctxWmp.fillRect(0, y, WW, 1);
+}
+
+// ── Preset 1: Fire Storm ──────────────────────────────────────────────
+function renderFireStorm(freqData, sens) {
+  ctxWmp.fillStyle = '#000'; ctxWmp.fillRect(0, 0, WW, WH);
+  const numBars = 256;
+  const barW = WW / numBars;
+  ctxWmp.fillStyle = wmpFireGrd;
+  for (let i = 0; i < numBars; i++) {
+    const raw = freqData[i] / 255;
+    const barH = Math.min(WH, raw * sens * WH);
+    if (barH < 1) continue;
+    // Update peaks
+    if (barH > wmpPeaks[i])  { wmpPeaks[i] = barH; wmpPeakHold[i] = 28; }
+    else if (wmpPeakHold[i] > 0) wmpPeakHold[i]--;
+    else wmpPeaks[i] = Math.max(0, wmpPeaks[i] - 2.2);
+    const x = i * barW;
+    ctxWmp.fillRect(x, WH - barH, barW - 1, barH);
+  }
+  // Peak markers
+  ctxWmp.fillStyle = '#ffffff';
+  for (let i = 0; i < numBars; i++) {
+    if (wmpPeaks[i] > 3) ctxWmp.fillRect(i * barW, WH - wmpPeaks[i] - 2, barW - 1, 2);
+  }
+}
+
+// ── Preset 2: Ocean Mist ──────────────────────────────────────────────
+function renderOceanMist(freqData, timeData, sens, trailsN) {
+  wmpTrailClear(trailsN);
+  const numBins = Math.min(300, freqData.length);
+  // Frequency fill
+  ctxWmp.beginPath(); ctxWmp.moveTo(0, WH);
+  for (let i = 0; i < numBins; i++) {
+    const x = (i / numBins) * WW;
+    const y = WH - Math.min(WH * 0.7, (freqData[i] / 255) * sens * WH * 0.7);
+    ctxWmp.lineTo(x, y);
+  }
+  ctxWmp.lineTo(WW, WH); ctxWmp.closePath();
+  const fillG = ctxWmp.createLinearGradient(0, WH * 0.3, 0, WH);
+  fillG.addColorStop(0, 'rgba(0,100,200,0.55)');
+  fillG.addColorStop(1, 'rgba(0,20,60,0.2)');
+  ctxWmp.fillStyle = fillG; ctxWmp.fill();
+  // Frequency outline
+  ctxWmp.beginPath();
+  for (let i = 0; i < numBins; i++) {
+    const x = (i / numBins) * WW;
+    const y = WH - Math.min(WH * 0.7, (freqData[i] / 255) * sens * WH * 0.7);
+    i === 0 ? ctxWmp.moveTo(x, y) : ctxWmp.lineTo(x, y);
+  }
+  ctxWmp.strokeStyle = '#0077cc'; ctxWmp.lineWidth = 1.5; ctxWmp.stroke();
+  // Waveform overlay
+  const step = WW / timeData.length;
+  ctxWmp.beginPath();
+  for (let i = 0; i < timeData.length; i++) {
+    const v = ((timeData[i] - 128) / 128) * sens;
+    const y = WH / 2 + v * WH * 0.28;
+    i === 0 ? ctxWmp.moveTo(0, y) : ctxWmp.lineTo(i * step, y);
+  }
+  ctxWmp.strokeStyle = 'rgba(150,220,255,0.75)';
+  ctxWmp.lineWidth = 1.2; ctxWmp.shadowColor = '#00ccff'; ctxWmp.shadowBlur = 4;
+  ctxWmp.stroke(); ctxWmp.shadowBlur = 0;
+}
+
+// ── Preset 3: Alchemy ─────────────────────────────────────────────────
+function renderAlchemy(freqData, timeData, sens, trailsN) {
+  wmpTrailClear(trailsN);
+  const cx = WW / 2, cy = WH / 2;
+  wmpAlchemyAngle += 0.007;
+  // Bass pulse
+  const bassAmp = Math.min(1, ((freqData[0]+freqData[1]+freqData[2]) / (3*255)) * sens);
+  const rg = ctxWmp.createRadialGradient(cx, cy, 0, cx, cy, 80 + bassAmp * 90);
+  rg.addColorStop(0,   `rgba(200,50,255,${(bassAmp*0.9).toFixed(2)})`);
+  rg.addColorStop(0.5, `rgba(80,0,180,${(bassAmp*0.35).toFixed(2)})`);
+  rg.addColorStop(1,   'rgba(0,0,0,0)');
+  ctxWmp.fillStyle = rg;
+  ctxWmp.beginPath(); ctxWmp.arc(cx, cy, 180, 0, Math.PI*2); ctxWmp.fill();
+  // Polar spectrum — 2-fold symmetry
+  const numBins = Math.min(120, freqData.length);
+  for (let sym = 0; sym < 2; sym++) {
+    ctxWmp.save(); ctxWmp.translate(cx, cy); ctxWmp.rotate(wmpAlchemyAngle + sym * Math.PI);
+    for (let i = 0; i < numBins; i++) {
+      const amp   = (freqData[i] / 255) * sens;
+      const angle = (i / numBins) * Math.PI * 2;
+      const r0 = 28 + amp * 18, r1 = 28 + amp * 160;
+      const hue = ((i / numBins) * 360 + wmpAlchemyAngle * 45) % 360;
+      ctxWmp.strokeStyle = `hsla(${hue|0},100%,60%,${(0.25 + amp*0.55).toFixed(2)})`;
+      ctxWmp.lineWidth = 1.5;
+      ctxWmp.beginPath();
+      ctxWmp.moveTo(Math.cos(angle)*r0, Math.sin(angle)*r0);
+      ctxWmp.lineTo(Math.cos(angle)*r1, Math.sin(angle)*r1);
+      ctxWmp.stroke();
+    }
+    ctxWmp.restore();
+  }
+  // Polar waveform ring
+  ctxWmp.save(); ctxWmp.translate(cx, cy); ctxWmp.rotate(-wmpAlchemyAngle * 1.5);
+  const samples = 128, sStep = Math.floor(timeData.length / samples);
+  ctxWmp.beginPath();
+  for (let i = 0; i < samples; i++) {
+    const v     = ((timeData[i * sStep] - 128) / 128) * sens;
+    const angle = (i / samples) * Math.PI * 2;
+    const r     = 72 + v * 55;
+    const x     = Math.cos(angle) * r, y = Math.sin(angle) * r;
+    i === 0 ? ctxWmp.moveTo(x, y) : ctxWmp.lineTo(x, y);
+  }
+  ctxWmp.closePath();
+  ctxWmp.strokeStyle = 'rgba(0,255,190,0.65)'; ctxWmp.lineWidth = 1.2;
+  ctxWmp.shadowColor = '#00ffcc'; ctxWmp.shadowBlur = 5;
+  ctxWmp.stroke(); ctxWmp.shadowBlur = 0;
+  ctxWmp.restore();
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────
+function wmpLoop() {
+  if (!wmpRunning) return;
+  if (!wmpAnalyser) { requestAnimationFrame(wmpLoop); return; }
+  const N = wmpAnalyser.frequencyBinCount;
+  const freqData = new Uint8Array(N);
+  const timeData = new Uint8Array(wmpAnalyser.fftSize);
+  wmpAnalyser.getByteFrequencyData(freqData);
+  wmpAnalyser.getByteTimeDomainData(timeData);
+  const sens   = 0.4 + (wmpSensVal / 100) * 1.6;
+  const trailsN= wmpTrailsVal / 100;
+  switch (wmpPreset) {
+    case 0: renderScopeGreen(timeData, sens); break;
+    case 1: renderFireStorm(freqData, sens); break;
+    case 2: renderOceanMist(freqData, timeData, sens, trailsN); break;
+    case 3: renderAlchemy(freqData, timeData, sens, trailsN); break;
+  }
+  requestAnimationFrame(wmpLoop);
+}
+
+// ── Controls ──────────────────────────────────────────────────────────
+document.querySelectorAll('.wmp-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    wmpPreset = parseInt(btn.dataset.preset);
+    document.querySelectorAll('.wmp-preset-btn').forEach((b,j) =>
+      b.classList.toggle('active', j === wmpPreset));
+    wmpPeaks.fill(0); wmpPeakHold.fill(0);
+    ctxWmp.fillStyle = '#000'; ctxWmp.fillRect(0, 0, WW, WH);
+  });
+});
+document.getElementById('wmpSens').addEventListener('input', e => {
+  wmpSensVal = parseInt(e.target.value);
+  document.getElementById('vWmpSens').textContent = wmpSensVal;
+});
+document.getElementById('wmpTrails').addEventListener('input', e => {
+  wmpTrailsVal = parseInt(e.target.value);
+  document.getElementById('vWmpTrails').textContent = wmpTrailsVal;
+});
+
+// Source buttons
+const wmpFileInput = document.createElement('input');
+wmpFileInput.type = 'file'; wmpFileInput.accept = 'audio/*';
+wmpFileInput.addEventListener('change', e => {
+  if (e.target.files[0]) wmpLoadFile(e.target.files[0]);
+  e.target.value = '';
+});
+document.getElementById('btnWmpMicPerm' ).addEventListener('click', wmpStartMic);
+document.getElementById('btnWmpFilePerm').addEventListener('click', () => wmpFileInput.click());
+document.getElementById('btnWmpMicBar'  ).addEventListener('click', wmpStartMic);
+document.getElementById('btnWmpFileBar' ).addEventListener('click', () => wmpFileInput.click());
+
+// Play/pause for file source
+document.getElementById('btnWmpPlayPause').addEventListener('click', () => {
+  if (!wmpAudioEl.src) return;
+  if (wmpAudioEl.paused) {
+    wmpAudioEl.play();
+    document.getElementById('btnWmpPlayPause').querySelector('.btn-icon').textContent = '⏸';
+    if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
+  } else {
+    wmpAudioEl.pause();
+    document.getElementById('btnWmpPlayPause').querySelector('.btn-icon').textContent = '▶';
+  }
+});
+wmpAudioEl.addEventListener('ended', () => {
+  document.getElementById('btnWmpPlayPause').querySelector('.btn-icon').textContent = '▶';
+});
+
+// Fullscreen
+document.getElementById('btnWmpFull').addEventListener('click', () => {
+  const el = document.getElementById('wmpArea');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
+  }
+});
+document.addEventListener('fullscreenchange', () => { relayout(); });
+document.addEventListener('webkitfullscreenchange', () => { relayout(); });
 
 // ════════════════════════════════════════════════════════════════════
 // SERVICE WORKER

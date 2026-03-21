@@ -382,6 +382,7 @@ const ctxS  = small.getContext('2d',   { willReadFrequently: true });
 const ctxD  = display.getContext('2d', { willReadFrequently: false });
 const ctxUP = upCanvas.getContext('2d',{ willReadFrequently: false });
 const ctxSc = scanCvs.getContext('2d');
+ctxS.imageSmoothingEnabled  = false;
 ctxD.imageSmoothingEnabled  = false;
 ctxUP.imageSmoothingEnabled = false;
 
@@ -468,24 +469,23 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
   const base  = autoLevels ? minG : 0;
 
   if (legacyMode) {
-    // ── Flipnote Legacy: threshold puro 256×192, upscale nearest-neighbor ──
-    // Sin dithering, sin antialiasing. Cada pixel es estrictamente tinta o papel.
-    // El upscale 4× con imageSmoothingEnabled=false + image-rendering:pixelated
-    // produce bloques duros exactamente como la pantalla de la DSi.
+    // ── Flipnote Legacy: threshold duro, B&W puro, nearest-neighbor ──
+    // > 128 brillo → blanco puro (255,255,255)
+    // ≤ 128 brillo → negro puro (0,0,0)
+    // Sin dithering, sin scanlines, sin antialiasing.
     for (let y = 0; y < DSI_H; y++) {
       for (let x = 0; x < DSI_W; x++) {
-        const i    = (y * DSI_W + x) << 2;
-        const raw  = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+        const i   = (y * DSI_W + x) << 2;
+        const raw = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
         const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
-        const isInk = gray < 128;
-        lowBuf[i]   = isInk ? IR : PR; lowBuf[i+1] = isInk ? IG : PG;
-        lowBuf[i+2] = isInk ? IB : PB; lowBuf[i+3] = 255;
+        const v = gray > 128 ? 255 : 0;
+        lowBuf[i] = v; lowBuf[i+1] = v; lowBuf[i+2] = v; lowBuf[i+3] = 255;
       }
     }
     ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
     targetCtx.imageSmoothingEnabled = false;
     targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
-    targetCtx.drawImage(scanCvs, 0, 0);
+    // Sin scanlines: imagen limpia, bloques cuadrados puros
     return;
   } else {
     // ── Normal: dithering por pixel ──

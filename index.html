@@ -16,273 +16,206 @@
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
-    :root {
-      --ink:   #0F380F;
-      --dark:  #306230;
-      --mid:   #8BAC0F;
-      --paper: #9BBC0F;
-    }
+    :root { --ink:#0F380F; --dark:#306230; --mid:#8BAC0F; --paper:#9BBC0F; }
     html, body {
-      width: 100%; height: 100dvh;
-      overflow: hidden;
-      background: var(--ink);
-      display: flex; flex-direction: column;
-      align-items: center;
-      font-family: monospace;
+      width:100%; height:100dvh; overflow:hidden;
+      background:var(--ink);
+      display:flex; flex-direction:column; align-items:center;
+      font-family:monospace;
     }
 
-    /* ── Tabs ──────────────────────────────────────────────────────── */
+    /* ── Blue theme in ASCII mode ── */
+    body.ascii-mode { --ink:#0c0cd8; --dark:#3a3af0; --mid:#7878ff; --paper:#c0c0ff; }
+    body.ascii-mode .tab.active { background:rgba(160,160,255,.10); }
+
+    /* ── Tabs ── */
     .tab-bar {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 20;
-      height: 40px;
-      display: flex;
-      border-bottom: 2px solid var(--dark);
-      background: var(--ink);
+      position:fixed; top:0; left:0; right:0; z-index:20;
+      height:40px; display:flex;
+      border-bottom:2px solid var(--dark); background:var(--ink);
     }
     .tab {
-      flex: 1; height: 100%;
-      background: none; border: none; border-right: 2px solid var(--dark);
-      color: var(--dark); font-family: monospace; font-size: 11px;
-      font-weight: bold; letter-spacing: 2px; text-transform: uppercase;
-      cursor: pointer; transition: color 0.1s, background 0.1s;
+      flex:1; height:100%; background:none; border:none;
+      border-right:2px solid var(--dark);
+      color:var(--dark); font-family:monospace; font-size:11px;
+      font-weight:bold; letter-spacing:2px; text-transform:uppercase;
+      cursor:pointer; transition:color .1s,background .1s;
     }
-    .tab:last-child { border-right: none; }
-    .tab.active { color: var(--paper); background: rgba(155,188,15,.08); }
-    .tab:active  { background: var(--dark); }
+    .tab:last-child { border-right:none; }
+    .tab.active { color:var(--paper); background:rgba(155,188,15,.08); }
+    .tab:active  { background:var(--dark); }
 
-    /* ── Canvas ────────────────────────────────────────────────────── */
+    /* ── Main canvas ── */
     #display {
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-      position: fixed;
-      top: 40px; bottom: 96px;
-      left: 0; right: 0;
-      margin: auto;
+      image-rendering:pixelated; image-rendering:crisp-edges;
+      position:fixed; top:40px; bottom:96px; left:0; right:0; margin:auto;
     }
 
-    /* ── Barra inferior ────────────────────────────────────────────── */
+    /* ── Bottom bar ── */
     .bar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      height: 96px;
-      background: var(--ink);
-      border-top: 2px solid var(--dark);
-      display: flex; align-items: center; justify-content: space-around;
-      padding: 0 20px; z-index: 10;
+      position:fixed; bottom:0; left:0; right:0; height:96px;
+      background:var(--ink); border-top:2px solid var(--dark);
+      display:flex; align-items:center; justify-content:space-around;
+      padding:0 20px; z-index:10;
     }
     .btn {
-      background: none; border: none; cursor: pointer; user-select: none;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 4px;
-      color: var(--paper); font-family: monospace;
-      font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
-      padding: 8px 14px;
+      background:none; border:none; cursor:pointer; user-select:none;
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; gap:4px;
+      color:var(--paper); font-family:monospace;
+      font-size:10px; letter-spacing:1px; text-transform:uppercase;
+      padding:8px 10px;
     }
     .btn-icon {
-      width: 44px; height: 44px;
-      border: 2px solid var(--dark); background: var(--ink);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
-      transition: background 0.08s, transform 0.08s;
+      width:44px; height:44px; border:2px solid var(--dark); background:var(--ink);
+      display:flex; align-items:center; justify-content:center; font-size:20px;
+      transition:background .08s, transform .08s;
     }
-    .btn:active .btn-icon { background: var(--dark); transform: scale(0.9); }
-    .btn-center .btn-icon { width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--paper); font-size: 26px; }
-    #btnRecord.recording .btn-icon { background: #bb0000; border-color: #ff4444; animation: pulse 1s ease-in-out infinite; }
-    #btnRecord.recording .btn-label { color: #ff6666; }
-    @keyframes pulse { 50% { opacity: .55; } }
+    .btn:active .btn-icon { background:var(--dark); transform:scale(.9); }
+    .btn-center .btn-icon { width:64px; height:64px; border-radius:50%; border:3px solid var(--paper); font-size:26px; }
+    #btnRecord.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
+    #btnRecord.recording .btn-label { color:#ff6666; }
+    @keyframes pulse { 50%{opacity:.55;} }
 
-    /* ── Paleta ────────────────────────────────────────────────────── */
+    /* ── Palettes ── */
     .palettes {
-      position: fixed; top: 48px; right: 12px;
-      display: flex; flex-direction: column; gap: 7px; z-index: 10;
+      position:fixed; top:48px; right:12px;
+      display:flex; flex-direction:column; gap:7px; z-index:10;
     }
     .pal-swatch {
-      width: 26px; height: 26px; border: 2px solid transparent;
-      cursor: pointer; transition: transform .1s;
+      width:26px; height:26px; border:2px solid transparent;
+      cursor:pointer; transition:transform .1s;
     }
-    .pal-swatch:active { transform: scale(.88); }
-    .pal-swatch.active { border: 2px solid #fff; }
-
-    /* ── Mode toggle ───────────────────────────────────────────────── */
+    .pal-swatch:active { transform:scale(.88); }
+    .pal-swatch.active { border:2px solid #fff; }
     #btnMode {
-      width: 26px; height: 22px; padding: 0;
-      background: none; border: 2px solid var(--dark);
-      color: var(--dark); font-family: monospace;
-      font-size: 7px; font-weight: bold; letter-spacing: .5px;
-      cursor: pointer; line-height: 1; transition: .1s;
-      margin-bottom: 3px;
+      width:26px; height:22px; padding:0;
+      background:none; border:2px solid var(--dark);
+      color:var(--dark); font-family:monospace;
+      font-size:7px; font-weight:bold; letter-spacing:.5px;
+      cursor:pointer; line-height:1; transition:.1s; margin-bottom:3px;
     }
-    #btnMode.legacy { border-color: var(--paper); color: var(--paper); background: rgba(155,188,15,.12); }
+    #btnMode.legacy { border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.12); }
 
-    /* ── Flip ──────────────────────────────────────────────────────── */
+    /* ── Flip ── */
     #btnFlip {
-      position: fixed; top: 48px; left: 12px; z-index: 10;
-      background: none; border: none; cursor: pointer;
-      color: var(--paper); font-family: monospace;
-      font-size: 10px; letter-spacing: 1px;
-      display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px;
+      position:fixed; top:48px; left:12px; z-index:10;
+      background:none; border:none; cursor:pointer;
+      color:var(--paper); font-family:monospace;
+      font-size:10px; letter-spacing:1px;
+      display:flex; flex-direction:column; align-items:center; gap:4px; padding:4px;
     }
-    #btnFlip .btn-icon { width: 36px; height: 36px; font-size: 16px; }
+    #btnFlip .btn-icon { width:36px; height:36px; font-size:16px; }
 
-    /* ── FPS label ─────────────────────────────────────────────────── */
-    #fps { position: fixed; bottom: 100px; left: 12px; color: var(--dark); font-size: 10px; pointer-events: none; z-index: 10; }
-
-    /* ── Flash ─────────────────────────────────────────────────────── */
-    #flash { position: fixed; inset: 0; background: var(--paper); opacity: 0; pointer-events: none; z-index: 99; transition: opacity .04s; }
-    #flash.on { opacity: .7; }
-
-    /* ── Splash ─────────────────────────────────────────────────────── */
+    /* ── FPS / flash / splash ── */
+    #fps { position:fixed; bottom:100px; left:12px; color:var(--dark); font-size:10px; pointer-events:none; z-index:10; }
+    #flash { position:fixed; inset:0; background:var(--paper); opacity:0; pointer-events:none; z-index:99; transition:opacity .04s; }
+    #flash.on { opacity:.7; }
     #splash {
-      position: fixed; inset: 0; background: var(--ink);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 24px; z-index: 100; padding: 40px;
+      position:fixed; inset:0; background:var(--ink);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:24px; z-index:100; padding:40px;
     }
-    #splash.hidden { display: none; }
-    .logo { font-family: monospace; font-size: 22px; color: var(--paper); letter-spacing: 4px; text-align: center; line-height: 1.5; }
-    .logo span { display: block; font-size: 11px; color: var(--mid); letter-spacing: 3px; margin-top: 6px; }
-    .start-btn { background: var(--paper); color: var(--ink); border: none; padding: 16px 40px; font-family: monospace; font-size: 14px; font-weight: bold; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; }
-    .start-btn:active { background: var(--mid); }
-    .credits { font-family: monospace; font-size: 10px; color: var(--dark); text-align: center; line-height: 1.8; }
+    #splash.hidden { display:none; }
+    .logo { font-family:monospace; font-size:22px; color:var(--paper); letter-spacing:4px; text-align:center; line-height:1.5; }
+    .logo span { display:block; font-size:11px; color:var(--mid); letter-spacing:3px; margin-top:6px; }
+    .start-btn { background:var(--paper); color:var(--ink); border:none; padding:16px 40px; font-family:monospace; font-size:14px; font-weight:bold; letter-spacing:3px; text-transform:uppercase; cursor:pointer; }
+    .start-btn:active { background:var(--mid); }
+    .credits { font-family:monospace; font-size:10px; color:var(--dark); text-align:center; line-height:1.8; }
 
-    /* ══════════════════════════════════════════════════════════════
-       UPLOAD SECTION
-    ══════════════════════════════════════════════════════════════ */
+    /* ── Upload section ── */
     #uploadSection {
-      display: none;
-      position: fixed; top: 40px; bottom: 96px; left: 0; right: 0;
-      flex-direction: column; align-items: center; justify-content: center;
-      overflow-y: auto; padding: 16px;
-      gap: 14px;
+      display:none; position:fixed; top:40px; bottom:96px; left:0; right:0;
+      flex-direction:column; align-items:center; justify-content:center;
+      overflow-y:auto; padding:16px; gap:14px;
     }
-    #uploadSection.visible { display: flex; }
-
-    /* Drop zone */
+    #uploadSection.visible { display:flex; }
     .drop-zone {
-      width: 100%; max-width: 420px;
-      border: 2px dashed var(--dark);
-      padding: 32px 16px;
-      display: flex; flex-direction: column; align-items: center; gap: 10px;
-      cursor: pointer; transition: border-color .15s;
+      width:100%; max-width:420px; border:2px dashed var(--dark);
+      padding:32px 16px;
+      display:flex; flex-direction:column; align-items:center; gap:10px;
+      cursor:pointer; transition:border-color .15s;
     }
-    .drop-zone:hover, .drop-zone.dragover { border-color: var(--paper); }
-    .drop-zone .dz-icon { font-size: 36px; }
-    .drop-zone p { color: var(--mid); font-size: 12px; letter-spacing: 1px; text-align: center; line-height: 1.6; }
-    .drop-zone strong { color: var(--paper); display: block; margin-bottom: 4px; font-size: 13px; letter-spacing: 2px; }
-    #fileInput { display: none; }
+    .drop-zone:hover,.drop-zone.dragover { border-color:var(--paper); }
+    .drop-zone .dz-icon { font-size:36px; }
+    .drop-zone p { color:var(--mid); font-size:12px; letter-spacing:1px; text-align:center; line-height:1.6; }
+    .drop-zone strong { color:var(--paper); display:block; margin-bottom:4px; font-size:13px; letter-spacing:2px; }
+    #fileInput { display:none; }
+    .fps-row { display:flex; gap:8px; align-items:center; }
+    .fps-row label { color:var(--mid); font-size:10px; letter-spacing:2px; margin-right:4px; }
+    .fps-btn { background:none; border:2px solid var(--dark); color:var(--dark); padding:6px 14px; font-family:monospace; font-size:11px; font-weight:bold; cursor:pointer; transition:.1s; }
+    .fps-btn.active { border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.1); }
+    .fps-btn:active { background:var(--dark); }
+    #progressWrap { width:100%; max-width:420px; display:none; flex-direction:column; gap:8px; }
+    #progressWrap.visible { display:flex; }
+    .progress-bar-bg { width:100%; height:8px; background:var(--dark); }
+    .progress-bar-fill { height:100%; background:var(--paper); width:0%; transition:width .3s; }
+    .progress-info { display:flex; justify-content:space-between; color:var(--mid); font-size:10px; letter-spacing:1px; }
+    #uploadCanvas { display:none; image-rendering:pixelated; image-rendering:crisp-edges; width:100%; max-width:420px; border:2px solid var(--dark); }
+    #uploadCanvas.visible { display:block; }
+    #barUpload { display:none; position:fixed; bottom:0; left:0; right:0; height:96px; background:var(--ink); border-top:2px solid var(--dark); align-items:center; justify-content:space-around; padding:0 20px; z-index:10; }
+    #barUpload.visible { display:flex; }
 
-    /* FPS selector */
-    .fps-row {
-      display: flex; gap: 8px; align-items: center;
-    }
-    .fps-row label { color: var(--mid); font-size: 10px; letter-spacing: 2px; margin-right: 4px; }
-    .fps-btn {
-      background: none; border: 2px solid var(--dark); color: var(--dark);
-      padding: 6px 14px; font-family: monospace; font-size: 11px;
-      font-weight: bold; cursor: pointer; transition: .1s;
-    }
-    .fps-btn.active { border-color: var(--paper); color: var(--paper); background: rgba(155,188,15,.1); }
-    .fps-btn:active { background: var(--dark); }
-
-    /* Progress */
-    #progressWrap {
-      width: 100%; max-width: 420px; display: none;
-      flex-direction: column; gap: 8px;
-    }
-    #progressWrap.visible { display: flex; }
-    .progress-bar-bg {
-      width: 100%; height: 8px; background: var(--dark);
-    }
-    .progress-bar-fill {
-      height: 100%; background: var(--paper);
-      width: 0%; transition: width .3s;
-    }
-    .progress-info {
-      display: flex; justify-content: space-between;
-      color: var(--mid); font-size: 10px; letter-spacing: 1px;
-    }
-
-    /* Result canvas en upload mode */
-    #uploadCanvas {
-      display: none;
-      image-rendering: pixelated; image-rendering: crisp-edges;
-      width: 100%; max-width: 420px;
-      border: 2px solid var(--dark);
-    }
-    #uploadCanvas.visible { display: block; }
-
-    /* Upload bar (bottom bar en modo subir) */
-    #barUpload {
-      display: none;
-      position: fixed; bottom: 0; left: 0; right: 0;
-      height: 96px; background: var(--ink); border-top: 2px solid var(--dark);
-      align-items: center; justify-content: space-around;
-      padding: 0 20px; z-index: 10;
-    }
-    #barUpload.visible { display: flex; }
-
-    /* ── ASCII canvas ───────────────────────────────────────────────── */
+    /* ── ASCII canvas ── */
     #asciiCanvas {
-      position: fixed;
-      top: 40px; bottom: 96px;
-      left: 0; right: 0;
-      margin: auto;
-      display: none;
-      background: #000;
+      position:fixed; top:40px; bottom:96px; left:0; right:0;
+      margin:auto; display:none; background:#000;
     }
-    #asciiCanvas.visible { display: block; }
+    #asciiCanvas.visible { display:block; }
 
-    /* ── ASCII bar ──────────────────────────────────────────────────── */
+    /* ── ASCII bottom bar ── */
     #barAscii {
-      display: none;
-      position: fixed; bottom: 0; left: 0; right: 0;
-      height: 96px; background: var(--ink); border-top: 2px solid var(--dark);
-      align-items: center; justify-content: space-around;
-      padding: 0 20px; z-index: 10;
+      display:none; position:fixed; bottom:0; left:0; right:0;
+      height:96px; background:var(--ink); border-top:2px solid var(--dark);
+      align-items:center; justify-content:space-around;
+      padding:0 8px; z-index:10;
     }
-    #barAscii.visible { display: flex; }
+    #barAscii.visible { display:flex; }
 
-    /* ── ASCII vertical slider ──────────────────────────────────────── */
-    .ascii-slider {
-      position: fixed; top: 48px; left: 12px; z-index: 10;
-      display: none; flex-direction: column; align-items: center; gap: 6px;
+    /* ── ASCII settings panel ── */
+    #asciiPanel {
+      display:none;
+      position:fixed; bottom:96px; left:0; right:0;
+      max-height:55vh; overflow-y:auto;
+      background:var(--ink); border-top:2px solid var(--dark);
+      z-index:15; -webkit-overflow-scrolling:touch;
     }
-    .ascii-slider.visible { display: flex; }
-    .slider-lbl { color: var(--paper); font-family: monospace; font-size: 13px; line-height:1; user-select:none; }
-    .slider-track {
-      width: 4px; height: 150px; background: var(--dark);
-      border-radius: 2px; position: relative; cursor: pointer; touch-action: none;
+    #asciiPanel.visible { display:block; }
+    .ac-section { padding:6px 12px 4px; }
+    .ac-section + .ac-section { border-top:1px solid var(--dark); }
+    .ac-title { color:var(--mid); font-size:9px; letter-spacing:2px; text-transform:uppercase; margin-bottom:5px; padding-top:2px; }
+    .ac-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+    .ac-lbl {
+      color:var(--paper); font-size:10px; min-width:82px; flex-shrink:0;
+      display:flex; align-items:center; gap:4px;
     }
-    .slider-thumb {
-      width: 18px; height: 18px;
-      background: var(--paper); border: 2px solid var(--mid);
-      border-radius: 50%; position: absolute;
-      left: 50%; transform: translate(-50%, -50%);
-      cursor: grab; touch-action: none;
-    }
-    .slider-thumb:active { cursor: grabbing; background: var(--mid); }
+    .ac-lbl input[type="checkbox"] { accent-color:var(--paper); width:12px; height:12px; cursor:pointer; flex-shrink:0; }
+    .ac-val { color:var(--mid); font-size:9px; min-width:34px; text-align:right; flex-shrink:0; }
+    .ac-row input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
+    .ac-row input[type="range"]:disabled { opacity:.25; cursor:not-allowed; }
+    .ac-row select { flex:1; background:var(--ink); color:var(--paper); border:1px solid var(--dark); font-family:monospace; font-size:10px; padding:3px 4px; }
+    .ac-btn-row { display:flex; gap:5px; padding:8px 12px 10px; flex-wrap:wrap; }
+    .ac-btn { flex:1; min-width:50px; background:none; border:1px solid var(--dark); color:var(--paper); font-family:monospace; font-size:9px; letter-spacing:.5px; text-transform:uppercase; padding:7px 4px; cursor:pointer; transition:background .1s; white-space:nowrap; }
+    .ac-btn:active { background:var(--dark); }
+    .ac-btn.ac-reset { border-color:var(--mid); color:var(--mid); }
   </style>
 </head>
 <body>
 
-<!-- Procesado -->
 <video id="vid" autoplay playsinline muted style="display:none"></video>
 <video id="uploadVid" playsinline style="display:none"></video>
-<canvas id="small"    style="display:none"></canvas>
-<canvas id="scanCvs"  style="display:none"></canvas>
+<canvas id="small"   style="display:none"></canvas>
+<canvas id="scanCvs" style="display:none"></canvas>
 
-<!-- Tabs -->
 <div class="tab-bar">
   <button class="tab active" id="tabCam">📷 CÁMARA</button>
   <button class="tab"        id="tabUp" >📂 SUBIR</button>
   <button class="tab"        id="tabAscii">🔤 ASCII</button>
 </div>
 
-<!-- Canvas cámara (modo cámara) -->
 <canvas id="display"></canvas>
-<!-- Canvas ASCII -->
 <canvas id="asciiCanvas"></canvas>
 
-<!-- Splash -->
 <div id="splash">
   <div class="logo">FLIPNOTE<br>FILTER<span>CAMERA EFFECT</span></div>
   <button class="start-btn" id="btnStart">▶ INICIAR</button>
@@ -291,21 +224,15 @@
 
 <div id="flash"></div>
 
-<!-- Flip (cámara) -->
 <button id="btnFlip" aria-label="Voltear cámara">
   <div class="btn-icon">⟳</div>
 </button>
 
-<!-- Paletas + mode toggle -->
 <div class="palettes" id="palettes">
-  <button id="btnMode" title="Flipnote Legacy: puntos 4×4">STD</button>
+  <button id="btnMode" title="Flipnote Legacy">STD</button>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════════
-     UPLOAD SECTION
-════════════════════════════════════════════════════════════════ -->
 <div id="uploadSection">
-  <!-- Drop zone -->
   <div class="drop-zone" id="dropZone">
     <span class="dz-icon">🎞</span>
     <p><strong>ARRASTRA UN ARCHIVO AQUÍ</strong>
@@ -313,16 +240,12 @@
        JPG · PNG · HEIC · MP4 · MOV · WEBM</p>
     <input type="file" id="fileInput" accept="image/*,video/*">
   </div>
-
-  <!-- FPS (solo para video) -->
   <div class="fps-row" id="fpsRow" style="display:none">
     <label>FPS</label>
     <button class="fps-btn" data-fps="8">8</button>
     <button class="fps-btn active" data-fps="12">12</button>
     <button class="fps-btn" data-fps="20">20</button>
   </div>
-
-  <!-- Progreso -->
   <div id="progressWrap">
     <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
     <div class="progress-info">
@@ -330,62 +253,154 @@
       <span id="progressPct">0%</span>
     </div>
   </div>
-
-  <!-- Preview del resultado -->
   <canvas id="uploadCanvas" width="1024" height="768"></canvas>
 </div>
 
-<!-- Barra cámara -->
 <div class="bar" id="barCam">
-  <button class="btn" id="btnRecord" aria-label="Grabar">
+  <button class="btn" id="btnRecord">
     <div class="btn-icon">⏺</div>
     <span class="btn-label">REC</span>
   </button>
-  <button class="btn btn-center" id="btnCapture" aria-label="Foto">
+  <button class="btn btn-center" id="btnCapture">
     <div class="btn-icon">●</div>
   </button>
-  <button class="btn" id="btnShare" aria-label="Compartir">
+  <button class="btn" id="btnShare">
     <div class="btn-icon">↑</div>
     <span class="btn-label">SHARE</span>
   </button>
 </div>
 
-<!-- ASCII vertical slider (detalle: arriba=más detalle, abajo=menos) -->
-<div class="ascii-slider" id="asciiSlider">
-  <span class="slider-lbl">+</span>
-  <div class="slider-track" id="sliderTrack">
-    <div class="slider-thumb" id="sliderThumb"></div>
+<!-- ASCII settings panel -->
+<div id="asciiPanel">
+  <div class="ac-section">
+    <div class="ac-title">Output</div>
+    <div class="ac-row">
+      <span class="ac-lbl">Characters</span>
+      <span class="ac-val" id="vChars">100</span>
+      <input type="range" id="acChars" min="1" max="500" value="100">
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Gradient</span>
+      <select id="acGradient">
+        <option value="normal">Normal</option>
+        <option value="reverse">Reverse</option>
+        <option value="block">Block</option>
+        <option value="minimal">Minimal</option>
+      </select>
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Space Density</span>
+      <span class="ac-val" id="vSpace">1</span>
+      <input type="range" id="acSpace" min="1" max="10" value="1">
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Quality</span>
+      <select id="acQuality">
+        <option value="none">None</option>
+        <option value="smooth">Smooth</option>
+        <option value="sharp">Sharp</option>
+      </select>
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Frame</span>
+      <span class="ac-val" id="vFrame">0px</span>
+      <input type="range" id="acFrame" min="0" max="50" value="0">
+    </div>
   </div>
-  <span class="slider-lbl">−</span>
+
+  <div class="ac-section">
+    <div class="ac-title">Image</div>
+    <div class="ac-row">
+      <span class="ac-lbl">Brightness</span>
+      <span class="ac-val" id="vBright">100%</span>
+      <input type="range" id="acBright" min="0" max="200" value="100">
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Contrast</span>
+      <span class="ac-val" id="vContrast">100%</span>
+      <input type="range" id="acContrast" min="0" max="200" value="100">
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Saturation</span>
+      <span class="ac-val" id="vSat">100%</span>
+      <input type="range" id="acSat" min="0" max="200" value="100">
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Hue</span>
+      <span class="ac-val" id="vHue">0°</span>
+      <input type="range" id="acHue" min="0" max="360" value="0">
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Grayscale</span>
+      <span class="ac-val" id="vGray">0%</span>
+      <input type="range" id="acGray" min="0" max="100" value="0">
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Sepia</span>
+      <span class="ac-val" id="vSepia">0%</span>
+      <input type="range" id="acSepia" min="0" max="100" value="0">
+    </div>
+    <div class="ac-row">
+      <span class="ac-lbl">Invert</span>
+      <span class="ac-val" id="vInvert">0%</span>
+      <input type="range" id="acInvert" min="0" max="100" value="0">
+    </div>
+  </div>
+
+  <div class="ac-section">
+    <div class="ac-title">Effects</div>
+    <div class="ac-row">
+      <label class="ac-lbl"><input type="checkbox" id="cbThresh"> Threshold</label>
+      <span class="ac-val" id="vThresh">128</span>
+      <input type="range" id="acThresh" min="0" max="255" value="128" disabled>
+    </div>
+    <div class="ac-row">
+      <label class="ac-lbl"><input type="checkbox" id="cbSharp"> Sharpness</label>
+      <span class="ac-val" id="vSharp">9</span>
+      <input type="range" id="acSharp" min="0" max="20" value="9" disabled>
+    </div>
+    <div class="ac-row">
+      <label class="ac-lbl"><input type="checkbox" id="cbEdge"> Edge Detect</label>
+      <span class="ac-val" id="vEdge">1.0</span>
+      <input type="range" id="acEdge" min="0" max="50" value="10" disabled>
+    </div>
+  </div>
+
+  <div class="ac-btn-row">
+    <button class="ac-btn" id="acCopy">📋 COPY</button>
+    <button class="ac-btn" id="acTxt">TXT</button>
+    <button class="ac-btn" id="acPng">PNG</button>
+    <button class="ac-btn ac-reset" id="acReset">RESET</button>
+  </div>
 </div>
 
-<!-- ASCII upload input (reuse fileInput via js) -->
-
-<!-- Barra ASCII -->
 <div id="barAscii">
-  <button class="btn" id="btnAsciiUpload" aria-label="Subir foto">
+  <button class="btn" id="btnAsciiUpload">
     <div class="btn-icon">📂</div>
     <span class="btn-label">SUBIR</span>
   </button>
-  <button class="btn btn-center" id="btnAsciiCapture" aria-label="Capturar">
+  <button class="btn btn-center" id="btnAsciiCapture">
     <div class="btn-icon">●</div>
   </button>
-  <button class="btn" id="btnAsciiShare" aria-label="Compartir" style="opacity:.4" disabled>
+  <button class="btn" id="btnAsciiShare">
     <div class="btn-icon">↑</div>
     <span class="btn-label">SHARE</span>
   </button>
+  <button class="btn" id="btnAsciiEdit">
+    <div class="btn-icon">⚙</div>
+    <span class="btn-label">EDIT</span>
+  </button>
 </div>
 
-<!-- Barra upload -->
 <div id="barUpload">
-  <button class="btn" id="btnChoose" aria-label="Elegir archivo">
+  <button class="btn" id="btnChoose">
     <div class="btn-icon">📂</div>
     <span class="btn-label">ELEGIR</span>
   </button>
-  <button class="btn btn-center" id="btnSaveResult" aria-label="Guardar resultado" style="opacity:.4" disabled>
+  <button class="btn btn-center" id="btnSaveResult" style="opacity:.4" disabled>
     <div class="btn-icon">💾</div>
   </button>
-  <button class="btn" id="btnShareResult" aria-label="Compartir resultado" style="opacity:.4" disabled>
+  <button class="btn" id="btnShareResult" style="opacity:.4" disabled>
     <div class="btn-icon">↑</div>
     <span class="btn-label">SHARE</span>
   </button>
@@ -394,30 +409,54 @@
 <div id="fps"></div>
 
 <script>
-// ════════════════════════════════════════════════════════════════════════
-// PALETAS
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// PALETTES
+// ════════════════════════════════════════════════════════════════════
 const PALETTES = [
-  { name: 'Game Boy',   paper: [155,188, 15], ink: [ 15, 56, 15] },
-  { name: 'B&W',        paper: [255,255,255], ink: [  0,  0,  0] },
-  { name: 'Amber CRT',  paper: [255,176,  0], ink: [ 60, 20,  0] },
-  { name: 'Terminal',   paper: [ 18, 18, 18], ink: [ 57,255, 20] },
-  { name: 'Papel',      paper: [212,200,170], ink: [ 30, 20, 10] },
-  { name: 'Lo-fi',      paper: [242,196,206], ink: [ 45, 10, 20] },
+  { name:'Game Boy',  paper:[155,188,15],  ink:[15,56,15]   },
+  { name:'B&W',       paper:[255,255,255], ink:[0,0,0]      },
+  { name:'Amber CRT', paper:[255,176,0],   ink:[60,20,0]    },
+  { name:'Terminal',  paper:[18,18,18],    ink:[57,255,20]  },
+  { name:'Papel',     paper:[212,200,170], ink:[30,20,10]   },
+  { name:'Lo-fi',     paper:[242,196,206], ink:[45,10,20]   },
 ];
 let activePal  = 0;
 let legacyMode = false;
 
-// ════════════════════════════════════════════════════════════════════════
-// ASCII — set de caracteres (oscuro → claro) y resolución de la cuadrícula
-// ════════════════════════════════════════════════════════════════════════
-// Ordenado de MÁS ligero (espacio) a MÁS denso (@) — índice 0 = pixel blanco
-const ASCII_CHARS = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";
-let asciiCols = 80;
+// ════════════════════════════════════════════════════════════════════
+// ASCII GRADIENTS & SETTINGS
+// ════════════════════════════════════════════════════════════════════
+const NORMAL_GRAD = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";
+const ASCII_GRADIENTS = {
+  normal:  NORMAL_GRAD,
+  reverse: NORMAL_GRAD.split('').reverse().join(''),
+  block:   ' \u2591\u2592\u2593\u2588',
+  minimal: ' .:-=+*#@',
+};
 
-// ════════════════════════════════════════════════════════════════════════
+let asciiCols      = 100;
+let acBrightVal    = 100;
+let acContrastVal  = 100;
+let acSatVal       = 100;
+let acHueVal       = 0;
+let acGrayVal      = 0;
+let acSepiaVal     = 0;
+let acInvertVal    = 0;
+let acThreshOn     = false;
+let acThreshVal    = 128;
+let acSharpOn      = false;
+let acSharpVal     = 9;
+let acEdgeOn       = false;
+let acEdgeVal      = 1.0;
+let acGradientVal  = 'normal';
+let acSpaceVal     = 1;
+let acQualityVal   = 'none';
+let acFrameVal     = 0;
+let lastAsciiText  = '';
+
+// ════════════════════════════════════════════════════════════════════
 // BAYER 8×8
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
 const BAYER8 = new Uint8Array([
    0,32, 8,40, 2,34,10,42, 48,16,56,24,50,18,58,26,
   12,44, 4,36,14,46, 6,38, 60,28,52,20,62,30,54,22,
@@ -425,51 +464,48 @@ const BAYER8 = new Uint8Array([
   15,47, 7,39,13,45, 5,37, 63,31,55,23,61,29,53,21,
 ].map(v => Math.round(v * 255 / 63)));
 
-// Máscara de círculo para bloques 4×4 (esquinas recortadas → puntos redondos)
-// 0 1 1 0
-// 1 1 1 1
-// 1 1 1 1
-// 0 1 1 0
-const CIRCLE4 = new Uint8Array([0,1,1,0, 1,1,1,1, 1,1,1,1, 0,1,1,0]);
-
-// ════════════════════════════════════════════════════════════════════════
-// DIMENSIONES
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// DIMENSIONS
+// ════════════════════════════════════════════════════════════════════
 const DSI_W = 256, DSI_H = 192, SCALE = 4;
-const OUT_W = DSI_W * SCALE, OUT_H = DSI_H * SCALE;   // 1024 × 768
+const OUT_W = DSI_W * SCALE, OUT_H = DSI_H * SCALE; // 1024×768
 
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
 // DOM
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
 const vid       = document.getElementById('vid');
 const uploadVid = document.getElementById('uploadVid');
 const small     = document.getElementById('small');
 const scanCvs   = document.getElementById('scanCvs');
 const display   = document.getElementById('display');
-const upCanvas   = document.getElementById('uploadCanvas');
-const asciiCvs   = document.getElementById('asciiCanvas');
-const splash     = document.getElementById('splash');
-const flash      = document.getElementById('flash');
-const fpsEl      = document.getElementById('fps');
+const upCanvas  = document.getElementById('uploadCanvas');
+const asciiCvs  = document.getElementById('asciiCanvas');
+const splash    = document.getElementById('splash');
+const flash     = document.getElementById('flash');
+const fpsEl     = document.getElementById('fps');
 
-small.width  = DSI_W; small.height  = DSI_H;
-scanCvs.width= OUT_W; scanCvs.height= OUT_H;
-display.width= OUT_W; display.height= OUT_H;
-asciiCvs.width = OUT_W; asciiCvs.height = OUT_H;
+small.width   = DSI_W; small.height   = DSI_H;
+scanCvs.width = OUT_W; scanCvs.height = OUT_H;
+display.width = OUT_W; display.height = OUT_H;
+asciiCvs.width= OUT_W; asciiCvs.height= OUT_H;
 
-const ctxS    = small.getContext('2d',    { willReadFrequently: true });
-const ctxD    = display.getContext('2d',  { willReadFrequently: false });
-const ctxUP   = upCanvas.getContext('2d', { willReadFrequently: false });
+const ctxS    = small.getContext('2d',    { willReadFrequently:true });
+const ctxD    = display.getContext('2d',  { willReadFrequently:false });
+const ctxUP   = upCanvas.getContext('2d', { willReadFrequently:false });
 const ctxSc   = scanCvs.getContext('2d');
-const ctxAscii = asciiCvs.getContext('2d');
-ctxS.imageSmoothingEnabled     = false;
-ctxD.imageSmoothingEnabled     = false;
-ctxUP.imageSmoothingEnabled    = false;
-ctxAscii.imageSmoothingEnabled = false;
+const ctxAscii= asciiCvs.getContext('2d');
+ctxS.imageSmoothingEnabled = false;
+ctxD.imageSmoothingEnabled = false;
+ctxUP.imageSmoothingEnabled= false;
 
-// ════════════════════════════════════════════════════════════════════════
+// Higher-res sampling canvas for ASCII (512×384 = 4× more pixels than DSi)
+const asciiSample = document.createElement('canvas');
+asciiSample.width = 512; asciiSample.height = 384;
+const ctxAS = asciiSample.getContext('2d', { willReadFrequently:true });
+
+// ════════════════════════════════════════════════════════════════════
 // LAYOUT
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
 function relayout() {
   const aspect = OUT_W / OUT_H;
   const avW = window.innerWidth, avH = window.innerHeight - 40 - 96;
@@ -482,31 +518,30 @@ function relayout() {
 window.addEventListener('resize', relayout);
 relayout();
 
-// ════════════════════════════════════════════════════════════════════════
-// SCANLINES (pre-renderizado)
-// ════════════════════════════════════════════════════════════════════════
-(function buildScanlines() {
+// ════════════════════════════════════════════════════════════════════
+// SCANLINES
+// ════════════════════════════════════════════════════════════════════
+(function() {
   ctxSc.fillStyle = 'rgba(0,0,0,0.65)';
   for (let y = 0; y < OUT_H; y += SCALE) ctxSc.fillRect(0, y, OUT_W, 1);
   ctxSc.fillStyle = 'rgba(0,0,0,0.20)';
   for (let y = 1; y < OUT_H; y += 2)    ctxSc.fillRect(0, y, OUT_W, 1);
 })();
 
-// ════════════════════════════════════════════════════════════════════════
-// PALETAS UI
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// PALETTES UI
+// ════════════════════════════════════════════════════════════════════
 PALETTES.forEach((p, i) => {
-  const s = Object.assign(document.createElement('div'), { className: 'pal-swatch' + (i ? '' : ' active'), title: p.name });
+  const s = Object.assign(document.createElement('div'), { className:'pal-swatch'+(i?'':' active'), title:p.name });
   s.style.background  = `rgb(${p.paper})`;
   s.style.borderColor = `rgb(${p.ink})`;
   s.addEventListener('click', () => {
     activePal = i;
-    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j === i));
+    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===i));
   });
   document.getElementById('palettes').appendChild(s);
 });
 
-// ── Mode toggle (STD / LEGACY) ───────────────────────────────────────────
 document.getElementById('btnMode').addEventListener('click', () => {
   legacyMode = !legacyMode;
   const btn = document.getElementById('btnMode');
@@ -514,9 +549,9 @@ document.getElementById('btnMode').addEventListener('click', () => {
   btn.classList.toggle('legacy', legacyMode);
 });
 
-// ════════════════════════════════════════════════════════════════════════
-// CORE: dithering + render en un target canvas
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// CORE: dithering render
+// ════════════════════════════════════════════════════════════════════
 const lowBuf = new Uint8ClampedArray(DSI_W * DSI_H * 4);
 
 function cropCoords(srcW, srcH) {
@@ -538,29 +573,23 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
   const p = PALETTES[activePal];
   const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
 
-  // Auto-levels: stretch gray range so Android-decoded images match iOS
   let minG = 255, maxG = 0;
   if (autoLevels) {
     for (let i = 0; i < src.length; i += 4) {
       const g = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
-      if (g < minG) minG = g;
-      if (g > maxG) maxG = g;
+      if (g < minG) minG = g; if (g > maxG) maxG = g;
     }
   }
   const range = autoLevels ? (maxG - minG || 1) : 255;
   const base  = autoLevels ? minG : 0;
 
   if (legacyMode) {
-    // ── Flipnote Legacy: Floyd-Steinberg a 256×192 + upscale nearest-neighbor ──
-    // Dithering orgánico que sigue la imagen. Los pixels del canvas 256×192
-    // se ven como bloques 4×4 grandes en pantalla gracias al upscale ×4.
-    // Usa la paleta seleccionada (Game Boy por defecto).
     const fsErr = new Float32Array(DSI_W * DSI_H);
     for (let y = 0; y < DSI_H; y++) {
       for (let x = 0; x < DSI_W; x++) {
         const idx = y * DSI_W + x;
         const i   = idx << 2;
-        const raw = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+        const raw  = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
         const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
         const g    = Math.max(0, Math.min(255, gray + fsErr[idx]));
         const isInk = g < 128;
@@ -579,97 +608,205 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
     targetCtx.imageSmoothingEnabled = false;
     targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
     return;
-  } else {
-    // ── Normal: dithering por pixel ──
-    for (let y = 0; y < DSI_H; y++) {
-      const row8 = (y & 7) << 3;
-      for (let x = 0; x < DSI_W; x++) {
-        const i    = (y * DSI_W + x) << 2;
-        const raw  = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
-        const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
-        const isInk = gray < BAYER8[row8 + (x & 7)];
-        lowBuf[i]   = isInk ? IR : PR; lowBuf[i+1] = isInk ? IG : PG;
-        lowBuf[i+2] = isInk ? IB : PB; lowBuf[i+3] = 255;
-      }
-    }
   }
 
+  for (let y = 0; y < DSI_H; y++) {
+    const row8 = (y & 7) << 3;
+    for (let x = 0; x < DSI_W; x++) {
+      const i    = (y * DSI_W + x) << 2;
+      const raw  = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+      const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
+      const isInk = gray < BAYER8[row8 + (x & 7)];
+      lowBuf[i]   = isInk ? IR : PR; lowBuf[i+1] = isInk ? IG : PG;
+      lowBuf[i+2] = isInk ? IB : PB; lowBuf[i+3] = 255;
+    }
+  }
   ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
   targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
   targetCtx.drawImage(scanCvs, 0, 0);
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// ASCII ART RENDER
-// ════════════════════════════════════════════════════════════════════════
-function renderASCII(source, srcW, srcH, mirror) {
-  // 1. Bajar la imagen a 256×192 para sampling
-  const [cx, cy, cw, ch] = cropCoords(srcW, srcH);
-  ctxS.save();
-  if (mirror) { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
-  ctxS.drawImage(source, cx, cy, cw, ch, 0, 0, DSI_W, DSI_H);
-  ctxS.restore();
-  const { data: px } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
+// ════════════════════════════════════════════════════════════════════
+// ASCII: per-pixel luminance with image adjustments
+// ════════════════════════════════════════════════════════════════════
+function asciiPixelLum(r, g, b) {
+  // Brightness
+  if (acBrightVal !== 100) {
+    const f = acBrightVal / 100;
+    r = Math.min(255, r * f); g = Math.min(255, g * f); b = Math.min(255, b * f);
+  }
+  // Contrast
+  if (acContrastVal !== 100) {
+    const f = acContrastVal / 100;
+    r = Math.max(0, Math.min(255, (r - 128) * f + 128));
+    g = Math.max(0, Math.min(255, (g - 128) * f + 128));
+    b = Math.max(0, Math.min(255, (b - 128) * f + 128));
+  }
+  // Hue rotation (CSS-compatible matrix)
+  if (acHueVal !== 0) {
+    const rad = acHueVal * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+    const nr = r*(0.213+cos*0.787-sin*0.213) + g*(0.213-cos*0.213+sin*0.143) + b*(0.213-cos*0.213-sin*0.787);
+    const ng = r*(0.715-cos*0.715-sin*0.715) + g*(0.715+cos*0.285+sin*0.140) + b*(0.715-cos*0.715+sin*0.715);
+    const nb = r*(0.072-cos*0.072+sin*0.928) + g*(0.072-cos*0.072-sin*0.283) + b*(0.072+cos*0.928+sin*0.072);
+    r = Math.max(0,Math.min(255,nr)); g = Math.max(0,Math.min(255,ng)); b = Math.max(0,Math.min(255,nb));
+  }
+  // Saturation
+  if (acSatVal !== 100) {
+    const lum = r*0.299 + g*0.587 + b*0.114, f = acSatVal / 100;
+    r = Math.max(0,Math.min(255, lum + (r-lum)*f));
+    g = Math.max(0,Math.min(255, lum + (g-lum)*f));
+    b = Math.max(0,Math.min(255, lum + (b-lum)*f));
+  }
+  // Sepia
+  if (acSepiaVal > 0) {
+    const s = acSepiaVal / 100;
+    const sr = r*(1-s) + (r*.393+g*.769+b*.189)*s;
+    const sg = g*(1-s) + (r*.349+g*.686+b*.168)*s;
+    const sb = b*(1-s) + (r*.272+g*.534+b*.131)*s;
+    r=Math.min(255,sr); g=Math.min(255,sg); b=Math.min(255,sb);
+  }
+  // Invert
+  if (acInvertVal > 0) {
+    const s = acInvertVal / 100;
+    r=r*(1-s)+(255-r)*s; g=g*(1-s)+(255-g)*s; b=b*(1-s)+(255-b)*s;
+  }
+  // Grayscale
+  if (acGrayVal > 0) {
+    const lum = r*0.299 + g*0.587 + b*0.114, f = acGrayVal / 100;
+    r=r*(1-f)+lum*f; g=g*(1-f)+lum*f; b=b*(1-f)+lum*f;
+  }
+  return Math.max(0, Math.min(255, (r*77 + g*150 + b*29) / 256)) | 0;
+}
 
-  // 2. Auto-levels por frame: normaliza el rango real de grises a 0-255
+// ════════════════════════════════════════════════════════════════════
+// ASCII RENDER
+// ════════════════════════════════════════════════════════════════════
+function renderASCII(source, srcW, srcH, mirror) {
+  const SW = 512, SH = 384;
+
+  // 1. Draw source → 512×384 sample canvas
+  const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
+  ctxAS.save();
+  if (mirror) { ctxAS.translate(SW, 0); ctxAS.scale(-1, 1); }
+  ctxAS.imageSmoothingEnabled = true;
+  ctxAS.imageSmoothingQuality = acQualityVal === 'smooth' ? 'high' : 'medium';
+  ctxAS.drawImage(source, sx, sy, sw, sh, 0, 0, SW, SH);
+  ctxAS.restore();
+
+  const { data: px } = ctxAS.getImageData(0, 0, SW, SH);
+
+  // 2. Build grayscale array with image adjustments
+  const gray = new Float32Array(SW * SH);
+  for (let i = 0; i < SW * SH; i++) {
+    const p = i << 2;
+    gray[i] = asciiPixelLum(px[p], px[p+1], px[p+2]);
+  }
+
+  // 3. Sharpness (unsharp mask via Laplacian)
+  if (acSharpOn && acSharpVal > 0) {
+    const s = acSharpVal * 0.03;
+    const tmp = new Float32Array(gray);
+    for (let y = 1; y < SH-1; y++) {
+      for (let x = 1; x < SW-1; x++) {
+        const i = y*SW+x;
+        const lap = tmp[i]*4 - tmp[i-1] - tmp[i+1] - tmp[i-SW] - tmp[i+SW];
+        gray[i] = Math.max(0, Math.min(255, tmp[i] + s * lap));
+      }
+    }
+  }
+
+  // 4. Edge detection (Sobel blend)
+  if (acEdgeOn && acEdgeVal > 0) {
+    const ef = acEdgeVal / 5;
+    const tmp = new Float32Array(gray);
+    for (let y = 1; y < SH-1; y++) {
+      for (let x = 1; x < SW-1; x++) {
+        const i = y*SW+x;
+        const gx = -tmp[(y-1)*SW+(x-1)] - 2*tmp[y*SW+(x-1)] - tmp[(y+1)*SW+(x-1)]
+                  + tmp[(y-1)*SW+(x+1)] + 2*tmp[y*SW+(x+1)] + tmp[(y+1)*SW+(x+1)];
+        const gy = -tmp[(y-1)*SW+(x-1)] - 2*tmp[(y-1)*SW+x] - tmp[(y-1)*SW+(x+1)]
+                  + tmp[(y+1)*SW+(x-1)] + 2*tmp[(y+1)*SW+x] + tmp[(y+1)*SW+(x+1)];
+        const edge = Math.min(255, Math.sqrt(gx*gx + gy*gy) / 4);
+        gray[i] = Math.max(0, Math.min(255, tmp[i]*(1-ef) + edge*ef));
+      }
+    }
+  }
+
+  // 5. Auto-levels
   let minG = 255, maxG = 0;
-  for (let i = 0; i < px.length; i += 4) {
-    const g = (px[i]*77 + px[i+1]*150 + px[i+2]*29) >> 8;
-    if (g < minG) minG = g;
-    if (g > maxG) maxG = g;
+  for (let i = 0; i < gray.length; i++) {
+    if (gray[i] < minG) minG = gray[i];
+    if (gray[i] > maxG) maxG = gray[i];
   }
   const rng = maxG - minG || 1;
 
-  const pal  = PALETTES[activePal];
-  const rows = Math.round(asciiCols * DSI_H / DSI_W);
-  const cW   = OUT_W / asciiCols;
-  const cH   = OUT_H / rows;
-  const sCW  = DSI_W / asciiCols;
-  const sCH  = DSI_H / rows;
+  // 6. Setup output
+  const grad   = ASCII_GRADIENTS[acGradientVal] || ASCII_GRADIENTS.normal;
+  const nChars = grad.length;
+  const fw     = OUT_W - 2 * acFrameVal;
+  const fh     = OUT_H - 2 * acFrameVal;
+  const rows   = Math.max(1, Math.round(asciiCols * fh / fw));
+  const cW     = fw / asciiCols;
+  const cH     = fh / rows;
+  const sCW    = SW / asciiCols;
+  const sCH    = SH / rows;
 
+  const pal = PALETTES[activePal];
   ctxAscii.fillStyle = `rgb(${pal.paper})`;
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
 
-  const fontSize = Math.max(6, Math.floor(cH * 0.92));
+  const fontSize = Math.max(4, Math.floor(cH * 0.92));
   ctxAscii.font         = `bold ${fontSize}px monospace`;
   ctxAscii.fillStyle    = `rgb(${pal.ink})`;
   ctxAscii.textBaseline = 'top';
+  ctxAscii.imageSmoothingEnabled = false;
 
-  const nChars = ASCII_CHARS.length;
+  const lines = [];
   for (let r = 0; r < rows; r++) {
+    let line = '';
     for (let c = 0; c < asciiCols; c++) {
+      // Average gray in cell
       let gSum = 0, cnt = 0;
-      const x0 = Math.floor(c * sCW),  x1 = Math.min(Math.ceil((c+1) * sCW), DSI_W);
-      const y0 = Math.floor(r * sCH),  y1 = Math.min(Math.ceil((r+1) * sCH), DSI_H);
+      const x0 = Math.floor(c * sCW), x1 = Math.min(Math.ceil((c+1) * sCW), SW);
+      const y0 = Math.floor(r * sCH), y1 = Math.min(Math.ceil((r+1) * sCH), SH);
       for (let py = y0; py < y1; py++)
-        for (let pxX = x0; pxX < x1; pxX++) {
-          const i = (py * DSI_W + pxX) << 2;
-          gSum += (px[i]*77 + px[i+1]*150 + px[i+2]*29) >> 8;
-          cnt++;
-        }
-      const raw  = cnt ? (gSum / cnt) | 0 : 128;
+        for (let px = x0; px < x1; px++)
+          gSum += gray[py * SW + px], cnt++;
 
-      // Auto-levels → 0..1
-      const t  = (raw - minG) / rng;
-      // Doble S-curve: más contraste en sombras Y en luces
-      const s1 = 0.5 - 0.5 * Math.cos(Math.PI * t);          // primera pasada
-      const s2 = 0.5 - 0.5 * Math.cos(Math.PI * s1);         // segunda pasada
-      const ci = Math.min(Math.floor((1 - s2) * nChars), nChars - 1);
-      const ch = ASCII_CHARS[ci];
-      if (ch !== ' ') ctxAscii.fillText(ch, c * cW, r * cH);
+      const raw = cnt ? gSum / cnt : 128;
+
+      let lum;
+      if (acThreshOn) {
+        lum = raw < acThreshVal ? 0 : 255;
+      } else {
+        const t  = (raw - minG) / rng;
+        const s1 = 0.5 - 0.5 * Math.cos(Math.PI * t);
+        const s2 = 0.5 - 0.5 * Math.cos(Math.PI * s1);
+        lum = s2 * 255;
+      }
+
+      const ci = Math.min(Math.floor((1 - lum / 255) * nChars), nChars - 1);
+      const ch = grad[ci];
+      line += ch;
+
+      if (ci >= acSpaceVal) {
+        ctxAscii.fillText(ch, acFrameVal + c * cW, acFrameVal + r * cH);
+      }
     }
+    lines.push(line);
   }
+  lastAsciiText = lines.join('\n');
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// CÁMARA
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// CAMERA
+// ════════════════════════════════════════════════════════════════════
 let facingMode = 'environment', stream = null;
 
 async function startCamera(facing) {
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+    video:{ facingMode:facing, width:{ideal:1280}, height:{ideal:720} }, audio:false,
   });
   vid.srcObject = stream; await vid.play();
 }
@@ -679,16 +816,17 @@ document.getElementById('btnFlip').addEventListener('click', () => {
   startCamera(facingMode);
 });
 
-// ════════════════════════════════════════════════════════════════════════
-// RENDER LOOPS (cámara flipnote + cámara ascii)
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// RENDER LOOPS
+// ════════════════════════════════════════════════════════════════════
 let cameraRunning = false, asciiRunning = false;
 let lastFPSt = performance.now(), frames = 0;
+// Static source for ASCII upload (prevents camera loop from overwriting it)
+let asciiStaticSrc = null, asciiStaticW = 0, asciiStaticH = 0;
 
 function cameraLoop(t) {
   if (!cameraRunning) return;
-  if (vid.videoWidth)
-    renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode === 'user');
+  if (vid.videoWidth) renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
   frames++;
   if (t - lastFPSt >= 1000) {
     fpsEl.textContent = frames + ' fps'; frames = 0; lastFPSt = t;
@@ -698,35 +836,52 @@ function cameraLoop(t) {
 
 function asciiLoop() {
   if (!asciiRunning) return;
-  if (vid.videoWidth) renderASCII(vid, vid.videoWidth, vid.videoHeight, facingMode === 'user');
-  requestAnimationFrame(asciiLoop);
+  if (!asciiStaticSrc && vid.videoWidth)
+    renderASCII(vid, vid.videoWidth, vid.videoHeight, facingMode==='user');
+  if (!asciiStaticSrc) requestAnimationFrame(asciiLoop);
 }
 
-// ════════════════════════════════════════════════════════════════════════
+function clearAsciiStatic() {
+  asciiStaticSrc = null; asciiStaticW = 0; asciiStaticH = 0;
+  if (asciiRunning) requestAnimationFrame(asciiLoop);
+}
+
+function asciiSettingsChanged() {
+  if (asciiStaticSrc) renderASCII(asciiStaticSrc, asciiStaticW, asciiStaticH, false);
+}
+
+// ════════════════════════════════════════════════════════════════════
 // TABS
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
 let activeTab = 'cam';
+let asciiPanelOpen = false;
 
 function switchTab(tab) {
   activeTab = tab;
-  document.getElementById('tabCam'  ).classList.toggle('active', tab === 'cam');
-  document.getElementById('tabUp'   ).classList.toggle('active', tab === 'up');
-  document.getElementById('tabAscii').classList.toggle('active', tab === 'ascii');
+  document.getElementById('tabCam'  ).classList.toggle('active', tab==='cam');
+  document.getElementById('tabUp'   ).classList.toggle('active', tab==='up');
+  document.getElementById('tabAscii').classList.toggle('active', tab==='ascii');
 
-  const isCam   = tab === 'cam';
-  const isUp    = tab === 'up';
-  const isAscii = tab === 'ascii';
-
+  const isCam = tab==='cam', isUp = tab==='up', isAscii = tab==='ascii';
   display.style.display = isCam ? 'block' : 'none';
   asciiCvs.classList.toggle('visible', isAscii);
-  document.getElementById('uploadSection' ).classList.toggle('visible', isUp);
-  document.getElementById('barCam'        ).style.display = isCam   ? '' : 'none';
-  document.getElementById('barUpload'     ).classList.toggle('visible', isUp);
-  document.getElementById('barAscii'      ).classList.toggle('visible', isAscii);
-  document.getElementById('asciiSlider'   ).classList.toggle('visible', isAscii);
-  document.getElementById('btnFlip'       ).style.display = isCam   ? '' : 'none';
-  document.getElementById('palettes'      ).style.display = isUp    ? 'none' : '';
+  document.getElementById('uploadSection').classList.toggle('visible', isUp);
+  document.getElementById('barCam'   ).style.display = isCam ? '' : 'none';
+  document.getElementById('barUpload').classList.toggle('visible', isUp);
+  document.getElementById('barAscii' ).classList.toggle('visible', isAscii);
+  document.getElementById('btnFlip'  ).style.display = isCam ? '' : 'none';
+  document.getElementById('palettes' ).style.display = isUp  ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
+
+  // ASCII panel: only accessible in ASCII tab
+  if (!isAscii) {
+    asciiPanelOpen = false;
+    document.getElementById('asciiPanel').classList.remove('visible');
+    clearAsciiStatic();
+  }
+
+  // Blue theme
+  document.body.classList.toggle('ascii-mode', isAscii);
 
   cameraRunning = isCam;
   asciiRunning  = isAscii;
@@ -739,21 +894,27 @@ document.getElementById('tabCam'  ).addEventListener('click', () => switchTab('c
 document.getElementById('tabUp'   ).addEventListener('click', () => switchTab('up'));
 document.getElementById('tabAscii').addEventListener('click', () => switchTab('ascii'));
 
-// ════════════════════════════════════════════════════════════════════════
-// UTILIDADES: guardar y compartir
-// ════════════════════════════════════════════════════════════════════════
+// ASCII panel toggle
+document.getElementById('btnAsciiEdit').addEventListener('click', () => {
+  asciiPanelOpen = !asciiPanelOpen;
+  document.getElementById('asciiPanel').classList.toggle('visible', asciiPanelOpen);
+});
+
+// ════════════════════════════════════════════════════════════════════
+// UTILS: download / share
+// ════════════════════════════════════════════════════════════════════
 function _download(blob, filename) {
   const url = URL.createObjectURL(blob);
-  const a   = Object.assign(document.createElement('a'), { href: url, download: filename });
+  const a   = Object.assign(document.createElement('a'), { href:url, download:filename });
   document.body.appendChild(a); a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
 }
 
 async function _shareOrDownload(blob, filename) {
-  const file = new File([blob], filename, { type: blob.type });
-  if (navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'Flipnote Filter' }); return; }
-    catch (e) { if (e.name === 'AbortError') return; }
+  const file = new File([blob], filename, { type:blob.type });
+  if (navigator.canShare?.({ files:[file] })) {
+    try { await navigator.share({ files:[file], title:'Flipnote Filter' }); return; }
+    catch(e) { if (e.name==='AbortError') return; }
   }
   _download(blob, filename);
 }
@@ -762,18 +923,18 @@ function canvasToBlob(ctx) {
   return new Promise(r => ctx.canvas.toBlob(r, 'image/png'));
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// CAPTURA (cámara → foto)
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// CAPTURE (camera)
+// ════════════════════════════════════════════════════════════════════
 document.getElementById('btnCapture').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
   const blob = await canvasToBlob(ctxD);
   await _shareOrDownload(blob, 'flipnote_' + Date.now() + '.png');
 });
 
-// ════════════════════════════════════════════════════════════════════════
-// GRABACIÓN (cámara → video)
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// RECORD (camera)
+// ════════════════════════════════════════════════════════════════════
 let recorder = null, recChunks = [], lastBlob = null, recMime = '';
 const btnRec = document.getElementById('btnRecord');
 let recTimer = null;
@@ -781,30 +942,30 @@ let recTimer = null;
 function startRecTimer() {
   let s = 0;
   recTimer = setInterval(() => {
-    s++; const mm = String(s/60|0).padStart(2,'0'), ss = String(s%60).padStart(2,'0');
-    btnRec.querySelector('.btn-label').textContent = mm + ':' + ss;
+    s++; const mm=String(s/60|0).padStart(2,'0'), ss=String(s%60).padStart(2,'0');
+    btnRec.querySelector('.btn-label').textContent = mm+':'+ss;
   }, 1000);
 }
-function stopRecTimer() { clearInterval(recTimer); btnRec.querySelector('.btn-label').textContent = 'REC'; }
+function stopRecTimer() { clearInterval(recTimer); btnRec.querySelector('.btn-label').textContent='REC'; }
 
 btnRec.addEventListener('click', async () => {
-  if (!recorder || recorder.state === 'inactive') {
+  if (!recorder || recorder.state==='inactive') {
     if (typeof display.captureStream !== 'function') {
-      alert('⚠️ Grabación no disponible en este navegador.\nUsa Chrome en Android o guarda fotos con ●.'); return;
+      alert('⚠️ Grabación no disponible.\nUsa Chrome en Android o guarda fotos con ●.'); return;
     }
     const mimes = ['video/mp4','video/webm;codecs=vp9','video/webm'];
     recMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
     recChunks = []; lastBlob = null;
     try {
       recorder = new MediaRecorder(display.captureStream(30), {
-        ...(recMime ? { mimeType: recMime } : {}), videoBitsPerSecond: 6_000_000,
+        ...(recMime ? { mimeType:recMime } : {}), videoBitsPerSecond:6_000_000,
       });
-    } catch (e) { alert('Error: ' + e.message); return; }
+    } catch(e) { alert('Error: ' + e.message); return; }
     recorder.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
     recorder.onstop = async () => {
       if (!recChunks.length) return;
       const ext = recMime.includes('mp4') ? 'mp4' : 'webm';
-      lastBlob = new Blob(recChunks, { type: recMime || 'video/webm' });
+      lastBlob = new Blob(recChunks, { type:recMime||'video/webm' });
       await _shareOrDownload(lastBlob, 'flipnote_' + Date.now() + '.' + ext);
     };
     recorder.start(200); startRecTimer();
@@ -823,34 +984,33 @@ document.getElementById('btnShare').addEventListener('click', async () => {
   await _shareOrDownload(lastBlob, 'flipnote_' + Date.now() + '.' + ext);
 });
 
-// ════════════════════════════════════════════════════════════════════════
-// UPLOAD: FPS SELECTOR
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// UPLOAD: FPS selector
+// ════════════════════════════════════════════════════════════════════
 let uploadFPS = 12;
 document.querySelectorAll('.fps-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     uploadFPS = Number(btn.dataset.fps);
-    document.querySelectorAll('.fps-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.fps-btn').forEach(b => b.classList.toggle('active', b===btn));
   });
 });
 
-// ════════════════════════════════════════════════════════════════════════
-// UPLOAD: ABRIR FILE PICKER
-// ════════════════════════════════════════════════════════════════════════
-const fileInput  = document.getElementById('fileInput');
-const dropZone   = document.getElementById('dropZone');
-const fpsRow     = document.getElementById('fpsRow');
-const progressWrap = document.getElementById('progressWrap');
-const progressFill = document.getElementById('progressFill');
-const progressLabel= document.getElementById('progressLabel');
-const progressPct  = document.getElementById('progressPct');
+// ════════════════════════════════════════════════════════════════════
+// UPLOAD: file handling
+// ════════════════════════════════════════════════════════════════════
+const fileInput   = document.getElementById('fileInput');
+const dropZone    = document.getElementById('dropZone');
+const fpsRow      = document.getElementById('fpsRow');
+const progressWrap= document.getElementById('progressWrap');
+const progressFill= document.getElementById('progressFill');
+const progressLabel=document.getElementById('progressLabel');
+const progressPct = document.getElementById('progressPct');
 
 function setProgress(pct, label) {
   progressFill.style.width = pct + '%';
   progressPct.textContent  = Math.round(pct) + '%';
   if (label) progressLabel.textContent = label;
 }
-
 function showProgress(show) { progressWrap.classList.toggle('visible', show); }
 
 function setUploadResultReady(blob, ext) {
@@ -866,58 +1026,39 @@ function setUploadResultReady(blob, ext) {
 function openFilePicker() { fileInput.click(); }
 dropZone.addEventListener('click', openFilePicker);
 document.getElementById('btnChoose').addEventListener('click', openFilePicker);
-
 dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
 dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop',      e  => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
 fileInput.addEventListener('change',   e  => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; });
 
-// ════════════════════════════════════════════════════════════════════════
-// UPLOAD: MANEJAR ARCHIVO
-// ════════════════════════════════════════════════════════════════════════
 function handleFile(file) {
   if (!file) return;
   const isVideo = file.type.startsWith('video/');
   const isImage = file.type.startsWith('image/');
   if (!isVideo && !isImage) { alert('Formato no soportado.'); return; }
-
   fpsRow.style.display = isVideo ? 'flex' : 'none';
-
-  // Reset state
   showProgress(false); setProgress(0, 'Procesando…');
   const btnSave  = document.getElementById('btnSaveResult');
   const btnShare = document.getElementById('btnShareResult');
   btnSave.disabled  = true; btnSave.style.opacity  = '.4';
   btnShare.disabled = true; btnShare.style.opacity = '.4';
-
   if (isImage) processImage(file);
   else         processVideo(file);
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// UPLOAD: PROCESAR IMAGEN
-// ════════════════════════════════════════════════════════════════════════
 async function processImage(file) {
   const url = URL.createObjectURL(file);
   let source, w, h;
-
-  // createImageBitmap con colorSpaceConversion:'none' devuelve los valores
-  // gamma-encoded del archivo tal cual, sin que Android Chrome los linealice
-  // (lo que causaba que todo se viera muy oscuro en Android vs iOS).
   try {
-    source = await createImageBitmap(file, { colorSpaceConversion: 'none' });
+    source = await createImageBitmap(file, { colorSpaceConversion:'none' });
     w = source.width; h = source.height;
-  } catch (_) {
-    // Fallback: img element (iOS, Safari antiguo)
+  } catch(_) {
     source = await new Promise((res, rej) => {
       const img = new Image();
-      img.onload  = () => res(img);
-      img.onerror = rej;
-      img.src = url;
+      img.onload = () => res(img); img.onerror = rej; img.src = url;
     });
     w = source.naturalWidth; h = source.naturalHeight;
   }
-
   renderDithered(source, w, h, ctxUP, false, true);
   URL.revokeObjectURL(url);
   upCanvas.classList.add('visible');
@@ -926,110 +1067,71 @@ async function processImage(file) {
   setUploadResultReady(blob, 'png');
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// UPLOAD: PROCESAR VIDEO (tiempo real + audio)
-// ════════════════════════════════════════════════════════════════════════
 let uploadProcessing = false;
-
 async function processVideo(file) {
   if (uploadProcessing) return;
   uploadProcessing = true;
-
   if (typeof upCanvas.captureStream !== 'function') {
     alert('⚠️ Tu navegador no soporta grabación de video desde canvas.\nPuedes subir fotos sin problema.\nPara video usa Chrome en Android.');
     uploadProcessing = false; return;
   }
-
   const url = URL.createObjectURL(file);
-  uploadVid.src = url;
-  uploadVid.muted = true;   // silenciar preview; audio va por AudioContext
-
-  await new Promise((res, rej) => {
-    uploadVid.onloadedmetadata = res;
-    uploadVid.onerror = () => rej(new Error('No se pudo cargar el video'));
-  });
-
+  uploadVid.src = url; uploadVid.muted = true;
+  await new Promise((res, rej) => { uploadVid.onloadedmetadata=res; uploadVid.onerror=()=>rej(new Error('Error')); });
   const duration = uploadVid.duration;
   const vW = uploadVid.videoWidth, vH = uploadVid.videoHeight;
-
-  // Mostrar UI de progreso
-  upCanvas.classList.add('visible');
-  dropZone.style.display = 'none';
-  showProgress(true); setProgress(0, 'Iniciando…');
-
-  // Setup AudioContext para enrutar audio del video al recorder
+  upCanvas.classList.add('visible'); dropZone.style.display='none';
+  showProgress(true); setProgress(0,'Iniciando…');
   let audioStream = null;
   try {
-    const audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
-    const srcNode   = audioCtx.createMediaElementSource(uploadVid);
-    const destNode  = audioCtx.createMediaStreamDestination();
+    const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const srcNode  = audioCtx.createMediaElementSource(uploadVid);
+    const destNode = audioCtx.createMediaStreamDestination();
     srcNode.connect(destNode);
-    // No conectar a audioCtx.destination para que no se oiga durante procesado
     audioStream = destNode.stream;
-  } catch (_) { /* sin audio si falla */ }
-
-  // Captura de canvas
+  } catch(_) {}
   const canvasStream   = upCanvas.captureStream(uploadFPS);
-  const combinedTracks = [...canvasStream.getVideoTracks(), ...(audioStream?.getAudioTracks() ?? [])];
+  const combinedTracks = [...canvasStream.getVideoTracks(), ...(audioStream?.getAudioTracks()??[])];
   const combined       = new MediaStream(combinedTracks);
-
   const mimes  = ['video/mp4','video/webm;codecs=vp9','video/webm'];
   const mime   = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
   const chunks = [];
-
-  const rec = new MediaRecorder(combined, {
-    ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 4_000_000,
-  });
+  const rec = new MediaRecorder(combined, { ...(mime?{mimeType:mime}:{}), videoBitsPerSecond:4_000_000 });
   rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-
-  // Throttle frames al FPS elegido
   let lastFrameTime = -1;
   const frameInterval = 1 / uploadFPS;
   let rafID;
-
   function tick() {
     if (uploadVid.paused || uploadVid.ended) return;
     const ct = uploadVid.currentTime;
     if (ct - lastFrameTime >= frameInterval - 0.005) {
       lastFrameTime = ct;
       renderDithered(uploadVid, vW, vH, ctxUP, false);
-      const pct = duration > 0 ? (ct / duration) * 100 : 0;
-      const rem = duration > 0 ? Math.ceil((duration - ct)) : '?';
-      setProgress(pct, `Procesando… (${rem}s restantes)`);
+      setProgress(duration > 0 ? (ct/duration)*100 : 0, `Procesando… (${Math.ceil(duration-ct)}s)`);
     }
     rafID = requestAnimationFrame(tick);
   }
-
   const done = new Promise(resolve => {
     rec.onstop = async () => {
-      cancelAnimationFrame(rafID);
-      URL.revokeObjectURL(url);
+      cancelAnimationFrame(rafID); URL.revokeObjectURL(url);
       if (!chunks.length) { resolve(null); return; }
       const ext  = mime.includes('mp4') ? 'mp4' : 'webm';
-      const blob = new Blob(chunks, { type: mime || 'video/webm' });
-      blob._ext  = ext;
-      resolve(blob);
+      const blob = new Blob(chunks, { type:mime||'video/webm' });
+      blob._ext  = ext; resolve(blob);
     };
   });
-
-  rec.start(200);
-  uploadVid.currentTime = 0;
-  await uploadVid.play();
-  requestAnimationFrame(tick);
-
+  rec.start(200); uploadVid.currentTime = 0;
+  await uploadVid.play(); requestAnimationFrame(tick);
   uploadVid.onended = () => { rec.stop(); };
-
   const blob = await done;
-  setProgress(100, 'Listo');
-  uploadProcessing = false;
-
+  setProgress(100, 'Listo'); uploadProcessing = false;
   if (!blob) { alert('No se pudo procesar el video.'); return; }
   setUploadResultReady(blob, blob._ext ?? 'webm');
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// INICIAR CÁMARA (desde splash)
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// START (splash)
+// ════════════════════════════════════════════════════════════════════
 document.getElementById('btnStart').addEventListener('click', async () => {
   await startCamera(facingMode);
   splash.classList.add('hidden');
@@ -1037,88 +1139,163 @@ document.getElementById('btnStart').addEventListener('click', async () => {
   requestAnimationFrame(cameraLoop);
 });
 
-// ════════════════════════════════════════════════════════════════════════
-// ASCII — SLIDER VERTICAL (detalle / densidad de columnas)
-// ════════════════════════════════════════════════════════════════════════
-const COLS_MIN = 40, COLS_MAX = 200;
-const sliderTrack = document.getElementById('sliderTrack');
-const sliderThumb = document.getElementById('sliderThumb');
-
-function setSliderCols(cols) {
-  asciiCols = Math.max(COLS_MIN, Math.min(COLS_MAX, cols));
-  // arriba (top=0%) = máximo detalle (COLS_MAX), abajo = mínimo (COLS_MIN)
-  const pct = 1 - (asciiCols - COLS_MIN) / (COLS_MAX - COLS_MIN);
-  sliderThumb.style.top = (pct * 100) + '%';
-}
-
-sliderTrack.addEventListener('pointerdown', e => {
-  e.preventDefault();
-  sliderTrack.setPointerCapture(e.pointerId);
-  const move = ev => {
-    const rect = sliderTrack.getBoundingClientRect();
-    const pct  = Math.max(0, Math.min(1, (ev.clientY - rect.top) / rect.height));
-    setSliderCols(Math.round(COLS_MAX - pct * (COLS_MAX - COLS_MIN)));
-  };
-  move(e);
-  sliderTrack.addEventListener('pointermove', move);
-  sliderTrack.addEventListener('pointerup',   () => sliderTrack.removeEventListener('pointermove', move), { once: true });
-});
-
-setSliderCols(100); // posición inicial: detalle medio-alto
-
-// ════════════════════════════════════════════════════════════════════════
-// ASCII — CAPTURA (foto desde cámara)
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// ASCII CAPTURE & SHARE
+// ════════════════════════════════════════════════════════════════════
 document.getElementById('btnAsciiCapture').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
   const blob = await canvasToBlob(ctxAscii);
   await _shareOrDownload(blob, 'ascii_' + Date.now() + '.png');
 });
 
-// ════════════════════════════════════════════════════════════════════════
-// ASCII — SUBIR FOTO
-// ════════════════════════════════════════════════════════════════════════
-const asciiFileInput = document.createElement('input');
-asciiFileInput.type   = 'file';
-asciiFileInput.accept = 'image/*';
+document.getElementById('btnAsciiShare').addEventListener('click', async () => {
+  const blob = await canvasToBlob(ctxAscii);
+  await _shareOrDownload(blob, 'ascii_' + Date.now() + '.png');
+});
 
-document.getElementById('btnAsciiUpload').addEventListener('click', () => asciiFileInput.click());
+// ════════════════════════════════════════════════════════════════════
+// ASCII UPLOAD (bug fix: use asciiStaticSrc so loop doesn't overwrite)
+// ════════════════════════════════════════════════════════════════════
+const asciiFileInput = document.createElement('input');
+asciiFileInput.type = 'file'; asciiFileInput.accept = 'image/*';
+
+document.getElementById('btnAsciiUpload').addEventListener('click', () => {
+  clearAsciiStatic(); // resume camera if needed, then replace on file select
+  asciiFileInput.click();
+});
 
 asciiFileInput.addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
-
   const url = URL.createObjectURL(file);
   let source, w, h;
   try {
-    source = await createImageBitmap(file, { colorSpaceConversion: 'none' });
+    source = await createImageBitmap(file, { colorSpaceConversion:'none' });
     w = source.width; h = source.height;
-  } catch (_) {
+  } catch(_) {
     source = await new Promise((res, rej) => {
-      const img = new Image();
-      img.onload = () => res(img); img.onerror = rej; img.src = url;
+      const img = new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=url;
     });
     w = source.naturalWidth; h = source.naturalHeight;
   }
-  renderASCII(source, w, h, false);
   URL.revokeObjectURL(url);
-
-  // Activar botón share
-  const btnShare = document.getElementById('btnAsciiShare');
-  btnShare.disabled = false; btnShare.style.opacity = '1';
-  btnShare.onclick = async () => {
-    const blob = await canvasToBlob(ctxAscii);
-    await _shareOrDownload(blob, 'ascii_' + Date.now() + '.png');
-  };
+  // Store as static source so asciiLoop doesn't overwrite with camera
+  asciiStaticSrc = source; asciiStaticW = w; asciiStaticH = h;
+  renderASCII(source, w, h, false);
 });
 
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// ASCII SETTINGS PANEL CONTROLS
+// ════════════════════════════════════════════════════════════════════
+function bindSlider(id, valId, suffix, getter, setter) {
+  const el = document.getElementById(id);
+  const vEl= document.getElementById(valId);
+  el.addEventListener('input', () => {
+    const v = getter(el.value);
+    vEl.textContent = v + suffix;
+    setter(v);
+    asciiSettingsChanged();
+  });
+}
+
+bindSlider('acChars',   'vChars',   '',   v => parseInt(v),        v => { asciiCols = v; });
+bindSlider('acSpace',   'vSpace',   '',   v => parseInt(v),        v => { acSpaceVal = v; });
+bindSlider('acFrame',   'vFrame',   'px', v => parseInt(v),        v => { acFrameVal = v; });
+bindSlider('acBright',  'vBright',  '%',  v => parseInt(v),        v => { acBrightVal = v; });
+bindSlider('acContrast','vContrast','%',  v => parseInt(v),        v => { acContrastVal = v; });
+bindSlider('acSat',     'vSat',     '%',  v => parseInt(v),        v => { acSatVal = v; });
+bindSlider('acHue',     'vHue',     '°',  v => parseInt(v),        v => { acHueVal = v; });
+bindSlider('acGray',    'vGray',    '%',  v => parseInt(v),        v => { acGrayVal = v; });
+bindSlider('acSepia',   'vSepia',   '%',  v => parseInt(v),        v => { acSepiaVal = v; });
+bindSlider('acInvert',  'vInvert',  '%',  v => parseInt(v),        v => { acInvertVal = v; });
+bindSlider('acThresh',  'vThresh',  '',   v => parseInt(v),        v => { acThreshVal = v; });
+bindSlider('acSharp',   'vSharp',   '',   v => parseInt(v),        v => { acSharpVal = v; });
+bindSlider('acEdge',    'vEdge',    '',   v => (parseInt(v)/10).toFixed(1), v => { acEdgeVal = parseFloat(v); });
+
+// Selects
+document.getElementById('acGradient').addEventListener('change', e => {
+  acGradientVal = e.target.value; asciiSettingsChanged();
+});
+document.getElementById('acQuality').addEventListener('change', e => {
+  acQualityVal = e.target.value; asciiSettingsChanged();
+});
+
+// Checkboxes
+function bindCheckbox(cbId, sliderId, setter) {
+  const cb = document.getElementById(cbId);
+  const sl = document.getElementById(sliderId);
+  cb.addEventListener('change', () => {
+    setter(cb.checked);
+    sl.disabled = !cb.checked;
+    asciiSettingsChanged();
+  });
+}
+bindCheckbox('cbThresh', 'acThresh', v => { acThreshOn = v; });
+bindCheckbox('cbSharp',  'acSharp',  v => { acSharpOn  = v; });
+bindCheckbox('cbEdge',   'acEdge',   v => { acEdgeOn   = v; });
+
+// Action buttons
+document.getElementById('acCopy').addEventListener('click', () => {
+  asciiCvs.toBlob(async blob => {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+      const btn = document.getElementById('acCopy');
+      const orig = btn.textContent;
+      btn.textContent = '✓ COPIED';
+      setTimeout(() => btn.textContent = orig, 1500);
+    } catch(_) { alert('Copy not supported on this device. Use PNG instead.'); }
+  });
+});
+
+document.getElementById('acTxt').addEventListener('click', () => {
+  if (!lastAsciiText) return;
+  _download(new Blob([lastAsciiText], { type:'text/plain' }), 'ascii_' + Date.now() + '.txt');
+});
+
+document.getElementById('acPng').addEventListener('click', async () => {
+  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+  const blob = await canvasToBlob(ctxAscii);
+  await _shareOrDownload(blob, 'ascii_' + Date.now() + '.png');
+});
+
+document.getElementById('acReset').addEventListener('click', () => {
+  const defaults = {
+    acChars:100, acSpace:1, acFrame:0, acBright:100, acContrast:100,
+    acSat:100, acHue:0, acGray:0, acSepia:0, acInvert:0,
+    acThresh:128, acSharp:9, acEdge:10,
+  };
+  const labels = {
+    acChars:['vChars',''], acSpace:['vSpace',''], acFrame:['vFrame','px'],
+    acBright:['vBright','%'], acContrast:['vContrast','%'], acSat:['vSat','%'],
+    acHue:['vHue','°'], acGray:['vGray','%'], acSepia:['vSepia','%'],
+    acInvert:['vInvert','%'], acThresh:['vThresh',''], acSharp:['vSharp',''],
+    acEdge:['vEdge',''],
+  };
+  Object.entries(defaults).forEach(([id, val]) => {
+    const el = document.getElementById(id); if (!el) return;
+    el.value = val;
+    const [lblId, suffix] = labels[id];
+    const display = id === 'acEdge' ? (val/10).toFixed(1) : val;
+    document.getElementById(lblId).textContent = display + suffix;
+  });
+  asciiCols=100; acSpaceVal=1; acFrameVal=0; acBrightVal=100; acContrastVal=100;
+  acSatVal=100; acHueVal=0; acGrayVal=0; acSepiaVal=0; acInvertVal=0;
+  acThreshVal=128; acSharpVal=9; acEdgeVal=1.0;
+  acThreshOn=false; acSharpOn=false; acEdgeOn=false;
+  acGradientVal='normal'; acQualityVal='none';
+  document.getElementById('cbThresh').checked = false; document.getElementById('acThresh').disabled = true;
+  document.getElementById('cbSharp' ).checked = false; document.getElementById('acSharp' ).disabled = true;
+  document.getElementById('cbEdge'  ).checked = false; document.getElementById('acEdge'  ).disabled = true;
+  document.getElementById('acGradient').value = 'normal';
+  document.getElementById('acQuality' ).value = 'none';
+  asciiSettingsChanged();
+});
+
+// ════════════════════════════════════════════════════════════════════
 // SERVICE WORKER
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').then(reg => {
-    // Cuando el nuevo SW activa, recarga la página para servir la versión fresca
     reg.addEventListener('updatefound', () => {
       reg.installing.addEventListener('statechange', function() {
         if (this.state === 'activated') location.reload();

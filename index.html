@@ -419,64 +419,111 @@ document.getElementById('btnCapture').addEventListener('click', async () => {
   setTimeout(() => flash.classList.remove('on'), 120);
 
   display.toBlob(async blob => {
-    const file = new File([blob], 'flipnote_' + Date.now() + '.png', { type: 'image/png' });
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Flipnote Filter' }).catch(() => {});
-    } else {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
-    }
+    await _shareOrDownload(blob, 'flipnote_' + Date.now() + '.png');
   }, 'image/png');
 });
 
 // ═══════════════════════════════════════════════════════════════════════
+// UTILIDAD: descargar un blob de forma confiable en móvil
+// ═══════════════════════════════════════════════════════════════════════
+function _download(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a   = Object.assign(document.createElement('a'), { href: url, download: filename });
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+}
+
+async function _shareOrDownload(blob, filename) {
+  const file = new File([blob], filename, { type: blob.type });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Flipnote Filter' });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return; // usuario canceló — no descargar
+    }
+  }
+  _download(blob, filename);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // GRABACIÓN (video)
 // ═══════════════════════════════════════════════════════════════════════
-let recorder = null, chunks = [], lastBlob = null;
+let recorder = null, chunks = [], lastBlob = null, recMime = '';
 const btnRec = document.getElementById('btnRecord');
 
-btnRec.addEventListener('click', () => {
+// Timer visible mientras graba
+let recInterval = null;
+function startRecTimer() {
+  let secs = 0;
+  recInterval = setInterval(() => {
+    secs++;
+    const mm = String(Math.floor(secs / 60)).padStart(2,'0');
+    const ss = String(secs % 60).padStart(2,'0');
+    btnRec.querySelector('.btn-label').textContent = mm + ':' + ss;
+  }, 1000);
+}
+function stopRecTimer() {
+  clearInterval(recInterval);
+  btnRec.querySelector('.btn-label').textContent = 'REC';
+}
+
+btnRec.addEventListener('click', async () => {
   if (!recorder || recorder.state === 'inactive') {
+
+    // Verificar soporte de captureStream (no disponible en iOS Safari)
+    if (typeof display.captureStream !== 'function') {
+      alert('⚠️ Tu navegador no soporta grabación de video desde canvas.\n\niOS Safari: usa el botón ● para guardar fotos.\nAndroid: abre esta página en Chrome.');
+      return;
+    }
+
     const mimes = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
-    const mime  = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
-    chunks = []; lastBlob = null;
-    recorder = new MediaRecorder(display.captureStream(30), {
-      ...(mime ? { mimeType: mime } : {}),
-      videoBitsPerSecond: 6_000_000,
-    });
+    recMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
+    chunks  = []; lastBlob = null;
+
+    try {
+      recorder = new MediaRecorder(display.captureStream(30), {
+        ...(recMime ? { mimeType: recMime } : {}),
+        videoBitsPerSecond: 6_000_000,
+      });
+    } catch (e) {
+      alert('Error al iniciar grabación: ' + e.message);
+      return;
+    }
+
     recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-    recorder.onstop = () => {
-      const ext  = (recorder.mimeType ?? '').includes('mp4') ? 'mp4' : 'webm';
-      lastBlob   = new Blob(chunks, { type: recorder.mimeType });
-      lastBlob._ext = ext;
-      document.getElementById('btnShare').style.color = 'var(--paper)';
+
+    recorder.onstop = async () => {
+      if (!chunks.length) { alert('No se capturó video. Intenta de nuevo.'); return; }
+      const ext = recMime.includes('mp4') ? 'mp4' : 'webm';
+      lastBlob  = new Blob(chunks, { type: recMime || 'video/webm' });
+      const fname = 'flipnote_' + Date.now() + '.' + ext;
+      // Compartir / descargar automáticamente al parar
+      await _shareOrDownload(lastBlob, fname);
     };
+
     recorder.start(200);
+    startRecTimer();
     btnRec.classList.add('recording');
-    btnRec.querySelector('.btn-label').textContent = 'STOP';
-    btnRec.querySelector('.btn-icon').textContent  = '⏹';
+    btnRec.querySelector('.btn-icon').textContent = '⏹';
+
   } else {
     recorder.stop();
+    stopRecTimer();
     btnRec.classList.remove('recording');
-    btnRec.querySelector('.btn-label').textContent = 'REC';
-    btnRec.querySelector('.btn-icon').textContent  = '⏺';
+    btnRec.querySelector('.btn-icon').textContent = '⏺';
   }
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// SHARE (último video grabado)
+// SHARE (re-compartir el último video grabado)
 // ═══════════════════════════════════════════════════════════════════════
 document.getElementById('btnShare').addEventListener('click', async () => {
   if (!lastBlob) { alert('Graba un video primero con ⏺ REC'); return; }
-  const ext  = lastBlob._ext ?? 'webm';
-  const file = new File([lastBlob], 'flipnote_' + Date.now() + '.' + ext,
-                        { type: lastBlob.type });
-  if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: 'Flipnote Filter' }).catch(() => {});
-  } else {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(lastBlob); a.download = file.name; a.click();
-  }
+  const ext   = recMime.includes('mp4') ? 'mp4' : 'webm';
+  const fname = 'flipnote_' + Date.now() + '.' + ext;
+  await _shareOrDownload(lastBlob, fname);
 });
 
 // ═══════════════════════════════════════════════════════════════════════

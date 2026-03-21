@@ -468,26 +468,51 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
   const base  = autoLevels ? minG : 0;
 
   if (legacyMode) {
-    // ── Flipnote Legacy: bloques 4×4 px → puntos grandes visibles ──
+    // ── Flipnote Legacy: Floyd-Steinberg sobre bloques 4×4 ──
+    // El error se propaga a los vecinos → los puntos siguen los contornos
+    // de la imagen en lugar de crear una cuadrícula fija.
     const B = 4;
-    for (let by = 0; by < DSI_H; by += B) {
-      for (let bx = 0; bx < DSI_W; bx += B) {
-        // Promedio de grises del bloque
+    const mW = (DSI_W / B) | 0;  // 64 macro-columnas
+    const mH = (DSI_H / B) | 0;  // 48 macro-filas
+
+    // 1. Calcular gris promedio por bloque + auto-levels
+    const gray2 = new Float32Array(mW * mH);
+    let minG2 = 255, maxG2 = 0;
+    for (let my = 0; my < mH; my++) {
+      for (let mx = 0; mx < mW; mx++) {
         let gSum = 0;
         for (let dy = 0; dy < B; dy++)
           for (let dx = 0; dx < B; dx++) {
-            const i = ((by+dy) * DSI_W + (bx+dx)) << 2;
+            const i = ((my*B+dy) * DSI_W + (mx*B+dx)) << 2;
             gSum += (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
           }
-        const raw  = (gSum >> 4) | 0;   // /16
-        const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
-        // Bayer sobre coordenadas de bloque (no de pixel)
-        const row8  = ((by >> 2) & 7) << 3;
-        const isInk = gray < BAYER8[row8 + ((bx >> 2) & 7)];
+        const g = (gSum >> 4);
+        gray2[my * mW + mx] = g;
+        if (autoLevels) { if (g < minG2) minG2 = g; if (g > maxG2) maxG2 = g; }
+      }
+    }
+    const rng2 = autoLevels ? (maxG2 - minG2 || 1) : 255;
+    const bas2 = autoLevels ? minG2 : 0;
+    for (let i = 0; i < gray2.length; i++)
+      gray2[i] = (gray2[i] - bas2) * 255 / rng2;
+
+    // 2. Floyd-Steinberg: error → right 7/16, bl 3/16, down 5/16, br 1/16
+    const err = new Float32Array(mW * mH);
+    for (let my = 0; my < mH; my++) {
+      for (let mx = 0; mx < mW; mx++) {
+        const idx  = my * mW + mx;
+        const g    = Math.max(0, Math.min(255, gray2[idx] + err[idx]));
+        const isInk = g < 128;
+        const e    = g - (isInk ? 0 : 255);
+        if (mx + 1 < mW)  err[idx + 1]        += e * 7 / 16;
+        if (my + 1 < mH) {
+          if (mx > 0)     err[idx + mW - 1]    += e * 3 / 16;
+                          err[idx + mW]         += e * 5 / 16;
+          if (mx + 1 < mW) err[idx + mW + 1]   += e * 1 / 16;
+        }
         for (let dy = 0; dy < B; dy++)
           for (let dx = 0; dx < B; dx++) {
-            const i = ((by+dy) * DSI_W + (bx+dx)) << 2;
-            // Punto redondo: las 4 esquinas siempre son papel
+            const i = ((my*B+dy) * DSI_W + (mx*B+dx)) << 2;
             const useInk = isInk && CIRCLE4[dy * 4 + dx];
             lowBuf[i]   = useInk ? IR : PR;
             lowBuf[i+1] = useInk ? IG : PG;

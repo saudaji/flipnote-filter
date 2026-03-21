@@ -348,6 +348,13 @@ const BAYER8 = new Uint8Array([
   15,47, 7,39,13,45, 5,37, 63,31,55,23,61,29,53,21,
 ].map(v => Math.round(v * 255 / 63)));
 
+// Máscara de círculo para bloques 4×4 (esquinas recortadas → puntos redondos)
+// 0 1 1 0
+// 1 1 1 1
+// 1 1 1 1
+// 0 1 1 0
+const CIRCLE4 = new Uint8Array([0,1,1,0, 1,1,1,1, 1,1,1,1, 0,1,1,0]);
+
 // ════════════════════════════════════════════════════════════════════════
 // DIMENSIONES
 // ════════════════════════════════════════════════════════════════════════
@@ -477,11 +484,15 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
         // Bayer sobre coordenadas de bloque (no de pixel)
         const row8  = ((by >> 2) & 7) << 3;
         const isInk = gray < BAYER8[row8 + ((bx >> 2) & 7)];
-        const R = isInk ? IR : PR, G = isInk ? IG : PG, Bv = isInk ? IB : PB;
         for (let dy = 0; dy < B; dy++)
           for (let dx = 0; dx < B; dx++) {
             const i = ((by+dy) * DSI_W + (bx+dx)) << 2;
-            lowBuf[i] = R; lowBuf[i+1] = G; lowBuf[i+2] = Bv; lowBuf[i+3] = 255;
+            // Punto redondo: las 4 esquinas siempre son papel
+            const useInk = isInk && CIRCLE4[dy * 4 + dx];
+            lowBuf[i]   = useInk ? IR : PR;
+            lowBuf[i+1] = useInk ? IG : PG;
+            lowBuf[i+2] = useInk ? IB : PB;
+            lowBuf[i+3] = 255;
           }
       }
     }

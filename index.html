@@ -9,18 +9,19 @@
   <meta name="apple-mobile-web-app-title" content="Flipnote">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>Flipnote Filter</title>
+  <title>flip1</title>
   <style>
+    @font-face { font-family:'BN Nektar'; src:local('BN Nektar'); }
     *, *::before, *::after {
       margin:0; padding:0; box-sizing:border-box;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
-    :root { --ink:#0F380F; --dark:#306230; --mid:#8BAC0F; --paper:#9BBC0F; }
+    :root { --ink:#000000; --dark:#2a1f00; --mid:#8a6400; --paper:#c8a000; }
     html, body {
       width:100%; height:100dvh; overflow:hidden;
       background:var(--ink);
       display:flex; flex-direction:column; align-items:center;
-      font-family:monospace;
+      font-family:'BN Nektar', monospace;
     }
 
     /* ── Blue theme in ASCII mode ── */
@@ -41,7 +42,7 @@
       cursor:pointer; transition:color .1s,background .1s;
     }
     .tab:last-child { border-right:none; }
-    .tab.active { color:var(--paper); background:rgba(155,188,15,.08); }
+    .tab.active { color:var(--paper); background:rgba(200,160,0,.08); }
     .tab:active { background:var(--dark); }
 
     /* ── Camera canvas ── */
@@ -417,7 +418,7 @@
       font-family:monospace; font-size:9px; font-weight:bold; letter-spacing:.5px;
       text-transform:uppercase; padding:3px 0; cursor:pointer;
     }
-    .sono-preset-btn.active { color:var(--paper); border-color:var(--paper); background:rgba(155,188,15,.08); }
+    .sono-preset-btn.active { color:var(--paper); border-color:var(--paper); background:rgba(200,160,0,.08); }
 
     /* ── SONO blend mode buttons ── */
     .sono-blend-row { display:flex; align-items:center; gap:5px; }
@@ -430,9 +431,28 @@
 
     /* ── WMP RANDOM button ── */
     #btnWmpRandom.active { color:#ff9900; border-color:#ff9900; background:rgba(255,153,0,.06); }
+
+    /* ── Decorative border overlay ── */
+    #decoOverlay { position:fixed; inset:0; pointer-events:none; z-index:6; overflow:hidden; }
+    .deco-edge {
+      position:absolute; overflow:hidden; font-family:'BN Nektar',monospace;
+      font-size:8px; color:var(--paper); opacity:0.28; white-space:nowrap;
+      display:flex; align-items:center;
+    }
+    .deco-top  { top:40px; left:0; right:0; height:11px; }
+    .deco-bot  { bottom:96px; left:0; right:0; height:11px; align-items:flex-end; }
+    .deco-left  { top:51px; bottom:107px; left:0; width:11px; writing-mode:vertical-rl; transform:rotate(180deg); }
+    .deco-right { top:51px; bottom:107px; right:0; width:11px; writing-mode:vertical-rl; }
   </style>
 </head>
 <body>
+
+<div id="decoOverlay" aria-hidden="true">
+  <div class="deco-edge deco-top"></div>
+  <div class="deco-edge deco-bot"></div>
+  <div class="deco-edge deco-left"></div>
+  <div class="deco-edge deco-right"></div>
+</div>
 
 <video id="vid" autoplay playsinline muted style="display:none"></video>
 <video id="uploadVid" playsinline style="display:none"></video>
@@ -797,6 +817,14 @@
 <script>
 // ════════════════════════════════════════════════════════════════════
 // PALETTES
+// ── Decorative border text init ────────────────────────────────────────
+(function() {
+  const DECO = '☼︎ ☞︎ ☺︎ ✿ 𓃰 ✰ ♫ *.✧˚˳ °｡☆ ';
+  document.querySelectorAll('.deco-edge').forEach(el => {
+    el.textContent = DECO.repeat(30);
+  });
+})();
+
 // ════════════════════════════════════════════════════════════════════
 const PALETTES = [
   { name:'Game Boy',  paper:[155,188,15],  ink:[15,56,15]   },
@@ -1661,6 +1689,11 @@ sonoFlipCvs.width  = OUT_W; sonoFlipCvs.height = OUT_H;
 const ctxSonoFlip  = sonoFlipCvs.getContext('2d', { willReadFrequently:false });
 ctxSonoFlip.imageSmoothingEnabled = false;
 
+const sonoScopeCvs = document.createElement('canvas');  // scope offscreen
+sonoScopeCvs.width = OUT_W; sonoScopeCvs.height = OUT_H;
+const ctxSonoScope = sonoScopeCvs.getContext('2d', { willReadFrequently:true });
+ctxSonoScope.imageSmoothingEnabled = false;
+
 const sonoLegCvs   = document.createElement('canvas');
 sonoLegCvs.width   = OUT_W; sonoLegCvs.height = OUT_H;
 const ctxSonoLeg   = sonoLegCvs.getContext('2d', { willReadFrequently:false });
@@ -1809,29 +1842,64 @@ function renderSonoFlip(field, audio, chaosN) {
   ctxSonoFlip.drawImage(scanCvs, 0, 0);
 }
 
-// ── SCOPE render on SONO canvas ───────────────────────────────────────
+// ── SCOPE render → sonoScopeCvs (offscreen, for blend support) ────────
 function renderSonoScope(timeData, sens) {
-  ctxSono.imageSmoothingEnabled = false;
-  ctxSono.fillStyle = '#000';
-  ctxSono.fillRect(0, 0, OUT_W, OUT_H);
+  const cx = ctxSonoScope;
+  cx.imageSmoothingEnabled = false;
+  cx.fillStyle = '#000';
+  cx.fillRect(0, 0, OUT_W, OUT_H);
   // Grid
-  ctxSono.strokeStyle = '#002200'; ctxSono.lineWidth = 1;
-  for (let x = 0; x <= OUT_W; x += OUT_W / 8)  { ctxSono.beginPath(); ctxSono.moveTo(x, 0); ctxSono.lineTo(x, OUT_H); ctxSono.stroke(); }
-  for (let y = 0; y <= OUT_H; y += OUT_H / 6)  { ctxSono.beginPath(); ctxSono.moveTo(0, y); ctxSono.lineTo(OUT_W, y); ctxSono.stroke(); }
+  cx.strokeStyle = '#002200'; cx.lineWidth = 1;
+  for (let x = 0; x <= OUT_W; x += OUT_W / 8)  { cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, OUT_H); cx.stroke(); }
+  for (let y = 0; y <= OUT_H; y += OUT_H / 6)  { cx.beginPath(); cx.moveTo(0, y); cx.lineTo(OUT_W, y); cx.stroke(); }
   // Waveform
   const step = OUT_W / timeData.length;
-  ctxSono.strokeStyle = '#00ff41'; ctxSono.lineWidth = 2;
-  ctxSono.shadowColor = '#00ff41'; ctxSono.shadowBlur = 8;
-  ctxSono.beginPath();
+  cx.strokeStyle = '#00ff41'; cx.lineWidth = 2;
+  cx.shadowColor = '#00ff41'; cx.shadowBlur = 8;
+  cx.beginPath();
   for (let i = 0; i < timeData.length; i++) {
     const v = ((timeData[i] - 128) / 128) * sens;
     const y = OUT_H / 2 + v * OUT_H / 2 * 0.82;
-    i === 0 ? ctxSono.moveTo(0, y) : ctxSono.lineTo(i * step, y);
+    i === 0 ? cx.moveTo(0, y) : cx.lineTo(i * step, y);
   }
-  ctxSono.stroke(); ctxSono.shadowBlur = 0;
+  cx.stroke(); cx.shadowBlur = 0;
   // Scanlines
-  ctxSono.fillStyle = 'rgba(0,0,0,0.18)';
-  for (let y = 0; y < OUT_H; y += 2) ctxSono.fillRect(0, y, OUT_W, 1);
+  cx.fillStyle = 'rgba(0,0,0,0.18)';
+  for (let y = 0; y < OUT_H; y += 2) cx.fillRect(0, y, OUT_W, 1);
+}
+
+// ── Convert scope canvas → Flipnote Legacy (hard threshold) ──────────
+function renderScopeToLegacy() {
+  ctxS.imageSmoothingEnabled = false;
+  ctxS.drawImage(sonoScopeCvs, 0, 0, DSI_W, DSI_H);
+  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
+  const p = PALETTES[activePal];
+  const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
+  for (let i = 0; i < DSI_W * DSI_H; i++) {
+    const i4 = i << 2;
+    const gray = (src[i4] * 77 + src[i4+1] * 150 + src[i4+2] * 29) >> 8;
+    const isInk = gray < 128;
+    lowBuf[i4]   = isInk ? IR : PR;
+    lowBuf[i4+1] = isInk ? IG : PG;
+    lowBuf[i4+2] = isInk ? IB : PB;
+    lowBuf[i4+3] = 255;
+  }
+  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
+  ctxSonoLeg.imageSmoothingEnabled = false;
+  ctxSonoLeg.drawImage(small, 0, 0, OUT_W, OUT_H);
+}
+
+// ── Convert scope canvas → ASCII (derive field from pixel luminance) ──
+function renderScopeToAscii() {
+  ctxS.imageSmoothingEnabled = false;
+  ctxS.drawImage(sonoScopeCvs, 0, 0, DSI_W, DSI_H);
+  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
+  const field = new Float32Array(DSI_W * DSI_H);
+  for (let i = 0; i < DSI_W * DSI_H; i++) {
+    const i4 = i << 2;
+    field[i] = (src[i4] * 77 + src[i4+1] * 150 + src[i4+2] * 29) / (255 * 256);
+  }
+  renderSonoAscii(field, { bassE:0, midE:0, trebE:0 }, sonoChaosVal / 100);
 }
 
 // ── FLIPNOTE LEGACY render (hard threshold, no dithering) ─────────────
@@ -1953,8 +2021,30 @@ function sonoLoop(ts) {
   ctxSono.globalAlpha = 1;
 
   if (sonoPreset === 1) {
-    // SCOPE mode — render scope directly, no blending
+    // SCOPE mode — render to offscreen, then apply blend same as SONO mode
     renderSonoScope(audio.timeData, sens);
+    // Base: always draw scope
+    if (mixN < 0.99) {
+      ctxSono.globalAlpha = 1;
+      ctxSono.drawImage(sonoScopeCvs, 0, 0);
+    } else {
+      ctxSono.fillStyle = '#000';
+      ctxSono.fillRect(0, 0, OUT_W, OUT_H);
+    }
+    // Blend layer
+    if (mixN > 0.01) {
+      if (sonoBlendMode === 'flip') {
+        renderScopeToLegacy();
+        ctxSono.globalAlpha = mixN;
+        ctxSono.drawImage(sonoLegCvs, 0, 0);
+        ctxSono.globalAlpha = 1;
+      } else {
+        renderScopeToAscii();
+        ctxSono.globalAlpha = mixN;
+        ctxSono.drawImage(sonoAscCvs, 0, 0);
+        ctxSono.globalAlpha = 1;
+      }
+    }
   } else {
     // SONO mode
     const field = generateSonoField(audio.amp, audio.pitchNorm, audio.blowStr, sonoT);
@@ -2350,6 +2440,95 @@ function wmpTrailClear(trailsN) {
   ctxWmp.fillRect(0, 0, WW, WH);
 }
 
+// ── Morph helpers ─────────────────────────────────────────────────────
+function wmpLerp(a, b, t) { return a + (b - a) * t; }
+function wmpSmoothstep(t) { return t * t * (3 - 2 * t); }
+function wmpLerpC(c1, c2, t) {
+  return [wmpLerp(c1[0],c2[0],t)|0, wmpLerp(c1[1],c2[1],t)|0, wmpLerp(c1[2],c2[2],t)|0];
+}
+// Map frequency bin to visual "particle" position+size+color per preset
+function wmpBinGeom(preset, i, N, amp, angle) {
+  const cx = WW/2, cy = WH/2, t_i = i/N;
+  switch (preset) {
+    case 0: return { // Scope: horizontal spectrum-as-waveform
+      x: t_i * WW, y: WH*0.5 - amp*WH*0.38,
+      r: 1.5 + amp*2, c:[0, Math.min(255,100+amp*155)|0, 65]
+    };
+    case 1: { // Fire: vertical bar centroid
+      const heat = Math.min(1, amp*1.3);
+      return {
+        x: t_i*WW + (WW/N)*0.5, y: WH - amp*WH*0.85*0.5,
+        r: Math.max(2,(WW/N)*0.45),
+        c:[255, (heat<0.5?heat*2*200:Math.min(255,200+(heat*2-1)*55))|0, heat>0.8?((heat-0.8)*5*200)|0:0]
+      };
+    }
+    case 2: return { // Ocean: wave surface
+      x: t_i*WW, y: WH*0.65 - amp*WH*0.5,
+      r: 2, c:[0, Math.min(255,80+amp*120)|0, Math.min(255,160+amp*95)|0]
+    };
+    case 3: { // Alchemy: polar
+      const a = t_i*Math.PI*2 + angle;
+      const r = 55 + amp*170;
+      const hue = (t_i*360 + angle*57) % 360;
+      const [hr,hg,hb] = hslToRgb(hue/360, 1, 0.45+amp*0.35);
+      return { x:cx+Math.cos(a)*r, y:cy+Math.sin(a)*r, r:2+amp*5, c:[hr,hg,hb] };
+    }
+  }
+}
+// Map waveform sample to position per preset
+function wmpWaveGeom(preset, t_i, v, angle) {
+  const cx = WW/2, cy = WH/2;
+  switch (preset) {
+    case 0: return { x:t_i*WW, y:WH*0.5 + v*WH*0.35 };
+    case 1: return { x:t_i*WW, y:WH*0.45 + v*WH*0.28 };
+    case 2: return { x:t_i*WW, y:WH*0.52 + v*WH*0.22 };
+    case 3: { const a = t_i*Math.PI*2 - angle*1.5; const r = 72+v*55; return {x:cx+Math.cos(a)*r, y:cy+Math.sin(a)*r}; }
+  }
+}
+// Morphing renderer — interpolates geometry+color between two presets
+function renderMorph(freqData, timeData, sens, trailsN, fromP, toP, t) {
+  const ease  = wmpSmoothstep(Math.min(1, Math.max(0, t)));
+  const angle = wmpAlchemyAngle;
+  wmpTrailClear(trailsN * 0.55);
+  const N = Math.min(200, freqData.length);
+  // Spectrum particles at interpolated positions
+  for (let i = 0; i < N; i++) {
+    const amp = (freqData[i] / 255) * sens;
+    if (amp < 0.015) continue;
+    const from = wmpBinGeom(fromP, i, N, amp, angle);
+    const to   = wmpBinGeom(toP,   i, N, amp, angle);
+    const x = wmpLerp(from.x, to.x, ease);
+    const y = wmpLerp(from.y, to.y, ease);
+    const r = Math.max(0.5, wmpLerp(from.r, to.r, ease));
+    const c = wmpLerpC(from.c, to.c, ease);
+    const alpha = 0.3 + amp*0.7;
+    ctxWmp.shadowColor = `rgb(${c[0]},${c[1]},${c[2]})`; ctxWmp.shadowBlur = 4;
+    ctxWmp.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(2)})`;
+    ctxWmp.beginPath(); ctxWmp.arc(x, y, r, 0, Math.PI*2); ctxWmp.fill();
+  }
+  ctxWmp.shadowBlur = 0;
+  // Waveform at interpolated positions
+  const wS = 200, sStep = Math.max(1, Math.floor(timeData.length / wS));
+  const lineC = [[0,255,65],[255,160,0],[80,200,255],[0,255,200]];
+  const lc = wmpLerpC(lineC[fromP], lineC[toP], ease);
+  ctxWmp.beginPath();
+  let firstPt = true;
+  for (let i = 0; i < wS; i++) {
+    const v   = ((timeData[Math.min(timeData.length-1, i*sStep)] - 128) / 128) * sens;
+    const t_i = i / wS;
+    const from = wmpWaveGeom(fromP, t_i, v, angle);
+    const to   = wmpWaveGeom(toP,   t_i, v, angle);
+    const x = wmpLerp(from.x, to.x, ease);
+    const y = wmpLerp(from.y, to.y, ease);
+    if (firstPt) { ctxWmp.moveTo(x, y); firstPt = false; } else ctxWmp.lineTo(x, y);
+  }
+  if ((fromP===3&&ease>0.3)||(toP===3&&ease>0.7)) ctxWmp.closePath();
+  ctxWmp.strokeStyle = `rgba(${lc[0]},${lc[1]},${lc[2]},0.85)`;
+  ctxWmp.lineWidth = 1.5;
+  ctxWmp.shadowColor = `rgb(${lc[0]},${lc[1]},${lc[2]})`; ctxWmp.shadowBlur = 8;
+  ctxWmp.stroke(); ctxWmp.shadowBlur = 0;
+}
+
 // ── Preset 0: Scope Green ─────────────────────────────────────────────
 function renderScopeGreen(timeData, sens) {
   ctxWmp.fillStyle = '#000';
@@ -2742,39 +2921,35 @@ function wmpLoop() {
     document.getElementById('wmpProgDur').textContent  = fmtTime(dur);
   }
 
-  // RANDOM: handle crossfade timer
+  // RANDOM: advance timer, then morph or render normally
   if (wmpRandom && wmpRandBlend === 0) {
     wmpRandTimer--;
     if (wmpRandTimer <= 0) {
-      wmpRandOffCtx.drawImage(wmpCvs, 0, 0); // snapshot current frame
-      wmpRandBlendDur = Math.floor((2 + Math.random() * 2) * 60);
-      wmpRandBlend = 0.001;
-      // Switch to toPreset immediately — it renders fresh underneath the snapshot
-      wmpPreset = wmpRandToPre;
-      document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(b =>
-        b.classList.toggle('active', parseInt(b.dataset.preset) === wmpPreset));
+      wmpRandFromPre  = wmpPreset;
+      wmpRandBlendDur = Math.floor((3 + Math.random() * 3) * 60); // 3–6 s
+      wmpRandBlend    = 0.001;
     }
   }
 
-  switch (wmpPreset) {
-    case 0: renderScopeGreen(timeData, sens); break;
-    case 1: renderFireStorm(freqData, sens); break;
-    case 2: renderOceanMist(freqData, timeData, sens, trailsN); break;
-    case 3: renderAlchemy(freqData, timeData, sens, trailsN); break;
-  }
-
-  // RANDOM: overlay snapshot fading out during crossfade
   if (wmpRandom && wmpRandBlend > 0) {
-    const fadeOut = Math.max(0, 1 - wmpRandBlend);
-    ctxWmp.globalAlpha = fadeOut;
-    ctxWmp.drawImage(wmpRandOffCvs, 0, 0);
-    ctxWmp.globalAlpha = 1;
+    // True geometric morph between presets
+    renderMorph(freqData, timeData, sens, trailsN, wmpRandFromPre, wmpRandToPre, wmpRandBlend);
     wmpRandBlend += 1 / wmpRandBlendDur;
     if (wmpRandBlend >= 1) {
-      wmpRandBlend = 0;
+      wmpRandBlend   = 0;
+      wmpPreset      = wmpRandToPre;
+      document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(b =>
+        b.classList.toggle('active', parseInt(b.dataset.preset) === wmpPreset));
       wmpRandFromPre = wmpPreset;
       wmpRandToPre   = _wmpNextPreset(wmpPreset);
       wmpRandTimer   = Math.floor((8 + Math.random() * 12) * 60);
+    }
+  } else {
+    switch (wmpPreset) {
+      case 0: renderScopeGreen(timeData, sens); break;
+      case 1: renderFireStorm(freqData, sens); break;
+      case 2: renderOceanMist(freqData, timeData, sens, trailsN); break;
+      case 3: renderAlchemy(freqData, timeData, sens, trailsN); break;
     }
   }
 

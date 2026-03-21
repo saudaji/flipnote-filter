@@ -241,20 +241,25 @@
     }
     #barAscii.visible { display: flex; }
 
-    /* ── ASCII cols slider ──────────────────────────────────────────── */
-    .ascii-density {
+    /* ── ASCII vertical slider ──────────────────────────────────────── */
+    .ascii-slider {
       position: fixed; top: 48px; left: 12px; z-index: 10;
-      display: none; flex-direction: column; align-items: center; gap: 4px;
+      display: none; flex-direction: column; align-items: center; gap: 6px;
     }
-    .ascii-density.visible { display: flex; }
-    .ascii-density label { color: var(--dark); font-size: 9px; letter-spacing: 1px; }
-    .density-btn {
-      width: 36px; height: 22px; background: none;
-      border: 2px solid var(--dark); color: var(--dark);
-      font-family: monospace; font-size: 8px; font-weight: bold;
-      cursor: pointer; transition: .1s;
+    .ascii-slider.visible { display: flex; }
+    .slider-lbl { color: var(--paper); font-family: monospace; font-size: 13px; line-height:1; user-select:none; }
+    .slider-track {
+      width: 4px; height: 150px; background: var(--dark);
+      border-radius: 2px; position: relative; cursor: pointer; touch-action: none;
     }
-    .density-btn.active { border-color: var(--paper); color: var(--paper); }
+    .slider-thumb {
+      width: 18px; height: 18px;
+      background: var(--paper); border: 2px solid var(--mid);
+      border-radius: 50%; position: absolute;
+      left: 50%; transform: translate(-50%, -50%);
+      cursor: grab; touch-action: none;
+    }
+    .slider-thumb:active { cursor: grabbing; background: var(--mid); }
   </style>
 </head>
 <body>
@@ -345,12 +350,13 @@
   </button>
 </div>
 
-<!-- ASCII density selector -->
-<div class="ascii-density" id="asciiDensity">
-  <label>DENSITY</label>
-  <button class="density-btn" data-cols="48">SM</button>
-  <button class="density-btn active" data-cols="80">MD</button>
-  <button class="density-btn" data-cols="120">LG</button>
+<!-- ASCII vertical slider (detalle: arriba=más detalle, abajo=menos) -->
+<div class="ascii-slider" id="asciiSlider">
+  <span class="slider-lbl">+</span>
+  <div class="slider-track" id="sliderTrack">
+    <div class="slider-thumb" id="sliderThumb"></div>
+  </div>
+  <span class="slider-lbl">−</span>
 </div>
 
 <!-- ASCII upload input (reuse fileInput via js) -->
@@ -642,12 +648,12 @@ function renderASCII(source, srcW, srcH, mirror) {
         }
       const raw  = cnt ? (gSum / cnt) | 0 : 128;
 
-      // Normaliza con auto-levels
-      const t = (raw - minG) / rng;
-      // Curva S de contraste: oscuros más oscuros, claros más claros
-      const contrasted = 0.5 - 0.5 * Math.cos(Math.PI * t);
-      // Mapeo: blanco (contrasted≈1) → índice 0 (espacio), negro (≈0) → índice final (@)
-      const ci = Math.min(Math.floor((1 - contrasted) * nChars), nChars - 1);
+      // Auto-levels → 0..1
+      const t  = (raw - minG) / rng;
+      // Doble S-curve: más contraste en sombras Y en luces
+      const s1 = 0.5 - 0.5 * Math.cos(Math.PI * t);          // primera pasada
+      const s2 = 0.5 - 0.5 * Math.cos(Math.PI * s1);         // segunda pasada
+      const ci = Math.min(Math.floor((1 - s2) * nChars), nChars - 1);
       const ch = ASCII_CHARS[ci];
       if (ch !== ' ') ctxAscii.fillText(ch, c * cW, r * cH);
     }
@@ -716,7 +722,7 @@ function switchTab(tab) {
   document.getElementById('barCam'        ).style.display = isCam   ? '' : 'none';
   document.getElementById('barUpload'     ).classList.toggle('visible', isUp);
   document.getElementById('barAscii'      ).classList.toggle('visible', isAscii);
-  document.getElementById('asciiDensity'  ).classList.toggle('visible', isAscii);
+  document.getElementById('asciiSlider'   ).classList.toggle('visible', isAscii);
   document.getElementById('btnFlip'       ).style.display = isCam   ? '' : 'none';
   document.getElementById('palettes'      ).style.display = isUp    ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
@@ -1031,14 +1037,33 @@ document.getElementById('btnStart').addEventListener('click', async () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// ASCII — DENSITY BUTTONS
+// ASCII — SLIDER VERTICAL (detalle / densidad de columnas)
 // ════════════════════════════════════════════════════════════════════════
-document.querySelectorAll('.density-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    asciiCols = Number(btn.dataset.cols);
-    document.querySelectorAll('.density-btn').forEach(b => b.classList.toggle('active', b === btn));
-  });
+const COLS_MIN = 40, COLS_MAX = 200;
+const sliderTrack = document.getElementById('sliderTrack');
+const sliderThumb = document.getElementById('sliderThumb');
+
+function setSliderCols(cols) {
+  asciiCols = Math.max(COLS_MIN, Math.min(COLS_MAX, cols));
+  // arriba (top=0%) = máximo detalle (COLS_MAX), abajo = mínimo (COLS_MIN)
+  const pct = 1 - (asciiCols - COLS_MIN) / (COLS_MAX - COLS_MIN);
+  sliderThumb.style.top = (pct * 100) + '%';
+}
+
+sliderTrack.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  sliderTrack.setPointerCapture(e.pointerId);
+  const move = ev => {
+    const rect = sliderTrack.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (ev.clientY - rect.top) / rect.height));
+    setSliderCols(Math.round(COLS_MAX - pct * (COLS_MAX - COLS_MIN)));
+  };
+  move(e);
+  sliderTrack.addEventListener('pointermove', move);
+  sliderTrack.addEventListener('pointerup',   () => sliderTrack.removeEventListener('pointermove', move), { once: true });
 });
+
+setSliderCols(100); // posición inicial: detalle medio-alto
 
 // ════════════════════════════════════════════════════════════════════════
 // ASCII — CAPTURA (foto desde cámara)

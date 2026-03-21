@@ -639,7 +639,7 @@ function setUploadResultReady(blob, ext) {
   const btnShare = document.getElementById('btnShareResult');
   btnSave.disabled  = false; btnSave.style.opacity  = '1';
   btnShare.disabled = false; btnShare.style.opacity = '1';
-  btnSave.onclick  = () => _download(blob, fname);
+  btnSave.onclick  = () => _shareOrDownload(blob, fname);
   btnShare.onclick = () => _shareOrDownload(blob, fname);
 }
 

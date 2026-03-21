@@ -476,7 +476,8 @@ function relayout() {
   let w, h;
   if (avW / avH > aspect) { h = avH; w = h * aspect; }
   else                     { w = avW; h = w / aspect; }
-  display.style.width  = w + 'px';  display.style.height = h + 'px';
+  display.style.width   = w + 'px';  display.style.height  = h + 'px';
+  asciiCvs.style.width  = w + 'px';  asciiCvs.style.height = h + 'px';
 }
 window.addEventListener('resize', relayout);
 relayout();

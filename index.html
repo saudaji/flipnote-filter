@@ -380,6 +380,12 @@
     }
     #barWmp.visible { display:flex; }
     #btnWmpPlayPause:disabled { opacity:.3; }
+
+    /* ── WMP pseudo-fullscreen (CSS fallback for iOS Safari) ── */
+    body.wmp-pseudo-full #wmpArea  { top:0 !important; bottom:0 !important; left:0 !important; right:0 !important; z-index:9998 !important; }
+    body.wmp-pseudo-full #wmpHUD   { z-index:9999 !important; }
+    body.wmp-pseudo-full #barWmp   { z-index:9999 !important; }
+    body.wmp-pseudo-full { overflow:hidden; }
   </style>
 </head>
 <body>
@@ -855,9 +861,11 @@ function relayout() {
   document.getElementById('sonoCanvas').style.width  = sw + 'px';
   document.getElementById('sonoCanvas').style.height = sh + 'px';
   // WMP canvas fills its area completely (1024×576 internal)
-  const avHW = window.innerHeight - 40 - 168;
-  document.getElementById('wmpCanvas').style.width  = avW + 'px';
-  document.getElementById('wmpCanvas').style.height = avHW + 'px';
+  if (!wmpPseudoFull) {
+    const avHW = window.innerHeight - 40 - 168;
+    document.getElementById('wmpCanvas').style.width  = avW + 'px';
+    document.getElementById('wmpCanvas').style.height = avHW + 'px';
+  }
 }
 window.addEventListener('resize', relayout);
 relayout();
@@ -1941,6 +1949,7 @@ let wmpPreset    = 0;      // 0=Scope 1=Fire 2=Ocean 3=Alchemy
 let wmpSensVal   = 50;
 let wmpTrailsVal = 30;
 let wmpAlchemyAngle = 0;
+let wmpPseudoFull   = false;
 const wmpPeaks   = new Float32Array(512);
 const wmpPeakHold= new Int32Array(512);
 const WW = 1024, WH = 576;  // internal canvas size
@@ -2062,111 +2071,329 @@ function renderScopeGreen(timeData, sens) {
   for (let y = 0; y < WH; y += 2) ctxWmp.fillRect(0, y, WW, 1);
 }
 
-// ── Preset 1: Fire Storm ──────────────────────────────────────────────
+// ── Preset 1: Fire Storm (3D melting) ────────────────────────────────
 function renderFireStorm(freqData, sens) {
   ctxWmp.fillStyle = '#000'; ctxWmp.fillRect(0, 0, WW, WH);
   const numBars = 256;
   const barW = WW / numBars;
-  ctxWmp.fillStyle = wmpFireGrd;
+  const t = wmpAlchemyAngle; // global time
+
   for (let i = 0; i < numBars; i++) {
-    const raw = freqData[i] / 255;
+    const raw  = freqData[i] / 255;
     const barH = Math.min(WH, raw * sens * WH);
     if (barH < 1) continue;
-    // Update peaks
-    if (barH > wmpPeaks[i])  { wmpPeaks[i] = barH; wmpPeakHold[i] = 28; }
-    else if (wmpPeakHold[i] > 0) wmpPeakHold[i]--;
-    else wmpPeaks[i] = Math.max(0, wmpPeaks[i] - 2.2);
-    const x = i * barW;
-    ctxWmp.fillRect(x, WH - barH, barW - 1, barH);
+    // Peak tracking
+    if (barH > wmpPeaks[i])       { wmpPeaks[i] = barH; wmpPeakHold[i] = 28; }
+    else if (wmpPeakHold[i] > 0)  wmpPeakHold[i]--;
+    else                           wmpPeaks[i] = Math.max(0, wmpPeaks[i] - 2.2);
+
+    const x  = i * barW;
+    const y0 = WH - barH;
+
+    // Undulating top edge — sum of 3 harmonics driven by adjacent bins
+    const adj0 = (freqData[Math.max(0,i-2)] / 255) * sens;
+    const adj1 = (freqData[Math.min(255,i+2)] / 255) * sens;
+    const undulate = Math.sin(t * 4.1 + i * 0.35) * adj0 * 14
+                   + Math.sin(t * 6.7 + i * 0.21) * adj1 * 8
+                   + Math.sin(t * 2.3 + i * 0.58) * raw  * 6;
+    const topY = y0 + undulate;
+
+    // Per-bar gradient (fire colors + 3D volume)
+    const barGrd = ctxWmp.createLinearGradient(x, 0, x + barW, 0);
+    barGrd.addColorStop(0,    'rgba(0,0,0,0.55)');       // left shadow
+    barGrd.addColorStop(0.18, 'rgba(255,120,0,0.0)');
+    barGrd.addColorStop(0.55, 'rgba(255,200,0,0.0)');
+    barGrd.addColorStop(0.82, 'rgba(255,100,0,0.0)');
+    barGrd.addColorStop(1,    'rgba(255,255,200,0.45)'); // right highlight
+
+    // Base bar with fire gradient vertical
+    const fireGrd = ctxWmp.createLinearGradient(0, topY, 0, WH);
+    fireGrd.addColorStop(0,    `hsl(${20 + raw*30|0},100%,${50+raw*30|0}%)`);
+    fireGrd.addColorStop(0.4,  'hsl(30,100%,45%)');
+    fireGrd.addColorStop(0.75, 'hsl(10,100%,30%)');
+    fireGrd.addColorStop(1,    'hsl(0,80%,10%)');
+    ctxWmp.fillStyle = fireGrd;
+    ctxWmp.fillRect(x, topY, barW - 1, WH - topY);
+
+    // Volume overlay (left shadow / right highlight)
+    ctxWmp.fillStyle = barGrd;
+    ctxWmp.fillRect(x, topY, barW - 1, WH - topY);
+
+    // Lava tongue bezier rising from top
+    if (raw > 0.25) {
+      const tongueH = raw * sens * WH * 0.18;
+      const mx = x + barW / 2;
+      ctxWmp.beginPath();
+      ctxWmp.moveTo(x + barW * 0.15, topY);
+      ctxWmp.bezierCurveTo(
+        mx - barW * 0.3, topY - tongueH * 0.6,
+        mx + barW * 0.3, topY - tongueH * 0.6,
+        mx, topY - tongueH
+      );
+      ctxWmp.bezierCurveTo(
+        mx + barW * 0.25, topY - tongueH * 0.5,
+        x + barW * 0.85, topY - tongueH * 0.2,
+        x + barW * 0.85, topY
+      );
+      ctxWmp.closePath();
+      const tongGrd = ctxWmp.createLinearGradient(0, topY - tongueH, 0, topY);
+      tongGrd.addColorStop(0, `rgba(255,255,180,${(raw*0.7).toFixed(2)})`);
+      tongGrd.addColorStop(1, `rgba(255,80,0,${(raw*0.5).toFixed(2)})`);
+      ctxWmp.fillStyle = tongGrd; ctxWmp.fill();
+    }
   }
-  // Peak markers
-  ctxWmp.fillStyle = '#ffffff';
+
+  // Molten peak blobs with glow
   for (let i = 0; i < numBars; i++) {
-    if (wmpPeaks[i] > 3) ctxWmp.fillRect(i * barW, WH - wmpPeaks[i] - 2, barW - 1, 2);
+    if (wmpPeaks[i] < 6) continue;
+    const x  = i * barW + barW / 2;
+    const py = WH - wmpPeaks[i] - 2;
+    const r  = barW * 0.9;
+    ctxWmp.save();
+    ctxWmp.shadowColor = '#ffcc00'; ctxWmp.shadowBlur = 6;
+    ctxWmp.beginPath(); ctxWmp.ellipse(x, py, r, r * 0.55, 0, 0, Math.PI * 2);
+    ctxWmp.fillStyle = 'rgba(255,220,80,0.85)'; ctxWmp.fill();
+    ctxWmp.restore();
   }
 }
 
-// ── Preset 2: Ocean Mist ──────────────────────────────────────────────
+// ── Preset 2: Ocean Mist (3D melting, layered) ───────────────────────
 function renderOceanMist(freqData, timeData, sens, trailsN) {
   wmpTrailClear(trailsN);
+  const t = wmpAlchemyAngle;
   const numBins = Math.min(300, freqData.length);
-  // Frequency fill
-  ctxWmp.beginPath(); ctxWmp.moveTo(0, WH);
-  for (let i = 0; i < numBins; i++) {
-    const x = (i / numBins) * WW;
-    const y = WH - Math.min(WH * 0.7, (freqData[i] / 255) * sens * WH * 0.7);
-    ctxWmp.lineTo(x, y);
+
+  // Draw 3 depth layers: back → mid → front
+  const layers = [
+    { offset: 80,  scale: 0.45, opacity: 0.28, hue: 220, shift: 0   },
+    { offset: 40,  scale: 0.60, opacity: 0.40, hue: 210, shift: 30  },
+    { offset: 0,   scale: 0.80, opacity: 0.55, hue: 200, shift: 60  },
+  ];
+
+  for (const lyr of layers) {
+    const pts = [];
+    for (let i = 0; i < numBins; i++) {
+      const binIdx = Math.min(freqData.length - 1, i + lyr.shift);
+      const raw = freqData[binIdx] / 255;
+      // Undulating surface with time
+      const undulate = Math.sin(t * 1.8 + i * 0.04 + lyr.offset * 0.01) * raw * 28
+                     + Math.sin(t * 3.2 + i * 0.09) * 12;
+      const x = (i / numBins) * WW;
+      const y = WH - Math.min(WH * 0.75, raw * sens * WH * lyr.scale + undulate) + lyr.offset;
+      pts.push([x, y]);
+    }
+
+    // Filled wave shape
+    ctxWmp.beginPath();
+    ctxWmp.moveTo(0, WH);
+    for (let i = 0; i < pts.length; i++) {
+      if (i === 0) { ctxWmp.lineTo(pts[i][0], pts[i][1]); continue; }
+      // Smooth with quadratic curves
+      const mx = (pts[i-1][0] + pts[i][0]) / 2;
+      const my = (pts[i-1][1] + pts[i][1]) / 2;
+      ctxWmp.quadraticCurveTo(pts[i-1][0], pts[i-1][1], mx, my);
+    }
+    ctxWmp.lineTo(WW, WH); ctxWmp.closePath();
+    const waveY0 = pts.reduce((m,p) => Math.min(m, p[1]), WH);
+    const fillG = ctxWmp.createLinearGradient(0, waveY0, 0, WH);
+    fillG.addColorStop(0, `rgba(${lyr.hue===220?'0,80,255':lyr.hue===210?'0,120,230':'0,160,220'},${lyr.opacity})`);
+    fillG.addColorStop(1, `rgba(0,10,50,${(lyr.opacity*0.35).toFixed(2)})`);
+    ctxWmp.fillStyle = fillG; ctxWmp.fill();
+
+    // 3D surface highlight — bright shimmer line at wave top
+    ctxWmp.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const [x, y] = pts[i];
+      const shimY = y - 2;
+      i === 0 ? ctxWmp.moveTo(x, shimY) : ctxWmp.lineTo(x, shimY);
+    }
+    ctxWmp.strokeStyle = `rgba(180,230,255,${(lyr.opacity + 0.15).toFixed(2)})`;
+    ctxWmp.lineWidth = 1.5;
+    ctxWmp.shadowColor = '#00aaff'; ctxWmp.shadowBlur = 5;
+    ctxWmp.stroke(); ctxWmp.shadowBlur = 0;
+
+    // Liquid drips from local peaks (front layer only)
+    if (lyr.offset === 0) {
+      for (let i = 2; i < pts.length - 2; i++) {
+        const [px, py] = pts[i];
+        const prev = pts[i-1][1], next = pts[i+1][1];
+        // Local minimum (= visual peak pointing up)
+        if (py < prev && py < next && py < WH * 0.65) {
+          const drip = (prev + next) / 2 - py; // how peaked it is
+          if (drip < 6) continue;
+          const dripLen = Math.min(60, drip * 1.8);
+          ctxWmp.beginPath();
+          ctxWmp.moveTo(px - 3, py + 4);
+          ctxWmp.bezierCurveTo(
+            px - 5, py + dripLen * 0.4,
+            px + 5, py + dripLen * 0.4,
+            px,     py + dripLen
+          );
+          ctxWmp.bezierCurveTo(
+            px + 4, py + dripLen,
+            px + 4, py + 4,
+            px + 3, py + 4
+          );
+          ctxWmp.closePath();
+          const dripG = ctxWmp.createLinearGradient(0, py, 0, py + dripLen);
+          dripG.addColorStop(0, 'rgba(100,200,255,0.6)');
+          dripG.addColorStop(1, 'rgba(0,80,160,0.0)');
+          ctxWmp.fillStyle = dripG; ctxWmp.fill();
+        }
+      }
+    }
   }
-  ctxWmp.lineTo(WW, WH); ctxWmp.closePath();
-  const fillG = ctxWmp.createLinearGradient(0, WH * 0.3, 0, WH);
-  fillG.addColorStop(0, 'rgba(0,100,200,0.55)');
-  fillG.addColorStop(1, 'rgba(0,20,60,0.2)');
-  ctxWmp.fillStyle = fillG; ctxWmp.fill();
-  // Frequency outline
-  ctxWmp.beginPath();
-  for (let i = 0; i < numBins; i++) {
-    const x = (i / numBins) * WW;
-    const y = WH - Math.min(WH * 0.7, (freqData[i] / 255) * sens * WH * 0.7);
-    i === 0 ? ctxWmp.moveTo(x, y) : ctxWmp.lineTo(x, y);
-  }
-  ctxWmp.strokeStyle = '#0077cc'; ctxWmp.lineWidth = 1.5; ctxWmp.stroke();
-  // Waveform overlay
+
+  // Waveform overlay (bright surface ripple)
   const step = WW / timeData.length;
   ctxWmp.beginPath();
   for (let i = 0; i < timeData.length; i++) {
     const v = ((timeData[i] - 128) / 128) * sens;
-    const y = WH / 2 + v * WH * 0.28;
+    const undulate = Math.sin(t * 2.5 + i * 0.015) * 8;
+    const y = WH * 0.48 + v * WH * 0.22 + undulate;
     i === 0 ? ctxWmp.moveTo(0, y) : ctxWmp.lineTo(i * step, y);
   }
-  ctxWmp.strokeStyle = 'rgba(150,220,255,0.75)';
-  ctxWmp.lineWidth = 1.2; ctxWmp.shadowColor = '#00ccff'; ctxWmp.shadowBlur = 4;
+  ctxWmp.strokeStyle = 'rgba(200,240,255,0.8)';
+  ctxWmp.lineWidth = 1.2; ctxWmp.shadowColor = '#00eeff'; ctxWmp.shadowBlur = 6;
   ctxWmp.stroke(); ctxWmp.shadowBlur = 0;
 }
 
-// ── Preset 3: Alchemy ─────────────────────────────────────────────────
+// ── Preset 3: Alchemy (melting blobs) ─────────────────────────────────
 function renderAlchemy(freqData, timeData, sens, trailsN) {
   wmpTrailClear(trailsN);
+  const t  = wmpAlchemyAngle;
   const cx = WW / 2, cy = WH / 2;
-  wmpAlchemyAngle += 0.007;
-  // Bass pulse
+
+  // Bass / mid / treble energy
   const bassAmp = Math.min(1, ((freqData[0]+freqData[1]+freqData[2]) / (3*255)) * sens);
-  const rg = ctxWmp.createRadialGradient(cx, cy, 0, cx, cy, 80 + bassAmp * 90);
-  rg.addColorStop(0,   `rgba(200,50,255,${(bassAmp*0.9).toFixed(2)})`);
-  rg.addColorStop(0.5, `rgba(80,0,180,${(bassAmp*0.35).toFixed(2)})`);
+  const midAmp  = Math.min(1, ((freqData[8]+freqData[12]+freqData[16]) / (3*255)) * sens);
+  const numArms = 6;
+  const baseR   = 55 + bassAmp * 50;
+
+  // Central pulsing radial glow
+  const rg = ctxWmp.createRadialGradient(cx, cy, 0, cx, cy, baseR * 2.2);
+  rg.addColorStop(0,   `rgba(200,50,255,${(bassAmp*0.85).toFixed(2)})`);
+  rg.addColorStop(0.45,`rgba(80,0,180,${(bassAmp*0.3).toFixed(2)})`);
   rg.addColorStop(1,   'rgba(0,0,0,0)');
   ctxWmp.fillStyle = rg;
-  ctxWmp.beginPath(); ctxWmp.arc(cx, cy, 180, 0, Math.PI*2); ctxWmp.fill();
-  // Polar spectrum — 2-fold symmetry
-  const numBins = Math.min(120, freqData.length);
-  for (let sym = 0; sym < 2; sym++) {
-    ctxWmp.save(); ctxWmp.translate(cx, cy); ctxWmp.rotate(wmpAlchemyAngle + sym * Math.PI);
-    for (let i = 0; i < numBins; i++) {
-      const amp   = (freqData[i] / 255) * sens;
-      const angle = (i / numBins) * Math.PI * 2;
-      const r0 = 28 + amp * 18, r1 = 28 + amp * 160;
-      const hue = ((i / numBins) * 360 + wmpAlchemyAngle * 45) % 360;
-      ctxWmp.strokeStyle = `hsla(${hue|0},100%,60%,${(0.25 + amp*0.55).toFixed(2)})`;
-      ctxWmp.lineWidth = 1.5;
-      ctxWmp.beginPath();
-      ctxWmp.moveTo(Math.cos(angle)*r0, Math.sin(angle)*r0);
-      ctxWmp.lineTo(Math.cos(angle)*r1, Math.sin(angle)*r1);
-      ctxWmp.stroke();
-    }
-    ctxWmp.restore();
-  }
-  // Polar waveform ring
-  ctxWmp.save(); ctxWmp.translate(cx, cy); ctxWmp.rotate(-wmpAlchemyAngle * 1.5);
-  const samples = 128, sStep = Math.floor(timeData.length / samples);
+  ctxWmp.beginPath(); ctxWmp.arc(cx, cy, baseR * 2.5, 0, Math.PI * 2); ctxWmp.fill();
+
+  // Central blob — irregular bezier outline (melt effect)
+  const blobPts = 24;
+  ctxWmp.save(); ctxWmp.translate(cx, cy);
   ctxWmp.beginPath();
-  for (let i = 0; i < samples; i++) {
-    const v     = ((timeData[i * sStep] - 128) / 128) * sens;
-    const angle = (i / samples) * Math.PI * 2;
-    const r     = 72 + v * 55;
-    const x     = Math.cos(angle) * r, y = Math.sin(angle) * r;
+  for (let i = 0; i <= blobPts; i++) {
+    const ang = (i / blobPts) * Math.PI * 2;
+    const melt = Math.sin(t * 2.1 + ang * 3) * bassAmp * 16
+               + Math.sin(t * 3.7 + ang * 5) * midAmp  * 10;
+    const r = baseR + melt;
+    const x = Math.cos(ang) * r, y = Math.sin(ang) * r;
     i === 0 ? ctxWmp.moveTo(x, y) : ctxWmp.lineTo(x, y);
   }
   ctxWmp.closePath();
-  ctxWmp.strokeStyle = 'rgba(0,255,190,0.65)'; ctxWmp.lineWidth = 1.2;
+  const blobGrd = ctxWmp.createRadialGradient(0, -baseR * 0.25, 0, 0, 0, baseR * 1.2);
+  blobGrd.addColorStop(0,   `hsla(${(t*30)%360|0},100%,80%,0.95)`);
+  blobGrd.addColorStop(0.55,`hsla(${(t*30+60)%360|0},100%,50%,0.85)`);
+  blobGrd.addColorStop(1,   `hsla(${(t*30+120)%360|0},80%,25%,0.7)`);
+  ctxWmp.fillStyle = blobGrd;
+  ctxWmp.shadowColor = `hsl(${(t*45)%360|0},100%,70%)`; ctxWmp.shadowBlur = 18;
+  ctxWmp.fill(); ctxWmp.shadowBlur = 0;
+  ctxWmp.restore();
+
+  // Blob arms — teardrop shapes radiating outward
+  for (let a = 0; a < numArms; a++) {
+    const armAng = (a / numArms) * Math.PI * 2 + t * 0.6;
+    const binIdx = Math.floor((a / numArms) * Math.min(80, freqData.length));
+    const amp    = (freqData[binIdx] / 255) * sens;
+    if (amp < 0.08) continue;
+    const armLen = baseR * 0.6 + amp * 140;
+    const hue    = ((a / numArms) * 360 + t * 55) % 360;
+
+    ctxWmp.save(); ctxWmp.translate(cx, cy); ctxWmp.rotate(armAng);
+
+    // Teardrop (wide at base, tapered tip)
+    const bw = (8 + amp * 22);
+    ctxWmp.beginPath();
+    ctxWmp.moveTo(0, baseR);
+    ctxWmp.bezierCurveTo(
+      -bw,     baseR + armLen * 0.3,
+      -bw * 0.4, baseR + armLen * 0.7,
+      0,       baseR + armLen
+    );
+    ctxWmp.bezierCurveTo(
+      bw * 0.4,  baseR + armLen * 0.7,
+      bw,        baseR + armLen * 0.3,
+      0,         baseR
+    );
+    ctxWmp.closePath();
+    const armGrd = ctxWmp.createLinearGradient(0, baseR, 0, baseR + armLen);
+    armGrd.addColorStop(0, `hsla(${hue|0},100%,75%,${(amp*0.9).toFixed(2)})`);
+    armGrd.addColorStop(0.6,`hsla(${(hue+30)%360|0},90%,50%,${(amp*0.6).toFixed(2)})`);
+    armGrd.addColorStop(1,  `hsla(${(hue+60)%360|0},80%,30%,0)`);
+    ctxWmp.fillStyle = armGrd;
+    ctxWmp.shadowColor = `hsl(${hue|0},100%,65%)`; ctxWmp.shadowBlur = 10;
+    ctxWmp.fill(); ctxWmp.shadowBlur = 0;
+
+    // Drip from blob tip
+    if (amp > 0.3) {
+      const tipY  = baseR + armLen;
+      const dLen  = amp * 45 * Math.abs(Math.sin(t * 2.8 + a));
+      ctxWmp.beginPath();
+      ctxWmp.moveTo(-bw * 0.25, tipY);
+      ctxWmp.bezierCurveTo(
+        -bw * 0.35, tipY + dLen * 0.5,
+        bw * 0.35,  tipY + dLen * 0.5,
+        0,           tipY + dLen
+      );
+      ctxWmp.bezierCurveTo(
+        bw * 0.25,  tipY + dLen * 0.5,
+        bw * 0.2,   tipY,
+        bw * 0.25,  tipY
+      );
+      ctxWmp.closePath();
+      const dripGrd = ctxWmp.createLinearGradient(0, tipY, 0, tipY + dLen);
+      dripGrd.addColorStop(0, `hsla(${hue|0},100%,70%,${(amp*0.7).toFixed(2)})`);
+      dripGrd.addColorStop(1, `hsla(${hue|0},80%,30%,0)`);
+      ctxWmp.fillStyle = dripGrd; ctxWmp.fill();
+    }
+    ctxWmp.restore();
+  }
+
+  // Central blob drips (from bottom)
+  const numDrips = 3;
+  for (let d = 0; d < numDrips; d++) {
+    const dAng  = (Math.PI * 0.5) + (d - 1) * 0.35 + Math.sin(t * 1.4 + d) * 0.2;
+    const dLen  = bassAmp * (50 + d * 20) * Math.abs(Math.sin(t * 1.9 + d * 1.3));
+    if (dLen < 4) continue;
+    const sx = cx + Math.cos(dAng) * (baseR - 5);
+    const sy = cy + Math.sin(dAng) * (baseR - 5);
+    const ex = cx + Math.cos(dAng) * (baseR + dLen);
+    const ey = cy + Math.sin(dAng) * (baseR + dLen);
+    ctxWmp.beginPath();
+    ctxWmp.moveTo(sx - 4, sy);
+    ctxWmp.bezierCurveTo(sx - 6, sy + dLen * 0.3, ex + 6, ey - dLen * 0.3, ex, ey);
+    ctxWmp.bezierCurveTo(ex - 5, ey, sx + 5, sy + dLen * 0.3, sx + 4, sy);
+    ctxWmp.closePath();
+    const dGrd = ctxWmp.createLinearGradient(sx, sy, ex, ey);
+    const hue = ((t * 40 + d * 60) % 360)|0;
+    dGrd.addColorStop(0, `hsla(${hue},100%,65%,${(bassAmp*0.8).toFixed(2)})`);
+    dGrd.addColorStop(1, `hsla(${hue},80%,30%,0)`);
+    ctxWmp.fillStyle = dGrd; ctxWmp.fill();
+  }
+
+  // Polar waveform ring
+  ctxWmp.save(); ctxWmp.translate(cx, cy); ctxWmp.rotate(-t * 1.5);
+  const samples = 128, sStep = Math.floor(timeData.length / samples);
+  ctxWmp.beginPath();
+  for (let i = 0; i < samples; i++) {
+    const v   = ((timeData[i * sStep] - 128) / 128) * sens;
+    const ang = (i / samples) * Math.PI * 2;
+    const r   = 72 + v * 55;
+    const x   = Math.cos(ang) * r, y = Math.sin(ang) * r;
+    i === 0 ? ctxWmp.moveTo(x, y) : ctxWmp.lineTo(x, y);
+  }
+  ctxWmp.closePath();
+  ctxWmp.strokeStyle = 'rgba(0,255,190,0.6)'; ctxWmp.lineWidth = 1.2;
   ctxWmp.shadowColor = '#00ffcc'; ctxWmp.shadowBlur = 5;
   ctxWmp.stroke(); ctxWmp.shadowBlur = 0;
   ctxWmp.restore();
@@ -2181,8 +2408,9 @@ function wmpLoop() {
   const timeData = new Uint8Array(wmpAnalyser.fftSize);
   wmpAnalyser.getByteFrequencyData(freqData);
   wmpAnalyser.getByteTimeDomainData(timeData);
-  const sens   = 0.4 + (wmpSensVal / 100) * 1.6;
-  const trailsN= wmpTrailsVal / 100;
+  const sens    = 0.4 + (wmpSensVal / 100) * 1.6;
+  const trailsN = wmpTrailsVal / 100;
+  wmpAlchemyAngle += 0.010; // global time — used by Fire, Ocean, Alchemy
   switch (wmpPreset) {
     case 0: renderScopeGreen(timeData, sens); break;
     case 1: renderFireStorm(freqData, sens); break;
@@ -2239,17 +2467,51 @@ wmpAudioEl.addEventListener('ended', () => {
   document.getElementById('btnWmpPlayPause').querySelector('.btn-icon').textContent = '▶';
 });
 
-// Fullscreen
-document.getElementById('btnWmpFull').addEventListener('click', () => {
+// Fullscreen helpers
+function wmpEnterPseudoFull() {
+  wmpPseudoFull = true;
+  document.body.classList.add('wmp-pseudo-full');
+  const cvs = document.getElementById('wmpCanvas');
+  cvs.style.width  = window.innerWidth  + 'px';
+  cvs.style.height = window.innerHeight + 'px';
+  document.getElementById('btnWmpFull').textContent = '✕ EXIT';
+}
+function wmpExitPseudoFull() {
+  wmpPseudoFull = false;
+  document.body.classList.remove('wmp-pseudo-full');
+  document.getElementById('btnWmpFull').textContent = '⛶ FULL';
+  relayout();
+}
+
+// Fullscreen button
+document.getElementById('btnWmpFull').addEventListener('click', async () => {
   const el = document.getElementById('wmpArea');
-  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-    (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
-  } else {
+  // Already in pseudo-fullscreen
+  if (wmpPseudoFull) { wmpExitPseudoFull(); return; }
+  // Already in native fullscreen
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
     (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
+    return;
   }
+  // Try native fullscreen first
+  const reqFull = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (reqFull) {
+    try {
+      await reqFull.call(el);
+      return; // success — fullscreenchange event will call relayout()
+    } catch(e) { /* blocked (e.g. iOS Safari) → fall through to CSS */ }
+  }
+  // CSS pseudo-fullscreen fallback (iOS Safari, older browsers)
+  wmpEnterPseudoFull();
 });
-document.addEventListener('fullscreenchange', () => { relayout(); });
-document.addEventListener('webkitfullscreenchange', () => { relayout(); });
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) document.getElementById('btnWmpFull').textContent = '⛶ FULL';
+  relayout();
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  if (!document.webkitFullscreenElement) document.getElementById('btnWmpFull').textContent = '⛶ FULL';
+  relayout();
+});
 
 // ════════════════════════════════════════════════════════════════════
 // SERVICE WORKER

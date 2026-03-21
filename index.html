@@ -16,193 +16,226 @@
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
-
     :root {
-      --ink:    #0F380F;
-      --dark:   #306230;
-      --mid:    #8BAC0F;
-      --paper:  #9BBC0F;
+      --ink:   #0F380F;
+      --dark:  #306230;
+      --mid:   #8BAC0F;
+      --paper: #9BBC0F;
     }
-
     html, body {
       width: 100%; height: 100dvh;
       overflow: hidden;
       background: var(--ink);
       display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+      align-items: center;
+      font-family: monospace;
     }
 
-    /* ── Viewfinder ───────────────────────────────────────────── */
+    /* ── Tabs ──────────────────────────────────────────────────────── */
+    .tab-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+      height: 40px;
+      display: flex;
+      border-bottom: 2px solid var(--dark);
+      background: var(--ink);
+    }
+    .tab {
+      flex: 1; height: 100%;
+      background: none; border: none; border-right: 2px solid var(--dark);
+      color: var(--dark); font-family: monospace; font-size: 11px;
+      font-weight: bold; letter-spacing: 2px; text-transform: uppercase;
+      cursor: pointer; transition: color 0.1s, background 0.1s;
+    }
+    .tab:last-child { border-right: none; }
+    .tab.active { color: var(--paper); background: rgba(155,188,15,.08); }
+    .tab:active  { background: var(--dark); }
+
+    /* ── Canvas ────────────────────────────────────────────────────── */
     #display {
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       display: block;
+      margin-top: 40px;         /* tab bar height */
       flex-shrink: 0;
     }
 
-    /* ── Barra inferior ───────────────────────────────────────── */
+    /* ── Barra inferior ────────────────────────────────────────────── */
     .bar {
       position: fixed; bottom: 0; left: 0; right: 0;
       height: 96px;
       background: var(--ink);
-      border-top: 3px solid var(--dark);
+      border-top: 2px solid var(--dark);
       display: flex; align-items: center; justify-content: space-around;
-      padding: 0 20px;
-      z-index: 10;
+      padding: 0 20px; z-index: 10;
     }
-
     .btn {
-      background: none; border: none;
-      cursor: pointer; user-select: none;
+      background: none; border: none; cursor: pointer; user-select: none;
       display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 4px;
-      color: var(--paper);
-      font-family: monospace; font-size: 10px; letter-spacing: 1px;
-      text-transform: uppercase;
-      -webkit-user-select: none;
-      padding: 8px 16px;
+      align-items: center; justify-content: center; gap: 4px;
+      color: var(--paper); font-family: monospace;
+      font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+      padding: 8px 14px;
     }
     .btn-icon {
       width: 44px; height: 44px;
-      border: 2px solid var(--dark);
-      background: var(--ink);
+      border: 2px solid var(--dark); background: var(--ink);
       display: flex; align-items: center; justify-content: center;
       font-size: 20px;
       transition: background 0.08s, transform 0.08s;
     }
-    .btn:active .btn-icon {
-      background: var(--dark);
-      transform: scale(0.9);
-    }
-
-    /* Botón central (captura) */
-    #btnCapture .btn-icon {
-      width: 64px; height: 64px;
-      border-radius: 50%;
-      border: 3px solid var(--paper);
-      font-size: 24px;
-    }
-
-    /* REC activo */
-    #btnRecord.recording .btn-icon {
-      background: #bb0000;
-      border-color: #ff4444;
-      animation: pulse 1s ease-in-out infinite;
-    }
+    .btn:active .btn-icon { background: var(--dark); transform: scale(0.9); }
+    .btn-center .btn-icon { width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--paper); font-size: 26px; }
+    #btnRecord.recording .btn-icon { background: #bb0000; border-color: #ff4444; animation: pulse 1s ease-in-out infinite; }
     #btnRecord.recording .btn-label { color: #ff6666; }
-    @keyframes pulse { 50% { opacity: 0.55; } }
+    @keyframes pulse { 50% { opacity: .55; } }
 
-    /* ── Selector de paleta (esquina superior derecha) ────────── */
+    /* ── Paleta ────────────────────────────────────────────────────── */
     .palettes {
-      position: fixed; top: 16px; right: 16px;
-      display: flex; flex-direction: column; gap: 7px;
-      z-index: 10;
+      position: fixed; top: 48px; right: 12px;
+      display: flex; flex-direction: column; gap: 7px; z-index: 10;
     }
     .pal-swatch {
-      width: 26px; height: 26px;
-      border: 2px solid transparent;
-      cursor: pointer;
-      transition: transform 0.1s;
+      width: 26px; height: 26px; border: 2px solid transparent;
+      cursor: pointer; transition: transform .1s;
     }
-    .pal-swatch:active { transform: scale(0.88); }
+    .pal-swatch:active { transform: scale(.88); }
     .pal-swatch.active { border: 2px solid #fff; }
 
-    /* ── Flip button (esquina superior izquierda) ─────────────── */
+    /* ── Flip ──────────────────────────────────────────────────────── */
     #btnFlip {
-      position: fixed; top: 16px; left: 16px;
-      z-index: 10;
-      background: none; border: none;
-      cursor: pointer;
+      position: fixed; top: 48px; left: 12px; z-index: 10;
+      background: none; border: none; cursor: pointer;
       color: var(--paper); font-family: monospace;
       font-size: 10px; letter-spacing: 1px;
-      display: flex; flex-direction: column;
-      align-items: center; gap: 4px;
-      padding: 4px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px;
     }
     #btnFlip .btn-icon { width: 36px; height: 36px; font-size: 16px; }
 
-    /* ── FPS counter ──────────────────────────────────────────── */
-    #fps {
-      position: fixed; bottom: 100px; left: 12px;
-      color: var(--dark); font-size: 10px; font-family: monospace;
-      z-index: 10; pointer-events: none;
-    }
+    /* ── FPS label ─────────────────────────────────────────────────── */
+    #fps { position: fixed; bottom: 100px; left: 12px; color: var(--dark); font-size: 10px; pointer-events: none; z-index: 10; }
 
-    /* ── Flash ─────────────────────────────────────────────────── */
-    #flash {
-      position: fixed; inset: 0;
-      background: var(--paper);
-      opacity: 0; pointer-events: none;
-      z-index: 99;
-      transition: opacity 0.04s;
-    }
-    #flash.on { opacity: 0.7; }
+    /* ── Flash ─────────────────────────────────────────────────────── */
+    #flash { position: fixed; inset: 0; background: var(--paper); opacity: 0; pointer-events: none; z-index: 99; transition: opacity .04s; }
+    #flash.on { opacity: .7; }
 
-    /* ── Pantalla de bienvenida / permiso ─────────────────────── */
+    /* ── Splash ─────────────────────────────────────────────────────── */
     #splash {
-      position: fixed; inset: 0;
-      background: var(--ink);
+      position: fixed; inset: 0; background: var(--ink);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       gap: 24px; z-index: 100; padding: 40px;
     }
     #splash.hidden { display: none; }
-
-    .logo {
-      font-family: monospace; font-size: 22px;
-      color: var(--paper); letter-spacing: 4px;
-      text-align: center; line-height: 1.5;
-    }
-    .logo span {
-      display: block; font-size: 11px;
-      color: var(--mid); letter-spacing: 3px;
-      margin-top: 6px;
-    }
-
-    .start-btn {
-      background: var(--paper); color: var(--ink);
-      border: none; padding: 16px 40px;
-      font-family: monospace; font-size: 14px;
-      font-weight: bold; letter-spacing: 3px;
-      text-transform: uppercase; cursor: pointer;
-      transition: background 0.1s;
-    }
+    .logo { font-family: monospace; font-size: 22px; color: var(--paper); letter-spacing: 4px; text-align: center; line-height: 1.5; }
+    .logo span { display: block; font-size: 11px; color: var(--mid); letter-spacing: 3px; margin-top: 6px; }
+    .start-btn { background: var(--paper); color: var(--ink); border: none; padding: 16px 40px; font-family: monospace; font-size: 14px; font-weight: bold; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; }
     .start-btn:active { background: var(--mid); }
+    .credits { font-family: monospace; font-size: 10px; color: var(--dark); text-align: center; line-height: 1.8; }
 
-    .credits {
-      font-family: monospace; font-size: 10px;
-      color: var(--dark); text-align: center; line-height: 1.8;
+    /* ══════════════════════════════════════════════════════════════
+       UPLOAD SECTION
+    ══════════════════════════════════════════════════════════════ */
+    #uploadSection {
+      display: none;
+      position: fixed; top: 40px; bottom: 96px; left: 0; right: 0;
+      flex-direction: column; align-items: center; justify-content: center;
+      overflow-y: auto; padding: 16px;
+      gap: 14px;
     }
+    #uploadSection.visible { display: flex; }
+
+    /* Drop zone */
+    .drop-zone {
+      width: 100%; max-width: 420px;
+      border: 2px dashed var(--dark);
+      padding: 32px 16px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      cursor: pointer; transition: border-color .15s;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--paper); }
+    .drop-zone .dz-icon { font-size: 36px; }
+    .drop-zone p { color: var(--mid); font-size: 12px; letter-spacing: 1px; text-align: center; line-height: 1.6; }
+    .drop-zone strong { color: var(--paper); display: block; margin-bottom: 4px; font-size: 13px; letter-spacing: 2px; }
+    #fileInput { display: none; }
+
+    /* FPS selector */
+    .fps-row {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .fps-row label { color: var(--mid); font-size: 10px; letter-spacing: 2px; margin-right: 4px; }
+    .fps-btn {
+      background: none; border: 2px solid var(--dark); color: var(--dark);
+      padding: 6px 14px; font-family: monospace; font-size: 11px;
+      font-weight: bold; cursor: pointer; transition: .1s;
+    }
+    .fps-btn.active { border-color: var(--paper); color: var(--paper); background: rgba(155,188,15,.1); }
+    .fps-btn:active { background: var(--dark); }
+
+    /* Progress */
+    #progressWrap {
+      width: 100%; max-width: 420px; display: none;
+      flex-direction: column; gap: 8px;
+    }
+    #progressWrap.visible { display: flex; }
+    .progress-bar-bg {
+      width: 100%; height: 8px; background: var(--dark);
+    }
+    .progress-bar-fill {
+      height: 100%; background: var(--paper);
+      width: 0%; transition: width .3s;
+    }
+    .progress-info {
+      display: flex; justify-content: space-between;
+      color: var(--mid); font-size: 10px; letter-spacing: 1px;
+    }
+
+    /* Result canvas en upload mode */
+    #uploadCanvas {
+      display: none;
+      image-rendering: pixelated; image-rendering: crisp-edges;
+      width: 100%; max-width: 420px;
+      border: 2px solid var(--dark);
+    }
+    #uploadCanvas.visible { display: block; }
+
+    /* Upload bar (bottom bar en modo subir) */
+    #barUpload {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 96px; background: var(--ink); border-top: 2px solid var(--dark);
+      align-items: center; justify-content: space-around;
+      padding: 0 20px; z-index: 10;
+    }
+    #barUpload.visible { display: flex; }
   </style>
 </head>
 <body>
 
-<!-- Elementos ocultos de procesado -->
+<!-- Procesado -->
 <video id="vid" autoplay playsinline muted style="display:none"></video>
-<canvas id="small"   style="display:none"></canvas>
-<canvas id="scanCvs" style="display:none"></canvas>
+<video id="uploadVid" playsinline style="display:none"></video>
+<canvas id="small"    style="display:none"></canvas>
+<canvas id="scanCvs"  style="display:none"></canvas>
 
-<!-- Viewfinder -->
-<canvas id="display"></canvas>
-
-<!-- Splash / permiso -->
-<div id="splash">
-  <div class="logo">
-    FLIPNOTE<br>FILTER
-    <span>CAMERA EFFECT</span>
-  </div>
-  <button class="start-btn" id="btnStart">▶ INICIAR</button>
-  <p class="credits">
-    Flipnote Studio DSi aesthetic<br>
-    Bayer dithering · Game Boy palette · Scanlines
-  </p>
+<!-- Tabs -->
+<div class="tab-bar">
+  <button class="tab active" id="tabCam">📷 CÁMARA</button>
+  <button class="tab"        id="tabUp" >📂 SUBIR</button>
 </div>
 
-<!-- Flash -->
+<!-- Canvas cámara (modo cámara) -->
+<canvas id="display"></canvas>
+
+<!-- Splash -->
+<div id="splash">
+  <div class="logo">FLIPNOTE<br>FILTER<span>CAMERA EFFECT</span></div>
+  <button class="start-btn" id="btnStart">▶ INICIAR</button>
+  <p class="credits">Bayer dithering · Game Boy palette · Scanlines<br>Cámara en vivo · Sube fotos y videos</p>
+</div>
+
 <div id="flash"></div>
 
-<!-- Botón flip (esquina) -->
+<!-- Flip (cámara) -->
 <button id="btnFlip" aria-label="Voltear cámara">
   <div class="btn-icon">⟳</div>
 </button>
@@ -210,18 +243,65 @@
 <!-- Paletas -->
 <div class="palettes" id="palettes"></div>
 
-<!-- Barra de controles -->
-<div class="bar">
-  <button class="btn" id="btnRecord" aria-label="Grabar video">
+<!-- ══════════════════════════════════════════════════════════════
+     UPLOAD SECTION
+════════════════════════════════════════════════════════════════ -->
+<div id="uploadSection">
+  <!-- Drop zone -->
+  <div class="drop-zone" id="dropZone">
+    <span class="dz-icon">🎞</span>
+    <p><strong>ARRASTRA UN ARCHIVO AQUÍ</strong>
+       Foto o video · Cualquier duración<br>
+       JPG · PNG · HEIC · MP4 · MOV · WEBM</p>
+    <input type="file" id="fileInput" accept="image/*,video/*">
+  </div>
+
+  <!-- FPS (solo para video) -->
+  <div class="fps-row" id="fpsRow" style="display:none">
+    <label>FPS</label>
+    <button class="fps-btn" data-fps="8">8</button>
+    <button class="fps-btn active" data-fps="12">12</button>
+    <button class="fps-btn" data-fps="20">20</button>
+  </div>
+
+  <!-- Progreso -->
+  <div id="progressWrap">
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+    <div class="progress-info">
+      <span id="progressLabel">Procesando…</span>
+      <span id="progressPct">0%</span>
+    </div>
+  </div>
+
+  <!-- Preview del resultado -->
+  <canvas id="uploadCanvas" width="1024" height="768"></canvas>
+</div>
+
+<!-- Barra cámara -->
+<div class="bar" id="barCam">
+  <button class="btn" id="btnRecord" aria-label="Grabar">
     <div class="btn-icon">⏺</div>
     <span class="btn-label">REC</span>
   </button>
-
-  <button class="btn" id="btnCapture" aria-label="Capturar foto">
+  <button class="btn btn-center" id="btnCapture" aria-label="Foto">
     <div class="btn-icon">●</div>
   </button>
-
   <button class="btn" id="btnShare" aria-label="Compartir">
+    <div class="btn-icon">↑</div>
+    <span class="btn-label">SHARE</span>
+  </button>
+</div>
+
+<!-- Barra upload -->
+<div id="barUpload">
+  <button class="btn" id="btnChoose" aria-label="Elegir archivo">
+    <div class="btn-icon">📂</div>
+    <span class="btn-label">ELEGIR</span>
+  </button>
+  <button class="btn btn-center" id="btnSaveResult" aria-label="Guardar resultado" style="opacity:.4" disabled>
+    <div class="btn-icon">💾</div>
+  </button>
+  <button class="btn" id="btnShareResult" aria-label="Compartir resultado" style="opacity:.4" disabled>
     <div class="btn-icon">↑</div>
     <span class="btn-label">SHARE</span>
   </button>
@@ -230,9 +310,9 @@
 <div id="fps"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 // PALETAS
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 const PALETTES = [
   { name: 'Game Boy',   paper: [155,188, 15], ink: [ 15, 56, 15] },
   { name: 'B&W',        paper: [255,255,255], ink: [  0,  0,  0] },
@@ -243,114 +323,140 @@ const PALETTES = [
 ];
 let activePal = 0;
 
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 // BAYER 8×8
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 const BAYER8 = new Uint8Array([
-   0, 32,  8, 40,  2, 34, 10, 42,
-  48, 16, 56, 24, 50, 18, 58, 26,
-  12, 44,  4, 36, 14, 46,  6, 38,
-  60, 28, 52, 20, 62, 30, 54, 22,
-   3, 35, 11, 43,  1, 33,  9, 41,
-  51, 19, 59, 27, 49, 17, 57, 25,
-  15, 47,  7, 39, 13, 45,  5, 37,
-  63, 31, 55, 23, 61, 29, 53, 21,
+   0,32, 8,40, 2,34,10,42, 48,16,56,24,50,18,58,26,
+  12,44, 4,36,14,46, 6,38, 60,28,52,20,62,30,54,22,
+   3,35,11,43, 1,33, 9,41, 51,19,59,27,49,17,57,25,
+  15,47, 7,39,13,45, 5,37, 63,31,55,23,61,29,53,21,
 ].map(v => Math.round(v * 255 / 63)));
 
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 // DIMENSIONES
-// ═══════════════════════════════════════════════════════════════════════
-const DSI_W = 256, DSI_H = 192;
-const SCALE  = 4;
-const OUT_W  = DSI_W * SCALE;   // 1024
-const OUT_H  = DSI_H * SCALE;   // 768
+// ════════════════════════════════════════════════════════════════════════
+const DSI_W = 256, DSI_H = 192, SCALE = 4;
+const OUT_W = DSI_W * SCALE, OUT_H = DSI_H * SCALE;   // 1024 × 768
 
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 // DOM
-// ═══════════════════════════════════════════════════════════════════════
-const vid     = document.getElementById('vid');
-const small   = document.getElementById('small');
-const scanCvs = document.getElementById('scanCvs');
-const display = document.getElementById('display');
-const splash  = document.getElementById('splash');
-const flash   = document.getElementById('flash');
-const fpsEl   = document.getElementById('fps');
+// ════════════════════════════════════════════════════════════════════════
+const vid       = document.getElementById('vid');
+const uploadVid = document.getElementById('uploadVid');
+const small     = document.getElementById('small');
+const scanCvs   = document.getElementById('scanCvs');
+const display   = document.getElementById('display');
+const upCanvas  = document.getElementById('uploadCanvas');
+const splash    = document.getElementById('splash');
+const flash     = document.getElementById('flash');
+const fpsEl     = document.getElementById('fps');
 
-small.width   = DSI_W;  small.height   = DSI_H;
-scanCvs.width = OUT_W;  scanCvs.height = OUT_H;
-display.width = OUT_W;  display.height = OUT_H;
+small.width  = DSI_W; small.height  = DSI_H;
+scanCvs.width= OUT_W; scanCvs.height= OUT_H;
+display.width= OUT_W; display.height= OUT_H;
 
 const ctxS  = small.getContext('2d',   { willReadFrequently: true });
 const ctxD  = display.getContext('2d', { willReadFrequently: false });
+const ctxUP = upCanvas.getContext('2d',{ willReadFrequently: false });
 const ctxSc = scanCvs.getContext('2d');
-ctxD.imageSmoothingEnabled = false;
+ctxD.imageSmoothingEnabled  = false;
+ctxUP.imageSmoothingEnabled = false;
 
-// ═══════════════════════════════════════════════════════════════════════
-// LAYOUT: ajustar canvas al viewport dejando espacio a la barra
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
+// LAYOUT
+// ════════════════════════════════════════════════════════════════════════
 function relayout() {
   const aspect = OUT_W / OUT_H;
-  const avW = window.innerWidth;
-  const avH = window.innerHeight - 96;
+  const avW = window.innerWidth, avH = window.innerHeight - 40 - 96;
   let w, h;
   if (avW / avH > aspect) { h = avH; w = h * aspect; }
   else                     { w = avW; h = w / aspect; }
-  display.style.width  = w + 'px';
-  display.style.height = h + 'px';
+  display.style.width  = w + 'px';  display.style.height = h + 'px';
 }
 window.addEventListener('resize', relayout);
 relayout();
 
-// ═══════════════════════════════════════════════════════════════════════
-// SCANLINES (pre-renderizado una vez)
-// ═══════════════════════════════════════════════════════════════════════
-function buildScanlines() {
-  ctxSc.clearRect(0, 0, OUT_W, OUT_H);
-  ctxSc.fillStyle = 'rgba(0,0,0,0.65)';   // borde de pixel DSi
+// ════════════════════════════════════════════════════════════════════════
+// SCANLINES (pre-renderizado)
+// ════════════════════════════════════════════════════════════════════════
+(function buildScanlines() {
+  ctxSc.fillStyle = 'rgba(0,0,0,0.65)';
   for (let y = 0; y < OUT_H; y += SCALE) ctxSc.fillRect(0, y, OUT_W, 1);
-  ctxSc.fillStyle = 'rgba(0,0,0,0.20)';   // CRT suave
-  for (let y = 1; y < OUT_H; y += 2)     ctxSc.fillRect(0, y, OUT_W, 1);
-}
-buildScanlines();
+  ctxSc.fillStyle = 'rgba(0,0,0,0.20)';
+  for (let y = 1; y < OUT_H; y += 2)    ctxSc.fillRect(0, y, OUT_W, 1);
+})();
 
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
 // PALETAS UI
-// ═══════════════════════════════════════════════════════════════════════
-const palContainer = document.getElementById('palettes');
+// ════════════════════════════════════════════════════════════════════════
 PALETTES.forEach((p, i) => {
-  const s = document.createElement('div');
-  s.className = 'pal-swatch' + (i === 0 ? ' active' : '');
-  s.style.background   = `rgb(${p.paper})`;
-  s.style.borderColor  = `rgb(${p.ink})`;
-  s.title = p.name;
+  const s = Object.assign(document.createElement('div'), { className: 'pal-swatch' + (i ? '' : ' active'), title: p.name });
+  s.style.background  = `rgb(${p.paper})`;
+  s.style.borderColor = `rgb(${p.ink})`;
   s.addEventListener('click', () => {
     activePal = i;
-    document.querySelectorAll('.pal-swatch').forEach((b,j) =>
-      b.classList.toggle('active', j === i));
+    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j === i));
   });
-  palContainer.appendChild(s);
+  document.getElementById('palettes').appendChild(s);
 });
 
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
+// CORE: dithering + render en un target canvas
+// ════════════════════════════════════════════════════════════════════════
+const lowBuf = new Uint8ClampedArray(DSI_W * DSI_H * 4);
+
+function cropCoords(srcW, srcH) {
+  const vA = srcW / srcH, cA = DSI_W / DSI_H;
+  let sx = 0, sy = 0, sw = srcW, sh = srcH;
+  if (vA > cA) { sw = sh * cA; sx = (srcW - sw) / 2; }
+  else          { sh = sw / cA; sy = (srcH - sh) / 2; }
+  return [sx, sy, sw, sh];
+}
+
+function renderDithered(source, srcW, srcH, targetCtx, mirror) {
+  const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
+  ctxS.save();
+  if (mirror) { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
+  ctxS.drawImage(source, sx, sy, sw, sh, 0, 0, DSI_W, DSI_H);
+  ctxS.restore();
+
+  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
+  const p = PALETTES[activePal];
+  const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
+
+  for (let y = 0; y < DSI_H; y++) {
+    const row8 = (y & 7) << 3;
+    for (let x = 0; x < DSI_W; x++) {
+      const i    = (y * DSI_W + x) << 2;
+      const gray = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+      const isInk = gray < BAYER8[row8 + (x & 7)];
+      lowBuf[i]   = isInk ? IR : PR; lowBuf[i+1] = isInk ? IG : PG;
+      lowBuf[i+2] = isInk ? IB : PB; lowBuf[i+3] = 255;
+    }
+  }
+  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
+  targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
+  targetCtx.drawImage(scanCvs, 0, 0);
+}
+
+// ════════════════════════════════════════════════════════════════════════
 // CÁMARA
-// ═══════════════════════════════════════════════════════════════════════
-let facingMode = 'environment';
-let stream = null;
+// ════════════════════════════════════════════════════════════════════════
+let facingMode = 'environment', stream = null;
 
 async function startCamera(facing) {
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
-    audio: false,
+    video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
   });
-  vid.srcObject = stream;
-  await vid.play();
+  vid.srcObject = stream; await vid.play();
 }
 
 document.getElementById('btnStart').addEventListener('click', async () => {
   await startCamera(facingMode);
   splash.classList.add('hidden');
-  requestAnimationFrame(loop);
+  requestAnimationFrame(cameraLoop);
 });
 
 document.getElementById('btnFlip').addEventListener('click', () => {
@@ -358,180 +464,339 @@ document.getElementById('btnFlip').addEventListener('click', () => {
   startCamera(facingMode);
 });
 
-// ═══════════════════════════════════════════════════════════════════════
-// RENDER
-// ═══════════════════════════════════════════════════════════════════════
-const lowBuf = new Uint8ClampedArray(DSI_W * DSI_H * 4);
+// ════════════════════════════════════════════════════════════════════════
+// RENDER LOOP (cámara)
+// ════════════════════════════════════════════════════════════════════════
+let cameraRunning = false;
+let lastFPSt = performance.now(), frames = 0;
 
-function processFrame() {
-  if (!vid.videoWidth) return;
-  const p = PALETTES[activePal];
-  const [PR, PG, PB] = p.paper;
-  const [IR, IG, IB] = p.ink;
-
-  // Crop-to-fill: recortar el video para llenar 256×192 sin deformar
-  const vA = vid.videoWidth / vid.videoHeight, cA = DSI_W / DSI_H;
-  let sx = 0, sy = 0, sw = vid.videoWidth, sh = vid.videoHeight;
-  if (vA > cA) { sw = sh * cA; sx = (vid.videoWidth  - sw) / 2; }
-  else          { sh = sw / cA; sy = (vid.videoHeight - sh) / 2; }
-
-  ctxS.save();
-  if (facingMode === 'user') { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
-  ctxS.drawImage(vid, sx, sy, sw, sh, 0, 0, DSI_W, DSI_H);
-  ctxS.restore();
-
-  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
-
-  for (let y = 0; y < DSI_H; y++) {
-    const row8 = (y & 7) << 3;
-    for (let x = 0; x < DSI_W; x++) {
-      const i    = (y * DSI_W + x) << 2;
-      const gray = (src[i] * 77 + src[i+1] * 150 + src[i+2] * 29) >> 8;
-      const isInk = gray < BAYER8[row8 + (x & 7)];
-      lowBuf[i]   = isInk ? IR : PR;
-      lowBuf[i+1] = isInk ? IG : PG;
-      lowBuf[i+2] = isInk ? IB : PB;
-      lowBuf[i+3] = 255;
-    }
+function cameraLoop(t) {
+  if (!cameraRunning) return;
+  if (vid.videoWidth)
+    renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode === 'user');
+  frames++;
+  if (t - lastFPSt >= 1000) {
+    fpsEl.textContent = frames + ' fps'; frames = 0; lastFPSt = t;
   }
-
-  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
-  ctxD.drawImage(small, 0, 0, OUT_W, OUT_H);   // nearest-neighbor upscale
-  ctxD.drawImage(scanCvs, 0, 0);               // scanlines overlay
+  requestAnimationFrame(cameraLoop);
 }
 
-let lastT = performance.now(), frameCount = 0;
-function loop(t) {
-  processFrame();
-  frameCount++;
-  if (t - lastT >= 1000) {
-    fpsEl.textContent = frameCount + ' fps';
-    frameCount = 0; lastT = t;
+// ════════════════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════════════════
+let activeTab = 'cam';
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tabCam').classList.toggle('active', tab === 'cam');
+  document.getElementById('tabUp' ).classList.toggle('active', tab === 'up');
+
+  const isCam = tab === 'cam';
+  display.style.display = isCam ? 'block' : 'none';
+  document.getElementById('uploadSection').classList.toggle('visible', !isCam);
+  document.getElementById('barCam'   ).style.display = isCam ? '' : 'none';
+  document.getElementById('barUpload').classList.toggle('visible', !isCam);
+  document.getElementById('btnFlip'  ).style.display = isCam ? '' : 'none';
+  fpsEl.style.display = isCam ? '' : 'none';
+
+  if (isCam) {
+    cameraRunning = true;
+    if (stream) requestAnimationFrame(cameraLoop);
+  } else {
+    cameraRunning = false;
   }
-  requestAnimationFrame(loop);
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// CAPTURA (foto)
-// ═══════════════════════════════════════════════════════════════════════
-document.getElementById('btnCapture').addEventListener('click', async () => {
-  flash.classList.add('on');
-  setTimeout(() => flash.classList.remove('on'), 120);
+document.getElementById('tabCam').addEventListener('click', () => switchTab('cam'));
+document.getElementById('tabUp' ).addEventListener('click', () => switchTab('up'));
 
-  display.toBlob(async blob => {
-    await _shareOrDownload(blob, 'flipnote_' + Date.now() + '.png');
-  }, 'image/png');
-});
-
-// ═══════════════════════════════════════════════════════════════════════
-// UTILIDAD: descargar un blob de forma confiable en móvil
-// ═══════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════
+// UTILIDADES: guardar y compartir
+// ════════════════════════════════════════════════════════════════════════
 function _download(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a   = Object.assign(document.createElement('a'), { href: url, download: filename });
-  document.body.appendChild(a);
-  a.click();
+  document.body.appendChild(a); a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
 }
 
 async function _shareOrDownload(blob, filename) {
   const file = new File([blob], filename, { type: blob.type });
   if (navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'Flipnote Filter' });
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') return; // usuario canceló — no descargar
-    }
+    try { await navigator.share({ files: [file], title: 'Flipnote Filter' }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
   }
   _download(blob, filename);
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// GRABACIÓN (video)
-// ═══════════════════════════════════════════════════════════════════════
-let recorder = null, chunks = [], lastBlob = null, recMime = '';
-const btnRec = document.getElementById('btnRecord');
+function canvasToBlob(ctx) {
+  return new Promise(r => ctx.canvas.toBlob(r, 'image/png'));
+}
 
-// Timer visible mientras graba
-let recInterval = null;
+// ════════════════════════════════════════════════════════════════════════
+// CAPTURA (cámara → foto)
+// ════════════════════════════════════════════════════════════════════════
+document.getElementById('btnCapture').addEventListener('click', async () => {
+  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+  const blob = await canvasToBlob(ctxD);
+  await _shareOrDownload(blob, 'flipnote_' + Date.now() + '.png');
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// GRABACIÓN (cámara → video)
+// ════════════════════════════════════════════════════════════════════════
+let recorder = null, recChunks = [], lastBlob = null, recMime = '';
+const btnRec = document.getElementById('btnRecord');
+let recTimer = null;
+
 function startRecTimer() {
-  let secs = 0;
-  recInterval = setInterval(() => {
-    secs++;
-    const mm = String(Math.floor(secs / 60)).padStart(2,'0');
-    const ss = String(secs % 60).padStart(2,'0');
+  let s = 0;
+  recTimer = setInterval(() => {
+    s++; const mm = String(s/60|0).padStart(2,'0'), ss = String(s%60).padStart(2,'0');
     btnRec.querySelector('.btn-label').textContent = mm + ':' + ss;
   }, 1000);
 }
-function stopRecTimer() {
-  clearInterval(recInterval);
-  btnRec.querySelector('.btn-label').textContent = 'REC';
-}
+function stopRecTimer() { clearInterval(recTimer); btnRec.querySelector('.btn-label').textContent = 'REC'; }
 
 btnRec.addEventListener('click', async () => {
   if (!recorder || recorder.state === 'inactive') {
-
-    // Verificar soporte de captureStream (no disponible en iOS Safari)
     if (typeof display.captureStream !== 'function') {
-      alert('⚠️ Tu navegador no soporta grabación de video desde canvas.\n\niOS Safari: usa el botón ● para guardar fotos.\nAndroid: abre esta página en Chrome.');
-      return;
+      alert('⚠️ Grabación no disponible en este navegador.\nUsa Chrome en Android o guarda fotos con ●.'); return;
     }
-
-    const mimes = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    const mimes = ['video/mp4','video/webm;codecs=vp9','video/webm'];
     recMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
-    chunks  = []; lastBlob = null;
-
+    recChunks = []; lastBlob = null;
     try {
       recorder = new MediaRecorder(display.captureStream(30), {
-        ...(recMime ? { mimeType: recMime } : {}),
-        videoBitsPerSecond: 6_000_000,
+        ...(recMime ? { mimeType: recMime } : {}), videoBitsPerSecond: 6_000_000,
       });
-    } catch (e) {
-      alert('Error al iniciar grabación: ' + e.message);
-      return;
-    }
-
-    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-
+    } catch (e) { alert('Error: ' + e.message); return; }
+    recorder.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
     recorder.onstop = async () => {
-      if (!chunks.length) { alert('No se capturó video. Intenta de nuevo.'); return; }
+      if (!recChunks.length) return;
       const ext = recMime.includes('mp4') ? 'mp4' : 'webm';
-      lastBlob  = new Blob(chunks, { type: recMime || 'video/webm' });
-      const fname = 'flipnote_' + Date.now() + '.' + ext;
-      // Compartir / descargar automáticamente al parar
-      await _shareOrDownload(lastBlob, fname);
+      lastBlob = new Blob(recChunks, { type: recMime || 'video/webm' });
+      await _shareOrDownload(lastBlob, 'flipnote_' + Date.now() + '.' + ext);
     };
-
-    recorder.start(200);
-    startRecTimer();
+    recorder.start(200); startRecTimer();
     btnRec.classList.add('recording');
     btnRec.querySelector('.btn-icon').textContent = '⏹';
-
   } else {
-    recorder.stop();
-    stopRecTimer();
+    recorder.stop(); stopRecTimer();
     btnRec.classList.remove('recording');
     btnRec.querySelector('.btn-icon').textContent = '⏺';
   }
 });
 
-// ═══════════════════════════════════════════════════════════════════════
-// SHARE (re-compartir el último video grabado)
-// ═══════════════════════════════════════════════════════════════════════
 document.getElementById('btnShare').addEventListener('click', async () => {
-  if (!lastBlob) { alert('Graba un video primero con ⏺ REC'); return; }
-  const ext   = recMime.includes('mp4') ? 'mp4' : 'webm';
-  const fname = 'flipnote_' + Date.now() + '.' + ext;
-  await _shareOrDownload(lastBlob, fname);
+  if (!lastBlob) { alert('Graba un video primero.'); return; }
+  const ext = recMime.includes('mp4') ? 'mp4' : 'webm';
+  await _shareOrDownload(lastBlob, 'flipnote_' + Date.now() + '.' + ext);
 });
 
-// ═══════════════════════════════════════════════════════════════════════
-// SERVICE WORKER
-// ═══════════════════════════════════════════════════════════════════════
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+// ════════════════════════════════════════════════════════════════════════
+// UPLOAD: FPS SELECTOR
+// ════════════════════════════════════════════════════════════════════════
+let uploadFPS = 12;
+document.querySelectorAll('.fps-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    uploadFPS = Number(btn.dataset.fps);
+    document.querySelectorAll('.fps-btn').forEach(b => b.classList.toggle('active', b === btn));
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// UPLOAD: ABRIR FILE PICKER
+// ════════════════════════════════════════════════════════════════════════
+const fileInput  = document.getElementById('fileInput');
+const dropZone   = document.getElementById('dropZone');
+const fpsRow     = document.getElementById('fpsRow');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressLabel= document.getElementById('progressLabel');
+const progressPct  = document.getElementById('progressPct');
+
+function setProgress(pct, label) {
+  progressFill.style.width = pct + '%';
+  progressPct.textContent  = Math.round(pct) + '%';
+  if (label) progressLabel.textContent = label;
 }
+
+function showProgress(show) { progressWrap.classList.toggle('visible', show); }
+
+function setUploadResultReady(blob, ext) {
+  const fname = 'flipnote_' + Date.now() + '.' + ext;
+  const btnSave  = document.getElementById('btnSaveResult');
+  const btnShare = document.getElementById('btnShareResult');
+  btnSave.disabled  = false; btnSave.style.opacity  = '1';
+  btnShare.disabled = false; btnShare.style.opacity = '1';
+  btnSave.onclick  = () => _download(blob, fname);
+  btnShare.onclick = () => _shareOrDownload(blob, fname);
+}
+
+function openFilePicker() { fileInput.click(); }
+dropZone.addEventListener('click', openFilePicker);
+document.getElementById('btnChoose').addEventListener('click', openFilePicker);
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop',      e  => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change',   e  => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; });
+
+// ════════════════════════════════════════════════════════════════════════
+// UPLOAD: MANEJAR ARCHIVO
+// ════════════════════════════════════════════════════════════════════════
+function handleFile(file) {
+  if (!file) return;
+  const isVideo = file.type.startsWith('video/');
+  const isImage = file.type.startsWith('image/');
+  if (!isVideo && !isImage) { alert('Formato no soportado.'); return; }
+
+  fpsRow.style.display = isVideo ? 'flex' : 'none';
+
+  // Reset state
+  showProgress(false); setProgress(0, 'Procesando…');
+  const btnSave  = document.getElementById('btnSaveResult');
+  const btnShare = document.getElementById('btnShareResult');
+  btnSave.disabled  = true; btnSave.style.opacity  = '.4';
+  btnShare.disabled = true; btnShare.style.opacity = '.4';
+
+  if (isImage) processImage(file);
+  else         processVideo(file);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// UPLOAD: PROCESAR IMAGEN
+// ════════════════════════════════════════════════════════════════════════
+function processImage(file) {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  img.onload = async () => {
+    renderDithered(img, img.naturalWidth, img.naturalHeight, ctxUP, false);
+    URL.revokeObjectURL(url);
+    upCanvas.classList.add('visible');
+    dropZone.style.display = 'none';
+    const blob = await canvasToBlob(ctxUP);
+    setUploadResultReady(blob, 'png');
+  };
+  img.src = url;
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// UPLOAD: PROCESAR VIDEO (tiempo real + audio)
+// ════════════════════════════════════════════════════════════════════════
+let uploadProcessing = false;
+
+async function processVideo(file) {
+  if (uploadProcessing) return;
+  uploadProcessing = true;
+
+  if (typeof upCanvas.captureStream !== 'function') {
+    alert('⚠️ Tu navegador no soporta grabación de video desde canvas.\nPuedes subir fotos sin problema.\nPara video usa Chrome en Android.');
+    uploadProcessing = false; return;
+  }
+
+  const url = URL.createObjectURL(file);
+  uploadVid.src = url;
+  uploadVid.muted = true;   // silenciar preview; audio va por AudioContext
+
+  await new Promise((res, rej) => {
+    uploadVid.onloadedmetadata = res;
+    uploadVid.onerror = () => rej(new Error('No se pudo cargar el video'));
+  });
+
+  const duration = uploadVid.duration;
+  const vW = uploadVid.videoWidth, vH = uploadVid.videoHeight;
+
+  // Mostrar UI de progreso
+  upCanvas.classList.add('visible');
+  dropZone.style.display = 'none';
+  showProgress(true); setProgress(0, 'Iniciando…');
+
+  // Setup AudioContext para enrutar audio del video al recorder
+  let audioStream = null;
+  try {
+    const audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    const srcNode   = audioCtx.createMediaElementSource(uploadVid);
+    const destNode  = audioCtx.createMediaStreamDestination();
+    srcNode.connect(destNode);
+    // No conectar a audioCtx.destination para que no se oiga durante procesado
+    audioStream = destNode.stream;
+  } catch (_) { /* sin audio si falla */ }
+
+  // Captura de canvas
+  const canvasStream   = upCanvas.captureStream(uploadFPS);
+  const combinedTracks = [...canvasStream.getVideoTracks(), ...(audioStream?.getAudioTracks() ?? [])];
+  const combined       = new MediaStream(combinedTracks);
+
+  const mimes  = ['video/mp4','video/webm;codecs=vp9','video/webm'];
+  const mime   = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
+  const chunks = [];
+
+  const rec = new MediaRecorder(combined, {
+    ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: 4_000_000,
+  });
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+
+  // Throttle frames al FPS elegido
+  let lastFrameTime = -1;
+  const frameInterval = 1 / uploadFPS;
+  let rafID;
+
+  function tick() {
+    if (uploadVid.paused || uploadVid.ended) return;
+    const ct = uploadVid.currentTime;
+    if (ct - lastFrameTime >= frameInterval - 0.005) {
+      lastFrameTime = ct;
+      renderDithered(uploadVid, vW, vH, ctxUP, false);
+      const pct = duration > 0 ? (ct / duration) * 100 : 0;
+      const rem = duration > 0 ? Math.ceil((duration - ct)) : '?';
+      setProgress(pct, `Procesando… (${rem}s restantes)`);
+    }
+    rafID = requestAnimationFrame(tick);
+  }
+
+  const done = new Promise(resolve => {
+    rec.onstop = async () => {
+      cancelAnimationFrame(rafID);
+      URL.revokeObjectURL(url);
+      if (!chunks.length) { resolve(null); return; }
+      const ext  = mime.includes('mp4') ? 'mp4' : 'webm';
+      const blob = new Blob(chunks, { type: mime || 'video/webm' });
+      blob._ext  = ext;
+      resolve(blob);
+    };
+  });
+
+  rec.start(200);
+  uploadVid.currentTime = 0;
+  await uploadVid.play();
+  requestAnimationFrame(tick);
+
+  uploadVid.onended = () => { rec.stop(); };
+
+  const blob = await done;
+  setProgress(100, 'Listo');
+  uploadProcessing = false;
+
+  if (!blob) { alert('No se pudo procesar el video.'); return; }
+  setUploadResultReady(blob, blob._ext ?? 'webm');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INICIAR CÁMARA (desde splash)
+// ════════════════════════════════════════════════════════════════════════
+document.getElementById('btnStart').addEventListener('click', async () => {
+  await startCamera(facingMode);
+  splash.classList.add('hidden');
+  cameraRunning = true;
+  requestAnimationFrame(cameraLoop);
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// SERVICE WORKER
+// ════════════════════════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
 </html>

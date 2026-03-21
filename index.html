@@ -468,14 +468,14 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
   const base  = autoLevels ? minG : 0;
 
   if (legacyMode) {
-    // ── Flipnote Legacy: Floyd-Steinberg sobre bloques 4×4 ──
-    // El error se propaga a los vecinos → los puntos siguen los contornos
-    // de la imagen en lugar de crear una cuadrícula fija.
+    // ── Flipnote Legacy: Floyd-Steinberg → círculos reales con arc() ──
     const B = 4;
-    const mW = (DSI_W / B) | 0;  // 64 macro-columnas
-    const mH = (DSI_H / B) | 0;  // 48 macro-filas
+    const mW = (DSI_W / B) | 0;   // 64 macro-columnas
+    const mH = (DSI_H / B) | 0;   // 48 macro-filas
+    const cellPx = B * SCALE;      // 16px por bloque en el display
+    const TAU = Math.PI * 2;
 
-    // 1. Calcular gris promedio por bloque + auto-levels
+    // 1. Gris promedio por bloque
     const gray2 = new Float32Array(mW * mH);
     let minG2 = 255, maxG2 = 0;
     for (let my = 0; my < mH; my++) {
@@ -486,7 +486,7 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
             const i = ((my*B+dy) * DSI_W + (mx*B+dx)) << 2;
             gSum += (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
           }
-        const g = (gSum >> 4);
+        const g = gSum >> 4;
         gray2[my * mW + mx] = g;
         if (autoLevels) { if (g < minG2) minG2 = g; if (g > maxG2) maxG2 = g; }
       }
@@ -496,31 +496,43 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
     for (let i = 0; i < gray2.length; i++)
       gray2[i] = (gray2[i] - bas2) * 255 / rng2;
 
-    // 2. Floyd-Steinberg: error → right 7/16, bl 3/16, down 5/16, br 1/16
-    const err = new Float32Array(mW * mH);
+    // 2. Floyd-Steinberg → mapa de ink/paper
+    const err    = new Float32Array(mW * mH);
+    const inkMap = new Uint8Array(mW * mH);
     for (let my = 0; my < mH; my++) {
       for (let mx = 0; mx < mW; mx++) {
-        const idx  = my * mW + mx;
-        const g    = Math.max(0, Math.min(255, gray2[idx] + err[idx]));
+        const idx   = my * mW + mx;
+        const g     = Math.max(0, Math.min(255, gray2[idx] + err[idx]));
         const isInk = g < 128;
-        const e    = g - (isInk ? 0 : 255);
-        if (mx + 1 < mW)  err[idx + 1]        += e * 7 / 16;
+        inkMap[idx] = isInk ? 1 : 0;
+        const e = g - (isInk ? 0 : 255);
+        if (mx + 1 < mW)   err[idx + 1]           += e * 7 / 16;
         if (my + 1 < mH) {
-          if (mx > 0)     err[idx + mW - 1]    += e * 3 / 16;
-                          err[idx + mW]         += e * 5 / 16;
-          if (mx + 1 < mW) err[idx + mW + 1]   += e * 1 / 16;
+          if (mx > 0)       err[idx + mW - 1]      += e * 3 / 16;
+                            err[idx + mW]           += e * 5 / 16;
+          if (mx + 1 < mW)  err[idx + mW + 1]      += e * 1 / 16;
         }
-        for (let dy = 0; dy < B; dy++)
-          for (let dx = 0; dx < B; dx++) {
-            const i = ((my*B+dy) * DSI_W + (mx*B+dx)) << 2;
-            const useInk = isInk && CIRCLE4[dy * 4 + dx];
-            lowBuf[i]   = useInk ? IR : PR;
-            lowBuf[i+1] = useInk ? IG : PG;
-            lowBuf[i+2] = useInk ? IB : PB;
-            lowBuf[i+3] = 255;
-          }
       }
     }
+
+    // 3. Dibujar: fondo papel + círculos de tinta con arc()
+    const r = cellPx / 2 - 1;   // radio 7px: bola que casi toca sus vecinas
+    targetCtx.fillStyle = `rgb(${PR},${PG},${PB})`;
+    targetCtx.fillRect(0, 0, OUT_W, OUT_H);
+    targetCtx.fillStyle = `rgb(${IR},${IG},${IB})`;
+    targetCtx.beginPath();
+    for (let my = 0; my < mH; my++) {
+      for (let mx = 0; mx < mW; mx++) {
+        if (!inkMap[my * mW + mx]) continue;
+        const cx = mx * cellPx + cellPx / 2;
+        const cy = my * cellPx + cellPx / 2;
+        targetCtx.moveTo(cx + r, cy);
+        targetCtx.arc(cx, cy, r, 0, TAU);
+      }
+    }
+    targetCtx.fill();
+    targetCtx.drawImage(scanCvs, 0, 0);
+    return;
   } else {
     // ── Normal: dithering por pixel ──
     for (let y = 0; y < DSI_H; y++) {

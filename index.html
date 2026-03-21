@@ -453,12 +453,6 @@ async function startCamera(facing) {
   vid.srcObject = stream; await vid.play();
 }
 
-document.getElementById('btnStart').addEventListener('click', async () => {
-  await startCamera(facingMode);
-  splash.classList.add('hidden');
-  requestAnimationFrame(cameraLoop);
-});
-
 document.getElementById('btnFlip').addEventListener('click', () => {
   facingMode = facingMode === 'environment' ? 'user' : 'environment';
   startCamera(facingMode);

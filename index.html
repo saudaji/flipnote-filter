@@ -826,6 +826,7 @@ const ctxAS = asciiSample.getContext('2d', { willReadFrequently:true });
 // ════════════════════════════════════════════════════════════════════
 let asciiPanelOpen = false;
 const PANEL_W = 284; // desktop panel width px
+let wmpPseudoFull = false;
 
 function relayout() {
   const aspect = OUT_W / OUT_H;
@@ -1949,7 +1950,6 @@ let wmpPreset    = 0;      // 0=Scope 1=Fire 2=Ocean 3=Alchemy
 let wmpSensVal   = 50;
 let wmpTrailsVal = 30;
 let wmpAlchemyAngle = 0;
-let wmpPseudoFull   = false;
 const wmpPeaks   = new Float32Array(512);
 const wmpPeakHold= new Int32Array(512);
 const WW = 1024, WH = 576;  // internal canvas size

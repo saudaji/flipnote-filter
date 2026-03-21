@@ -262,6 +262,64 @@
     #chaosRow .ac-lbl { color:#FFD43B; }
     #chaosRow input[type="range"] { accent-color:#FFD43B; }
     #chaosRow .ac-val { color:#3776AB; }
+
+    /* ══════════════════════════════════════════════════════
+       SONO MODE — red theme
+    ══════════════════════════════════════════════════════ */
+    body.sono-mode { --ink:#d02e2e; --dark:#8b1a1a; --mid:#ff7878; --paper:#ffe8e8; }
+    body.sono-mode .tab.active { background:rgba(255,120,120,.10); }
+
+    /* ── SONO area ── */
+    #sonoArea {
+      display:none; position:fixed; top:40px; bottom:148px; left:0; right:0;
+      align-items:center; justify-content:center;
+    }
+    #sonoArea.visible { display:flex; }
+    #sonoCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
+
+    /* ── SONO permission overlay ── */
+    #sonoPerm {
+      display:none; position:fixed; top:40px; bottom:148px; left:0; right:0;
+      flex-direction:column; align-items:center; justify-content:center;
+      gap:18px; padding:32px; z-index:11;
+    }
+    #sonoPerm.visible { display:flex; }
+    #sonoPerm p { color:var(--paper); font-size:13px; text-align:center; line-height:1.9; letter-spacing:1px; }
+    #btnSonoStart {
+      background:var(--paper); color:var(--ink); border:none;
+      padding:14px 32px; font-family:monospace; font-size:13px;
+      font-weight:bold; letter-spacing:2px; text-transform:uppercase; cursor:pointer;
+    }
+    #btnSonoStart:active { opacity:.8; }
+
+    /* ── SONO HUD (above bar) ── */
+    #sonoHUD {
+      display:none; position:fixed; bottom:96px; left:0; right:0; height:52px;
+      background:var(--ink); border-top:1px solid var(--dark);
+      align-items:center; justify-content:center; padding:0 20px;
+      gap:20px; z-index:9;
+    }
+    #sonoHUD.visible { display:flex; }
+    .sono-ctrl { display:flex; align-items:center; gap:5px; flex:1; min-width:0; max-width:200px; }
+    .sono-lbl { color:var(--mid); font-size:9px; letter-spacing:1.5px; white-space:nowrap; min-width:42px; }
+    .sono-val { color:var(--paper); font-size:9px; min-width:22px; text-align:right; flex-shrink:0; }
+    .sono-ctrl input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
+    #sonoAmpDot {
+      width:12px; height:12px; border-radius:50%;
+      background:var(--dark); flex-shrink:0;
+      transition:background .08s, box-shadow .08s;
+    }
+
+    /* ── SONO bottom bar ── */
+    #barSono {
+      display:none; position:fixed; bottom:0; left:0; right:0;
+      height:96px; background:var(--ink); border-top:2px solid var(--dark);
+      align-items:center; justify-content:space-around;
+      padding:0 20px; z-index:10;
+    }
+    #barSono.visible { display:flex; }
+    #btnSonoRec.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
+    #btnSonoRec.recording .btn-label { color:#ff6666; }
   </style>
 </head>
 <body>
@@ -275,6 +333,7 @@
   <button class="tab active" id="tabCam">📷 CÁMARA</button>
   <button class="tab"        id="tabUp" >📂 SUBIR</button>
   <button class="tab"        id="tabAscii">🔤 ASCII</button>
+  <button class="tab"        id="tabSono" >🔊 SONO</button>
 </div>
 
 <canvas id="display"></canvas>
@@ -400,6 +459,17 @@
   </div><!-- #asciiPanel -->
 </div><!-- #asciiArea -->
 
+<!-- SONO area -->
+<div id="sonoArea">
+  <canvas id="sonoCanvas"></canvas>
+</div>
+
+<!-- SONO mic permission overlay -->
+<div id="sonoPerm">
+  <p>SONOMORPH necesita<br>acceso al micrófono</p>
+  <button id="btnSonoStart">▶ ACTIVAR MIC</button>
+</div>
+
 <div id="splash">
   <div class="logo">FLIPNOTE<br>FILTER<span>CAMERA EFFECT</span></div>
   <button class="start-btn" id="btnStart">▶ INICIAR</button>
@@ -483,6 +553,41 @@
   <button class="btn" id="btnShareResult" style="opacity:.4" disabled>
     <div class="btn-icon">↑</div>
     <span class="btn-label">SHARE</span>
+  </button>
+</div>
+
+<!-- SONO HUD: MIX + COLOR CHAOS + amp dot -->
+<div id="sonoHUD">
+  <div class="sono-ctrl">
+    <span class="sono-lbl">FLIP·MIX</span>
+    <span class="sono-val" id="vSonoMix">0</span>
+    <input type="range" id="sonoMix" min="0" max="100" value="0">
+    <span class="sono-lbl" style="min-width:28px;text-align:right">ASCII</span>
+  </div>
+  <div id="sonoAmpDot"></div>
+  <div class="sono-ctrl">
+    <span class="sono-lbl">CHAOS</span>
+    <span class="sono-val" id="vSonoChaos">0</span>
+    <input type="range" id="sonoChaos" min="0" max="100" value="0">
+  </div>
+</div>
+
+<!-- SONO bottom bar -->
+<div id="barSono">
+  <button class="btn" id="btnSonoRec">
+    <div class="btn-icon">⏺</div>
+    <span class="btn-label">REC</span>
+  </button>
+  <button class="btn btn-center" id="btnSonoCapture">
+    <div class="btn-icon">●</div>
+  </button>
+  <button class="btn" id="btnSonoShare">
+    <div class="btn-icon">↑</div>
+    <span class="btn-label">SHARE</span>
+  </button>
+  <button class="btn" id="btnSonoReset">
+    <div class="btn-icon">↺</div>
+    <span class="btn-label">RESET</span>
   </button>
 </div>
 
@@ -618,6 +723,14 @@ function relayout() {
     aw = w; ah = h;
   }
   asciiCvs.style.width = aw + 'px'; asciiCvs.style.height = ah + 'px';
+
+  // SONO canvas: top:40px bottom:148px (52px HUD + 96px bar)
+  const avHS = window.innerHeight - 40 - 148;
+  let sw, sh;
+  if (avW / avHS > aspect) { sh = avHS; sw = sh * aspect; }
+  else                      { sw = avW;  sh = sw / aspect; }
+  document.getElementById('sonoCanvas').style.width  = sw + 'px';
+  document.getElementById('sonoCanvas').style.height = sh + 'px';
 }
 window.addEventListener('resize', relayout);
 relayout();
@@ -957,25 +1070,33 @@ function switchTab(tab) {
   document.getElementById('tabCam'  ).classList.toggle('active', tab==='cam');
   document.getElementById('tabUp'   ).classList.toggle('active', tab==='up');
   document.getElementById('tabAscii').classList.toggle('active', tab==='ascii');
+  document.getElementById('tabSono' ).classList.toggle('active', tab==='sono');
 
-  const isCam = tab==='cam', isUp = tab==='up', isAscii = tab==='ascii';
+  const isCam = tab==='cam', isUp = tab==='up', isAscii = tab==='ascii', isSono = tab==='sono';
   display.style.display = isCam ? 'block' : 'none';
   asciiArea.classList.toggle('visible', isAscii);
+  document.getElementById('sonoArea').classList.toggle('visible', isSono);
   document.getElementById('uploadSection').classList.toggle('visible', isUp);
-  document.getElementById('barCam'   ).style.display = isCam ? '' : 'none';
+  document.getElementById('barCam'   ).style.display = isCam  ? '' : 'none';
   document.getElementById('barUpload').classList.toggle('visible', isUp);
   document.getElementById('barAscii' ).classList.toggle('visible', isAscii);
-  document.getElementById('btnFlip'  ).style.display = isCam ? '' : 'none';
-  document.getElementById('palettes' ).style.display = isUp  ? 'none' : '';
+  document.getElementById('barSono'  ).classList.toggle('visible', isSono);
+  document.getElementById('sonoHUD'  ).classList.toggle('visible', isSono);
+  document.getElementById('btnFlip'  ).style.display = isCam  ? '' : 'none';
+  document.getElementById('palettes' ).style.display = (isUp || isSono) ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
 
-  // Blue theme + panel
+  // Themes
   document.body.classList.toggle('ascii-mode', isAscii);
+  document.body.classList.toggle('sono-mode',  isSono);
+
   if (!isAscii) {
     asciiPanelOpen = false;
     document.body.classList.remove('ascii-edit');
     clearAsciiStatic();
   }
+  if (!isSono) stopSono();
+  if (isSono)  enterSono();
 
   cameraRunning = isCam; asciiRunning = isAscii;
   if (isCam   && stream) requestAnimationFrame(cameraLoop);
@@ -985,6 +1106,7 @@ function switchTab(tab) {
 document.getElementById('tabCam'  ).addEventListener('click', () => switchTab('cam'));
 document.getElementById('tabUp'   ).addEventListener('click', () => switchTab('up'));
 document.getElementById('tabAscii').addEventListener('click', () => switchTab('ascii'));
+document.getElementById('tabSono' ).addEventListener('click', () => switchTab('sono'));
 
 // ASCII EDIT panel toggle
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {
@@ -1302,6 +1424,365 @@ document.getElementById('acReset').addEventListener('click', () => {
   document.getElementById('chaosRow').classList.remove('visible');
   document.getElementById('acChaos').value=0;document.getElementById('vChaos').textContent='0';
   asciiSettingsChanged();
+});
+
+// ════════════════════════════════════════════════════════════════════
+// SONOMORPH
+// ════════════════════════════════════════════════════════════════════
+const sonoCvs   = document.getElementById('sonoCanvas');
+sonoCvs.width   = OUT_W; sonoCvs.height = OUT_H;
+const ctxSono   = sonoCvs.getContext('2d', { willReadFrequently:false });
+ctxSono.imageSmoothingEnabled = false;
+
+// Off-screen canvases for MIX blending
+const sonoFlipCvs  = document.createElement('canvas');
+sonoFlipCvs.width  = OUT_W; sonoFlipCvs.height = OUT_H;
+const ctxSonoFlip  = sonoFlipCvs.getContext('2d', { willReadFrequently:false });
+ctxSonoFlip.imageSmoothingEnabled = false;
+
+const sonoAscCvs   = document.createElement('canvas');
+sonoAscCvs.width   = OUT_W; sonoAscCvs.height = OUT_H;
+const ctxSonoAsc   = sonoAscCvs.getContext('2d', { willReadFrequently:false });
+
+// Sono state
+let sonoRunning    = false;
+let sonoMicStream  = null;
+let sonoAudioCtx   = null;
+let sonoAnalyser   = null;
+let sonoT          = 0;
+let sonoLastRAF    = 0;
+let sonoLastBlob   = null;
+let sonoRecorder   = null, sonoRecChunks = [], sonoRecMime = '';
+let sonoRecTimer   = null;
+let sonoMixVal     = 0;   // 0=all FLIP, 100=all ASCII
+let sonoChaosVal   = 0;
+
+// ── HSL helper ───────────────────────────────────────────────────────
+function hslToRgb(h, s, l) {
+  const a = s * Math.min(l, 1 - l);
+  const f = n => { const k = (n + h * 12) % 12; return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1); };
+  return [f(0) * 255 | 0, f(8) * 255 | 0, f(4) * 255 | 0];
+}
+
+// ── Audio analysis ───────────────────────────────────────────────────
+function analyzeAudio() {
+  if (!sonoAnalyser) return { amp:0, pitchNorm:0.1, blowStr:0, bassE:0, midE:0, trebE:0 };
+  const N = sonoAnalyser.frequencyBinCount;
+  const freqData = new Uint8Array(N);
+  sonoAnalyser.getByteFrequencyData(freqData);
+  const timeData = new Uint8Array(sonoAnalyser.fftSize);
+  sonoAnalyser.getByteTimeDomainData(timeData);
+
+  // RMS amplitude
+  let rms = 0;
+  for (let i = 0; i < timeData.length; i++) {
+    const v = (timeData[i] - 128) / 128;
+    rms += v * v;
+  }
+  const amp = Math.sqrt(rms / timeData.length);
+
+  // Frequency bands: bin width ≈ sampleRate/(2*N)
+  const sr = sonoAudioCtx.sampleRate;
+  const binW = sr / (sonoAnalyser.fftSize);
+  const bassEnd = Math.max(1, Math.floor(250 / binW));
+  const midEnd  = Math.max(bassEnd+1, Math.floor(2000 / binW));
+  const trebEnd = Math.min(N-1, Math.max(midEnd+1, Math.floor(6000 / binW)));
+
+  let bassSum = 0, midSum = 0, trebSum = 0;
+  for (let i = 1; i <= bassEnd; i++) bassSum += freqData[i];
+  for (let i = bassEnd+1; i <= midEnd; i++) midSum += freqData[i];
+  for (let i = midEnd+1; i <= trebEnd; i++) trebSum += freqData[i];
+  const bassE = bassSum / (bassEnd * 255);
+  const midE  = midSum  / Math.max(1, (midEnd  - bassEnd) * 255);
+  const trebE = trebSum / Math.max(1, (trebEnd - midEnd)  * 255);
+
+  // Dominant frequency bin (pitch)
+  let maxBin = 1, maxVal = 0;
+  const searchEnd = Math.min(N, Math.floor(4000 / binW));
+  for (let i = 2; i < searchEnd; i++) { if (freqData[i] > maxVal) { maxVal = freqData[i]; maxBin = i; } }
+  const pitchNorm = Math.min(1, maxBin / Math.max(1, searchEnd));
+
+  // Blow: dominant bass, weak treble, moderate amp
+  const blowStr = (bassE > 0.08 && trebE < 0.12 && amp > 0.025)
+    ? Math.min(1, (bassE - 0.08) * 4) : 0;
+
+  return { amp: Math.min(1, amp * 3.5), pitchNorm, blowStr, bassE, midE, trebE };
+}
+
+// ── Audio field generation ────────────────────────────────────────────
+function generateSonoField(amp, pitchNorm, blowStr, t) {
+  const field = new Float32Array(DSI_W * DSI_H);
+  const sf = 0.035 + pitchNorm * 0.13;    // spatial freq
+  const cx = DSI_W / 2, cy = DSI_H / 2;
+  const ampScale = 0.25 + amp * 0.75;
+
+  for (let y = 0; y < DSI_H; y++) {
+    for (let x = 0; x < DSI_W; x++) {
+      const dx = x - cx, dy = y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Layered sine wave interference
+      let v = Math.sin(x * sf      + t * 2.0) * Math.sin(y * sf * 0.75 + t * 1.4);
+      v +=    Math.sin((x + y) * sf * 0.8     - t * 1.9) * 0.55;
+      v +=    Math.sin(dist * sf * 1.3         - t * 2.6) * 0.4;
+
+      // Blow: concentric expanding rings
+      if (blowStr > 0.02) {
+        v += Math.sin(dist * 0.28 - t * 4.5) * blowStr * 1.8;
+      }
+
+      // Normalize ~(-3,3) → (0,1) modulated by amplitude
+      field[y * DSI_W + x] = Math.max(0, Math.min(1, (v + 2.8) / 5.6 * ampScale));
+    }
+  }
+  return field;
+}
+
+// ── FLIPNOTE render from sono field ──────────────────────────────────
+function renderSonoFlip(field, audio, chaosN) {
+  const p = PALETTES[activePal];
+  const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
+  const { bassE, midE, trebE } = audio;
+
+  for (let y = 0; y < DSI_H; y++) {
+    const row8 = (y & 7) << 3;
+    for (let x = 0; x < DSI_W; x++) {
+      const i4  = (y * DSI_W + x) << 2;
+      const gray = field[y * DSI_W + x] * 255;
+      const isInk = gray < BAYER8[row8 + (x & 7)];
+      let r = isInk ? IR : PR, g = isInk ? IG : PG, b = isInk ? IB : PB;
+
+      if (chaosN > 0) {
+        const chaosMid = Math.min(1, chaosN * 2);
+        const chaosHi  = Math.max(0, chaosN * 2 - 1);
+        const fR = Math.min(255, bassE * 255 * 2.5);
+        const fG = Math.min(255, midE  * 255 * 2.5);
+        const fB = Math.min(255, trebE * 255 * 2.5);
+        const hue = ((x * 7 + y * 13 + sonoT * 55) % 360) / 360;
+        const [hr, hg, hb] = hslToRgb(hue, 1, 0.5);
+        r = r * (1 - chaosMid) + fR * (chaosMid - chaosHi) + hr * chaosHi;
+        g = g * (1 - chaosMid) + fG * (chaosMid - chaosHi) + hg * chaosHi;
+        b = b * (1 - chaosMid) + fB * (chaosMid - chaosHi) + hb * chaosHi;
+        r = Math.max(0, Math.min(255, r | 0));
+        g = Math.max(0, Math.min(255, g | 0));
+        b = Math.max(0, Math.min(255, b | 0));
+      }
+      lowBuf[i4] = r; lowBuf[i4+1] = g; lowBuf[i4+2] = b; lowBuf[i4+3] = 255;
+    }
+  }
+  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
+  ctxSonoFlip.drawImage(small, 0, 0, OUT_W, OUT_H);
+  ctxSonoFlip.drawImage(scanCvs, 0, 0);
+}
+
+// ── ASCII render from sono field ──────────────────────────────────────
+function renderSonoAscii(field, audio, chaosN) {
+  const p = PALETTES[activePal];
+  const { bassE, midE, trebE } = audio;
+  const grad  = ASCII_GRADIENTS.normal;
+  const nChars= grad.length;
+  const cols  = 80;
+  const rows  = Math.round(cols * OUT_H / OUT_W);
+  const cW    = OUT_W / cols;
+  const cH    = OUT_H / rows;
+  const sFW   = DSI_W / cols;
+  const sFH   = DSI_H / rows;
+
+  ctxSonoAsc.fillStyle = '#000';
+  ctxSonoAsc.fillRect(0, 0, OUT_W, OUT_H);
+  const fontSize = Math.max(4, Math.floor(cH * 0.92));
+  ctxSonoAsc.font = `bold ${fontSize}px monospace`;
+  ctxSonoAsc.textBaseline = 'top';
+  ctxSonoAsc.imageSmoothingEnabled = false;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let sum = 0, cnt = 0;
+      const x0 = Math.floor(c * sFW),  x1 = Math.min(Math.ceil((c+1)*sFW), DSI_W);
+      const y0 = Math.floor(r * sFH),  y1 = Math.min(Math.ceil((r+1)*sFH), DSI_H);
+      for (let py = y0; py < y1; py++)
+        for (let px = x0; px < x1; px++)
+          sum += field[py * DSI_W + px], cnt++;
+      const v  = cnt ? sum / cnt : 0;
+      const ci = Math.min(Math.floor(v * nChars), nChars - 1);
+      if (ci < 2) continue;
+      const ch = grad[ci];
+
+      if (chaosN < 0.01) {
+        ctxSonoAsc.fillStyle = `rgb(${p.ink})`;
+      } else {
+        const chaosMid = Math.min(1, chaosN * 2);
+        const chaosHi  = Math.max(0, chaosN * 2 - 1);
+        const fR = Math.min(255, bassE * 255 * 2.5);
+        const fG = Math.min(255, midE  * 255 * 2.5);
+        const fB = Math.min(255, trebE * 255 * 2.5);
+        const hue = ((c * 11 + r * 17 + sonoT * 35) % 360) / 360;
+        const [hr, hg, hb] = hslToRgb(hue, 1, 0.5);
+        let cr = p.ink[0], cg = p.ink[1], cb = p.ink[2];
+        cr = cr*(1-chaosMid) + fR*(chaosMid-chaosHi) + hr*chaosHi;
+        cg = cg*(1-chaosMid) + fG*(chaosMid-chaosHi) + hg*chaosHi;
+        cb = cb*(1-chaosMid) + fB*(chaosMid-chaosHi) + hb*chaosHi;
+        ctxSonoAsc.fillStyle = `rgb(${cr|0},${cg|0},${cb|0})`;
+      }
+      ctxSonoAsc.fillText(ch, c * cW, r * cH);
+    }
+  }
+}
+
+// ── SONO render loop ──────────────────────────────────────────────────
+function sonoLoop(ts) {
+  if (!sonoRunning) return;
+  if (sonoLastRAF) sonoT += (ts - sonoLastRAF) / 1000;
+  sonoLastRAF = ts;
+
+  const audio  = analyzeAudio();
+  const field  = generateSonoField(audio.amp, audio.pitchNorm, audio.blowStr, sonoT);
+  const chaosN = sonoChaosVal / 100;
+  const mixN   = sonoMixVal   / 100;
+
+  ctxSono.globalAlpha = 1;
+  if (mixN < 0.99) {
+    renderSonoFlip(field, audio, chaosN);
+    ctxSono.drawImage(sonoFlipCvs, 0, 0);
+  } else {
+    ctxSono.fillStyle = '#000';
+    ctxSono.fillRect(0, 0, OUT_W, OUT_H);
+  }
+  if (mixN > 0.01) {
+    renderSonoAscii(field, audio, chaosN);
+    ctxSono.globalAlpha = mixN;
+    ctxSono.drawImage(sonoAscCvs, 0, 0);
+    ctxSono.globalAlpha = 1;
+  }
+
+  // Amp dot
+  const lum = Math.floor(Math.min(1, audio.amp * 2) * 255);
+  const dot  = document.getElementById('sonoAmpDot');
+  dot.style.background  = `rgb(${lum},${lum >> 1},0)`;
+  dot.style.boxShadow   = lum > 60 ? `0 0 ${lum >> 2}px rgba(255,${lum>>1},0,.7)` : 'none';
+
+  requestAnimationFrame(sonoLoop);
+}
+
+// ── Mic start/stop ────────────────────────────────────────────────────
+async function startSonoMic() {
+  try {
+    sonoMicStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    sonoAudioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    sonoAnalyser  = sonoAudioCtx.createAnalyser();
+    sonoAnalyser.fftSize = 2048;
+    sonoAnalyser.smoothingTimeConstant = 0.75;
+    const src = sonoAudioCtx.createMediaStreamSource(sonoMicStream);
+    src.connect(sonoAnalyser); // NOT connected to destination → no feedback
+    document.getElementById('sonoPerm').classList.remove('visible');
+    sonoRunning = true; sonoLastRAF = 0;
+    requestAnimationFrame(sonoLoop);
+    return true;
+  } catch(e) {
+    alert('No se pudo acceder al micrófono:\n' + e.message);
+    return false;
+  }
+}
+
+function stopSono() {
+  sonoRunning = false;
+  if (sonoRecorder && sonoRecorder.state !== 'inactive') {
+    sonoRecorder.stop();
+    clearInterval(sonoRecTimer);
+    const btn = document.getElementById('btnSonoRec');
+    btn.classList.remove('recording');
+    btn.querySelector('.btn-icon').textContent = '⏺';
+    btn.querySelector('.btn-label').textContent = 'REC';
+  }
+  sonoRecorder = null;
+  if (sonoMicStream) { sonoMicStream.getTracks().forEach(t => t.stop()); sonoMicStream = null; }
+  if (sonoAudioCtx)  { sonoAudioCtx.close(); sonoAudioCtx = null; }
+  sonoAnalyser = null;
+}
+
+function enterSono() {
+  if (sonoMicStream) {
+    // Already have mic, just restart loop
+    document.getElementById('sonoPerm').classList.remove('visible');
+    sonoRunning = true; sonoLastRAF = 0;
+    requestAnimationFrame(sonoLoop);
+  } else {
+    document.getElementById('sonoPerm').classList.add('visible');
+  }
+}
+
+document.getElementById('btnSonoStart').addEventListener('click', startSonoMic);
+
+// ── SONO controls ─────────────────────────────────────────────────────
+document.getElementById('sonoMix').addEventListener('input', e => {
+  sonoMixVal = parseInt(e.target.value);
+  document.getElementById('vSonoMix').textContent = sonoMixVal;
+});
+document.getElementById('sonoChaos').addEventListener('input', e => {
+  sonoChaosVal = parseInt(e.target.value);
+  document.getElementById('vSonoChaos').textContent = sonoChaosVal;
+});
+
+// ── SONO capture/rec/share/reset ──────────────────────────────────────
+document.getElementById('btnSonoCapture').addEventListener('click', async () => {
+  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+  await _shareOrDownload(await new Promise(r => sonoCvs.toBlob(r, 'image/png')), 'sono_' + Date.now() + '.png');
+});
+
+document.getElementById('btnSonoShare').addEventListener('click', async () => {
+  if (!sonoLastBlob) { alert('Graba un video primero.'); return; }
+  const ext = sonoRecMime.includes('mp4') ? 'mp4' : 'webm';
+  await _shareOrDownload(sonoLastBlob, 'sono_' + Date.now() + '.' + ext);
+});
+
+document.getElementById('btnSonoReset').addEventListener('click', () => {
+  sonoT = 0; sonoLastRAF = 0;
+  sonoMixVal = 0; sonoChaosVal = 0;
+  document.getElementById('sonoMix').value    = 0;
+  document.getElementById('vSonoMix').textContent   = '0';
+  document.getElementById('sonoChaos').value  = 0;
+  document.getElementById('vSonoChaos').textContent = '0';
+  ctxSono.fillStyle = '#000'; ctxSono.fillRect(0, 0, OUT_W, OUT_H);
+});
+
+const btnSonoRec = document.getElementById('btnSonoRec');
+btnSonoRec.addEventListener('click', async () => {
+  if (!sonoRecorder || sonoRecorder.state === 'inactive') {
+    if (typeof sonoCvs.captureStream !== 'function') {
+      alert('⚠️ Grabación no disponible.\nUsa Chrome en Android.'); return;
+    }
+    const mimes = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    sonoRecMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
+    sonoRecChunks = []; sonoLastBlob = null;
+    try {
+      sonoRecorder = new MediaRecorder(sonoCvs.captureStream(30), {
+        ...(sonoRecMime ? { mimeType:sonoRecMime } : {}),
+        videoBitsPerSecond: 6_000_000,
+      });
+    } catch(e) { alert('Error: ' + e.message); return; }
+    sonoRecorder.ondataavailable = e => { if (e.data.size) sonoRecChunks.push(e.data); };
+    sonoRecorder.onstop = async () => {
+      if (!sonoRecChunks.length) return;
+      const ext = sonoRecMime.includes('mp4') ? 'mp4' : 'webm';
+      sonoLastBlob = new Blob(sonoRecChunks, { type: sonoRecMime || 'video/webm' });
+      await _shareOrDownload(sonoLastBlob, 'sono_' + Date.now() + '.' + ext);
+    };
+    sonoRecorder.start(200);
+    let s = 0;
+    sonoRecTimer = setInterval(() => {
+      s++;
+      const mm = String(s/60|0).padStart(2,'0'), ss = String(s%60).padStart(2,'0');
+      btnSonoRec.querySelector('.btn-label').textContent = mm + ':' + ss;
+    }, 1000);
+    btnSonoRec.classList.add('recording');
+    btnSonoRec.querySelector('.btn-icon').textContent = '⏹';
+  } else {
+    sonoRecorder.stop();
+    clearInterval(sonoRecTimer);
+    btnSonoRec.querySelector('.btn-label').textContent = 'REC';
+    btnSonoRec.classList.remove('recording');
+    btnSonoRec.querySelector('.btn-icon').textContent = '⏺';
+  }
 });
 
 // ════════════════════════════════════════════════════════════════════

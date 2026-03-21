@@ -102,6 +102,17 @@
     .pal-swatch:active { transform: scale(.88); }
     .pal-swatch.active { border: 2px solid #fff; }
 
+    /* ── Mode toggle ───────────────────────────────────────────────── */
+    #btnMode {
+      width: 26px; height: 22px; padding: 0;
+      background: none; border: 2px solid var(--dark);
+      color: var(--dark); font-family: monospace;
+      font-size: 7px; font-weight: bold; letter-spacing: .5px;
+      cursor: pointer; line-height: 1; transition: .1s;
+      margin-bottom: 3px;
+    }
+    #btnMode.legacy { border-color: var(--paper); color: var(--paper); background: rgba(155,188,15,.12); }
+
     /* ── Flip ──────────────────────────────────────────────────────── */
     #btnFlip {
       position: fixed; top: 48px; left: 12px; z-index: 10;
@@ -241,8 +252,10 @@
   <div class="btn-icon">⟳</div>
 </button>
 
-<!-- Paletas -->
-<div class="palettes" id="palettes"></div>
+<!-- Paletas + mode toggle -->
+<div class="palettes" id="palettes">
+  <button id="btnMode" title="Flipnote Legacy: puntos 4×4">STD</button>
+</div>
 
 <!-- ══════════════════════════════════════════════════════════════
      UPLOAD SECTION
@@ -323,6 +336,7 @@ const PALETTES = [
   { name: 'Lo-fi',      paper: [242,196,206], ink: [ 45, 10, 20] },
 ];
 let activePal = 0;
+let legacyMode = false;
 
 // ════════════════════════════════════════════════════════════════════════
 // BAYER 8×8
@@ -402,6 +416,14 @@ PALETTES.forEach((p, i) => {
   document.getElementById('palettes').appendChild(s);
 });
 
+// ── Mode toggle (STD / LEGACY) ───────────────────────────────────────────
+document.getElementById('btnMode').addEventListener('click', () => {
+  legacyMode = !legacyMode;
+  const btn = document.getElementById('btnMode');
+  btn.textContent = legacyMode ? 'LGCY' : 'STD';
+  btn.classList.toggle('legacy', legacyMode);
+});
+
 // ════════════════════════════════════════════════════════════════════════
 // CORE: dithering + render en un target canvas
 // ════════════════════════════════════════════════════════════════════════
@@ -426,8 +448,7 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
   const p = PALETTES[activePal];
   const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
 
-  // Auto-levels: stretch the actual gray range to 0-255 so images decoded
-  // darker on Android (no ICC profile) look the same as on iOS.
+  // Auto-levels: stretch gray range so Android-decoded images match iOS
   let minG = 255, maxG = 0;
   if (autoLevels) {
     for (let i = 0; i < src.length; i += 4) {
@@ -439,17 +460,46 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
   const range = autoLevels ? (maxG - minG || 1) : 255;
   const base  = autoLevels ? minG : 0;
 
-  for (let y = 0; y < DSI_H; y++) {
-    const row8 = (y & 7) << 3;
-    for (let x = 0; x < DSI_W; x++) {
-      const i    = (y * DSI_W + x) << 2;
-      const raw  = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
-      const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
-      const isInk = gray < BAYER8[row8 + (x & 7)];
-      lowBuf[i]   = isInk ? IR : PR; lowBuf[i+1] = isInk ? IG : PG;
-      lowBuf[i+2] = isInk ? IB : PB; lowBuf[i+3] = 255;
+  if (legacyMode) {
+    // ── Flipnote Legacy: bloques 4×4 px → puntos grandes visibles ──
+    const B = 4;
+    for (let by = 0; by < DSI_H; by += B) {
+      for (let bx = 0; bx < DSI_W; bx += B) {
+        // Promedio de grises del bloque
+        let gSum = 0;
+        for (let dy = 0; dy < B; dy++)
+          for (let dx = 0; dx < B; dx++) {
+            const i = ((by+dy) * DSI_W + (bx+dx)) << 2;
+            gSum += (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+          }
+        const raw  = (gSum >> 4) | 0;   // /16
+        const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
+        // Bayer sobre coordenadas de bloque (no de pixel)
+        const row8  = ((by >> 2) & 7) << 3;
+        const isInk = gray < BAYER8[row8 + ((bx >> 2) & 7)];
+        const R = isInk ? IR : PR, G = isInk ? IG : PG, Bv = isInk ? IB : PB;
+        for (let dy = 0; dy < B; dy++)
+          for (let dx = 0; dx < B; dx++) {
+            const i = ((by+dy) * DSI_W + (bx+dx)) << 2;
+            lowBuf[i] = R; lowBuf[i+1] = G; lowBuf[i+2] = Bv; lowBuf[i+3] = 255;
+          }
+      }
+    }
+  } else {
+    // ── Normal: dithering por pixel ──
+    for (let y = 0; y < DSI_H; y++) {
+      const row8 = (y & 7) << 3;
+      for (let x = 0; x < DSI_W; x++) {
+        const i    = (y * DSI_W + x) << 2;
+        const raw  = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+        const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
+        const isInk = gray < BAYER8[row8 + (x & 7)];
+        lowBuf[i]   = isInk ? IR : PR; lowBuf[i+1] = isInk ? IG : PG;
+        lowBuf[i+2] = isInk ? IB : PB; lowBuf[i+3] = 255;
+      }
     }
   }
+
   ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
   targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
   targetCtx.drawImage(scanCvs, 0, 0);

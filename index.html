@@ -415,7 +415,7 @@ function cropCoords(srcW, srcH) {
   return [sx, sy, sw, sh];
 }
 
-function renderDithered(source, srcW, srcH, targetCtx, mirror) {
+function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels) {
   const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
   ctxS.save();
   if (mirror) { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
@@ -426,11 +426,25 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror) {
   const p = PALETTES[activePal];
   const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
 
+  // Auto-levels: stretch the actual gray range to 0-255 so images decoded
+  // darker on Android (no ICC profile) look the same as on iOS.
+  let minG = 255, maxG = 0;
+  if (autoLevels) {
+    for (let i = 0; i < src.length; i += 4) {
+      const g = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+      if (g < minG) minG = g;
+      if (g > maxG) maxG = g;
+    }
+  }
+  const range = autoLevels ? (maxG - minG || 1) : 255;
+  const base  = autoLevels ? minG : 0;
+
   for (let y = 0; y < DSI_H; y++) {
     const row8 = (y & 7) << 3;
     for (let x = 0; x < DSI_W; x++) {
       const i    = (y * DSI_W + x) << 2;
-      const gray = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+      const raw  = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+      const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
       const isInk = gray < BAYER8[row8 + (x & 7)];
       lowBuf[i]   = isInk ? IR : PR; lowBuf[i+1] = isInk ? IG : PG;
       lowBuf[i+2] = isInk ? IB : PB; lowBuf[i+3] = 255;
@@ -667,7 +681,7 @@ function processImage(file) {
   const img = new Image();
   const url = URL.createObjectURL(file);
   img.onload = async () => {
-    renderDithered(img, img.naturalWidth, img.naturalHeight, ctxUP, false);
+    renderDithered(img, img.naturalWidth, img.naturalHeight, ctxUP, false, true);
     URL.revokeObjectURL(url);
     upCanvas.classList.add('visible');
     dropZone.style.display = 'none';

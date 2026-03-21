@@ -405,8 +405,9 @@ let legacyMode = false;
 // ════════════════════════════════════════════════════════════════════════
 // ASCII — set de caracteres (oscuro → claro) y resolución de la cuadrícula
 // ════════════════════════════════════════════════════════════════════════
-const ASCII_CHARS = '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/|()1{}?-_+~<>i!lI;:,". ';
-let asciiCols = 80;   // columnas de texto (cambia con density buttons)
+// Ordenado de MÁS ligero (espacio) a MÁS denso (@) — índice 0 = pixel blanco
+const ASCII_CHARS = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";
+let asciiCols = 80;
 
 // ════════════════════════════════════════════════════════════════════════
 // BAYER 8×8
@@ -603,39 +604,51 @@ function renderASCII(source, srcW, srcH, mirror) {
   ctxS.restore();
   const { data: px } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
 
+  // 2. Auto-levels por frame: normaliza el rango real de grises a 0-255
+  let minG = 255, maxG = 0;
+  for (let i = 0; i < px.length; i += 4) {
+    const g = (px[i]*77 + px[i+1]*150 + px[i+2]*29) >> 8;
+    if (g < minG) minG = g;
+    if (g > maxG) maxG = g;
+  }
+  const rng = maxG - minG || 1;
+
   const pal  = PALETTES[activePal];
-  const rows = Math.round(asciiCols * DSI_H / DSI_W);  // mantiene 4:3
+  const rows = Math.round(asciiCols * DSI_H / DSI_W);
   const cW   = OUT_W / asciiCols;
   const cH   = OUT_H / rows;
   const sCW  = DSI_W / asciiCols;
   const sCH  = DSI_H / rows;
 
-  // 2. Fondo con color papel de la paleta
   ctxAscii.fillStyle = `rgb(${pal.paper})`;
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
 
-  // 3. Caracteres con color tinta
   const fontSize = Math.max(6, Math.floor(cH * 0.92));
-  ctxAscii.font          = `bold ${fontSize}px monospace`;
-  ctxAscii.fillStyle     = `rgb(${pal.ink})`;
-  ctxAscii.textBaseline  = 'top';
+  ctxAscii.font         = `bold ${fontSize}px monospace`;
+  ctxAscii.fillStyle    = `rgb(${pal.ink})`;
+  ctxAscii.textBaseline = 'top';
 
   const nChars = ASCII_CHARS.length;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < asciiCols; c++) {
-      // Promedio de gris en la celda de la fuente
       let gSum = 0, cnt = 0;
-      const x0 = Math.floor(c * sCW),   x1 = Math.min(Math.ceil((c+1) * sCW), DSI_W);
-      const y0 = Math.floor(r * sCH),   y1 = Math.min(Math.ceil((r+1) * sCH), DSI_H);
+      const x0 = Math.floor(c * sCW),  x1 = Math.min(Math.ceil((c+1) * sCW), DSI_W);
+      const y0 = Math.floor(r * sCH),  y1 = Math.min(Math.ceil((r+1) * sCH), DSI_H);
       for (let py = y0; py < y1; py++)
         for (let pxX = x0; pxX < x1; pxX++) {
           const i = (py * DSI_W + pxX) << 2;
           gSum += (px[i]*77 + px[i+1]*150 + px[i+2]*29) >> 8;
           cnt++;
         }
-      const gray  = cnt ? (gSum / cnt) | 0 : 128;
-      const ci    = Math.min(Math.floor((255 - gray) / 256 * nChars), nChars - 1);
-      const ch    = ASCII_CHARS[ci];
+      const raw  = cnt ? (gSum / cnt) | 0 : 128;
+
+      // Normaliza con auto-levels
+      const t = (raw - minG) / rng;
+      // Curva S de contraste: oscuros más oscuros, claros más claros
+      const contrasted = 0.5 - 0.5 * Math.cos(Math.PI * t);
+      // Mapeo: blanco (contrasted≈1) → índice 0 (espacio), negro (≈0) → índice final (@)
+      const ci = Math.min(Math.floor((1 - contrasted) * nChars), nChars - 1);
+      const ch = ASCII_CHARS[ci];
       if (ch !== ' ') ctxAscii.fillText(ch, c * cW, r * cH);
     }
   }

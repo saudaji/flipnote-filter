@@ -1,6 +1,6 @@
-const CACHE = 'flipnote-filter-v41';
+const CACHE = 'flipnote-filter-v42';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
-  './Bloom-Regular.otf', './BNMonica.otf', './Fluidic-Regular.otf', './enochian.ttf'];
+  './Bloom-Regular.otf', './BNMonica.otf', './Fluidic-Regular.otf', './fonts/Canterbury.ttf'];
 
 self.addEventListener('install', e =>
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()))

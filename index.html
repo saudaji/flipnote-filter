@@ -254,6 +254,25 @@
     #uploadCanvas.visible { display:block; }
     #barUpload { display:none; position:fixed; bottom:0; left:0; right:0; height:96px; background:var(--ink); border-top:2px solid var(--dark); align-items:center; justify-content:space-around; padding:0 20px; z-index:10; }
     #barUpload.visible { display:flex; }
+    /* ── Upload edit panel ── */
+    #upPanel {
+      display:none; width:100%; max-width:420px;
+      border:2px solid var(--dark); background:var(--ink);
+      overflow-y:auto; max-height:42vh;
+      -webkit-overflow-scrolling:touch;
+    }
+    body.up-edit-open #upPanel { display:block; }
+    #upPanel .ac-section { border-bottom:1px solid var(--dark); padding:8px 12px; }
+    #upPanel .ac-title { color:var(--mid); font-size:9px; letter-spacing:2px; margin-bottom:6px; }
+    #upPanel .ac-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+    #upPanel .ac-lbl { color:var(--mid); font-size:9px; white-space:nowrap; min-width:80px; }
+    #upPanel .ac-val { color:var(--paper); font-size:9px; min-width:32px; text-align:right; flex-shrink:0; }
+    #upPanel input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
+    #upPanel select { background:var(--ink); color:var(--paper); border:1px solid var(--dark); font-family:monospace; font-size:9px; cursor:pointer; }
+    #upPanel .ac-btn-row { display:flex; gap:8px; padding:8px 12px; flex-wrap:wrap; }
+    #upPanel .ac-btn { background:var(--ink); color:var(--mid); border:1px solid var(--dark); font-family:monospace; font-size:9px; letter-spacing:1px; padding:4px 8px; cursor:pointer; }
+    #upPanel .ac-btn:active { background:var(--dark); }
+    #upPanel .ac-reset { color:#ff8844; border-color:#ff8844; }
 
     /* ── ASCII bottom bar ── */
     #barAscii {
@@ -334,7 +353,7 @@
 
     /* ── SONO HUD (above bar) — 124px, clear rows ── */
     #sonoHUD {
-      display:none; position:fixed; bottom:96px; left:0; right:0; height:124px;
+      display:none; position:fixed; bottom:96px; left:0; right:0; height:150px;
       background:var(--ink); border-top:1px solid var(--dark);
       flex-direction:column; justify-content:space-evenly;
       padding:4px 14px; gap:2px; z-index:9;
@@ -353,10 +372,13 @@
     .sono-row3 { display:flex; align-items:center; gap:6px; }
     /* Row 4: chaos slider */
     .sono-row4 { display:flex; align-items:center; gap:6px; }
+    /* Row 5: hue slider */
+    .sono-row5 { display:flex; align-items:center; gap:6px; }
     .sono-lbl { color:var(--mid); font-size:9px; letter-spacing:1px; white-space:nowrap; min-width:48px; }
     .sono-val { color:var(--paper); font-size:9px; min-width:22px; text-align:right; flex-shrink:0; }
     .sono-row3 input[type="range"],
-    .sono-row4 input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
+    .sono-row4 input[type="range"],
+    .sono-row5 input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
 
     /* ── SONO bottom bar ── */
     #barSono {
@@ -744,6 +766,106 @@
     </div>
   </div>
   <canvas id="uploadCanvas" width="1024" height="768"></canvas>
+
+  <!-- Upload edit panel -->
+  <div id="upPanel">
+    <div class="ac-section">
+      <div class="ac-title">Output</div>
+      <div class="ac-row">
+        <span class="ac-lbl">Characters</span>
+        <span class="ac-val" id="upVChars">100</span>
+        <input type="range" id="upAcChars" min="1" max="500" value="100">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Gradient</span>
+        <select id="upAcGradient">
+          <option value="normal">Normal</option>
+          <option value="reverse">Reverse</option>
+          <option value="block">Block</option>
+          <option value="minimal">Minimal</option>
+        </select>
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Space Density</span>
+        <span class="ac-val" id="upVSpace">1</span>
+        <input type="range" id="upAcSpace" min="1" max="10" value="1">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Quality</span>
+        <select id="upAcQuality">
+          <option value="none">None</option>
+          <option value="smooth">Smooth</option>
+          <option value="sharp">Sharp</option>
+        </select>
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Frame</span>
+        <span class="ac-val" id="upVFrame">0px</span>
+        <input type="range" id="upAcFrame" min="0" max="50" value="0">
+      </div>
+    </div>
+    <div class="ac-section">
+      <div class="ac-title">Image</div>
+      <div class="ac-row">
+        <span class="ac-lbl">Brightness</span>
+        <span class="ac-val" id="upVBright">100%</span>
+        <input type="range" id="upAcBright" min="0" max="200" value="100">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Contrast</span>
+        <span class="ac-val" id="upVContrast">100%</span>
+        <input type="range" id="upAcContrast" min="0" max="200" value="100">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Saturation</span>
+        <span class="ac-val" id="upVSat">100%</span>
+        <input type="range" id="upAcSat" min="0" max="200" value="100">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Hue</span>
+        <span class="ac-val" id="upVHue">0°</span>
+        <input type="range" id="upAcHue" min="0" max="360" value="0">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Grayscale</span>
+        <span class="ac-val" id="upVGray">0%</span>
+        <input type="range" id="upAcGray" min="0" max="100" value="0">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Sepia</span>
+        <span class="ac-val" id="upVSepia">0%</span>
+        <input type="range" id="upAcSepia" min="0" max="100" value="0">
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Invert</span>
+        <span class="ac-val" id="upVInvert">0%</span>
+        <input type="range" id="upAcInvert" min="0" max="100" value="0">
+      </div>
+    </div>
+    <div class="ac-section">
+      <div class="ac-title">Effects</div>
+      <div class="ac-row">
+        <label class="ac-lbl"><input type="checkbox" id="upCbThresh"> Threshold</label>
+        <span class="ac-val" id="upVThresh">128</span>
+        <input type="range" id="upAcThresh" min="0" max="255" value="128" disabled>
+      </div>
+      <div class="ac-row">
+        <label class="ac-lbl"><input type="checkbox" id="upCbSharp"> Sharpness</label>
+        <span class="ac-val" id="upVSharp">9</span>
+        <input type="range" id="upAcSharp" min="0" max="20" value="9" disabled>
+      </div>
+      <div class="ac-row">
+        <label class="ac-lbl"><input type="checkbox" id="upCbEdge"> Edge Detect</label>
+        <span class="ac-val" id="upVEdge">1.0</span>
+        <input type="range" id="upAcEdge" min="0" max="50" value="10" disabled>
+      </div>
+    </div>
+    <div class="ac-btn-row">
+      <button class="ac-btn" id="upBtnTxt">TXT</button>
+      <button class="ac-btn" id="upBtnPng">PNG</button>
+      <button class="ac-btn ac-reset" id="upBtnReset">RESET</button>
+    </div>
+  </div>
 </div>
 
 <div class="bar" id="barCam">
@@ -761,11 +883,6 @@
 </div>
 
 <div id="barAscii">
-  <button class="btn" id="btnAsciiUpload" style="position:relative;overflow:hidden;">
-    <div class="btn-icon">📂</div>
-    <span class="btn-label">SUBIR</span>
-    <input type="file" id="asciiFileInputEl" accept="image/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
-  </button>
   <button class="btn" id="btnAsciiMode">
     <div class="btn-icon">📷</div>
     <span class="btn-label">FOTO</span>
@@ -795,6 +912,10 @@
   <button class="btn" id="btnShareResult" style="opacity:.4" disabled>
     <div class="btn-icon">↑</div>
     <span class="btn-label">SHARE</span>
+  </button>
+  <button class="btn" id="btnUpEdit">
+    <div class="btn-icon">⚙</div>
+    <span class="btn-label">EDIT</span>
   </button>
 </div>
 
@@ -826,6 +947,12 @@
     <span class="sono-val" id="vSonoChaos">0</span>
     <input type="range" id="sonoChaos" min="0" max="100" value="0">
   </div>
+  <!-- Row 5: hue rotation -->
+  <div class="sono-row5">
+    <span class="sono-lbl">HUE</span>
+    <span class="sono-val" id="vSonoHue">0°</span>
+    <input type="range" id="sonoHue" min="0" max="360" value="0">
+  </div>
 </div>
 
 <!-- SONO bottom bar -->
@@ -841,7 +968,7 @@
     <div class="btn-icon">📂</div>
     <span class="btn-label">FILE</span>
   </label>
-  <input type="file" id="sonoFileInputEl" accept="audio/*" style="display:none;">
+  <input type="file" id="sonoFileInputEl" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.weba" style="display:none;">
   <button class="btn" id="btnSonoShare">
     <div class="btn-icon">↑</div>
     <span class="btn-label">SHARE</span>
@@ -863,7 +990,7 @@
   <div class="wmp-src-row">
     <button class="wmp-src-btn" id="btnWmpMicPerm">🎙 MICRÓFONO</button>
     <label class="wmp-src-btn" id="btnWmpFilePerm" for="wmpFileInputPerm">📂 ARCHIVO</label>
-    <input type="file" id="wmpFileInputPerm" accept="audio/*" style="display:none;">
+    <input type="file" id="wmpFileInputPerm" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.weba" style="display:none;">
   </div>
   <p id="wmpPermErr"></p>
 </div>
@@ -904,7 +1031,7 @@
     <div class="btn-icon">📂</div>
     <span class="btn-label">FILE</span>
   </label>
-  <input type="file" id="wmpFileInputBar" accept="audio/*" style="display:none;">
+  <input type="file" id="wmpFileInputBar" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.weba" style="display:none;">
   <button class="btn" id="btnWmpFull">
     <div class="btn-icon">⛶</div>
     <span class="btn-label">FULL</span>
@@ -1887,11 +2014,13 @@ document.getElementById('btnUpFlip').addEventListener('click', () => {
   uploadMode = 'flip';
   document.getElementById('btnUpFlip').classList.add('active');
   document.getElementById('btnUpAscii').classList.remove('active');
+  if (lastUploadSrc) { lastUploadIsAscii = false; renderUploadPreview(); }
 });
 document.getElementById('btnUpAscii').addEventListener('click', () => {
   uploadMode = 'ascii';
   document.getElementById('btnUpAscii').classList.add('active');
   document.getElementById('btnUpFlip').classList.remove('active');
+  if (lastUploadSrc) { lastUploadIsAscii = true; renderUploadPreview(); }
 });
 dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('dragover');});
 dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
@@ -1913,7 +2042,8 @@ async function handleFile(file){
       src=await new Promise((res,rej)=>{const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url;});
     }
     URL.revokeObjectURL(url);
-    renderASCII(src,src.width||src.naturalWidth,src.height||src.naturalHeight,false);
+    lastUploadSrc=src; lastUploadSrcW=src.width||src.naturalWidth; lastUploadSrcH=src.height||src.naturalHeight; lastUploadIsAscii=true;
+    renderASCII(src,lastUploadSrcW,lastUploadSrcH,false);
     ctxUP.drawImage(asciiCvs,0,0,upCanvas.width,upCanvas.height);
     upCanvas.classList.add('visible');dropZone.style.display='none';
     setProgress(100,'Listo');setUploadResultReady(await canvasToBlob(ctxUP),'png');
@@ -1927,6 +2057,7 @@ async function processImage(file){
   let source,w,h;
   try{source=await createImageBitmap(file,{colorSpaceConversion:'none'});w=source.width;h=source.height;}
   catch(_){source=await new Promise((res,rej)=>{const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url;});w=source.naturalWidth;h=source.naturalHeight;}
+  lastUploadSrc=source; lastUploadSrcW=w; lastUploadSrcH=h; lastUploadIsAscii=false;
   renderDithered(source,w,h,ctxUP,false,true);
   URL.revokeObjectURL(url);
   upCanvas.classList.add('visible');dropZone.style.display='none';
@@ -1988,43 +2119,132 @@ document.getElementById('btnAsciiShare').addEventListener('click', async () => {
 });
 
 // ════════════════════════════════════════════════════════════════════
+// UPLOAD EDIT PANEL
+// ════════════════════════════════════════════════════════════════════
+let lastUploadSrc = null, lastUploadSrcW = 0, lastUploadSrcH = 0, lastUploadIsAscii = false;
+
+function renderUploadPreview() {
+  if (!lastUploadSrc) return;
+  if (lastUploadIsAscii || uploadMode === 'ascii') {
+    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false);
+    ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
+    canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
+  } else {
+    renderDithered(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, ctxUP, false, true);
+    canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
+  }
+}
+
+// EDIT panel toggle
+document.getElementById('btnUpEdit').addEventListener('click', () => {
+  document.body.classList.toggle('up-edit-open');
+});
+
+// Wire upload panel sliders (all update same global variables as ASCII panel)
+(function() {
+  function upSlider(id, valId, setter, fmt) {
+    const el = document.getElementById(id), vEl = document.getElementById(valId);
+    if (!el) return;
+    el.addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      setter(v);
+      if (vEl) vEl.textContent = fmt ? fmt(v) : v;
+      renderUploadPreview();
+    });
+  }
+  function upSelect(id, setter) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', e => { setter(e.target.value); renderUploadPreview(); });
+  }
+  function upCheck(cbId, rangId, valId, setter, fmt) {
+    const cb = document.getElementById(cbId), rng = document.getElementById(rangId), vEl = document.getElementById(valId);
+    if (!cb) return;
+    cb.addEventListener('change', e => {
+      setter(e.target.checked, rng ? parseFloat(rng.value) : 0);
+      if (rng) rng.disabled = !e.target.checked;
+      renderUploadPreview();
+    });
+    if (rng) rng.addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      setter(cb.checked, v);
+      if (vEl) vEl.textContent = fmt ? fmt(v) : v;
+      renderUploadPreview();
+    });
+  }
+  upSlider('upAcChars',   'upVChars',   v => { asciiCols = v; },              v => Math.round(v));
+  upSelect('upAcGradient',              v => { acGradientVal = v; });
+  upSlider('upAcSpace',   'upVSpace',   v => { acSpaceVal = Math.round(v); },  v => Math.round(v));
+  upSelect('upAcQuality',              v => { acQualityVal = v; });
+  upSlider('upAcFrame',   'upVFrame',   v => { acFrameVal = Math.round(v); },  v => Math.round(v) + 'px');
+  upSlider('upAcBright',  'upVBright',  v => { acBrightVal = v; },             v => Math.round(v) + '%');
+  upSlider('upAcContrast','upVContrast',v => { acContrastVal = v; },           v => Math.round(v) + '%');
+  upSlider('upAcSat',     'upVSat',     v => { acSatVal = v; },               v => Math.round(v) + '%');
+  upSlider('upAcHue',     'upVHue',     v => { acHueVal = v; },               v => Math.round(v) + '°');
+  upSlider('upAcGray',    'upVGray',    v => { acGrayVal = v; },              v => Math.round(v) + '%');
+  upSlider('upAcSepia',   'upVSepia',   v => { acSepiaVal = v; },             v => Math.round(v) + '%');
+  upSlider('upAcInvert',  'upVInvert',  v => { acInvertVal = v; },            v => Math.round(v) + '%');
+  upCheck('upCbThresh', 'upAcThresh', 'upVThresh',
+    (on, v) => { acThreshOn = on; acThreshVal = v; },
+    v => Math.round(v));
+  upCheck('upCbSharp', 'upAcSharp', 'upVSharp',
+    (on, v) => { acSharpOn = on; acSharpVal = v; },
+    v => v.toFixed(0));
+  upCheck('upCbEdge', 'upAcEdge', 'upVEdge',
+    (on, v) => { acEdgeOn = on; acEdgeVal = v; },
+    v => (v/10).toFixed(1));
+
+  // TXT button (only useful in ASCII mode)
+  document.getElementById('upBtnTxt').addEventListener('click', () => {
+    if (!lastUploadSrc) return;
+    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false);
+    const blob = new Blob([lastAsciiText], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'flipnote_ascii_' + Date.now() + '.txt';
+    a.click();
+  });
+  // PNG button
+  document.getElementById('upBtnPng').addEventListener('click', () => {
+    if (!lastUploadSrc) return;
+    renderUploadPreview();
+    canvasToBlob(ctxUP).then(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'flipnote_' + Date.now() + '.png';
+      a.click();
+    });
+  });
+  // RESET button
+  document.getElementById('upBtnReset').addEventListener('click', () => {
+    // Reset all upload panel variables and UI
+    acBrightVal=100; acContrastVal=100; acSatVal=100; acHueVal=0; acGrayVal=0;
+    acSepiaVal=0; acInvertVal=0; acThreshOn=false; acThreshVal=128;
+    acSharpOn=false; acSharpVal=9; acEdgeOn=false; acEdgeVal=10;
+    acGradientVal='normal'; acSpaceVal=1; acFrameVal=0; acQualityVal='none';
+    asciiCols=100;
+    // Reset slider UI
+    ['upAcBright','upAcContrast','upAcSat','upAcHue','upAcGray','upAcSepia','upAcInvert'].forEach(id => {
+      const el=document.getElementById(id); if(el) el.value=id==='upAcBright'||id==='upAcContrast'||id==='upAcSat'?100:0;
+    });
+    ['upVBright','upVContrast','upVSat'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='100%'; });
+    ['upVHue','upVGray','upVSepia','upVInvert'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=id==='upVHue'?'0°':'0%'; });
+    document.getElementById('upAcFrame').value=0; document.getElementById('upVFrame').textContent='0px';
+    document.getElementById('upAcSpace').value=1; document.getElementById('upVSpace').textContent='1';
+    document.getElementById('upAcChars').value=100; document.getElementById('upVChars').textContent='100';
+    document.getElementById('upAcThresh').disabled=true; document.getElementById('upCbThresh').checked=false;
+    document.getElementById('upAcSharp').disabled=true;  document.getElementById('upCbSharp').checked=false;
+    document.getElementById('upAcEdge').disabled=true;   document.getElementById('upCbEdge').checked=false;
+    document.getElementById('upAcGradient').value='normal';
+    document.getElementById('upAcQuality').value='none';
+    renderUploadPreview();
+  });
+})();
+
+// ════════════════════════════════════════════════════════════════════
 // ASCII UPLOAD (static source fix)
 // ════════════════════════════════════════════════════════════════════
-const asciiFileInput = document.getElementById('asciiFileInputEl');
-
-document.getElementById('btnAsciiUpload').addEventListener('click', () => {
-  asciiStaticSrc = null; asciiStaticW = 0; asciiStaticH = 0;
-  if (asciiVideoEl) { asciiVideoEl.pause(); asciiVideoEl.removeAttribute('src'); asciiVideoEl = null; }
-  asciiUploading = true;
-  ctxAscii.fillStyle = '#000';
-  ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
-  // Reset flag if picker is cancelled (window regains focus without file)
-  const onFocus = () => { setTimeout(() => { asciiUploading = false; }, 500); window.removeEventListener('focus', onFocus); };
-  window.addEventListener('focus', onFocus);
-});
-
-asciiFileInput.addEventListener('change', async e => {
-  asciiUploading = false;
-  window.removeEventListener('focus', () => {}); // cancel any pending focus handler
-  const file = e.target.files[0]; if (!file) return;
-  e.target.value = '';
-  if (asciiVideoEl) { asciiVideoEl.pause(); asciiVideoEl.removeAttribute('src'); asciiVideoEl = null; }
-  // Clear canvas before async load to avoid camera residue
-  ctxAscii.fillStyle = '#000';
-  ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
-  const url = URL.createObjectURL(file);
-  let source, w, h;
-  try {
-    source = await createImageBitmap(file, { colorSpaceConversion:'none' });
-    w = source.width; h = source.height;
-  } catch(_) {
-    source = await new Promise((res,rej) => { const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=url; });
-    w = source.naturalWidth; h = source.naturalHeight;
-  }
-  URL.revokeObjectURL(url);
-  asciiStaticSrc = source; asciiStaticW = w; asciiStaticH = h;
-  renderASCII(source, w, h, false);
-});
+// ASCII upload button removed — upload now handled in SUBIR tab
 
 // ── ASCII FOTO/VIDEO MODE TOGGLE ──────────────────────────────────────
 let asciiCamMode = 'foto'; // 'foto' | 'video'
@@ -2710,6 +2930,11 @@ document.getElementById('sonoChaos').addEventListener('input', e => {
   sonoChaosVal = parseInt(e.target.value);
   document.getElementById('vSonoChaos').textContent = sonoChaosVal;
 });
+document.getElementById('sonoHue').addEventListener('input', e => {
+  const hue = parseInt(e.target.value);
+  document.getElementById('vSonoHue').textContent = hue + '°';
+  document.getElementById('sonoCanvas').style.filter = hue > 0 ? `hue-rotate(${hue}deg)` : '';
+});
 
 // SONO preset buttons + dynamic HUD labels
 function _sonoUpdateHudLabels() {
@@ -2795,7 +3020,19 @@ async function sonoLoadFile(file) {
 // ── SONO FILE button ──────────────────────────────────────────────────
 const sonoFileInput = document.getElementById('sonoFileInputEl');
 sonoFileInput.addEventListener('change', e => {
-  if (e.target.files[0]) sonoLoadFile(e.target.files[0]);
+  const f = e.target.files[0];
+  console.log('[SONO] file selected:', f?.name, f?.type, f?.size);
+  if (f) {
+    // Verify createObjectURL works before passing to AudioContext
+    try {
+      const testUrl = URL.createObjectURL(f);
+      URL.revokeObjectURL(testUrl);
+      sonoLoadFile(f);
+    } catch(err) {
+      console.error('[SONO] createObjectURL failed:', err);
+      alert('No se pudo cargar el archivo: ' + (err.message || err));
+    }
+  }
   e.target.value = '';
 });
 
@@ -3736,7 +3973,21 @@ document.getElementById('wmpTrails').addEventListener('input', e => {
 const wmpFileInputPerm = document.getElementById('wmpFileInputPerm');
 const wmpFileInputBar  = document.getElementById('wmpFileInputBar');
 [wmpFileInputPerm, wmpFileInputBar].forEach(inp => {
-  inp.addEventListener('change', e => { if (e.target.files[0]) wmpLoadFile(e.target.files[0]); e.target.value = ''; });
+  inp.addEventListener('change', e => {
+    const f = e.target.files[0];
+    console.log('[WMP] file selected:', f?.name, f?.type, f?.size);
+    if (f) {
+      try {
+        const testUrl = URL.createObjectURL(f);
+        URL.revokeObjectURL(testUrl);
+        wmpLoadFile(f);
+      } catch(err) {
+        console.error('[WMP] createObjectURL failed:', err);
+        document.getElementById('wmpPermErr').textContent = '⚠ No se pudo cargar: ' + (err.message || err);
+      }
+    }
+    e.target.value = '';
+  });
 });
 document.getElementById('btnWmpMicPerm').addEventListener('click', wmpStartMic);
 document.getElementById('btnWmpMicBar' ).addEventListener('click', wmpStartMic);

@@ -350,19 +350,20 @@
 
     /* ── Pythonization ── */
     #pythonSection { padding:6px 12px 8px; border-top:1px solid var(--dark); }
-    #btnPython {
-      width:100%; background:none; border:2px solid #3776AB;
-      color:#3776AB; font-family:monospace; font-size:10px;
+    .py-header { color:var(--mid); font-size:9px; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
+    .py-mode-row,.py-pal-row { display:flex; gap:4px; margin-bottom:6px; }
+    .py-mode-btn,.py-pal-btn {
+      flex:1; background:none; border:1px solid #3776AB;
+      color:#3776AB; font-family:monospace; font-size:9px;
       font-weight:bold; letter-spacing:1px; text-transform:uppercase;
-      padding:8px; cursor:pointer; transition:.15s; margin-bottom:6px;
+      padding:5px 2px; cursor:pointer; transition:.15s;
     }
-    #btnPython.active {
-      background:#3776AB; color:#FFD43B;
-      border-color:#FFD43B; box-shadow:0 0 8px rgba(55,118,171,.5);
-    }
-    #btnPython:active { opacity:.8; }
-    #chaosRow { display:none; align-items:center; gap:6px; }
-    #chaosRow.visible { display:flex; }
+    .py-mode-btn.active { background:#3776AB; color:#FFD43B; border-color:#FFD43B; }
+    .py-pal-btn.active  { background:rgba(55,118,171,.3); color:#FFD43B; border-color:#FFD43B; }
+    .py-mode-btn:active,.py-pal-btn:active { opacity:.8; }
+    #pyControls { display:none; }
+    #pyControls.visible { display:block; }
+    #chaosRow { display:flex; align-items:center; gap:6px; }
     #chaosRow .ac-lbl { color:#FFD43B; }
     #chaosRow input[type="range"] { accent-color:#FFD43B; }
     #chaosRow .ac-val { color:#3776AB; }
@@ -644,11 +645,23 @@
   <div id="asciiPanel">
     <!-- Pythonization -->
     <div id="pythonSection">
-      <button id="btnPython">🐍 Pythonization</button>
-      <div id="chaosRow" class="ac-row">
-        <span class="ac-lbl">Chaos</span>
-        <span class="ac-val" id="vChaos">0</span>
-        <input type="range" id="acChaos" min="0" max="100" value="0">
+      <div class="py-header">🐍 Pythonization</div>
+      <div class="py-mode-row">
+        <button id="btnPyOff"   class="py-mode-btn active">OFF</button>
+        <button id="btnPyChars" class="py-mode-btn">CHARS</button>
+        <button id="btnPyCode"  class="py-mode-btn">CODE</button>
+      </div>
+      <div id="pyControls">
+        <div class="py-pal-row">
+          <button id="btnPyPal0" class="py-pal-btn active">PY</button>
+          <button id="btnPyPal1" class="py-pal-btn">SPY</button>
+          <button id="btnPyPal2" class="py-pal-btn">IDE</button>
+        </div>
+        <div id="chaosRow" class="ac-row">
+          <span class="ac-lbl">Chaos</span>
+          <span class="ac-val" id="vChaos">0</span>
+          <input type="range" id="acChaos" min="0" max="100" value="0">
+        </div>
       </div>
     </div>
 
@@ -1232,10 +1245,37 @@ let upVignetteVal  = 0;    // 0-100
 let upFlipTab      = 'image'; // 'image' | 'effects'
 
 // Pythonization
-let pythonMode = false;
+let pySubMode  = 'off'; // 'off' | 'chars' | 'code'
+let pyPalIdx   = 0;     // 0=Python official, 1=Spyder Dark, 2=IDE Full
 let chaosVal   = 0;
-const PY_BLUE  = [55, 118, 171];
-const PY_YELL  = [255, 212, 59];
+
+const PY_PALETTES = [
+  { // 0: Python official
+    bg: '#050510',
+    chars: [[55,118,171],[137,175,230],[200,215,255],[255,230,130],[255,212,59]],
+    code:  [[255,212,59],[137,180,255],[200,200,255],[180,220,255],[255,230,120],[100,140,190]],
+  },
+  { // 1: Spyder Dark (Catppuccin Mocha)
+    bg: '#1e1e2e',
+    chars: [[243,139,168],[249,226,175],[166,227,161],[137,220,235],[137,180,250]],
+    code:  [[243,139,168],[137,220,235],[249,226,175],[205,214,244],[166,227,161],[137,180,250]],
+  },
+  { // 2: IDE Full (VS Code Dark+)
+    bg: '#1e1e1e',
+    chars: [[86,156,214],[198,134,192],[220,220,170],[206,145,120],[106,153,85],[212,212,212]],
+    code:  [[86,156,214],[220,220,170],[212,212,212],[156,220,254],[198,134,192],[106,153,85]],
+  },
+];
+
+// Python code token bank by role (keyword, builtin, operator, name, bracket, comment)
+const PY_CODE_BANK = [
+  ['def ','class ','return ','import ','from ','for i:','while ','if x:','lambda:','yield ','pass','async ','await ','break '],
+  ['range(n)','len(x)','print(x)','list()','dict()','int(x)','str(n)','sum(x)','map(f)','sorted()','enumerate','zip(a,b)'],
+  ['== 0','!= 0','>= n','<= n','+= 1','-= 1','** 2','// n','not x','and ','or ','is None','in x','x > 0'],
+  ['x = 0','n = 1','i += 1','result','data = []','value','count','items','path','size','node','True','False','None'],
+  ['(x, y)','[i]','{}','x[0]','(n+1)','[:-1]','[:,0]',': ...','(self)','*args'],
+  ['# ok','# todo','# n','# i','# fix','# init','# loop'],
+];
 
 // ════════════════════════════════════════════════════════════════════
 // BAYER 8×8
@@ -1717,7 +1757,7 @@ function renderASCII(source, srcW, srcH, mirror) {
   const pal = PALETTES[activePal];
 
   // Background
-  ctxAscii.fillStyle = pythonMode ? '#000' : `rgb(${pal.paper})`;
+  ctxAscii.fillStyle = pySubMode !== 'off' ? PY_PALETTES[pyPalIdx].bg : `rgb(${pal.paper})`;
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
 
   const fontSize = Math.max(4, Math.floor(cH * 0.92));
@@ -1754,16 +1794,29 @@ function renderASCII(source, srcW, srcH, mirror) {
       line += ch;
 
       if (ci >= acSpaceVal) {
-        if (pythonMode) {
-          // Color: blue vs yellow based on luminosity + chaos
-          const lumN = lum / 255;            // 0=dark, 1=bright
-          const probYellow = lumN * (1 - chaosN) + Math.random() * chaosN;
-          const col = probYellow > 0.5 ? PY_YELL : PY_BLUE;
+        const lumN = lum / 255; // 0=dark, 1=bright
+        if (pySubMode === 'code') {
+          // CODE mode: pick Python token based on density (dark→keyword, bright→comment)
+          const densityN = 1 - lumN;
+          const roleRaw  = densityN * (1 - chaosN) + Math.random() * chaosN;
+          const role     = Math.min(5, Math.floor(roleRaw * 6));
+          const bank     = PY_CODE_BANK[role];
+          const token    = bank[(Math.random() * bank.length) | 0];
+          const col      = PY_PALETTES[pyPalIdx].code[role];
           ctxAscii.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+          ctxAscii.fillText(token, acFrameVal + c * cW, acFrameVal + r * cH);
+        } else if (pySubMode === 'chars') {
+          // CHARS mode: map luminosity to palette color array
+          const cols  = PY_PALETTES[pyPalIdx].chars;
+          const tN    = lumN * (1 - chaosN) + Math.random() * chaosN;
+          const colIdx= Math.min(cols.length - 1, Math.floor(tN * cols.length));
+          const col   = cols[colIdx];
+          ctxAscii.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
+          ctxAscii.fillText(ch, acFrameVal + c * cW, acFrameVal + r * cH);
         } else {
           ctxAscii.fillStyle = `rgb(${pal.ink})`;
+          ctxAscii.fillText(ch, acFrameVal + c * cW, acFrameVal + r * cH);
         }
-        ctxAscii.fillText(ch, acFrameVal + c * cW, acFrameVal + r * cH);
       }
     }
     lines.push(line);
@@ -2609,12 +2662,25 @@ bindCheckbox('cbThresh','acThresh',v=>{acThreshOn=v;});
 bindCheckbox('cbSharp', 'acSharp', v=>{acSharpOn=v;});
 bindCheckbox('cbEdge',  'acEdge',  v=>{acEdgeOn=v;});
 
-// Pythonization
-document.getElementById('btnPython').addEventListener('click', () => {
-  pythonMode = !pythonMode;
-  document.getElementById('btnPython').classList.toggle('active', pythonMode);
-  document.getElementById('chaosRow').classList.toggle('visible', pythonMode);
-  asciiSettingsChanged();
+// Pythonization — mode buttons (OFF / CHARS / CODE)
+const _pyModeBtns = ['btnPyOff','btnPyChars','btnPyCode'];
+const _pyModeVals = ['off','chars','code'];
+_pyModeBtns.forEach((bid, idx) => {
+  document.getElementById(bid).addEventListener('click', () => {
+    pySubMode = _pyModeVals[idx];
+    _pyModeBtns.forEach((b,j) => document.getElementById(b).classList.toggle('active', j === idx));
+    document.getElementById('pyControls').classList.toggle('visible', pySubMode !== 'off');
+    asciiSettingsChanged();
+  });
+});
+// Pythonization — palette buttons (PY / SPY / IDE)
+const _pyPalBtns = ['btnPyPal0','btnPyPal1','btnPyPal2'];
+_pyPalBtns.forEach((bid, idx) => {
+  document.getElementById(bid).addEventListener('click', () => {
+    pyPalIdx = idx;
+    _pyPalBtns.forEach((b,j) => document.getElementById(b).classList.toggle('active', j === idx));
+    asciiSettingsChanged();
+  });
 });
 bindSlider('acChaos', 'vChaos', '', v=>parseInt(v), v=>{chaosVal=v;});
 
@@ -2657,10 +2723,11 @@ document.getElementById('acReset').addEventListener('click', () => {
   document.getElementById('acGradient').value='normal';
   document.getElementById('acQuality' ).value='none';
   // Reset pythonization
-  pythonMode=false;chaosVal=0;
-  document.getElementById('btnPython').classList.remove('active');
-  document.getElementById('chaosRow').classList.remove('visible');
-  document.getElementById('acChaos').value=0;document.getElementById('vChaos').textContent='0';
+  pySubMode='off'; pyPalIdx=0; chaosVal=0;
+  _pyModeBtns.forEach((b,i)=>document.getElementById(b).classList.toggle('active',i===0));
+  _pyPalBtns.forEach((b,i)=>document.getElementById(b).classList.toggle('active',i===0));
+  document.getElementById('pyControls').classList.remove('visible');
+  document.getElementById('acChaos').value=0; document.getElementById('vChaos').textContent='0';
   asciiSettingsChanged();
 });
 

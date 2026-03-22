@@ -11,7 +11,8 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>FLIP</title>
   <style>
-    @font-face { font-family:'Bloom'; src:local('Bloom'); }
+    @font-face { font-family:'Bloom';     src:local('Bloom'); }
+    @font-face { font-family:'BN Monica'; src:local('BN Monica'); }
     *, *::before, *::after {
       margin:0; padding:0; box-sizing:border-box;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
@@ -179,7 +180,7 @@
     }
     #splash.hidden { display:none; }
     .splash-title {
-      font-family:'Bloom', sans-serif;
+      font-family:'BN Monica', sans-serif;
       font-size:clamp(48px,12vw,96px); color:#c8a000;
       letter-spacing:6px; text-align:center;
       position:relative; z-index:1; pointer-events:none;
@@ -704,15 +705,15 @@
     </div>
     <div id="sonoAmpDot"></div>
   </div>
-  <!-- Row 2: blend target -->
+  <!-- Row 2: blend target (label changes per preset) -->
   <div class="sono-row2">
-    <span class="sono-lbl">BLEND</span>
+    <span class="sono-lbl" id="lblSonoBlend">BLEND</span>
     <button class="sono-blend-btn active" id="btnBlendFlip">FLIP</button>
     <button class="sono-blend-btn" id="btnBlendAscii">ASCII</button>
   </div>
-  <!-- Row 3: blend amount -->
+  <!-- Row 3: mix slider (label changes per preset) -->
   <div class="sono-row3">
-    <span class="sono-lbl">AMOUNT</span>
+    <span class="sono-lbl" id="lblSonoMix">MIX</span>
     <span class="sono-val" id="vSonoMix">0</span>
     <input type="range" id="sonoMix" min="0" max="100" value="0">
   </div>
@@ -1908,6 +1909,42 @@ function renderSonoScope(timeData, sens) {
   for (let y = 0; y < OUT_H; y += 2) cx.fillRect(0, y, OUT_W, 1);
 }
 
+// ── SCOPE render with SONO organic noise on the waveform line ─────────
+// sonoField: the current sono field Float32Array (DSI_W×DSI_H)
+// noiseStr: 0=no noise, 1=full noise
+function renderSonoScopeBlended(timeData, sens, sonoField, noiseStr) {
+  const cx = ctxSonoScope;
+  cx.imageSmoothingEnabled = false;
+  cx.fillStyle = '#000';
+  cx.fillRect(0, 0, OUT_W, OUT_H);
+  // Grid
+  cx.strokeStyle = '#002200'; cx.lineWidth = 1;
+  for (let x = 0; x <= OUT_W; x += OUT_W / 8)  { cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, OUT_H); cx.stroke(); }
+  for (let y = 0; y <= OUT_H; y += OUT_H / 6)  { cx.beginPath(); cx.moveTo(0, y); cx.lineTo(OUT_W, y); cx.stroke(); }
+  // Waveform with SONO-field noise baked into the line
+  const step = OUT_W / timeData.length;
+  const glowStr = 8 + noiseStr * 18;
+  cx.strokeStyle = '#00ff41'; cx.lineWidth = 1.5 + noiseStr * 1.5;
+  cx.shadowColor = '#00ff41'; cx.shadowBlur = glowStr;
+  cx.beginPath();
+  for (let i = 0; i < timeData.length; i++) {
+    const v = ((timeData[i] - 128) / 128) * sens;
+    const baseY = OUT_H / 2 + v * OUT_H / 2 * 0.82;
+    // Sample sono field to add organic squiggle
+    const fx = Math.min(DSI_W - 1, Math.floor(i / timeData.length * DSI_W));
+    const normY = Math.max(0, Math.min(1, (baseY / OUT_H)));
+    const fy = Math.min(DSI_H - 1, Math.floor(normY * DSI_H));
+    const sv = sonoField[fy * DSI_W + fx]; // 0..1
+    const noise = (sv - 0.5) * noiseStr * OUT_H * 0.55;
+    const y = baseY + noise;
+    i === 0 ? cx.moveTo(0, y) : cx.lineTo(i * step, y);
+  }
+  cx.stroke(); cx.shadowBlur = 0;
+  // Scanlines
+  cx.fillStyle = 'rgba(0,0,0,0.18)';
+  for (let y = 0; y < OUT_H; y += 2) cx.fillRect(0, y, OUT_W, 1);
+}
+
 // ── Convert scope canvas → Flipnote Legacy (hard threshold) ──────────
 function renderScopeToLegacy() {
   ctxS.imageSmoothingEnabled = false;
@@ -2061,14 +2098,14 @@ function sonoLoop(ts) {
   ctxSono.globalAlpha = 1;
 
   if (sonoPreset === 1) {
-    // SCOPE ↔ SONO BLEND — mutual interaction
-    // mixN=0 → pure scope · mixN=1 → pure sono
-    const scopeN = 1.0 - mixN;
-    const sonoN  = mixN;
+    // ── SCOPE ↔ SONO DUAL MODE ─────────────────────────────────────────
+    // sonoMixVal slider: 0=pure scope  50=both interact  100=pure sono
+    const scopeN = 1.0 - mixN;  // scope weight
+    const sonoN  = mixN;         // sono weight
 
-    // Shared trail when blending — both visuals contribute to same trail buffer
-    if (mixN > 0.05 && mixN < 0.95) {
-      const fadeA = 0.30 + mixN * 0.30;
+    // Shared trail: both signals leave ghosting in the same canvas
+    if (mixN > 0.02 && mixN < 0.98) {
+      const fadeA = 0.10 + mixN * 0.12; // very soft — 0.10 at scope-heavy, 0.22 at sono-heavy
       ctxSono.fillStyle = `rgba(0,0,0,${fadeA.toFixed(2)})`;
       ctxSono.fillRect(0, 0, OUT_W, OUT_H);
     } else {
@@ -2076,20 +2113,27 @@ function sonoLoop(ts) {
       ctxSono.fillRect(0, 0, OUT_W, OUT_H);
     }
 
-    // SCOPE: amplitude boosted by SONO activity (cross-influence)
+    // Generate sono field (shared between both render paths)
+    const rawField = generateSonoField(audio.amp, audio.pitchNorm, audio.blowStr, sonoT);
+
+    // SCOPE LINE — boosted amplitude + sono organic noise on the line
     if (scopeN > 0.01) {
-      const ampMod = 1.0 + sonoN * audio.amp * 3.5;
-      renderSonoScope(audio.timeData, sens * ampMod);
+      const ampMod  = 1.0 + sonoN * audio.amp * 4.0;
+      const noiseStr = sonoN * 0.85; // how much sono field warps the scope line
+      if (noiseStr > 0.02) {
+        renderSonoScopeBlended(audio.timeData, sens * ampMod, rawField, noiseStr);
+      } else {
+        renderSonoScope(audio.timeData, sens * ampMod);
+      }
       ctxSono.globalAlpha = scopeN;
       ctxSono.drawImage(sonoScopeCvs, 0, 0);
       ctxSono.globalAlpha = 1;
     }
 
-    // SONO: field warped by scope waveform (cross-influence)
+    // SONO FIELD — geometry displaced by scope waveform
     if (sonoN > 0.01) {
-      const warpStr = scopeN * 0.55;
-      const rawField = generateSonoField(audio.amp, audio.pitchNorm, audio.blowStr, sonoT);
-      const field = warpStr > 0.01 ? warpFieldByWave(rawField, audio.timeData, warpStr) : rawField;
+      const warpStr = scopeN * 0.75; // how much scope waveform bends the sono field
+      const field = warpStr > 0.02 ? warpFieldByWave(rawField, audio.timeData, warpStr) : rawField;
       if (sonoBlendMode === 'flip') {
         renderSonoLegacy(field, audio, chaosN);
         ctxSono.globalAlpha = sonoN;
@@ -2207,12 +2251,32 @@ document.getElementById('sonoChaos').addEventListener('input', e => {
   document.getElementById('vSonoChaos').textContent = sonoChaosVal;
 });
 
-// SONO preset buttons
+// SONO preset buttons + dynamic HUD labels
+function _sonoUpdateHudLabels() {
+  const lblBlend = document.getElementById('lblSonoBlend');
+  const lblMix   = document.getElementById('lblSonoMix');
+  if (sonoPreset === 1) {
+    // SCOPE+SONO mode: mix slider is scope↔sono ratio
+    if (lblBlend) lblBlend.textContent = 'SONO AS';
+    if (lblMix)   lblMix.textContent   = 'SCOPE ↔';
+  } else {
+    if (lblBlend) lblBlend.textContent = 'BLEND';
+    if (lblMix)   lblMix.textContent   = 'MIX';
+  }
+}
+
 document.querySelectorAll('.sono-preset-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     sonoPreset = parseInt(btn.dataset.preset);
     document.querySelectorAll('.sono-preset-btn').forEach((b, j) =>
       b.classList.toggle('active', j === sonoPreset));
+    // Reset mix to 0 when entering SCOPE mode so user starts with pure scope
+    if (sonoPreset === 1) {
+      const mixSlider = document.getElementById('sonoMix');
+      mixSlider.value = 0; sonoMixVal = 0;
+      document.getElementById('vSonoMix').textContent = '0';
+    }
+    _sonoUpdateHudLabels();
   });
 });
 
@@ -2510,6 +2574,10 @@ function enterWmp() {
   if (!wmpAnalyser) {
     document.getElementById('wmpPerm').classList.add('visible');
   } else {
+    // Resume AudioContext if browser suspended it (tab hidden policy)
+    if (wmpAudioCtx && wmpAudioCtx.state === 'suspended') {
+      wmpAudioCtx.resume().catch(() => {});
+    }
     document.getElementById('wmpPerm').classList.remove('visible');
     if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
   }
@@ -3112,6 +3180,18 @@ function wmpLoop() {
     }
     // Fog overlay on top of visualization
     wmpDrawFog(wmpPreset, 0, wmpPreset);
+  }
+
+  // Ambient idle — ensures canvas is never fully black at silence
+  if (rms < 0.018) {
+    const fog = WMP_FOG[wmpPreset] || WMP_FOG[0];
+    const pulse = 0.45 + 0.55 * Math.abs(Math.sin(wmpAlchemyAngle * 0.4));
+    const r = Math.min(255, fog[0] * 5), g = Math.min(255, fog[1] * 5), b = Math.min(255, fog[2] * 5);
+    const ag = ctxWmp.createRadialGradient(WW/2, WH/2, 0, WW/2, WH/2, WH * 0.55);
+    ag.addColorStop(0, `rgba(${r|0},${g|0},${b|0},${(0.18 * pulse).toFixed(3)})`);
+    ag.addColorStop(1, 'rgba(0,0,0,0)');
+    ctxWmp.fillStyle = ag;
+    ctxWmp.fillRect(0, 0, WW, WH);
   }
 
   requestAnimationFrame(wmpLoop);

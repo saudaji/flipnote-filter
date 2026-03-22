@@ -614,6 +614,14 @@
     }
     #btnHighPerf.active { background:rgba(255,119,0,.2); color:#ffaa44; border-color:#ffaa44; }
     #btnHighPerf:active { opacity:.7; }
+    #btnSmoothMode {
+      width:100%; background:none; border:1px solid var(--mid);
+      color:var(--mid); font-family:monospace; font-size:9px; font-weight:bold;
+      letter-spacing:1px; text-transform:uppercase; padding:5px; cursor:pointer; transition:.15s;
+      margin-bottom:6px;
+    }
+    #btnSmoothMode.active { background:rgba(155,188,15,.15); color:var(--paper); border-color:var(--paper); }
+    #btnSmoothMode:active { opacity:.7; }
     #thermalToast {
       display:none; position:fixed; bottom:104px; left:50%; transform:translateX(-50%);
       background:#cc4400; color:#fff; font-family:monospace; font-size:10px;
@@ -692,6 +700,7 @@
       <div class="ac-row" id="asciiPerfWarn" style="display:none;">
         <span style="color:#ff8844;font-size:9px;font-family:monospace;">⚠ FPS bajo — reduciendo chars</span>
       </div>
+      <button id="btnSmoothMode">⚡ Smooth Mode</button>
       <div id="androidRow">
         <span style="color:#ff7700;font-size:9px;font-family:monospace;letter-spacing:1px;">📱 Optimizado para móvil (máx 60 chars)</span>
         <button id="btnHighPerf">⚡ Alto rendimiento ⚠ calor</button>
@@ -1713,6 +1722,15 @@ function asciiPixelLum(r, g, b) {
 // ════════════════════════════════════════════════════════════════════
 function renderASCII(source, srcW, srcH, mirror) {
   const SW = 512, SH = 384;
+
+  // Frame deduplication: if video hasn't advanced and worker is busy, keep last result
+  const isLiveVideo = (source === vid || source === asciiVideoEl);
+  if (isLiveVideo && _asciiWorker && !asciiHighPerf) {
+    const t = source.currentTime;
+    if (t === _asciiLastVidTime && _asciiWorkerBusy) return; // same frame, worker busy — skip
+    _asciiLastVidTime = t;
+  }
+
   const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
   ctxAS.save();
   if (mirror) { ctxAS.translate(SW, 0); ctxAS.scale(-1, 1); }
@@ -1721,8 +1739,8 @@ function renderASCII(source, srcW, srcH, mirror) {
   ctxAS.drawImage(source, sx, sy, sw, sh, 0, 0, SW, SH);
   ctxAS.restore();
 
-  // Android + OffscreenCanvas worker path
-  if (_asciiWorker && IS_ANDROID && !asciiHighPerf) {
+  // OffscreenCanvas worker path — all platforms where supported
+  if (_asciiWorker && !asciiHighPerf) {
     const imgData = ctxAS.getImageData(0, 0, SW, SH);
     _dispatchAsciiWorker(imgData, SW, SH);
     return;
@@ -1792,7 +1810,8 @@ function _renderASCIISync(px, SW, SH) {
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
 
   const fontSize = Math.max(4, Math.floor(cH * 0.92));
-  ctxAscii.font         = `bold ${fontSize}px ${asciiFont}`;
+  const fontStr  = `bold ${fontSize}px ${asciiFont}`;
+  if (fontStr !== _asciiLastFont) { ctxAscii.font = fontStr; _asciiLastFont = fontStr; }
   ctxAscii.textBaseline = 'top';
   ctxAscii.imageSmoothingEnabled = false;
 
@@ -2183,8 +2202,11 @@ let asciiFrameSkip   = 0;
 let _asciiFpsHist    = [];
 let _asciiLastFT     = 0;
 let asciiHighPerf    = false;         // Android: high-perf toggle (removes thermal limits)
-let _asciiAndroidLastT = 0;           // Android 24fps cap timestamp
+let _asciiAndroidLastT = 0;           // Android / mobile fps cap timestamp
 let _thermalToastTimer = null;        // Debounce for thermal toast
+let _asciiLastVidTime  = -1;          // Frame dedup: skip same video frame
+let _asciiLastFont     = '';          // Font cache: skip redundant ctx.font sets
+let _asciiSmoothMode   = false;       // Smooth Mode preset
 let asciiFont      = 'monospace';
 let inputMode      = 'camera'; // 'camera' | 'file'
 
@@ -2245,14 +2267,11 @@ function asciiLoop(ts) {
   }
   if (ts) _asciiLastFT = ts;
 
-  // Android: hard 24fps cap via timestamp gating
-  if (IS_ANDROID && !asciiHighPerf) {
-    if (ts - _asciiAndroidLastT < 1000/24) { requestAnimationFrame(asciiLoop); return; }
+  // FPS cap for mobile: Android=24fps, other mobile=30fps, desktop=unlimited
+  if (_isMobile && !asciiHighPerf) {
+    const fpsCap = IS_ANDROID ? 24 : 30;
+    if (ts - _asciiAndroidLastT < 1000 / fpsCap) { requestAnimationFrame(asciiLoop); return; }
     _asciiAndroidLastT = ts;
-  } else if (_isMobile && !IS_ANDROID) {
-    // Other mobile: skip every 3rd frame (~20fps)
-    asciiFrameSkip = (asciiFrameSkip + 1) % 3;
-    if (asciiFrameSkip !== 0) { requestAnimationFrame(asciiLoop); return; }
   }
 
   if (asciiVideoEl) {
@@ -2946,6 +2965,8 @@ document.getElementById('acReset').addEventListener('click', () => {
   document.getElementById('cbEdge'  ).checked=false;document.getElementById('acEdge'  ).disabled=true;
   document.getElementById('acGradient').value='normal';
   document.getElementById('acQuality' ).value='none';
+  // Reset Smooth Mode
+  _asciiSmoothMode=false; document.getElementById('btnSmoothMode').classList.remove('active');
   // Reset pythonization
   pySubMode='off'; pyPalIdx=0; chaosVal=0;
   _pyModeBtns.forEach((b,i)=>document.getElementById(b).classList.toggle('active',i===0));
@@ -3542,18 +3563,21 @@ document.getElementById('btnAsciiDefault').addEventListener('click', () => {
   asciiSettingsChanged();
 });
 
-// Android: init limits + worker + high-perf toggle
+// Init OffscreenCanvas worker on all platforms that support it
+_initAsciiWorker();
+
+// Android: init limits + UI
 if (IS_ANDROID) {
-  // Adjust slider limits
   const sl = document.getElementById('acChars');
   const vl = document.getElementById('vChars');
   if (sl) { sl.max = ASCII_DEV_MAX; sl.value = ASCII_ANDROID_DEFAULT; }
   if (vl) vl.textContent = ASCII_ANDROID_DEFAULT;
   asciiCols = ASCII_ANDROID_DEFAULT;
-  // Show Android note
   document.getElementById('androidRow').style.display = 'flex';
-  // Init OffscreenCanvas worker
-  _initAsciiWorker();
+} else if (_isMobile) {
+  // Other mobile: softer limit
+  const sl = document.getElementById('acChars');
+  if (sl) sl.max = ASCII_DEV_MAX;
 }
 
 // High-perf toggle (Android only)
@@ -3570,6 +3594,29 @@ document.getElementById('btnHighPerf').addEventListener('click', () => {
     asciiCols = Math.min(asciiCols, ASCII_DEV_MAX);
     const vl = document.getElementById('vChars');
     if (vl) vl.textContent = asciiCols;
+  }
+  asciiSettingsChanged();
+});
+
+// Smooth Mode: preset for maximum fluidity
+document.getElementById('btnSmoothMode').addEventListener('click', () => {
+  _asciiSmoothMode = !_asciiSmoothMode;
+  document.getElementById('btnSmoothMode').classList.toggle('active', _asciiSmoothMode);
+  if (_asciiSmoothMode) {
+    // Apply smooth preset
+    const optCols = IS_ANDROID ? 30 : (_isMobile ? 40 : 60);
+    asciiCols = optCols;
+    acSharpOn = false; acEdgeOn = false;
+    acQualityVal = 'none'; acGradientVal = 'normal'; acSpaceVal = 1;
+    // Update UI
+    const slC = document.getElementById('acChars');
+    if (slC) slC.value = optCols;
+    document.getElementById('vChars').textContent = optCols;
+    document.getElementById('cbSharp').checked  = false; document.getElementById('acSharp').disabled  = true;
+    document.getElementById('cbEdge').checked   = false; document.getElementById('acEdge').disabled   = true;
+    document.getElementById('acQuality').value  = 'none';
+    document.getElementById('acGradient').value = 'normal';
+    document.getElementById('acSpace').value    = 1; document.getElementById('vSpace').textContent = 1;
   }
   asciiSettingsChanged();
 });

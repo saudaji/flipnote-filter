@@ -949,10 +949,6 @@
   <select class="audio-io-select" id="audioInSelect">
     <option value="">-- seleccionar --</option>
   </select>
-  <div class="audio-io-label">SALIDA DE AUDIO</div>
-  <select class="audio-io-select" id="audioOutSelect">
-    <option value="">-- predeterminado --</option>
-  </select>
   <button id="btnExtAudioToggle">▶ ACTIVAR AUDIO EXTERNO</button>
   <!-- Level meter: shows signal arriving from external device -->
   <div id="extLevelWrap" style="display:none;margin-top:6px;">
@@ -2533,6 +2529,12 @@ function stopSono() {
 }
 
 function enterSono() {
+  if (extAudioMode && extAnalyser) {
+    // Ext audio active — use extAnalyser, no mic permission needed
+    document.getElementById('sonoPerm').classList.remove('visible');
+    if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; requestAnimationFrame(sonoLoop); }
+    return;
+  }
   if (sonoMicStream) {
     // Already have mic, just restart loop
     document.getElementById('sonoPerm').classList.remove('visible');
@@ -2598,7 +2600,9 @@ document.getElementById('btnBlendAscii').addEventListener('click', () => {
 
 // ── SONO load file ────────────────────────────────────────────────────
 async function sonoLoadFile(file) {
-  if (!file || !file.type.startsWith('audio/')) {
+  if (!file) return;
+  // iOS may report empty MIME type for audio files — skip strict check
+  if (file.type && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
     alert('Solo archivos de audio (MP3, WAV, OGG, etc.)'); return;
   }
   // Stop mic if running
@@ -2844,7 +2848,9 @@ async function wmpStartMic() {
 }
 
 async function wmpLoadFile(file) {
-  if (!file || !file.type.startsWith('audio/')) {
+  if (!file) return;
+  // iOS may report empty MIME type for audio files — skip strict check
+  if (file.type && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
     document.getElementById('wmpPermErr').textContent = '⚠ Solo archivos de audio (MP3, WAV, OGG)';
     return;
   }
@@ -2882,6 +2888,12 @@ function stopWmp() {
   wmpStopAudio(); // full teardown (called only on explicit user action)
 }
 function enterWmp() {
+  if (extAudioMode && extAnalyser) {
+    // Ext audio active — use extAnalyser, no mic permission needed
+    document.getElementById('wmpPerm').classList.remove('visible');
+    if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
+    return;
+  }
   if (!wmpAnalyser) {
     document.getElementById('wmpPerm').classList.add('visible');
   } else {
@@ -3630,16 +3642,11 @@ async function enumerateAudioDevices() {
   } catch(_) {}
   const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
   const inSel   = document.getElementById('audioInSelect');
-  const outSel  = document.getElementById('audioOutSelect');
   inSel.innerHTML  = '<option value="">-- micrófono --</option>';
-  outSel.innerHTML = '<option value="">-- predeterminado --</option>';
   devices.forEach(d => {
     if (d.kind === 'audioinput') {
       const opt = new Option(d.label || `Entrada ${d.deviceId.slice(0,6)}`, d.deviceId);
       inSel.appendChild(opt);
-    } else if (d.kind === 'audiooutput') {
-      const opt = new Option(d.label || `Salida ${d.deviceId.slice(0,6)}`, d.deviceId);
-      outSel.appendChild(opt);
     }
   });
 }
@@ -3709,15 +3716,6 @@ async function startExtAudio(deviceId) {
 
   const src = extAudioCtx.createMediaStreamSource(extMicStream);
   src.connect(extAnalyser);
-  // Also connect to destination so audio passes through (needed for some virtual devices)
-  // Comment out the next line if you DON'T want audio playback:
-  // src.connect(extAudioCtx.destination);
-
-  // Wire output device if setSinkId is supported
-  const outDeviceId = document.getElementById('audioOutSelect')?.value;
-  if (outDeviceId && typeof AudioContext.prototype.setSinkId === 'function') {
-    await extAudioCtx.setSinkId(outDeviceId).catch(() => {});
-  }
 
   extAudioMode = true;
   document.body.classList.add('ext-audio');
@@ -3727,6 +3725,14 @@ async function startExtAudio(deviceId) {
   document.getElementById('btnExtAudioToggle').textContent = '■ DESACTIVAR';
   document.getElementById('btnExtAudioToggle').classList.add('active');
   _extStartLevelMeter();
+  // Kick-start the visual loop for whichever tab is currently active
+  if (activeTab === 'sono') {
+    document.getElementById('sonoPerm').classList.remove('visible');
+    if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; requestAnimationFrame(sonoLoop); }
+  } else if (activeTab === 'wmp') {
+    document.getElementById('wmpPerm').classList.remove('visible');
+    if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
+  }
   console.log('[ExtAudio] started. Stream tracks:', extMicStream.getTracks().map(t => t.label));
 }
 
@@ -3741,6 +3747,9 @@ async function stopExtAudio() {
   if (extAudioCtx)  { await extAudioCtx.close().catch(()=>{}); extAudioCtx = null; }
   extAnalyser = null;
   extAudioMode = false;
+  // Stop visual loops that were running only because of ext audio
+  sonoRunning = false;
+  wmpRunning  = false;
   document.body.classList.remove('ext-audio');
   document.getElementById('btnExtAudioToggle').textContent = '▶ ACTIVAR AUDIO EXTERNO';
   document.getElementById('btnExtAudioToggle').classList.remove('active');

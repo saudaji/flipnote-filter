@@ -1714,6 +1714,8 @@ document.getElementById('btnAsciiShare').addEventListener('click', async () => {
 // ════════════════════════════════════════════════════════════════════
 const asciiFileInput = document.createElement('input');
 asciiFileInput.type = 'file'; asciiFileInput.accept = 'image/*';
+asciiFileInput.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
+document.body.appendChild(asciiFileInput);
 
 document.getElementById('btnAsciiUpload').addEventListener('click', () => {
   clearAsciiStatic(); asciiFileInput.click();
@@ -2461,6 +2463,8 @@ async function sonoLoadFile(file) {
 // ── SONO FILE button ──────────────────────────────────────────────────
 const sonoFileInput = document.createElement('input');
 sonoFileInput.type = 'file'; sonoFileInput.accept = 'audio/*';
+sonoFileInput.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
+document.body.appendChild(sonoFileInput);
 sonoFileInput.addEventListener('change', e => {
   if (e.target.files[0]) sonoLoadFile(e.target.files[0]);
   e.target.value = '';
@@ -3376,6 +3380,8 @@ document.getElementById('wmpTrails').addEventListener('input', e => {
 // Source buttons
 const wmpFileInput = document.createElement('input');
 wmpFileInput.type = 'file'; wmpFileInput.accept = 'audio/*';
+wmpFileInput.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
+document.body.appendChild(wmpFileInput);
 wmpFileInput.addEventListener('change', e => {
   if (e.target.files[0]) wmpLoadFile(e.target.files[0]);
   e.target.value = '';

@@ -500,6 +500,13 @@
 <video id="uploadVid" playsinline style="display:none"></video>
 <audio id="wmpAudio"  style="display:none"></audio>
 <audio id="sonoAudio" style="display:none"></audio>
+<!-- File inputs in HTML so iOS Safari can trigger them via .click() -->
+<input type="file" id="sonoFileInputEl" accept="audio/*" tabindex="-1"
+       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
+<input type="file" id="wmpFileInputEl"  accept="audio/*" tabindex="-1"
+       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
+<input type="file" id="asciiFileInputEl" accept="image/*" tabindex="-1"
+       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
 <canvas id="small"   style="display:none"></canvas>
 <canvas id="scanCvs" style="display:none"></canvas>
 
@@ -1712,18 +1719,22 @@ document.getElementById('btnAsciiShare').addEventListener('click', async () => {
 // ════════════════════════════════════════════════════════════════════
 // ASCII UPLOAD (static source fix)
 // ════════════════════════════════════════════════════════════════════
-const asciiFileInput = document.createElement('input');
-asciiFileInput.type = 'file'; asciiFileInput.accept = 'image/*';
-asciiFileInput.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
-document.body.appendChild(asciiFileInput);
+const asciiFileInput = document.getElementById('asciiFileInputEl');
 
 document.getElementById('btnAsciiUpload').addEventListener('click', () => {
-  clearAsciiStatic(); asciiFileInput.click();
+  // Stop camera rendering immediately and clear canvas before picker opens
+  asciiStaticSrc = null; asciiStaticW = 0; asciiStaticH = 0;
+  ctxAscii.fillStyle = '#000';
+  ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
+  asciiFileInput.click();
 });
 
 asciiFileInput.addEventListener('change', async e => {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
+  // Clear canvas before async load to avoid camera residue
+  ctxAscii.fillStyle = '#000';
+  ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
   const url = URL.createObjectURL(file);
   let source, w, h;
   try {
@@ -2461,10 +2472,7 @@ async function sonoLoadFile(file) {
 }
 
 // ── SONO FILE button ──────────────────────────────────────────────────
-const sonoFileInput = document.createElement('input');
-sonoFileInput.type = 'file'; sonoFileInput.accept = 'audio/*';
-sonoFileInput.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
-document.body.appendChild(sonoFileInput);
+const sonoFileInput = document.getElementById('sonoFileInputEl');
 sonoFileInput.addEventListener('change', e => {
   if (e.target.files[0]) sonoLoadFile(e.target.files[0]);
   e.target.value = '';
@@ -3378,10 +3386,7 @@ document.getElementById('wmpTrails').addEventListener('input', e => {
 });
 
 // Source buttons
-const wmpFileInput = document.createElement('input');
-wmpFileInput.type = 'file'; wmpFileInput.accept = 'audio/*';
-wmpFileInput.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
-document.body.appendChild(wmpFileInput);
+const wmpFileInput = document.getElementById('wmpFileInputEl');
 wmpFileInput.addEventListener('change', e => {
   if (e.target.files[0]) wmpLoadFile(e.target.files[0]);
   e.target.value = '';

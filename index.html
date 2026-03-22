@@ -491,9 +491,13 @@
     .up-mode-btn { background:none; border:2px solid var(--dark); color:var(--dark); font-family:monospace; font-size:10px; letter-spacing:2px; padding:4px 10px; cursor:pointer; }
     .up-mode-btn.active { border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.1); }
 
+    /* Hide audio I/O on mobile by default */
+    #btnAudioIO, #audioIOPanel, #btnExtCapture { display:none; }
+
     @media (min-width:769px) {
+      #btnAudioIO { display:block; }
       #audioIOPanel {
-        position:fixed; top:48px; right:0; width:240px; height:auto;
+        position:fixed; top:48px; right:0; width:260px; height:auto;
         background:var(--ink); border-left:2px solid var(--dark); border-bottom:2px solid var(--dark);
         padding:12px; z-index:50; display:none; flex-direction:column; gap:8px;
       }
@@ -947,9 +951,19 @@
   </select>
   <div class="audio-io-label">SALIDA DE AUDIO</div>
   <select class="audio-io-select" id="audioOutSelect">
-    <option value="">-- seleccionar --</option>
+    <option value="">-- predeterminado --</option>
   </select>
   <button id="btnExtAudioToggle">▶ ACTIVAR AUDIO EXTERNO</button>
+  <!-- Level meter: shows signal arriving from external device -->
+  <div id="extLevelWrap" style="display:none;margin-top:6px;">
+    <div class="audio-io-label">NIVEL DE SEÑAL</div>
+    <div style="background:var(--dark);height:6px;width:100%;margin-top:3px;">
+      <div id="extLevelBar" style="background:var(--paper);height:100%;width:0%;transition:width 0.1s;"></div>
+    </div>
+    <div class="audio-io-label" id="extLevelVal" style="margin-top:2px;">0 dB</div>
+  </div>
+  <!-- Error display -->
+  <div id="extAudioErr" style="color:#ff4444;font-size:9px;font-family:monospace;margin-top:4px;display:none;"></div>
 </div>
 <button id="btnExtCapture" class="desktop-only">⬛ CAPTURAR</button>
 
@@ -3630,18 +3644,80 @@ async function enumerateAudioDevices() {
   });
 }
 
+let _extLevelTimer = null;
+
+function _extShowErr(msg) {
+  const el = document.getElementById('extAudioErr');
+  if (!el) return;
+  el.textContent = msg; el.style.display = msg ? 'block' : 'none';
+}
+
+function _extStartLevelMeter() {
+  if (_extLevelTimer) clearInterval(_extLevelTimer);
+  const bar = document.getElementById('extLevelBar');
+  const val = document.getElementById('extLevelVal');
+  const wrap = document.getElementById('extLevelWrap');
+  if (wrap) wrap.style.display = 'block';
+  const buf = new Uint8Array(extAnalyser.frequencyBinCount);
+  _extLevelTimer = setInterval(() => {
+    if (!extAnalyser) { clearInterval(_extLevelTimer); return; }
+    extAnalyser.getByteFrequencyData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i];
+    const avg = sum / buf.length;
+    const pct = Math.min(100, (avg / 128) * 200); // scale 0-100
+    const db  = avg > 0 ? (20 * Math.log10(avg / 128)).toFixed(1) : '-∞';
+    if (bar) bar.style.width = pct + '%';
+    if (val) val.textContent = db + ' dB';
+    console.log('[ExtAudio] level:', pct.toFixed(1) + '% avg:', avg.toFixed(2), 'dB:', db);
+  }, 100);
+}
+
 async function startExtAudio(deviceId) {
+  _extShowErr('');
   if (extMicStream) { extMicStream.getTracks().forEach(t => t.stop()); extMicStream = null; }
   if (extAudioCtx)  { await extAudioCtx.close().catch(()=>{}); extAudioCtx = null; }
   extAnalyser = null;
 
-  const constraints = { audio: deviceId ? { deviceId: { exact: deviceId } } : true, video: false };
-  extMicStream = await navigator.mediaDevices.getUserMedia(constraints);
-  extAudioCtx  = new (window.AudioContext || window.webkitAudioContext)();
-  extAnalyser  = extAudioCtx.createAnalyser();
+  // Build audio constraints — try exact deviceId first, fall back to any device
+  const audioConstraints = deviceId
+    ? { deviceId: { exact: deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+
+  try {
+    extMicStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+  } catch(e1) {
+    if (deviceId) {
+      // Fallback: try without exact constraint
+      try {
+        extMicStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId, echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
+      } catch(e2) {
+        throw new Error('No se pudo abrir el dispositivo: ' + (e2.message || e2.name));
+      }
+    } else {
+      throw new Error('Permiso de audio denegado: ' + (e1.message || e1.name));
+    }
+  }
+
+  extAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Resume immediately — context can start suspended
+  if (extAudioCtx.state === 'suspended') await extAudioCtx.resume();
+
+  extAnalyser = extAudioCtx.createAnalyser();
   extAnalyser.fftSize = 2048;
   extAnalyser.smoothingTimeConstant = 0.80;
-  extAudioCtx.createMediaStreamSource(extMicStream).connect(extAnalyser);
+
+  const src = extAudioCtx.createMediaStreamSource(extMicStream);
+  src.connect(extAnalyser);
+  // Also connect to destination so audio passes through (needed for some virtual devices)
+  // Comment out the next line if you DON'T want audio playback:
+  // src.connect(extAudioCtx.destination);
+
+  // Wire output device if setSinkId is supported
+  const outDeviceId = document.getElementById('audioOutSelect')?.value;
+  if (outDeviceId && typeof AudioContext.prototype.setSinkId === 'function') {
+    await extAudioCtx.setSinkId(outDeviceId).catch(() => {});
+  }
 
   extAudioMode = true;
   document.body.classList.add('ext-audio');
@@ -3650,9 +3726,17 @@ async function startExtAudio(deviceId) {
   display.style.display = 'none';
   document.getElementById('btnExtAudioToggle').textContent = '■ DESACTIVAR';
   document.getElementById('btnExtAudioToggle').classList.add('active');
+  _extStartLevelMeter();
+  console.log('[ExtAudio] started. Stream tracks:', extMicStream.getTracks().map(t => t.label));
 }
 
 async function stopExtAudio() {
+  if (_extLevelTimer) { clearInterval(_extLevelTimer); _extLevelTimer = null; }
+  const wrap = document.getElementById('extLevelWrap');
+  if (wrap) wrap.style.display = 'none';
+  const bar = document.getElementById('extLevelBar');
+  if (bar) bar.style.width = '0%';
+  _extShowErr('');
   if (extMicStream) { extMicStream.getTracks().forEach(t => t.stop()); extMicStream = null; }
   if (extAudioCtx)  { await extAudioCtx.close().catch(()=>{}); extAudioCtx = null; }
   extAnalyser = null;
@@ -3681,7 +3765,18 @@ if (screen.width > 768) {
       await stopExtAudio();
     } else {
       const deviceId = document.getElementById('audioInSelect').value;
-      await startExtAudio(deviceId).catch(err => alert('Error de audio: ' + err.message));
+      await startExtAudio(deviceId).catch(err => {
+        _extShowErr(err.message);
+        console.error('[ExtAudio] error:', err);
+      });
+    }
+  });
+
+  // Hide panel and stop ext audio if window resizes to mobile
+  window.addEventListener('resize', () => {
+    if (window.innerWidth <= 768) {
+      document.getElementById('audioIOPanel').classList.remove('open');
+      if (extAudioMode) stopExtAudio();
     }
   });
 

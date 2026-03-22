@@ -213,6 +213,16 @@
       position:relative; z-index:1; pointer-events:none;
       user-select:none;
     }
+    .splash-sub {
+      font-family:'BN Monica', sans-serif;
+      font-size:clamp(14px,3.5vw,22px); color:#c8a000;
+      letter-spacing:3px; text-align:center;
+      position:relative; z-index:1;
+      margin-top:8px; opacity:0.75;
+      background:none; border:none; cursor:pointer;
+      text-decoration:none; user-select:none;
+    }
+    .splash-sub:active { opacity:0.4; }
     .splash-char {
       position:absolute; color:#c8a000; pointer-events:none;
       font-family:monospace; user-select:none; line-height:1;
@@ -221,6 +231,25 @@
     @keyframes splash-flicker {
       0%,100%{opacity:.25} 50%{opacity:.75}
     }
+
+    /* ── Library section ── */
+    #libSection {
+      display:none; position:fixed; top:40px; bottom:0; left:0; right:0;
+      overflow-y:auto; padding:12px; background:var(--ink);
+      -webkit-overflow-scrolling:touch;
+    }
+    #libSection.visible { display:block; }
+    #libHeader { color:var(--mid); font-size:10px; letter-spacing:2px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+    #libEmpty { color:var(--dark); font-size:11px; text-align:center; margin-top:40px; font-family:monospace; }
+    #libGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
+    .lib-card { background:var(--ink); border:1px solid var(--dark); overflow:hidden; }
+    .lib-card img { width:100%; display:block; image-rendering:pixelated; }
+    .lib-card-meta { padding:4px 6px; color:var(--mid); font-size:8px; font-family:monospace; line-height:1.4; border-top:1px solid var(--dark); }
+    .lib-card-actions { display:flex; border-top:1px solid var(--dark); }
+    .lib-card-actions button { flex:1; background:none; border:none; border-right:1px solid var(--dark); color:var(--mid); font-size:10px; padding:6px 0; cursor:pointer; font-family:monospace; }
+    .lib-card-actions button:last-child { border-right:none; }
+    .lib-card-actions button:active { background:var(--dark); }
+    #libStorageWarn { color:#ff8844; font-size:9px; font-family:monospace; margin-top:8px; display:none; }
 
     /* ── Upload section ── */
     #uploadSection {
@@ -282,6 +311,14 @@
       padding:0 8px; z-index:10;
     }
     #barAscii.visible { display:flex; }
+
+    /* ── ASCII mobile touch targets ── */
+    @media (max-width:767px) {
+      #asciiPanel .ac-row { margin-bottom:8px; min-height:44px; align-items:center; }
+      #asciiPanel input[type="range"] { height:44px; }
+      #asciiPanel input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
+      #asciiPanel input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+    }
 
     /* ── ASCII panel controls ── */
     .ac-section { padding:6px 12px 4px; }
@@ -567,11 +604,12 @@
 <canvas id="scanCvs" style="display:none"></canvas>
 
 <div class="tab-bar">
-  <button class="tab active" id="tabCam">📷 CÁMARA</button>
+  <button class="tab active" id="tabCam">📷 CAM</button>
   <button class="tab"        id="tabUp" >📂 SUBIR</button>
   <button class="tab"        id="tabAscii">🔤 ASCII</button>
   <button class="tab"        id="tabSono" >🔊 SONO</button>
   <button class="tab"        id="tabWmp"  >📺 WMP</button>
+  <button class="tab"        id="tabLib"  >📚 LIB</button>
 </div>
 
 <canvas id="display"></canvas>
@@ -600,6 +638,19 @@
         <span class="ac-lbl">Characters</span>
         <span class="ac-val" id="vChars">100</span>
         <input type="range" id="acChars" min="1" max="500" value="100">
+        <button id="btnAsciiDefault" style="flex:0 0 auto;font-size:8px;padding:2px 5px;background:var(--ink);color:var(--mid);border:1px solid var(--dark);font-family:monospace;cursor:pointer;" title="Óptimo para este dispositivo">DEV</button>
+      </div>
+      <div class="ac-row" id="asciiPerfWarn" style="display:none;">
+        <span style="color:#ff8844;font-size:9px;font-family:monospace;">⚠ FPS bajo — reduciendo chars</span>
+      </div>
+      <div class="ac-row">
+        <span class="ac-lbl">Font</span>
+        <select id="acFont">
+          <option value="monospace">Default</option>
+          <option value="Fluidic, monospace">Fluidic</option>
+          <option value="Helvetica, sans-serif">Helvetica</option>
+          <option value="Enochian, monospace">Enochian</option>
+        </select>
       </div>
       <div class="ac-row">
         <span class="ac-lbl">Gradient</span>
@@ -710,6 +761,7 @@
 
 <div id="splash">
   <div class="splash-title">FLIP</div>
+  <button class="splash-sub" id="btnSplashSub">¿lo harías?</button>
 </div>
 
 <div id="flash"></div>
@@ -866,6 +918,17 @@
       <button class="ac-btn ac-reset" id="upBtnReset">RESET</button>
     </div>
   </div>
+</div>
+
+<!-- Library section -->
+<div id="libSection">
+  <div id="libHeader">
+    <span>BIBLIOTECA</span>
+    <button id="btnLibClear" style="background:none;border:1px solid #ff4444;color:#ff4444;font-family:monospace;font-size:8px;padding:2px 6px;cursor:pointer;">BORRAR TODO</button>
+  </div>
+  <div id="libEmpty">No hay capturas guardadas.<br>Las fotos y videos generados aparecen aquí.</div>
+  <div id="libStorageWarn">⚠ Almacenamiento casi lleno — borra entradas antiguas</div>
+  <div id="libGrid"></div>
 </div>
 
 <div class="bar" id="barCam">
@@ -1580,7 +1643,7 @@ function renderASCII(source, srcW, srcH, mirror) {
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
 
   const fontSize = Math.max(4, Math.floor(cH * 0.92));
-  ctxAscii.font         = `bold ${fontSize}px monospace`;
+  ctxAscii.font         = `bold ${fontSize}px ${asciiFont}`;
   ctxAscii.textBaseline = 'top';
   ctxAscii.imageSmoothingEnabled = false;
 
@@ -1781,6 +1844,12 @@ let asciiStaticSrc = null, asciiStaticW = 0, asciiStaticH = 0;
 let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
+const _isMobile    = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
+const ASCII_DEV_MAX = _isMobile ? 80 : 200;
+let asciiFrameSkip = 0;
+let _asciiFpsHist  = [];
+let _asciiLastFT   = 0;
+let asciiFont      = 'monospace';
 
 // External audio I/O state (desktop only) — declared early for use in analyzeAudio/wmpLoop
 let extAudioCtx  = null;
@@ -1801,9 +1870,35 @@ function cameraLoop(t) {
   requestAnimationFrame(cameraLoop);
 }
 
-function asciiLoop() {
+function asciiLoop(ts) {
   if (!asciiRunning) return;
   if (asciiUploading) { requestAnimationFrame(asciiLoop); return; }
+
+  // FPS tracking for adaptive quality
+  if (_asciiLastFT > 0 && ts) {
+    _asciiFpsHist.push(1000 / (ts - _asciiLastFT));
+    if (_asciiFpsHist.length > 30) _asciiFpsHist.shift();
+    if (_asciiFpsHist.length >= 20) {
+      const avgFps = _asciiFpsHist.reduce((a,b)=>a+b,0) / _asciiFpsHist.length;
+      if (avgFps < 20 && asciiCols > 20) {
+        asciiCols = Math.max(20, asciiCols - 5);
+        const sl = document.getElementById('acChars');
+        const vl = document.getElementById('vChars');
+        if (sl) sl.value = asciiCols;
+        if (vl) vl.textContent = asciiCols;
+        document.getElementById('asciiPerfWarn').style.display = '';
+        _asciiFpsHist = [];
+      }
+    }
+  }
+  if (ts) _asciiLastFT = ts;
+
+  // Mobile frame throttle: render every 3 frames
+  if (_isMobile) {
+    asciiFrameSkip = (asciiFrameSkip + 1) % 3;
+    if (asciiFrameSkip !== 0) { requestAnimationFrame(asciiLoop); return; }
+  }
+
   if (asciiVideoEl) {
     if (asciiVideoEl.videoWidth && !asciiVideoEl.paused)
       renderASCII(asciiVideoEl, asciiVideoEl.videoWidth, asciiVideoEl.videoHeight, false);
@@ -1842,14 +1937,17 @@ function switchTab(tab) {
   document.getElementById('tabAscii').classList.toggle('active', tab==='ascii');
   document.getElementById('tabSono' ).classList.toggle('active', tab==='sono');
   document.getElementById('tabWmp'  ).classList.toggle('active', tab==='wmp');
+  document.getElementById('tabLib'  ).classList.toggle('active', tab==='lib');
 
   const isCam = tab==='cam', isUp = tab==='up', isAscii = tab==='ascii';
-  const isSono = tab==='sono', isWmp = tab==='wmp';
+  const isSono = tab==='sono', isWmp = tab==='wmp', isLib = tab==='lib';
   display.style.display = isCam ? 'block' : 'none';
   asciiArea.classList.toggle('visible', isAscii);
   document.getElementById('sonoArea').classList.toggle('visible', isSono);
   document.getElementById('wmpArea' ).classList.toggle('visible', isWmp);
   document.getElementById('uploadSection').classList.toggle('visible', isUp);
+  document.getElementById('libSection').classList.toggle('visible', isLib);
+  if (isLib) libRender();
   document.getElementById('barCam'   ).style.display = isCam  ? '' : 'none';
   document.getElementById('barUpload').classList.toggle('visible', isUp);
   document.getElementById('barAscii' ).classList.toggle('visible', isAscii);
@@ -1887,6 +1985,7 @@ document.getElementById('tabUp'   ).addEventListener('click', () => switchTab('u
 document.getElementById('tabAscii').addEventListener('click', () => switchTab('ascii'));
 document.getElementById('tabSono' ).addEventListener('click', () => switchTab('sono'));
 document.getElementById('tabWmp'  ).addEventListener('click', () => switchTab('wmp'));
+document.getElementById('tabLib'  ).addEventListener('click', () => switchTab('lib'));
 
 // ASCII EDIT panel toggle
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {
@@ -1922,6 +2021,7 @@ function canvasToBlob(ctx) {
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('btnCapture').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+  libSaveEntry(display, 'FLIP');
   await _shareOrDownload(await canvasToBlob(ctxD), 'flipnote_' + Date.now() + '.png');
 });
 
@@ -2105,6 +2205,13 @@ document.getElementById('splash').addEventListener('click', async () => {
   splash.classList.add('hidden');
   cameraRunning = true;
   requestAnimationFrame(cameraLoop);
+});
+
+document.getElementById('btnSplashSub').addEventListener('click', e => {
+  e.stopPropagation(); // prevent triggering splash parent click if any
+  const sp = document.getElementById('splash');
+  sp.classList.add('hidden');
+  startCamera(facingMode).then(() => { cameraRunning = true; requestAnimationFrame(cameraLoop); });
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -2915,7 +3022,18 @@ function enterSono() {
     sonoRunning = true; sonoLastRAF = 0;
     requestAnimationFrame(sonoLoop);
   } else {
-    document.getElementById('sonoPerm').classList.add('visible');
+    // Check if permission was already granted this session → auto-start
+    const _tryAutoSono = () => {
+      if (navigator.permissions) {
+        navigator.permissions.query({name:'microphone'}).then(r => {
+          if (r.state === 'granted') { startSonoMic(); }
+          else { document.getElementById('sonoPerm').classList.add('visible'); }
+        }).catch(() => document.getElementById('sonoPerm').classList.add('visible'));
+      } else {
+        document.getElementById('sonoPerm').classList.add('visible');
+      }
+    };
+    _tryAutoSono();
   }
 }
 
@@ -2934,6 +3052,24 @@ document.getElementById('sonoHue').addEventListener('input', e => {
   const hue = parseInt(e.target.value);
   document.getElementById('vSonoHue').textContent = hue + '°';
   document.getElementById('sonoCanvas').style.filter = hue > 0 ? `hue-rotate(${hue}deg)` : '';
+});
+
+// ASCII: default chars button
+document.getElementById('btnAsciiDefault').addEventListener('click', () => {
+  asciiCols = ASCII_DEV_MAX;
+  const sl = document.getElementById('acChars');
+  const vl = document.getElementById('vChars');
+  if (sl) { sl.value = asciiCols; sl.max = ASCII_DEV_MAX * 2; }
+  if (vl) vl.textContent = asciiCols;
+  document.getElementById('asciiPerfWarn').style.display = 'none';
+  _asciiFpsHist = [];
+  asciiSettingsChanged();
+});
+
+// ASCII: font selector
+document.getElementById('acFont').addEventListener('change', e => {
+  asciiFont = e.target.value;
+  asciiSettingsChanged();
 });
 
 // SONO preset buttons + dynamic HUD labels
@@ -3286,7 +3422,18 @@ function enterWmp() {
     return;
   }
   if (!wmpAnalyser) {
-    document.getElementById('wmpPerm').classList.add('visible');
+    // Check if mic permission was already granted → auto-start mic
+    const _tryAutoWmp = () => {
+      if (navigator.permissions) {
+        navigator.permissions.query({name:'microphone'}).then(r => {
+          if (r.state === 'granted' && !wmpMicStream) { wmpStartMic(); }
+          else if (r.state !== 'granted') { document.getElementById('wmpPerm').classList.add('visible'); }
+        }).catch(() => document.getElementById('wmpPerm').classList.add('visible'));
+      } else {
+        document.getElementById('wmpPerm').classList.add('visible');
+      }
+    };
+    if (!wmpMicStream) _tryAutoWmp();
   } else {
     // Resume AudioContext if browser suspended it (tab hidden policy)
     if (wmpAudioCtx && wmpAudioCtx.state === 'suspended') {
@@ -4229,6 +4376,172 @@ async function stopExtAudio() {
     requestAnimationFrame(asciiLoop);
   }
 }
+
+// ════════════════════════════════════════════════════════════════════
+// BIBLIOTECA (localStorage image library)
+// ════════════════════════════════════════════════════════════════════
+const LIB_KEY   = 'flipLib';
+const LIB_MAX   = 30; // max entries
+const LIB_THUMB = 128; // thumb width px
+
+function _libLoad() {
+  try { return JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); } catch(_){ return []; }
+}
+function _libSave(entries) {
+  try {
+    localStorage.setItem(LIB_KEY, JSON.stringify(entries));
+    const w = document.getElementById('libStorageWarn');
+    if (w) w.style.display = entries.length >= LIB_MAX * 0.85 ? 'block' : 'none';
+  } catch(e) {
+    const w = document.getElementById('libStorageWarn');
+    if (w) { w.style.display = 'block'; w.textContent = '⚠ localStorage lleno — no se puede guardar más'; }
+  }
+}
+
+function libSaveEntry(canvas, module) {
+  try {
+    const entries = _libLoad();
+    // Create thumbnail
+    const tw = LIB_THUMB, th = Math.round(tw * canvas.height / canvas.width);
+    const tc = document.createElement('canvas'); tc.width = tw; tc.height = th;
+    tc.getContext('2d').drawImage(canvas, 0, 0, tw, th);
+    const thumb = tc.toDataURL('image/jpeg', 0.55);
+    const entry = { id: Date.now(), thumb, module, date: new Date().toISOString() };
+    entries.unshift(entry);
+    if (entries.length > LIB_MAX) entries.splice(LIB_MAX);
+    _libSave(entries);
+    libRender();
+  } catch(_) {}
+}
+
+function libRender() {
+  const entries = _libLoad();
+  const grid  = document.getElementById('libGrid');
+  const empty = document.getElementById('libEmpty');
+  if (!grid) return;
+  if (entries.length === 0) { grid.innerHTML = ''; if(empty) empty.style.display = ''; return; }
+  if (empty) empty.style.display = 'none';
+  grid.innerHTML = '';
+  entries.forEach(e => {
+    const d = new Date(e.date);
+    const dateStr = d.toLocaleDateString('es', {day:'2-digit',month:'2-digit'})
+                  + ' ' + d.toLocaleTimeString('es', {hour:'2-digit',minute:'2-digit'});
+    const card = document.createElement('div');
+    card.className = 'lib-card';
+    card.innerHTML = `<img src="${e.thumb}" alt="${e.module}">
+      <div class="lib-card-meta"><strong>${e.module}</strong><br>${dateStr}</div>
+      <div class="lib-card-actions">
+        <button data-id="${e.id}" data-action="dl">⬇</button>
+        <button data-id="${e.id}" data-action="stage">→ SUBIR</button>
+        <button data-id="${e.id}" data-action="del">✕</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+  // Wire action buttons
+  grid.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = Number(btn.dataset.id), action = btn.dataset.action;
+      const all = _libLoad();
+      const entry = all.find(e => e.id === id);
+      if (!entry) return;
+      if (action === 'dl') {
+        const a = document.createElement('a'); a.href = entry.thumb;
+        a.download = `flipnote_lib_${id}.jpg`; a.click();
+      } else if (action === 'stage') {
+        // Send thumbnail to upload canvas for re-processing
+        const img = new Image(); img.onload = () => {
+          lastUploadSrc = img; lastUploadSrcW = img.naturalWidth; lastUploadSrcH = img.naturalHeight;
+          lastUploadIsAscii = uploadMode === 'ascii';
+          upCanvas.classList.add('visible'); dropZone.style.display = 'none';
+          ctxUP.drawImage(img, 0, 0, upCanvas.width, upCanvas.height);
+          switchTab('up');
+        };
+        img.src = entry.thumb;
+      } else if (action === 'del') {
+        const updated = all.filter(e => e.id !== id);
+        _libSave(updated); libRender();
+      }
+    });
+  });
+}
+
+document.getElementById('btnLibClear').addEventListener('click', () => {
+  if (confirm('¿Borrar toda la biblioteca?')) { _libSave([]); libRender(); }
+});
+
+// ════════════════════════════════════════════════════════════════════
+// SETTINGS PERSISTENCE (localStorage)
+// ════════════════════════════════════════════════════════════════════
+function saveSettings() {
+  try {
+    localStorage.setItem('flipSettings', JSON.stringify({
+      activePal, legacyMode,
+      sonoPreset, sonoMixVal, sonoChaosVal,
+      wmpPreset: wmpPreset, wmpSensVal, wmpTrailsVal,
+      uploadMode,
+      asciiCols, acGradientVal, acSpaceVal, acQualityVal, acFrameVal,
+      acBrightVal, acContrastVal, acSatVal, acHueVal, acGrayVal,
+      acSepiaVal, acInvertVal, acThreshOn, acThreshVal,
+      acSharpOn, acSharpVal, acEdgeOn, acEdgeVal,
+      camFpsTarget, camFpsEnabled, uploadFPS, asciiFont,
+    }));
+  } catch(_) {}
+}
+
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem('flipSettings') || 'null');
+    if (!s) return;
+    // Palette
+    if (s.activePal !== undefined) {
+      activePal = s.activePal;
+      document.querySelectorAll('.pal-btn').forEach((b,i) => b.classList.toggle('active', i === activePal));
+    }
+    if (s.legacyMode !== undefined) { legacyMode = s.legacyMode; const btn=document.getElementById('btnMode'); if(btn)btn.classList.toggle('active',legacyMode); }
+    // SONO
+    if (s.sonoPreset !== undefined) { sonoPreset = s.sonoPreset; document.querySelectorAll('.sono-preset-btn').forEach((b,i)=>b.classList.toggle('active',i===sonoPreset)); }
+    if (s.sonoMixVal !== undefined) { sonoMixVal = s.sonoMixVal; const e=document.getElementById('sonoMix'); if(e){e.value=sonoMixVal;document.getElementById('vSonoMix').textContent=sonoMixVal;} }
+    if (s.sonoChaosVal !== undefined) { sonoChaosVal = s.sonoChaosVal; const e=document.getElementById('sonoChaos'); if(e){e.value=sonoChaosVal;document.getElementById('vSonoChaos').textContent=sonoChaosVal;} }
+    // WMP
+    if (s.wmpPreset !== undefined) { wmpPreset = s.wmpPreset; document.querySelectorAll('.wmp-preset-btn').forEach((b,i)=>b.classList.toggle('active',i===s.wmpPreset)); }
+    if (s.wmpSensVal !== undefined) { wmpSensVal = s.wmpSensVal; const e=document.getElementById('wmpSens'); if(e){e.value=wmpSensVal;document.getElementById('vWmpSens').textContent=wmpSensVal;} }
+    if (s.wmpTrailsVal !== undefined) { wmpTrailsVal = s.wmpTrailsVal; const e=document.getElementById('wmpTrails'); if(e){e.value=wmpTrailsVal;document.getElementById('vWmpTrails').textContent=wmpTrailsVal;} }
+    // Upload mode
+    if (s.uploadMode) { uploadMode = s.uploadMode; document.getElementById('btnUpFlip').classList.toggle('active',uploadMode==='flip'); document.getElementById('btnUpAscii').classList.toggle('active',uploadMode==='ascii'); }
+    // ASCII
+    if (s.asciiCols !== undefined) { asciiCols = s.asciiCols; const e=document.getElementById('acChars'); if(e){e.value=asciiCols;document.getElementById('vChars').textContent=asciiCols;} }
+    if (s.acGradientVal) { acGradientVal=s.acGradientVal; const e=document.getElementById('acGradient'); if(e)e.value=acGradientVal; }
+    if (s.acSpaceVal !== undefined) { acSpaceVal=s.acSpaceVal; const e=document.getElementById('acSpace'); if(e){e.value=acSpaceVal;document.getElementById('vSpace').textContent=acSpaceVal;} }
+    if (s.acQualityVal) { acQualityVal=s.acQualityVal; const e=document.getElementById('acQuality'); if(e)e.value=acQualityVal; }
+    if (s.acFrameVal !== undefined) { acFrameVal=s.acFrameVal; const e=document.getElementById('acFrame'); if(e){e.value=acFrameVal;document.getElementById('vFrame').textContent=acFrameVal+'px';} }
+    if (s.acBrightVal !== undefined) { acBrightVal=s.acBrightVal; const e=document.getElementById('acBright'); if(e){e.value=acBrightVal;document.getElementById('vBright').textContent=acBrightVal+'%';} }
+    if (s.acContrastVal !== undefined) { acContrastVal=s.acContrastVal; const e=document.getElementById('acContrast'); if(e){e.value=acContrastVal;document.getElementById('vContrast').textContent=acContrastVal+'%';} }
+    if (s.acSatVal !== undefined) { acSatVal=s.acSatVal; const e=document.getElementById('acSat'); if(e){e.value=acSatVal;document.getElementById('vSat').textContent=acSatVal+'%';} }
+    if (s.acHueVal !== undefined) { acHueVal=s.acHueVal; const e=document.getElementById('acHue'); if(e){e.value=acHueVal;document.getElementById('vHue').textContent=acHueVal+'°';} }
+    if (s.acGrayVal !== undefined) { acGrayVal=s.acGrayVal; const e=document.getElementById('acGray'); if(e){e.value=acGrayVal;document.getElementById('vGray').textContent=acGrayVal+'%';} }
+    if (s.acSepiaVal !== undefined) { acSepiaVal=s.acSepiaVal; const e=document.getElementById('acSepia'); if(e){e.value=acSepiaVal;document.getElementById('vSepia').textContent=acSepiaVal+'%';} }
+    if (s.acInvertVal !== undefined) { acInvertVal=s.acInvertVal; const e=document.getElementById('acInvert'); if(e){e.value=acInvertVal;document.getElementById('vInvert').textContent=acInvertVal+'%';} }
+    if (s.asciiFont) { asciiFont=s.asciiFont; const e=document.getElementById('acFont'); if(e)e.value=asciiFont; }
+    // Camera
+    if (s.camFpsTarget !== undefined) { camFpsTarget=s.camFpsTarget; const e=document.getElementById('camFpsSlider'); if(e){e.value=camFpsTarget;document.getElementById('camFpsVal').textContent=camFpsTarget;} }
+    if (s.camFpsEnabled !== undefined) { camFpsEnabled=s.camFpsEnabled; const e=document.getElementById('camFpsToggle'); if(e)e.checked=camFpsEnabled; }
+  } catch(_) {}
+}
+
+// Hook all setting changes to auto-save
+(function _hookSaveSettings() {
+  const saveOn = ['activePal','acChars','acGradient','acSpace','acQuality','acFrame',
+    'acBright','acContrast','acSat','acHue','acGray','acSepia','acInvert',
+    'sonoChaos','sonoMix','wmpSens','wmpTrails','camFpsSlider','acFont'];
+  saveOn.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', saveSettings);
+    if (el) el.addEventListener('input', () => setTimeout(saveSettings, 300));
+  });
+})();
+
+// Load on startup
+loadSettings();
 
 if (screen.width > 768) {
   const btnAudioIO = document.getElementById('btnAudioIO');

@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Flipnote">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <title>flip1</title>
+  <title>FLIP</title>
   <style>
     @font-face { font-family:'Bloom'; src:local('Bloom'); }
     *, *::before, *::after {
@@ -611,7 +611,7 @@
 </div>
 
 <div id="splash">
-  <div class="splash-title">FLIP1</div>
+  <div class="splash-title">FLIP</div>
 </div>
 
 <div id="flash"></div>
@@ -1367,7 +1367,7 @@ function switchTab(tab) {
   }
   if (!isSono) stopSono();
   if (isSono)  enterSono();
-  if (!isWmp)  stopWmp();
+  if (!isWmp)  wmpPauseLoop(); // pause render; keep audio context alive
   if (isWmp)   enterWmp();
 
   cameraRunning = isCam; asciiRunning = isAscii;
@@ -1866,6 +1866,22 @@ function renderSonoFlip(field, audio, chaosN) {
   ctxSonoFlip.drawImage(scanCvs, 0, 0);
 }
 
+// ── Warp a sono field vertically using the scope waveform ─────────────
+function warpFieldByWave(field, timeData, strength) {
+  const result = new Float32Array(DSI_W * DSI_H);
+  const sLen = timeData.length;
+  for (let y = 0; y < DSI_H; y++) {
+    for (let x = 0; x < DSI_W; x++) {
+      const si = Math.min(sLen - 1, Math.floor(x / DSI_W * sLen));
+      const wv = (timeData[si] - 128) / 128; // –1..1
+      const dy = Math.round(wv * DSI_H * 0.22 * strength);
+      const sy = Math.max(0, Math.min(DSI_H - 1, y - dy));
+      result[y * DSI_W + x] = field[sy * DSI_W + x];
+    }
+  }
+  return result;
+}
+
 // ── SCOPE render → sonoScopeCvs (offscreen, for blend support) ────────
 function renderSonoScope(timeData, sens) {
   const cx = ctxSonoScope;
@@ -2045,29 +2061,45 @@ function sonoLoop(ts) {
   ctxSono.globalAlpha = 1;
 
   if (sonoPreset === 1) {
-    // SCOPE mode — render to offscreen, then apply blend same as SONO mode
-    renderSonoScope(audio.timeData, sens);
-    // Base: always draw scope
-    if (mixN < 0.99) {
-      ctxSono.globalAlpha = 1;
-      ctxSono.drawImage(sonoScopeCvs, 0, 0);
+    // SCOPE ↔ SONO BLEND — mutual interaction
+    // mixN=0 → pure scope · mixN=1 → pure sono
+    const scopeN = 1.0 - mixN;
+    const sonoN  = mixN;
+
+    // Shared trail when blending — both visuals contribute to same trail buffer
+    if (mixN > 0.05 && mixN < 0.95) {
+      const fadeA = 0.30 + mixN * 0.30;
+      ctxSono.fillStyle = `rgba(0,0,0,${fadeA.toFixed(2)})`;
+      ctxSono.fillRect(0, 0, OUT_W, OUT_H);
     } else {
       ctxSono.fillStyle = '#000';
       ctxSono.fillRect(0, 0, OUT_W, OUT_H);
     }
-    // Blend layer
-    if (mixN > 0.01) {
+
+    // SCOPE: amplitude boosted by SONO activity (cross-influence)
+    if (scopeN > 0.01) {
+      const ampMod = 1.0 + sonoN * audio.amp * 3.5;
+      renderSonoScope(audio.timeData, sens * ampMod);
+      ctxSono.globalAlpha = scopeN;
+      ctxSono.drawImage(sonoScopeCvs, 0, 0);
+      ctxSono.globalAlpha = 1;
+    }
+
+    // SONO: field warped by scope waveform (cross-influence)
+    if (sonoN > 0.01) {
+      const warpStr = scopeN * 0.55;
+      const rawField = generateSonoField(audio.amp, audio.pitchNorm, audio.blowStr, sonoT);
+      const field = warpStr > 0.01 ? warpFieldByWave(rawField, audio.timeData, warpStr) : rawField;
       if (sonoBlendMode === 'flip') {
-        renderScopeToLegacy();
-        ctxSono.globalAlpha = mixN;
+        renderSonoLegacy(field, audio, chaosN);
+        ctxSono.globalAlpha = sonoN;
         ctxSono.drawImage(sonoLegCvs, 0, 0);
-        ctxSono.globalAlpha = 1;
       } else {
-        renderScopeToAscii();
-        ctxSono.globalAlpha = mixN;
+        renderSonoAscii(field, audio, chaosN);
+        ctxSono.globalAlpha = sonoN;
         ctxSono.drawImage(sonoAscCvs, 0, 0);
-        ctxSono.globalAlpha = 1;
       }
+      ctxSono.globalAlpha = 1;
     }
   } else {
     // SONO mode
@@ -2382,6 +2414,28 @@ function wmpBuildGradients() {
 }
 wmpBuildGradients();
 
+// ── Fog background per preset ──────────────────────────────────────────
+const WMP_FOG = [
+  [0,  30,  6],   // Scope Green: dark green
+  [45, 12,  0],   // Fire Storm:  dark orange/red
+  [0,  12, 45],   // Ocean Mist:  dark blue/cyan
+  [22,  0, 45],   // Alchemy:     dark purple/blue
+];
+function wmpDrawFog(preset, mixT, preset2) {
+  const fc1 = WMP_FOG[preset] || WMP_FOG[0];
+  const fc2 = WMP_FOG[preset2 !== undefined ? preset2 : preset] || fc1;
+  const t   = Math.max(0, Math.min(1, mixT || 0));
+  const r   = (fc1[0] + (fc2[0] - fc1[0]) * t) | 0;
+  const g   = (fc1[1] + (fc2[1] - fc1[1]) * t) | 0;
+  const b   = (fc1[2] + (fc2[2] - fc1[2]) * t) | 0;
+  const gr  = ctxWmp.createRadialGradient(WW * 0.5, WH * 0.55, WH * 0.04, WW * 0.5, WH * 0.55, WW * 0.82);
+  gr.addColorStop(0,    `rgba(${r},${g},${b},0.22)`);
+  gr.addColorStop(0.45, `rgba(${r>>1},${g>>1},${b>>1},0.10)`);
+  gr.addColorStop(1,    `rgba(0,0,0,0)`);
+  ctxWmp.fillStyle = gr;
+  ctxWmp.fillRect(0, 0, WW, WH);
+}
+
 // ── Audio setup ───────────────────────────────────────────────────────
 async function wmpStopAudio() {
   wmpRunning = false;
@@ -2445,8 +2499,12 @@ async function wmpLoadFile(file) {
   }
 }
 
+function wmpPauseLoop() {
+  // Pause render loop without destroying audio — keeps analyser and stream alive
+  wmpRunning = false;
+}
 function stopWmp() {
-  wmpStopAudio();
+  wmpStopAudio(); // full teardown (called only on explicit user action)
 }
 function enterWmp() {
   if (!wmpAnalyser) {
@@ -2909,10 +2967,14 @@ function renderAlchemy(freqData, timeData, sens, trailsN) {
 }
 
 // ── WMP RANDOM state — up to 3 simultaneous morphs ────────────────────
-let wmpRandom    = false;
-// Each slot: { from, to, blend, blendDur, active }
-let wmpRandSlots = [];
-let wmpRandSpawnTimer = 0; // frames until next morph spawn
+let wmpRandom       = false;
+// Each slot: { from, to, blend, blendDur }
+let wmpRandSlots    = [];
+let wmpRandSpawnTimer = 0; // legacy, kept for button init compat
+// Audio-reactive RANDOM
+let wmpRandEnergy   = 0;   // smoothed RMS
+let wmpRandGapFrames= 0;   // frames since last slot spawn
+const WMP_RAND_MIN_GAP = 300; // 5 s at 60 fps minimum between spawns
 
 function _wmpNextPreset(exclude) {
   const choices = [0, 1, 2, 3].filter(p => p !== exclude);
@@ -2991,28 +3053,56 @@ function wmpLoop() {
     document.getElementById('wmpProgDur').textContent  = fmtTime(dur);
   }
 
-  // RANDOM: overlapping multi-morph — never stable
-  if (wmpRandom) {
-    // Spawn new morph slots on timer
-    wmpRandSpawnTimer--;
-    if (wmpRandSpawnTimer <= 0) _wmpRandSpawnSlot();
+  // Compute RMS energy for audio-reactive logic
+  let sumSq = 0;
+  for (let i = 0; i < freqData.length; i++) sumSq += (freqData[i] / 255) ** 2;
+  const rms = Math.sqrt(sumSq / freqData.length);
 
-    // Clear with trails
+  if (wmpRandom) {
+    // ── Audio-reactive RANDOM ──────────────────────────────────────────
+    const prevEnergy   = wmpRandEnergy;
+    wmpRandEnergy      = wmpRandEnergy * 0.90 + rms * 0.10; // smoothed baseline
+    wmpRandGapFrames++;
+
+    // Spawn triggers: beat, silence-break, or 30s forced fallback
+    const isBeat       = rms > wmpRandEnergy * 1.8 && rms > 0.08;
+    const silenceBreak = prevEnergy < 0.04 && wmpRandEnergy > 0.10;
+    const forceFallback= wmpRandGapFrames >= 1800;
+    const gapOk        = wmpRandGapFrames >= WMP_RAND_MIN_GAP;
+
+    if ((isBeat || silenceBreak || forceFallback) && gapOk && wmpRandSlots.length < 3) {
+      _wmpRandSpawnSlot();
+      wmpRandGapFrames = 0;
+    }
+
+    // Trail clear (shared buffer for all layers)
     wmpTrailClear(trailsN * 0.55);
+
+    // Fog — interpolate color toward active slot's target
+    if (wmpRandSlots.length > 0) {
+      const s = wmpRandSlots[wmpRandSlots.length - 1];
+      wmpDrawFog(s.from, s.blend, s.to);
+    } else {
+      wmpDrawFog(wmpPreset, 0, wmpPreset);
+    }
 
     // Render all active morph slots layered
     for (const slot of wmpRandSlots) {
       renderMorphLayer(freqData, timeData, sens, trailsN, slot.from, slot.to, slot.blend);
-      slot.blend += 1 / slot.blendDur;
     }
-    // Advance completed slots: update wmpPreset to their destination and remove
+
+    // Advance blends: louder audio = faster morphing
+    const speedMult = 1.0 + rms * 2.0;
+    for (const slot of wmpRandSlots) {
+      slot.blend = Math.min(1.001, slot.blend + speedMult / slot.blendDur);
+    }
+
+    // Complete finished slots
     wmpRandSlots = wmpRandSlots.filter(slot => {
-      if (slot.blend >= 1) {
-        wmpPreset = slot.to;
-        return false; // remove
-      }
+      if (slot.blend >= 1) { wmpPreset = slot.to; return false; }
       return true;
     });
+
   } else {
     switch (wmpPreset) {
       case 0: renderScopeGreen(timeData, sens); break;
@@ -3020,6 +3110,8 @@ function wmpLoop() {
       case 2: renderOceanMist(freqData, timeData, sens, trailsN); break;
       case 3: renderAlchemy(freqData, timeData, sens, trailsN); break;
     }
+    // Fog overlay on top of visualization
+    wmpDrawFog(wmpPreset, 0, wmpPreset);
   }
 
   requestAnimationFrame(wmpLoop);

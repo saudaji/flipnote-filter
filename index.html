@@ -14,10 +14,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&display=swap" rel="stylesheet">
   <title>FLIP</title>
   <style>
-    @font-face { font-family:'Bloom';     src:local('Bloom'),     url('./Bloom-Regular.otf')    format('opentype'); }
-    @font-face { font-family:'BN Monica'; src:local('BN Monica'), url('./BNMonica.otf')           format('opentype'); }
-    @font-face { font-family:'Fluidic';   src:local('Fluidic'),   url('./Fluidic-Regular.otf')   format('opentype'); }
-    @font-face { font-family:'Canterbury'; src:local('Canterbury'), url('./fonts/Canterbury.ttf') format('truetype'); }
+    @font-face { font-family:'Bloom';      src:local('Bloom'),      url('./fonts/Bloom-Regular.otf')   format('opentype'); }
+    @font-face { font-family:'BN Monica';  src:local('BN Monica'),  url('./fonts/BNMonica.otf')        format('opentype'); }
+    @font-face { font-family:'Fluidic';    src:local('Fluidic'),    url('./fonts/Fluidic-Regular.otf') format('opentype'); }
+    @font-face { font-family:'Canterbury'; src:local('Canterbury'), url('./fonts/Canterbury.ttf')      format('truetype'); }
     *, *::before, *::after {
       margin:0; padding:0; box-sizing:border-box;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
@@ -304,6 +304,10 @@
     #upPanel input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
     #upPanel select { background:var(--ink); color:var(--paper); border:1px solid var(--dark); font-family:monospace; font-size:9px; cursor:pointer; }
     #upPanel .ac-btn-row { display:flex; gap:8px; padding:8px 12px; flex-wrap:wrap; }
+    body.up-ascii #upFlipTabs { display:none !important; }
+    body.up-ascii #upFlipImage { display:none !important; }
+    body.up-ascii #upFlipEffects { display:none !important; }
+    body.up-ascii #upAsciiSection { display:block !important; }
     #upPanel .ac-btn { background:var(--ink); color:var(--mid); border:1px solid var(--dark); font-family:monospace; font-size:9px; letter-spacing:1px; padding:4px 8px; cursor:pointer; }
     #upPanel .ac-btn:active { background:var(--dark); }
     #upPanel .ac-reset { color:#ff8844; border-color:#ff8844; }
@@ -588,6 +592,17 @@
       }
       body.ext-audio #btnExtCapture { display:block; }
     }
+    /* ── Global loading overlay ── */
+    #loadOverlay {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,.88);
+      z-index:300; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+    }
+    #loadOverlay.visible { display:flex; }
+    #loadFileName { color:var(--paper); font-family:monospace; font-size:11px; letter-spacing:1px;
+      max-width:80vw; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #loadBarBg { width:260px; height:8px; background:rgba(255,255,255,.15); }
+    #loadBarFill { height:100%; background:var(--paper); width:0%; transition:width .15s; }
+    #loadPct { color:var(--paper); font-family:monospace; font-size:10px; letter-spacing:1px; }
   </style>
 </head>
 <body>
@@ -771,6 +786,13 @@
 
 <div id="flash"></div>
 
+<!-- Global loading overlay -->
+<div id="loadOverlay">
+  <div id="loadFileName"></div>
+  <div id="loadBarBg"><div id="loadBarFill"></div></div>
+  <div id="loadPct">0%</div>
+</div>
+
 <button id="btnFlip" aria-label="Voltear cámara">
   <div class="btn-icon">⟳</div>
 </button>
@@ -829,95 +851,57 @@
 
   <!-- Upload edit panel -->
   <div id="upPanel">
-    <div class="ac-section">
-      <div class="ac-title">Output</div>
-      <div class="ac-row">
-        <span class="ac-lbl">Characters</span>
-        <span class="ac-val" id="upVChars">100</span>
-        <input type="range" id="upAcChars" min="1" max="500" value="100">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Gradient</span>
-        <select id="upAcGradient">
-          <option value="normal">Normal</option>
-          <option value="reverse">Reverse</option>
-          <option value="block">Block</option>
-          <option value="minimal">Minimal</option>
-        </select>
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Space Density</span>
-        <span class="ac-val" id="upVSpace">1</span>
-        <input type="range" id="upAcSpace" min="1" max="10" value="1">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Quality</span>
-        <select id="upAcQuality">
-          <option value="none">None</option>
-          <option value="smooth">Smooth</option>
-          <option value="sharp">Sharp</option>
-        </select>
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Frame</span>
-        <span class="ac-val" id="upVFrame">0px</span>
-        <input type="range" id="upAcFrame" min="0" max="50" value="0">
-      </div>
+    <!-- Flipnote tabs (hidden in ASCII mode) -->
+    <div id="upFlipTabs" style="display:flex;border-bottom:1px solid var(--dark);padding:6px 12px 0;gap:6px;">
+      <button class="up-mode-btn active" id="upTabImg" style="flex:1;font-size:9px;padding:3px 0;">IMAGE</button>
+      <button class="up-mode-btn" id="upTabFx" style="flex:1;font-size:9px;padding:3px 0;">EFFECTS</button>
+      <button id="upBtnLegacy" style="flex:0 0 auto;background:none;border:1px solid var(--dark);color:var(--dark);font-family:monospace;font-size:9px;letter-spacing:.5px;padding:3px 8px;cursor:pointer;">STD</button>
     </div>
-    <div class="ac-section">
-      <div class="ac-title">Image</div>
-      <div class="ac-row">
-        <span class="ac-lbl">Brightness</span>
-        <span class="ac-val" id="upVBright">100%</span>
-        <input type="range" id="upAcBright" min="0" max="200" value="100">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Contrast</span>
-        <span class="ac-val" id="upVContrast">100%</span>
-        <input type="range" id="upAcContrast" min="0" max="200" value="100">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Saturation</span>
-        <span class="ac-val" id="upVSat">100%</span>
-        <input type="range" id="upAcSat" min="0" max="200" value="100">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Hue</span>
-        <span class="ac-val" id="upVHue">0°</span>
-        <input type="range" id="upAcHue" min="0" max="360" value="0">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Grayscale</span>
-        <span class="ac-val" id="upVGray">0%</span>
-        <input type="range" id="upAcGray" min="0" max="100" value="0">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Sepia</span>
-        <span class="ac-val" id="upVSepia">0%</span>
-        <input type="range" id="upAcSepia" min="0" max="100" value="0">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Invert</span>
-        <span class="ac-val" id="upVInvert">0%</span>
-        <input type="range" id="upAcInvert" min="0" max="100" value="0">
-      </div>
+    <!-- Flipnote IMAGE tab -->
+    <div id="upFlipImage" class="ac-section">
+      <div class="ac-row"><span class="ac-lbl">Brightness</span><span class="ac-val" id="upVBright">100%</span><input type="range" id="upAcBright" min="0" max="200" value="100"></div>
+      <div class="ac-row"><span class="ac-lbl">Contrast</span><span class="ac-val" id="upVContrast">100%</span><input type="range" id="upAcContrast" min="0" max="200" value="100"></div>
+      <div class="ac-row"><span class="ac-lbl">Saturation</span><span class="ac-val" id="upVSat">100%</span><input type="range" id="upAcSat" min="0" max="200" value="100"></div>
+      <div class="ac-row"><span class="ac-lbl">Hue</span><span class="ac-val" id="upVHue">0°</span><input type="range" id="upAcHue" min="0" max="360" value="0"></div>
+      <div class="ac-row"><span class="ac-lbl">Exposure</span><span class="ac-val" id="upVExposure">0</span><input type="range" id="upAcExposure" min="-30" max="30" value="0"></div>
+      <div class="ac-row"><span class="ac-lbl">Shadows</span><span class="ac-val" id="upVShadows">0</span><input type="range" id="upAcShadows" min="-100" max="100" value="0"></div>
+      <div class="ac-row"><span class="ac-lbl">Highlights</span><span class="ac-val" id="upVHighlights">0</span><input type="range" id="upAcHighlights" min="-100" max="100" value="0"></div>
     </div>
-    <div class="ac-section">
-      <div class="ac-title">Effects</div>
-      <div class="ac-row">
-        <label class="ac-lbl"><input type="checkbox" id="upCbThresh"> Threshold</label>
-        <span class="ac-val" id="upVThresh">128</span>
-        <input type="range" id="upAcThresh" min="0" max="255" value="128" disabled>
+    <!-- Flipnote EFFECTS tab -->
+    <div id="upFlipEffects" class="ac-section" style="display:none;">
+      <div class="ac-row"><span class="ac-lbl">Threshold</span><span class="ac-val" id="upVThresh">128</span><input type="range" id="upAcThresh" min="0" max="255" value="128"></div>
+      <div class="ac-row"><span class="ac-lbl">Dither</span><span class="ac-val" id="upVDither">100%</span><input type="range" id="upAcDither" min="0" max="100" value="100"></div>
+      <div class="ac-row"><span class="ac-lbl">Grain</span><span class="ac-val" id="upVGrain">0%</span><input type="range" id="upAcGrain" min="0" max="100" value="0"></div>
+      <div class="ac-row"><span class="ac-lbl">Grayscale</span><span class="ac-val" id="upVGray">0%</span><input type="range" id="upAcGray" min="0" max="100" value="0"></div>
+      <div class="ac-row"><span class="ac-lbl">Sepia</span><span class="ac-val" id="upVSepia">0%</span><input type="range" id="upAcSepia" min="0" max="100" value="0"></div>
+      <div class="ac-row"><span class="ac-lbl">Invert</span><span class="ac-val" id="upVInvert">0%</span><input type="range" id="upAcInvert" min="0" max="100" value="0"></div>
+      <div class="ac-row"><span class="ac-lbl">Vignette</span><span class="ac-val" id="upVVignette">0%</span><input type="range" id="upAcVignette" min="0" max="100" value="0"></div>
+    </div>
+    <!-- ASCII Output section (shown only in ASCII mode) -->
+    <div id="upAsciiSection" style="display:none;">
+      <div class="ac-section">
+        <div class="ac-title">Output</div>
+        <div class="ac-row"><span class="ac-lbl">Characters</span><span class="ac-val" id="upVChars">100</span><input type="range" id="upAcChars" min="1" max="500" value="100"></div>
+        <div class="ac-row"><span class="ac-lbl">Gradient</span><select id="upAcGradient"><option value="normal">Normal</option><option value="reverse">Reverse</option><option value="block">Block</option><option value="minimal">Minimal</option></select></div>
+        <div class="ac-row"><span class="ac-lbl">Space Density</span><span class="ac-val" id="upVSpace">1</span><input type="range" id="upAcSpace" min="1" max="10" value="1"></div>
+        <div class="ac-row"><span class="ac-lbl">Quality</span><select id="upAcQuality"><option value="none">None</option><option value="smooth">Smooth</option><option value="sharp">Sharp</option></select></div>
+        <div class="ac-row"><span class="ac-lbl">Frame</span><span class="ac-val" id="upVFrame">0px</span><input type="range" id="upAcFrame" min="0" max="50" value="0"></div>
       </div>
-      <div class="ac-row">
-        <label class="ac-lbl"><input type="checkbox" id="upCbSharp"> Sharpness</label>
-        <span class="ac-val" id="upVSharp">9</span>
-        <input type="range" id="upAcSharp" min="0" max="20" value="9" disabled>
+      <div class="ac-section">
+        <div class="ac-title">Image</div>
+        <div class="ac-row"><span class="ac-lbl">Brightness</span><span class="ac-val" id="upVBrightA">100%</span><input type="range" id="upAcBrightA" min="0" max="200" value="100"></div>
+        <div class="ac-row"><span class="ac-lbl">Contrast</span><span class="ac-val" id="upVContrastA">100%</span><input type="range" id="upAcContrastA" min="0" max="200" value="100"></div>
+        <div class="ac-row"><span class="ac-lbl">Saturation</span><span class="ac-val" id="upVSatA">100%</span><input type="range" id="upAcSatA" min="0" max="200" value="100"></div>
+        <div class="ac-row"><span class="ac-lbl">Hue</span><span class="ac-val" id="upVHueA">0°</span><input type="range" id="upAcHueA" min="0" max="360" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Grayscale</span><span class="ac-val" id="upVGrayA">0%</span><input type="range" id="upAcGrayA" min="0" max="100" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Sepia</span><span class="ac-val" id="upVSepiaA">0%</span><input type="range" id="upAcSepiaA" min="0" max="100" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Invert</span><span class="ac-val" id="upVInvertA">0%</span><input type="range" id="upAcInvertA" min="0" max="100" value="0"></div>
       </div>
-      <div class="ac-row">
-        <label class="ac-lbl"><input type="checkbox" id="upCbEdge"> Edge Detect</label>
-        <span class="ac-val" id="upVEdge">1.0</span>
-        <input type="range" id="upAcEdge" min="0" max="50" value="10" disabled>
+      <div class="ac-section">
+        <div class="ac-title">Effects</div>
+        <div class="ac-row"><label class="ac-lbl"><input type="checkbox" id="upCbThresh"> Threshold</label><span class="ac-val" id="upVThreshA">128</span><input type="range" id="upAcThreshA" min="0" max="255" value="128" disabled></div>
+        <div class="ac-row"><label class="ac-lbl"><input type="checkbox" id="upCbSharp"> Sharpness</label><span class="ac-val" id="upVSharp">9</span><input type="range" id="upAcSharp" min="0" max="20" value="9" disabled></div>
+        <div class="ac-row"><label class="ac-lbl"><input type="checkbox" id="upCbEdge"> Edge Detect</label><span class="ac-val" id="upVEdge">1.0</span><input type="range" id="upAcEdge" min="0" max="50" value="10" disabled></div>
       </div>
     </div>
     <div class="ac-btn-row">
@@ -1238,6 +1222,14 @@ let acSpaceVal    = 1;
 let acQualityVal  = 'none';
 let acFrameVal    = 0;
 let lastAsciiText = '';
+// Flipnote-specific edit parameters
+let upExposureVal  = 0;    // -3 to +3 stops
+let upShadowsVal   = 0;    // -100 to 100
+let upHighlightsVal= 0;    // -100 to 100
+let upDitherIntVal = 100;  // 0=threshold only, 100=full Bayer
+let upGrainVal     = 0;    // 0-100
+let upVignetteVal  = 0;    // 0-100
+let upFlipTab      = 'image'; // 'image' | 'effects'
 
 // Pythonization
 let pythonMode = false;
@@ -1394,6 +1386,22 @@ function cropCoords(srcW, srcH) {
 
 // Apply upload-panel color adjustments to r,g,b — used by renderDithered when applyEdits=true
 function _applyEditAdj(r, g, b) {
+  // Exposure (in 1/10 stops: ±30 → ±3 stops)
+  if (upExposureVal !== 0) {
+    const f = Math.pow(2, upExposureVal / 10);
+    r=Math.min(255,r*f); g=Math.min(255,g*f); b=Math.min(255,b*f);
+  }
+  // Shadows lift / Highlights roll-off
+  if (upShadowsVal !== 0) {
+    const s = upShadowsVal / 100;
+    const lift = v => s > 0 ? v + (255 - v) * s * 0.5 * (1 - v/255) : v + v * s * (1 - v/255);
+    r=Math.max(0,Math.min(255,lift(r))); g=Math.max(0,Math.min(255,lift(g))); b=Math.max(0,Math.min(255,lift(b)));
+  }
+  if (upHighlightsVal !== 0) {
+    const h = upHighlightsVal / 100;
+    const roll = v => h > 0 ? v + (255 - v) * h * (v/255) : v + v * h * (v/255);
+    r=Math.max(0,Math.min(255,roll(r))); g=Math.max(0,Math.min(255,roll(g))); b=Math.max(0,Math.min(255,roll(b)));
+  }
   if (acBrightVal !== 100) {
     const f=acBrightVal/100; r=Math.min(255,r*f); g=Math.min(255,g*f); b=Math.min(255,b*f);
   }
@@ -1490,8 +1498,24 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels, apply
       let er=src[i], eg=src[i+1], eb=src[i+2];
       if (applyEdits) { [er,eg,eb]=_applyEditAdj(er,eg,eb); }
       const raw  = (er*77 + eg*150 + eb*29) >> 8;
-      const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
-      const isInk = gray < BAYER8[row8 + (x & 7)];
+      let gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
+      // Grain
+      if (applyEdits && upGrainVal > 0) { gray = Math.max(0,Math.min(255, gray + (Math.random()-0.5)*upGrainVal*2)); }
+      // Vignette
+      if (applyEdits && upVignetteVal > 0) {
+        const vx=(x/DSI_W-0.5)*2, vy=(y/DSI_H-0.5)*2, vd=Math.sqrt(vx*vx+vy*vy);
+        gray = Math.max(0, gray * (1 - vd * upVignetteVal/100));
+      }
+      // Dithering intensity: blend between threshold-only and full Bayer
+      let isInk;
+      if (applyEdits && upDitherIntVal < 100) {
+        const hard = gray < acThreshVal;
+        const bayer = gray < BAYER8[row8 + (x & 7)];
+        const t = upDitherIntVal / 100;
+        isInk = t < 0.5 ? hard : (Math.random() < t ? bayer : hard);
+      } else {
+        isInk = gray < BAYER8[row8 + (x & 7)];
+      }
       lowBuf[i]=isInk?IR:PR; lowBuf[i+1]=isInk?IG:PG;
       lowBuf[i+2]=isInk?IB:PB; lowBuf[i+3]=255;
     }
@@ -1904,6 +1928,7 @@ let asciiFrameSkip = 0;
 let _asciiFpsHist  = [];
 let _asciiLastFT   = 0;
 let asciiFont      = 'monospace';
+let inputMode      = 'camera'; // 'camera' | 'file'
 
 // External audio I/O state (desktop only) — declared early for use in analyzeAudio/wmpLoop
 let extAudioCtx  = null;
@@ -1972,6 +1997,7 @@ function asciiLoop(ts) {
 function clearAsciiStatic() {
   asciiStaticSrc = null; asciiStaticW = 0; asciiStaticH = 0;
   if (asciiVideoEl) { asciiVideoEl.pause(); asciiVideoEl.removeAttribute('src'); asciiVideoEl = null; }
+  ctxAscii.fillStyle = '#000'; ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
   if (asciiRunning) requestAnimationFrame(asciiLoop);
 }
 
@@ -2031,6 +2057,7 @@ function switchTab(tab) {
 
   cameraRunning = isCam; asciiRunning = isAscii;
   // Restart camera if it was stopped by a file upload
+  if (isCam || isAscii) inputMode = 'camera';
   if ((isCam || isAscii) && !stream && !extAudioMode) startCamera(facingMode).catch(()=>{});
   if (isCam   && (stream || (extAudioMode && extAnalyser))) requestAnimationFrame(cameraLoop);
   if (isAscii && (stream || (extAudioMode && extAnalyser) || asciiStaticSrc)) requestAnimationFrame(asciiLoop);
@@ -2129,6 +2156,38 @@ document.getElementById('btnShare').addEventListener('click', async () => {
 });
 
 // ════════════════════════════════════════════════════════════════════
+// LOADING OVERLAY
+// ════════════════════════════════════════════════════════════════════
+const _loadOverlay = document.getElementById('loadOverlay');
+const _loadFill    = document.getElementById('loadBarFill');
+const _loadPct     = document.getElementById('loadPct');
+const _loadName    = document.getElementById('loadFileName');
+
+function showLoadOverlay(filename) {
+  _loadName.textContent = (filename || 'archivo').slice(0, 40);
+  _loadFill.style.width = '0%'; _loadPct.textContent = '0%';
+  _loadOverlay.classList.add('visible');
+}
+function updateLoadOverlay(pct) {
+  _loadFill.style.width = Math.round(pct) + '%';
+  _loadPct.textContent  = Math.round(pct) + '%';
+}
+function hideLoadOverlay() {
+  _loadOverlay.classList.remove('visible');
+}
+
+// Wrap a File with FileReader progress tracking, then call callback(file)
+// The callback receives the original file object unchanged.
+function _withProgress(file, callback) {
+  showLoadOverlay(file.name);
+  const reader = new FileReader();
+  reader.onprogress = e => { if (e.lengthComputable) updateLoadOverlay(e.loaded / e.total * 85); };
+  reader.onload  = () => { updateLoadOverlay(100); setTimeout(() => callback(file), 50); };
+  reader.onerror = () => { hideLoadOverlay(); callback(file); };
+  reader.readAsArrayBuffer(file);
+}
+
+// ════════════════════════════════════════════════════════════════════
 // UPLOAD
 // ════════════════════════════════════════════════════════════════════
 let uploadFPS = 12;
@@ -2163,8 +2222,8 @@ function setUploadResultReady(blob,ext){
 // File inputs are now inside buttons/dropzone for iOS Safari compatibility
 const fileInputInBtn  = document.getElementById('fileInputInBtn');
 const fileInputInDrop = document.getElementById('fileInputInDrop');
-fileInputInBtn.addEventListener('change',  e=>{if(e.target.files[0])handleFile(e.target.files[0]);e.target.value='';});
-fileInputInDrop.addEventListener('change', e=>{if(e.target.files[0])handleFile(e.target.files[0]);e.target.value='';});
+fileInputInBtn.addEventListener('change',  e=>{if(e.target.files[0])_withProgress(e.target.files[0], handleFile);e.target.value='';});
+fileInputInDrop.addEventListener('change', e=>{if(e.target.files[0])_withProgress(e.target.files[0], handleFile);e.target.value='';});
 
 // ── Upload mode toggle (FLIPNOTE / ASCII) ─────────────────────────────
 let uploadMode = 'flip'; // 'flip' | 'ascii'
@@ -2172,12 +2231,14 @@ document.getElementById('btnUpFlip').addEventListener('click', () => {
   uploadMode = 'flip';
   document.getElementById('btnUpFlip').classList.add('active');
   document.getElementById('btnUpAscii').classList.remove('active');
+  document.body.classList.remove('up-ascii');
   if (lastUploadSrc) { lastUploadIsAscii = false; renderUploadPreview(); }
 });
 document.getElementById('btnUpAscii').addEventListener('click', () => {
   uploadMode = 'ascii';
   document.getElementById('btnUpAscii').classList.add('active');
   document.getElementById('btnUpFlip').classList.remove('active');
+  document.body.classList.add('up-ascii');
   if (lastUploadSrc) { lastUploadIsAscii = true; renderUploadPreview(); }
 });
 dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('dragover');});
@@ -2197,9 +2258,11 @@ async function handleFile(file){
   const btnSave=document.getElementById('btnSaveResult'),btnShr=document.getElementById('btnShareResult');
   btnSave.disabled=true;btnSave.style.opacity='.4';btnShr.disabled=true;btnShr.style.opacity='.4';
   // Stop camera stream when a file is uploaded; it restarts on return to CAM tab
+  inputMode='file';
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;}
   cameraRunning=false; asciiRunning=false;
-  ctxD.clearRect(0,0,OUT_W,OUT_H); ctxAscii.clearRect(0,0,OUT_W,OUT_H);
+  ctxD.fillStyle='#000'; ctxD.fillRect(0,0,OUT_W,OUT_H);
+  ctxAscii.fillStyle='#000'; ctxAscii.fillRect(0,0,OUT_W,OUT_H);
   if(uploadMode==='ascii'&&isImage){
     setProgress(20,'Leyendo imagen…');
     const url=URL.createObjectURL(file);
@@ -2215,6 +2278,7 @@ async function handleFile(file){
     ctxUP.drawImage(asciiCvs,0,0,upCanvas.width,upCanvas.height);
     upCanvas.classList.add('visible');dropZone.style.display='none';
     setProgress(100,'✓ Listo');
+    hideLoadOverlay();
     setTimeout(()=>showProgress(false),1500);
     setUploadResultReady(await canvasToBlob(ctxUP),'png');
     return;
@@ -2235,6 +2299,7 @@ async function processImage(file){
   URL.revokeObjectURL(url);
   upCanvas.classList.add('visible');dropZone.style.display='none';
   setProgress(100,'✓ Listo');
+  hideLoadOverlay();
   setTimeout(()=>showProgress(false),1500);
   setUploadResultReady(await canvasToBlob(ctxUP),'png');
 }
@@ -2323,21 +2388,20 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
   document.body.classList.toggle('up-edit-open');
 });
 
-// Wire upload panel sliders (all update same global variables as ASCII panel)
+// Wire upload panel sliders
 (function() {
+  // Helper: slider → variable → re-render
   function upSlider(id, valId, setter, fmt) {
     const el = document.getElementById(id), vEl = document.getElementById(valId);
     if (!el) return;
     el.addEventListener('input', e => {
-      const v = parseFloat(e.target.value);
-      setter(v);
+      const v = parseFloat(e.target.value); setter(v);
       if (vEl) vEl.textContent = fmt ? fmt(v) : v;
       renderUploadPreview();
     });
   }
   function upSelect(id, setter) {
-    const el = document.getElementById(id);
-    if (!el) return;
+    const el = document.getElementById(id); if (!el) return;
     el.addEventListener('change', e => { setter(e.target.value); renderUploadPreview(); });
   }
   function upCheck(cbId, rangId, valId, setter, fmt) {
@@ -2349,35 +2413,77 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
       renderUploadPreview();
     });
     if (rng) rng.addEventListener('input', e => {
-      const v = parseFloat(e.target.value);
-      setter(cb.checked, v);
+      const v = parseFloat(e.target.value); setter(cb.checked, v);
       if (vEl) vEl.textContent = fmt ? fmt(v) : v;
       renderUploadPreview();
     });
   }
-  upSlider('upAcChars',   'upVChars',   v => { asciiCols = v; },              v => Math.round(v));
-  upSelect('upAcGradient',              v => { acGradientVal = v; });
-  upSlider('upAcSpace',   'upVSpace',   v => { acSpaceVal = Math.round(v); },  v => Math.round(v));
-  upSelect('upAcQuality',              v => { acQualityVal = v; });
-  upSlider('upAcFrame',   'upVFrame',   v => { acFrameVal = Math.round(v); },  v => Math.round(v) + 'px');
-  upSlider('upAcBright',  'upVBright',  v => { acBrightVal = v; },             v => Math.round(v) + '%');
-  upSlider('upAcContrast','upVContrast',v => { acContrastVal = v; },           v => Math.round(v) + '%');
-  upSlider('upAcSat',     'upVSat',     v => { acSatVal = v; },               v => Math.round(v) + '%');
-  upSlider('upAcHue',     'upVHue',     v => { acHueVal = v; },               v => Math.round(v) + '°');
-  upSlider('upAcGray',    'upVGray',    v => { acGrayVal = v; },              v => Math.round(v) + '%');
-  upSlider('upAcSepia',   'upVSepia',   v => { acSepiaVal = v; },             v => Math.round(v) + '%');
-  upSlider('upAcInvert',  'upVInvert',  v => { acInvertVal = v; },            v => Math.round(v) + '%');
-  upCheck('upCbThresh', 'upAcThresh', 'upVThresh',
-    (on, v) => { acThreshOn = on; acThreshVal = v; },
-    v => Math.round(v));
-  upCheck('upCbSharp', 'upAcSharp', 'upVSharp',
-    (on, v) => { acSharpOn = on; acSharpVal = v; },
-    v => v.toFixed(0));
-  upCheck('upCbEdge', 'upAcEdge', 'upVEdge',
-    (on, v) => { acEdgeOn = on; acEdgeVal = v; },
-    v => (v/10).toFixed(1));
 
-  // TXT button (only useful in ASCII mode)
+  // ── Flipnote IMAGE tab ────────────────────────────────────────────
+  upSlider('upAcBright',   'upVBright',   v=>{acBrightVal=v;},    v=>Math.round(v)+'%');
+  upSlider('upAcContrast', 'upVContrast', v=>{acContrastVal=v;},  v=>Math.round(v)+'%');
+  upSlider('upAcSat',      'upVSat',      v=>{acSatVal=v;},       v=>Math.round(v)+'%');
+  upSlider('upAcHue',      'upVHue',      v=>{acHueVal=v;},       v=>Math.round(v)+'°');
+  upSlider('upAcExposure', 'upVExposure', v=>{upExposureVal=v;},  v=>(v/10).toFixed(1));
+  upSlider('upAcShadows',  'upVShadows',  v=>{upShadowsVal=v;},   v=>Math.round(v));
+  upSlider('upAcHighlights','upVHighlights',v=>{upHighlightsVal=v;},v=>Math.round(v));
+
+  // ── Flipnote EFFECTS tab ──────────────────────────────────────────
+  upSlider('upAcThresh',   'upVThresh',   v=>{acThreshVal=v; acThreshOn=true;}, v=>Math.round(v));
+  upSlider('upAcDither',   'upVDither',   v=>{upDitherIntVal=v;}, v=>Math.round(v)+'%');
+  upSlider('upAcGrain',    'upVGrain',    v=>{upGrainVal=v;},    v=>Math.round(v)+'%');
+  upSlider('upAcGray',     'upVGray',     v=>{acGrayVal=v;},     v=>Math.round(v)+'%');
+  upSlider('upAcSepia',    'upVSepia',    v=>{acSepiaVal=v;},    v=>Math.round(v)+'%');
+  upSlider('upAcInvert',   'upVInvert',   v=>{acInvertVal=v;},   v=>Math.round(v)+'%');
+  upSlider('upAcVignette', 'upVVignette', v=>{upVignetteVal=v;}, v=>Math.round(v)+'%');
+
+  // ── ASCII section sliders ────────────────────────────────────────
+  upSlider('upAcChars',   'upVChars',   v=>{asciiCols=v;},            v=>Math.round(v));
+  upSelect('upAcGradient',              v=>{acGradientVal=v;});
+  upSlider('upAcSpace',   'upVSpace',   v=>{acSpaceVal=Math.round(v);},v=>Math.round(v));
+  upSelect('upAcQuality',              v=>{acQualityVal=v;});
+  upSlider('upAcFrame',   'upVFrame',   v=>{acFrameVal=Math.round(v);},v=>Math.round(v)+'px');
+  upSlider('upAcBrightA', 'upVBrightA', v=>{acBrightVal=v;},          v=>Math.round(v)+'%');
+  upSlider('upAcContrastA','upVContrastA',v=>{acContrastVal=v;},       v=>Math.round(v)+'%');
+  upSlider('upAcSatA',    'upVSatA',    v=>{acSatVal=v;},             v=>Math.round(v)+'%');
+  upSlider('upAcHueA',    'upVHueA',    v=>{acHueVal=v;},             v=>Math.round(v)+'°');
+  upSlider('upAcGrayA',   'upVGrayA',   v=>{acGrayVal=v;},            v=>Math.round(v)+'%');
+  upSlider('upAcSepiaA',  'upVSepiaA',  v=>{acSepiaVal=v;},           v=>Math.round(v)+'%');
+  upSlider('upAcInvertA', 'upVInvertA', v=>{acInvertVal=v;},          v=>Math.round(v)+'%');
+  upCheck('upCbThresh',  'upAcThreshA', 'upVThreshA', (on,v)=>{acThreshOn=on;acThreshVal=v;}, v=>Math.round(v));
+  upCheck('upCbSharp',   'upAcSharp',   'upVSharp',   (on,v)=>{acSharpOn=on;acSharpVal=v;},   v=>v.toFixed(0));
+  upCheck('upCbEdge',    'upAcEdge',    'upVEdge',    (on,v)=>{acEdgeOn=on;acEdgeVal=v;},     v=>(v/10).toFixed(1));
+
+  // ── Flipnote tabs ────────────────────────────────────────────────
+  document.getElementById('upTabImg').addEventListener('click', () => {
+    upFlipTab = 'image';
+    document.getElementById('upTabImg').classList.add('active');
+    document.getElementById('upTabFx').classList.remove('active');
+    document.getElementById('upFlipImage').style.display = '';
+    document.getElementById('upFlipEffects').style.display = 'none';
+  });
+  document.getElementById('upTabFx').addEventListener('click', () => {
+    upFlipTab = 'effects';
+    document.getElementById('upTabFx').classList.add('active');
+    document.getElementById('upTabImg').classList.remove('active');
+    document.getElementById('upFlipImage').style.display = 'none';
+    document.getElementById('upFlipEffects').style.display = '';
+  });
+
+  // LEGACY/STD toggle
+  document.getElementById('upBtnLegacy').addEventListener('click', () => {
+    legacyMode = !legacyMode;
+    const btn = document.getElementById('upBtnLegacy');
+    btn.textContent = legacyMode ? 'LGCY' : 'STD';
+    btn.style.borderColor = legacyMode ? 'var(--paper)' : 'var(--dark)';
+    btn.style.color       = legacyMode ? 'var(--paper)' : 'var(--dark)';
+    // Also sync main btnMode
+    const mb = document.getElementById('btnMode');
+    if (mb) { mb.textContent = legacyMode ? 'LGCY' : 'STD'; mb.classList.toggle('legacy', legacyMode); }
+    renderUploadPreview();
+  });
+
+  // TXT button
   document.getElementById('upBtnTxt').addEventListener('click', () => {
     if (!lastUploadSrc) return;
     renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false);
@@ -2400,26 +2506,27 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
   });
   // RESET button
   document.getElementById('upBtnReset').addEventListener('click', () => {
-    // Reset all upload panel variables and UI
-    acBrightVal=100; acContrastVal=100; acSatVal=100; acHueVal=0; acGrayVal=0;
-    acSepiaVal=0; acInvertVal=0; acThreshOn=false; acThreshVal=128;
-    acSharpOn=false; acSharpVal=9; acEdgeOn=false; acEdgeVal=10;
-    acGradientVal='normal'; acSpaceVal=1; acFrameVal=0; acQualityVal='none';
-    asciiCols=100;
-    // Reset slider UI
-    ['upAcBright','upAcContrast','upAcSat','upAcHue','upAcGray','upAcSepia','upAcInvert'].forEach(id => {
-      const el=document.getElementById(id); if(el) el.value=id==='upAcBright'||id==='upAcContrast'||id==='upAcSat'?100:0;
-    });
-    ['upVBright','upVContrast','upVSat'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='100%'; });
-    ['upVHue','upVGray','upVSepia','upVInvert'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=id==='upVHue'?'0°':'0%'; });
-    document.getElementById('upAcFrame').value=0; document.getElementById('upVFrame').textContent='0px';
-    document.getElementById('upAcSpace').value=1; document.getElementById('upVSpace').textContent='1';
-    document.getElementById('upAcChars').value=100; document.getElementById('upVChars').textContent='100';
-    document.getElementById('upAcThresh').disabled=true; document.getElementById('upCbThresh').checked=false;
-    document.getElementById('upAcSharp').disabled=true;  document.getElementById('upCbSharp').checked=false;
-    document.getElementById('upAcEdge').disabled=true;   document.getElementById('upCbEdge').checked=false;
-    document.getElementById('upAcGradient').value='normal';
-    document.getElementById('upAcQuality').value='none';
+    acBrightVal=100;acContrastVal=100;acSatVal=100;acHueVal=0;acGrayVal=0;
+    acSepiaVal=0;acInvertVal=0;acThreshOn=false;acThreshVal=128;
+    acSharpOn=false;acSharpVal=9;acEdgeOn=false;acEdgeVal=10;
+    acGradientVal='normal';acSpaceVal=1;acFrameVal=0;acQualityVal='none';asciiCols=100;
+    upExposureVal=0;upShadowsVal=0;upHighlightsVal=0;upDitherIntVal=100;upGrainVal=0;upVignetteVal=0;
+    // Reset Flipnote IMAGE sliders
+    ['upAcBright','upAcContrast','upAcSat'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=100;});
+    ['upVBright','upVContrast','upVSat'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='100%';});
+    const uh=document.getElementById('upAcHue');if(uh)uh.value=0;
+    const vuh=document.getElementById('upVHue');if(vuh)vuh.textContent='0°';
+    ['upAcExposure','upAcShadows','upAcHighlights'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=0;});
+    ['upVExposure','upVShadows','upVHighlights'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='0';});
+    // Reset Flipnote EFFECTS sliders
+    const dt=document.getElementById('upAcDither');if(dt)dt.value=100;
+    const vdt=document.getElementById('upVDither');if(vdt)vdt.textContent='100%';
+    ['upAcGrain','upAcGray','upAcSepia','upAcInvert','upAcVignette','upAcThresh'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=id==='upAcThresh'?128:0;});
+    ['upVGrain','upVGray','upVSepia','upVInvert','upVVignette'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='0%';});
+    const vt=document.getElementById('upVThresh');if(vt)vt.textContent='128';
+    // Reset ASCII sliders
+    ['upAcBrightA','upAcContrastA','upAcSatA'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=100;});
+    ['upVBrightA','upVContrastA','upVSatA'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='100%';});
     renderUploadPreview();
   });
 })();
@@ -3235,18 +3342,21 @@ async function sonoLoadFile(file) {
 const sonoFileInput = document.getElementById('sonoFileInputEl');
 sonoFileInput.addEventListener('change', e => {
   const f = e.target.files[0];
-  console.log('[SONO] file selected:', f?.name, f?.type, f?.size);
-  if (f) {
-    // Verify createObjectURL works before passing to AudioContext
+  if (!f) { e.target.value = ''; return; }
+  if (f.size > 50 * 1024 * 1024) {
+    alert('⚠ Archivo demasiado grande (máx. 50 MB)');
+    e.target.value = ''; return;
+  }
+  _withProgress(f, file => {
     try {
-      const testUrl = URL.createObjectURL(f);
+      const testUrl = URL.createObjectURL(file);
       URL.revokeObjectURL(testUrl);
-      sonoLoadFile(f);
+      sonoLoadFile(file);
     } catch(err) {
-      console.error('[SONO] createObjectURL failed:', err);
+      hideLoadOverlay();
       alert('No se pudo cargar el archivo: ' + (err.message || err));
     }
-  }
+  });
   e.target.value = '';
 });
 
@@ -3480,7 +3590,9 @@ async function wmpLoadFile(file) {
     document.body.classList.add('wmp-file');
     relayout();
     wmpRunning = true; requestAnimationFrame(wmpLoop);
+    hideLoadOverlay();
   } catch(e) {
+    hideLoadOverlay();
     document.getElementById('wmpPermErr').textContent = '⚠ ' + e.message;
   }
 }
@@ -4200,17 +4312,24 @@ const wmpFileInputBar  = document.getElementById('wmpFileInputBar');
 [wmpFileInputPerm, wmpFileInputBar].forEach(inp => {
   inp.addEventListener('change', e => {
     const f = e.target.files[0];
-    console.log('[WMP] file selected:', f?.name, f?.type, f?.size);
-    if (f) {
+    if (!f) { e.target.value = ''; return; }
+    if (f.size > 50 * 1024 * 1024) {
+      document.getElementById('wmpPermErr').textContent = '⚠ Archivo demasiado grande (máx. 50 MB)';
+      e.target.value = ''; return;
+    }
+    _withProgress(f, file => {
       try {
-        const testUrl = URL.createObjectURL(f);
+        const testUrl = URL.createObjectURL(file);
         URL.revokeObjectURL(testUrl);
-        wmpLoadFile(f);
+        wmpLoadFile(file).then(() => hideLoadOverlay()).catch(err => {
+          hideLoadOverlay();
+          document.getElementById('wmpPermErr').textContent = '⚠ ' + (err.message || err);
+        });
       } catch(err) {
-        console.error('[WMP] createObjectURL failed:', err);
+        hideLoadOverlay();
         document.getElementById('wmpPermErr').textContent = '⚠ No se pudo cargar: ' + (err.message || err);
       }
-    }
+    });
     e.target.value = '';
   });
 });
@@ -4476,18 +4595,57 @@ function _libSave(entries) {
   }
 }
 
+// IndexedDB for full-quality image blobs
+let _libIDB = null;
+function _libOpenIDB() {
+  if (_libIDB) return Promise.resolve(_libIDB);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('flipLib', 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('blobs', { keyPath: 'id' });
+    req.onsuccess  = e => { _libIDB = e.target.result; res(_libIDB); };
+    req.onerror    = () => rej(req.error);
+  });
+}
+function _libIDBPut(id, blob) {
+  return _libOpenIDB().then(db => new Promise((res, rej) => {
+    const tx = db.transaction('blobs', 'readwrite');
+    tx.objectStore('blobs').put({ id, blob });
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  })).catch(()=>{});
+}
+function _libIDBGet(id) {
+  return _libOpenIDB().then(db => new Promise((res) => {
+    const req = db.transaction('blobs').objectStore('blobs').get(id);
+    req.onsuccess = () => res(req.result?.blob || null);
+    req.onerror   = () => res(null);
+  })).catch(()=>null);
+}
+function _libIDBDel(id) {
+  return _libOpenIDB().then(db => new Promise(res => {
+    const tx = db.transaction('blobs', 'readwrite');
+    tx.objectStore('blobs').delete(id);
+    tx.oncomplete = res;
+  })).catch(()=>{});
+}
+
 function libSaveEntry(canvas, module) {
   try {
     const entries = _libLoad();
-    // Create thumbnail
+    const id = Date.now();
+    // PNG thumbnail (higher quality, ~128px wide)
     const tw = LIB_THUMB, th = Math.round(tw * canvas.height / canvas.width);
     const tc = document.createElement('canvas'); tc.width = tw; tc.height = th;
     tc.getContext('2d').drawImage(canvas, 0, 0, tw, th);
-    const thumb = tc.toDataURL('image/jpeg', 0.55);
-    const entry = { id: Date.now(), thumb, module, date: new Date().toISOString() };
+    const thumb = tc.toDataURL('image/png');
+    const entry = { id, thumb, module, date: new Date().toISOString() };
     entries.unshift(entry);
-    if (entries.length > LIB_MAX) entries.splice(LIB_MAX);
+    if (entries.length > LIB_MAX) {
+      const removed = entries.splice(LIB_MAX);
+      removed.forEach(e => _libIDBDel(e.id));
+    }
     _libSave(entries);
+    // Save full-quality PNG blob to IndexedDB
+    canvas.toBlob(blob => { if (blob) _libIDBPut(id, blob); }, 'image/png', 1.0);
     libRender();
   } catch(_) {}
 }
@@ -4523,8 +4681,13 @@ function libRender() {
       const entry = all.find(e => e.id === id);
       if (!entry) return;
       if (action === 'dl') {
-        const a = document.createElement('a'); a.href = entry.thumb;
-        a.download = `flipnote_lib_${id}.jpg`; a.click();
+        _libIDBGet(id).then(blob => {
+          const url = blob ? URL.createObjectURL(blob) : entry.thumb;
+          const ext = blob ? 'png' : 'jpg';
+          const a = document.createElement('a'); a.href = url;
+          a.download = `flipnote_lib_${id}.${ext}`; a.click();
+          if (blob) setTimeout(() => URL.revokeObjectURL(url), 2000);
+        });
       } else if (action === 'stage') {
         // Send thumbnail to upload canvas for re-processing
         const img = new Image(); img.onload = () => {
@@ -4537,14 +4700,18 @@ function libRender() {
         img.src = entry.thumb;
       } else if (action === 'del') {
         const updated = all.filter(e => e.id !== id);
-        _libSave(updated); libRender();
+        _libSave(updated); _libIDBDel(id); libRender();
       }
     });
   });
 }
 
 document.getElementById('btnLibClear').addEventListener('click', () => {
-  if (confirm('¿Borrar toda la biblioteca?')) { _libSave([]); libRender(); }
+  if (confirm('¿Borrar toda la biblioteca?')) {
+    const all = _libLoad();
+    all.forEach(e => _libIDBDel(e.id));
+    _libSave([]); libRender();
+  }
 });
 
 // ════════════════════════════════════════════════════════════════════

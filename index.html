@@ -604,6 +604,22 @@
     #loadBarBg { width:260px; height:8px; background:rgba(255,255,255,.15); }
     #loadBarFill { height:100%; background:var(--paper); width:0%; transition:width .15s; }
     #loadPct { color:var(--paper); font-family:monospace; font-size:10px; letter-spacing:1px; }
+
+    /* ── Android thermal controls ── */
+    #androidRow { display:none; flex-direction:column; gap:4px; align-items:stretch; padding:2px 0; }
+    #btnHighPerf {
+      width:100%; background:none; border:1px solid #ff7700;
+      color:#ff7700; font-family:monospace; font-size:9px; font-weight:bold;
+      letter-spacing:1px; text-transform:uppercase; padding:5px; cursor:pointer; transition:.15s;
+    }
+    #btnHighPerf.active { background:rgba(255,119,0,.2); color:#ffaa44; border-color:#ffaa44; }
+    #btnHighPerf:active { opacity:.7; }
+    #thermalToast {
+      display:none; position:fixed; bottom:104px; left:50%; transform:translateX(-50%);
+      background:#cc4400; color:#fff; font-family:monospace; font-size:10px;
+      letter-spacing:1px; padding:6px 14px; z-index:200; white-space:nowrap; pointer-events:none;
+    }
+    #thermalToast.visible { display:block; }
   </style>
 </head>
 <body>
@@ -675,6 +691,10 @@
       </div>
       <div class="ac-row" id="asciiPerfWarn" style="display:none;">
         <span style="color:#ff8844;font-size:9px;font-family:monospace;">⚠ FPS bajo — reduciendo chars</span>
+      </div>
+      <div id="androidRow">
+        <span style="color:#ff7700;font-size:9px;font-family:monospace;letter-spacing:1px;">📱 Optimizado para móvil (máx 60 chars)</span>
+        <button id="btnHighPerf">⚡ Alto rendimiento ⚠ calor</button>
       </div>
       <div class="ac-row">
         <span class="ac-lbl">Font</span>
@@ -798,6 +818,7 @@
 </div>
 
 <div id="flash"></div>
+<div id="thermalToast">⚠ Reduciendo calidad para evitar sobrecalentamiento</div>
 
 <!-- Global loading overlay -->
 <div id="loadOverlay">
@@ -1700,8 +1721,18 @@ function renderASCII(source, srcW, srcH, mirror) {
   ctxAS.drawImage(source, sx, sy, sw, sh, 0, 0, SW, SH);
   ctxAS.restore();
 
-  const { data: px } = ctxAS.getImageData(0, 0, SW, SH);
+  // Android + OffscreenCanvas worker path
+  if (_asciiWorker && IS_ANDROID && !asciiHighPerf) {
+    const imgData = ctxAS.getImageData(0, 0, SW, SH);
+    _dispatchAsciiWorker(imgData, SW, SH);
+    return;
+  }
 
+  const { data: px } = ctxAS.getImageData(0, 0, SW, SH);
+  _renderASCIISync(px, SW, SH);
+}
+
+function _renderASCIISync(px, SW, SH) {
   // Build grayscale array with image adjustments
   const gray = new Float32Array(SW * SH);
   for (let i = 0; i < SW * SH; i++) {
@@ -1822,6 +1853,175 @@ function renderASCII(source, srcW, srcH, mirror) {
     lines.push(line);
   }
   lastAsciiText = lines.join('\n');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// THERMAL TOAST
+// ════════════════════════════════════════════════════════════════════
+function _showThermalToast() {
+  if (_thermalToastTimer) return;
+  const el = document.getElementById('thermalToast');
+  if (!el) return;
+  el.classList.add('visible');
+  _thermalToastTimer = setTimeout(() => {
+    el.classList.remove('visible');
+    _thermalToastTimer = null;
+  }, 3000);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// OFFSCREEN CANVAS ASCII WORKER
+// ════════════════════════════════════════════════════════════════════
+function _asciiWorkerBody() {
+  'use strict';
+  const NG = " `.-':_,^=;><+!rc*/z?sLTv)J7(|Fi{C}fI31tlu[neoZ5Yxjya]2ESwqkP6h9d4VpOGbUAKXHm8RD#$Bg0MNWQ%&@";
+  const GRADS = {
+    normal: NG, reverse: [...NG].reverse().join(''),
+    block: ' \u2591\u2592\u2593\u2588', minimal: ' .:-=+*#@',
+  };
+  const PYPAL = [
+    { bg:'#050510', chars:[[55,118,171],[137,175,230],[200,215,255],[255,230,130],[255,212,59]], code:[[255,212,59],[137,180,255],[200,200,255],[180,220,255],[255,230,120],[100,140,190]] },
+    { bg:'#1e1e2e', chars:[[243,139,168],[249,226,175],[166,227,161],[137,220,235],[137,180,250]], code:[[243,139,168],[137,220,235],[249,226,175],[205,214,244],[166,227,161],[137,180,250]] },
+    { bg:'#1e1e1e', chars:[[86,156,214],[198,134,192],[220,220,170],[206,145,120],[106,153,85],[212,212,212]], code:[[86,156,214],[220,220,170],[212,212,212],[156,220,254],[198,134,192],[106,153,85]] },
+  ];
+  const PYBANK = [
+    ['def ','class ','return ','import ','from ','for i:','while ','if x:','lambda:','yield ','pass','async ','await ','break '],
+    ['range(n)','len(x)','print(x)','list()','dict()','int(x)','str(n)','sum(x)','map(f)','sorted()','enumerate','zip(a,b)'],
+    ['== 0','!= 0','>= n','<= n','+= 1','-= 1','** 2','// n','not x','and ','or ','is None','in x','x > 0'],
+    ['x = 0','n = 1','i += 1','result','data = []','value','count','items','path','size','node','True','False','None'],
+    ['(x, y)','[i]','{}','x[0]','(n+1)','[:-1]','[:,0]',': ...','(self)','*args'],
+    ['# ok','# todo','# n','# i','# fix','# init','# loop'],
+  ];
+  let _osc = null;
+
+  function pixLum(r, g, b, s) {
+    if (s.bright !== 100) { const f=s.bright/100; r=Math.min(255,r*f); g=Math.min(255,g*f); b=Math.min(255,b*f); }
+    if (s.contrast !== 100) { const f=s.contrast/100; r=Math.max(0,Math.min(255,(r-128)*f+128)); g=Math.max(0,Math.min(255,(g-128)*f+128)); b=Math.max(0,Math.min(255,(b-128)*f+128)); }
+    if (s.hue !== 0) {
+      const rad=s.hue*Math.PI/180, cos=Math.cos(rad), sin=Math.sin(rad);
+      const nr=r*(0.213+cos*0.787-sin*0.213)+g*(0.213-cos*0.213+sin*0.143)+b*(0.213-cos*0.213-sin*0.787);
+      const ng=r*(0.715-cos*0.715-sin*0.715)+g*(0.715+cos*0.285+sin*0.140)+b*(0.715-cos*0.715+sin*0.715);
+      const nb=r*(0.072-cos*0.072+sin*0.928)+g*(0.072-cos*0.072-sin*0.283)+b*(0.072+cos*0.928+sin*0.072);
+      r=Math.max(0,Math.min(255,nr)); g=Math.max(0,Math.min(255,ng)); b=Math.max(0,Math.min(255,nb));
+    }
+    if (s.sat !== 100) { const lum=r*0.299+g*0.587+b*0.114, f=s.sat/100; r=Math.max(0,Math.min(255,lum+(r-lum)*f)); g=Math.max(0,Math.min(255,lum+(g-lum)*f)); b=Math.max(0,Math.min(255,lum+(b-lum)*f)); }
+    if (s.sepia > 0) { const ss=s.sepia/100; const sr=r*(1-ss)+(r*.393+g*.769+b*.189)*ss; const sg=g*(1-ss)+(r*.349+g*.686+b*.168)*ss; const sb=b*(1-ss)+(r*.272+g*.534+b*.131)*ss; r=Math.min(255,sr); g=Math.min(255,sg); b=Math.min(255,sb); }
+    if (s.invert > 0) { const ss=s.invert/100; r=r*(1-ss)+(255-r)*ss; g=g*(1-ss)+(255-g)*ss; b=b*(1-ss)+(255-b)*ss; }
+    if (s.gray > 0) { const lum=r*0.299+g*0.587+b*0.114, f=s.gray/100; r=r*(1-f)+lum*f; g=g*(1-f)+lum*f; b=b*(1-f)+lum*f; }
+    return Math.max(0, Math.min(255, (r*77+g*150+b*29)/256)) | 0;
+  }
+
+  self.onmessage = function(e) {
+    if (e.data.type !== 'render') return;
+    const {buf, sw, sh, s} = e.data;
+    const px = new Uint8ClampedArray(buf);
+    const gray = new Float32Array(sw * sh);
+    for (let i = 0; i < sw * sh; i++) { const p=i<<2; gray[i]=pixLum(px[p],px[p+1],px[p+2],s); }
+    if (s.sharpOn && s.sharp > 0) {
+      const sf=s.sharp*0.03, tmp=new Float32Array(gray);
+      for (let y=1;y<sh-1;y++) for (let x=1;x<sw-1;x++) { const i=y*sw+x; gray[i]=Math.max(0,Math.min(255,tmp[i]+sf*(tmp[i]*4-tmp[i-1]-tmp[i+1]-tmp[i-sw]-tmp[i+sw]))); }
+    }
+    if (s.edgeOn && s.edge > 0) {
+      const ef=s.edge/5, tmp=new Float32Array(gray);
+      for (let y=1;y<sh-1;y++) for (let x=1;x<sw-1;x++) {
+        const i=y*sw+x;
+        const gx=-tmp[(y-1)*sw+(x-1)]-2*tmp[y*sw+(x-1)]-tmp[(y+1)*sw+(x-1)]+tmp[(y-1)*sw+(x+1)]+2*tmp[y*sw+(x+1)]+tmp[(y+1)*sw+(x+1)];
+        const gy=-tmp[(y-1)*sw+(x-1)]-2*tmp[(y-1)*sw+x]-tmp[(y-1)*sw+(x+1)]+tmp[(y+1)*sw+(x-1)]+2*tmp[(y+1)*sw+x]+tmp[(y+1)*sw+(x+1)];
+        gray[i]=Math.max(0,Math.min(255,tmp[i]*(1-ef)+Math.min(255,Math.sqrt(gx*gx+gy*gy)/4)*ef));
+      }
+    }
+    let minG=255, maxG=0;
+    for (let i=0;i<gray.length;i++) { if(gray[i]<minG)minG=gray[i]; if(gray[i]>maxG)maxG=gray[i]; }
+    const rng=maxG-minG||1;
+    if (!_osc || _osc.width!==s.outW || _osc.height!==s.outH) _osc=new OffscreenCanvas(s.outW,s.outH);
+    const ctx=_osc.getContext('2d'); ctx.imageSmoothingEnabled=false;
+    const grad=GRADS[s.gradient]||GRADS.normal, nChars=grad.length;
+    const fw=s.outW-2*s.frame, fh=s.outH-2*s.frame;
+    const cols=s.cols, rows=Math.max(1,Math.round(cols*fh/fw));
+    const cW=fw/cols, cH=fh/rows, sCW=sw/cols, sCH=sh/rows;
+    ctx.fillStyle=s.pyMode!=='off'?PYPAL[s.pyPal].bg:`rgb(${s.palPaper})`;
+    ctx.fillRect(0,0,s.outW,s.outH);
+    const fontSize=Math.max(4,Math.floor(cH*0.92));
+    ctx.font=`bold ${fontSize}px monospace`; ctx.textBaseline='top';
+    const chaosN=s.chaos/100;
+    for (let r=0;r<rows;r++) {
+      for (let c=0;c<cols;c++) {
+        let gSum=0, cnt=0;
+        const x0=Math.floor(c*sCW), x1=Math.min(Math.ceil((c+1)*sCW),sw);
+        const y0=Math.floor(r*sCH), y1=Math.min(Math.ceil((r+1)*sCH),sh);
+        for (let py=y0;py<y1;py++) for (let pxx=x0;pxx<x1;pxx++) gSum+=gray[py*sw+pxx],cnt++;
+        const raw=cnt?gSum/cnt:128;
+        let lum;
+        if (s.threshOn) { lum=raw<s.thresh?0:255; }
+        else { const t=(raw-minG)/rng; const s1=0.5-0.5*Math.cos(Math.PI*t); lum=(0.5-0.5*Math.cos(Math.PI*s1))*255; }
+        const ci=Math.min(Math.floor((1-lum/255)*nChars),nChars-1);
+        const ch=grad[ci];
+        if (ci>=s.space) {
+          const lumN=lum/255;
+          if (s.pyMode==='code') {
+            const roleRaw=(1-lumN)*(1-chaosN)+Math.random()*chaosN;
+            const role=Math.min(5,Math.floor(roleRaw*6));
+            const col=PYPAL[s.pyPal].code[role];
+            ctx.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
+            ctx.fillText(PYBANK[role][(Math.random()*PYBANK[role].length)|0],s.frame+c*cW,s.frame+r*cH);
+          } else if (s.pyMode==='chars') {
+            const pyCols=PYPAL[s.pyPal].chars;
+            const colIdx=Math.min(pyCols.length-1,Math.floor((lumN*(1-chaosN)+Math.random()*chaosN)*pyCols.length));
+            const col=pyCols[colIdx];
+            ctx.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
+            ctx.fillText(ch,s.frame+c*cW,s.frame+r*cH);
+          } else {
+            ctx.fillStyle=`rgb(${s.palInk})`;
+            ctx.fillText(ch,s.frame+c*cW,s.frame+r*cH);
+          }
+        }
+      }
+    }
+    const bitmap=_osc.transferToImageBitmap();
+    self.postMessage({type:'frame',bitmap},[bitmap]);
+  };
+}
+
+let _asciiWorker      = null;
+let _asciiWorkerBusy  = false;
+let _asciiWorkerPend  = null;   // {imgData, sw, sh} — latest pending frame
+
+function _initAsciiWorker() {
+  if (typeof OffscreenCanvas === 'undefined') return;
+  try {
+    const src = `(${_asciiWorkerBody.toString()})()`;
+    const blob = new Blob([src], {type:'application/javascript'});
+    _asciiWorker = new Worker(URL.createObjectURL(blob));
+    _asciiWorker.onmessage = e => {
+      if (e.data.type !== 'frame') return;
+      ctxAscii.drawImage(e.data.bitmap, 0, 0);
+      e.data.bitmap.close();
+      _asciiWorkerBusy = false;
+      if (_asciiWorkerPend) {
+        const p = _asciiWorkerPend; _asciiWorkerPend = null;
+        _dispatchAsciiWorker(p.imgData, p.sw, p.sh);
+      }
+    };
+    _asciiWorker.onerror = () => { _asciiWorker = null; };
+  } catch(_) { _asciiWorker = null; }
+}
+
+function _dispatchAsciiWorker(imgData, sw, sh) {
+  const pal = PALETTES[activePal];
+  const s = {
+    cols: asciiCols, bright: acBrightVal, contrast: acContrastVal, sat: acSatVal, hue: acHueVal,
+    gray: acGrayVal, sepia: acSepiaVal, invert: acInvertVal,
+    threshOn: acThreshOn, thresh: acThreshVal,
+    sharpOn: acSharpOn, sharp: acSharpVal,
+    edgeOn: acEdgeOn, edge: acEdgeVal,
+    gradient: acGradientVal, space: acSpaceVal, frame: acFrameVal,
+    pyMode: pySubMode, pyPal: pyPalIdx, chaos: chaosVal,
+    outW: OUT_W, outH: OUT_H,
+    palInk: pal.ink.join(','), palPaper: pal.paper.join(','),
+  };
+  if (_asciiWorkerBusy) { _asciiWorkerPend = {imgData, sw, sh}; return; }
+  _asciiWorkerBusy = true;
+  _asciiWorker.postMessage({type:'render', buf: imgData.data.buffer, sw, sh, s}, [imgData.data.buffer]);
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1975,11 +2175,16 @@ let asciiStaticSrc = null, asciiStaticW = 0, asciiStaticH = 0;
 let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
-const _isMobile    = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
-const ASCII_DEV_MAX = _isMobile ? 80 : 200;
-let asciiFrameSkip = 0;
-let _asciiFpsHist  = [];
-let _asciiLastFT   = 0;
+const _isMobile      = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
+const IS_ANDROID     = /Android/i.test(navigator.userAgent);
+const ASCII_DEV_MAX  = IS_ANDROID ? 60 : (_isMobile ? 80 : 200);
+const ASCII_ANDROID_DEFAULT = 40;
+let asciiFrameSkip   = 0;
+let _asciiFpsHist    = [];
+let _asciiLastFT     = 0;
+let asciiHighPerf    = false;         // Android: high-perf toggle (removes thermal limits)
+let _asciiAndroidLastT = 0;           // Android 24fps cap timestamp
+let _thermalToastTimer = null;        // Debounce for thermal toast
 let asciiFont      = 'monospace';
 let inputMode      = 'camera'; // 'camera' | 'file'
 
@@ -2008,25 +2213,44 @@ function asciiLoop(ts) {
 
   // FPS tracking for adaptive quality
   if (_asciiLastFT > 0 && ts) {
-    _asciiFpsHist.push(1000 / (ts - _asciiLastFT));
+    const frameMs = ts - _asciiLastFT;
+    _asciiFpsHist.push(1000 / frameMs);
     if (_asciiFpsHist.length > 30) _asciiFpsHist.shift();
-    if (_asciiFpsHist.length >= 20) {
+
+    // Single-frame 50ms spike check (Android thermal guard)
+    if (IS_ANDROID && !asciiHighPerf && frameMs > 50 && asciiCols > 20) {
+      asciiCols = Math.max(20, asciiCols - 10);
+      const sl = document.getElementById('acChars');
+      const vl = document.getElementById('vChars');
+      if (sl) sl.value = asciiCols;
+      if (vl) vl.textContent = asciiCols;
+      document.getElementById('asciiPerfWarn').style.display = '';
+      _showThermalToast();
+      _asciiFpsHist = [];
+    } else if (_asciiFpsHist.length >= 20) {
       const avgFps = _asciiFpsHist.reduce((a,b)=>a+b,0) / _asciiFpsHist.length;
-      if (avgFps < 20 && asciiCols > 20) {
-        asciiCols = Math.max(20, asciiCols - 5);
+      const fpsThresh = IS_ANDROID ? 22 : 20;
+      const reduction = IS_ANDROID ? 10 : 5;
+      if (avgFps < fpsThresh && asciiCols > 20) {
+        asciiCols = Math.max(20, asciiCols - reduction);
         const sl = document.getElementById('acChars');
         const vl = document.getElementById('vChars');
         if (sl) sl.value = asciiCols;
         if (vl) vl.textContent = asciiCols;
         document.getElementById('asciiPerfWarn').style.display = '';
+        if (IS_ANDROID) _showThermalToast();
         _asciiFpsHist = [];
       }
     }
   }
   if (ts) _asciiLastFT = ts;
 
-  // Mobile frame throttle: render every 3 frames
-  if (_isMobile) {
+  // Android: hard 24fps cap via timestamp gating
+  if (IS_ANDROID && !asciiHighPerf) {
+    if (ts - _asciiAndroidLastT < 1000/24) { requestAnimationFrame(asciiLoop); return; }
+    _asciiAndroidLastT = ts;
+  } else if (_isMobile && !IS_ANDROID) {
+    // Other mobile: skip every 3rd frame (~20fps)
     asciiFrameSkip = (asciiFrameSkip + 1) % 3;
     if (asciiFrameSkip !== 0) { requestAnimationFrame(asciiLoop); return; }
   }
@@ -3308,13 +3532,45 @@ document.getElementById('sonoHue').addEventListener('input', e => {
 
 // ASCII: default chars button
 document.getElementById('btnAsciiDefault').addEventListener('click', () => {
-  asciiCols = ASCII_DEV_MAX;
+  asciiCols = IS_ANDROID ? ASCII_ANDROID_DEFAULT : ASCII_DEV_MAX;
   const sl = document.getElementById('acChars');
   const vl = document.getElementById('vChars');
-  if (sl) { sl.value = asciiCols; sl.max = ASCII_DEV_MAX * 2; }
+  if (sl) { sl.value = asciiCols; sl.max = IS_ANDROID ? ASCII_DEV_MAX : ASCII_DEV_MAX * 2; }
   if (vl) vl.textContent = asciiCols;
   document.getElementById('asciiPerfWarn').style.display = 'none';
   _asciiFpsHist = [];
+  asciiSettingsChanged();
+});
+
+// Android: init limits + worker + high-perf toggle
+if (IS_ANDROID) {
+  // Adjust slider limits
+  const sl = document.getElementById('acChars');
+  const vl = document.getElementById('vChars');
+  if (sl) { sl.max = ASCII_DEV_MAX; sl.value = ASCII_ANDROID_DEFAULT; }
+  if (vl) vl.textContent = ASCII_ANDROID_DEFAULT;
+  asciiCols = ASCII_ANDROID_DEFAULT;
+  // Show Android note
+  document.getElementById('androidRow').style.display = 'flex';
+  // Init OffscreenCanvas worker
+  _initAsciiWorker();
+}
+
+// High-perf toggle (Android only)
+document.getElementById('btnHighPerf').addEventListener('click', () => {
+  asciiHighPerf = !asciiHighPerf;
+  document.getElementById('btnHighPerf').classList.toggle('active', asciiHighPerf);
+  _asciiAndroidLastT = 0; // reset timestamp so next frame renders immediately
+  if (asciiHighPerf) {
+    const sl = document.getElementById('acChars');
+    if (sl) sl.max = 200; // unlock slider max
+  } else {
+    const sl = document.getElementById('acChars');
+    if (sl) { sl.max = ASCII_DEV_MAX; sl.value = Math.min(asciiCols, ASCII_DEV_MAX); }
+    asciiCols = Math.min(asciiCols, ASCII_DEV_MAX);
+    const vl = document.getElementById('vChars');
+    if (vl) vl.textContent = asciiCols;
+  }
   asciiSettingsChanged();
 });
 

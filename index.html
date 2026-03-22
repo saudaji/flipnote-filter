@@ -11,17 +11,17 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>flip1</title>
   <style>
-    @font-face { font-family:'BN Nektar'; src:local('BN Nektar'); }
+    @font-face { font-family:'Bloom'; src:local('Bloom'); }
     *, *::before, *::after {
       margin:0; padding:0; box-sizing:border-box;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
     }
-    :root { --ink:#000000; --dark:#2a1f00; --mid:#8a6400; --paper:#c8a000; }
+    :root { --ink:#0F380F; --dark:#306230; --mid:#8BAC0F; --paper:#9BBC0F; }
     html, body {
       width:100%; height:100dvh; overflow:hidden;
       background:var(--ink);
       display:flex; flex-direction:column; align-items:center;
-      font-family:'BN Nektar', monospace;
+      font-family:monospace;
     }
 
     /* ── Blue theme in ASCII mode ── */
@@ -173,16 +173,26 @@
     #flash { position:fixed; inset:0; background:var(--paper); opacity:0; pointer-events:none; z-index:99; transition:opacity .04s; }
     #flash.on { opacity:.7; }
     #splash {
-      position:fixed; inset:0; background:var(--ink);
+      position:fixed; inset:0; background:#000;
       display:flex; flex-direction:column; align-items:center; justify-content:center;
-      gap:24px; z-index:100; padding:40px;
+      z-index:100; overflow:hidden; cursor:pointer;
     }
     #splash.hidden { display:none; }
-    .logo { font-family:monospace; font-size:22px; color:var(--paper); letter-spacing:4px; text-align:center; line-height:1.5; }
-    .logo span { display:block; font-size:11px; color:var(--mid); letter-spacing:3px; margin-top:6px; }
-    .start-btn { background:var(--paper); color:var(--ink); border:none; padding:16px 40px; font-family:monospace; font-size:14px; font-weight:bold; letter-spacing:3px; text-transform:uppercase; cursor:pointer; }
-    .start-btn:active { background:var(--mid); }
-    .credits { font-family:monospace; font-size:10px; color:var(--dark); text-align:center; line-height:1.8; }
+    .splash-title {
+      font-family:'Bloom', sans-serif;
+      font-size:clamp(48px,12vw,96px); color:#c8a000;
+      letter-spacing:6px; text-align:center;
+      position:relative; z-index:1; pointer-events:none;
+      user-select:none;
+    }
+    .splash-char {
+      position:absolute; color:#c8a000; pointer-events:none;
+      font-family:monospace; user-select:none; line-height:1;
+      animation:splash-flicker 2s ease-in-out infinite;
+    }
+    @keyframes splash-flicker {
+      0%,100%{opacity:.25} 50%{opacity:.75}
+    }
 
     /* ── Upload section ── */
     #uploadSection {
@@ -272,16 +282,16 @@
 
     /* ── SONO area ── */
     #sonoArea {
-      display:none; position:fixed; top:40px; bottom:192px; left:0; right:0;
+      display:none; position:fixed; top:40px; bottom:220px; left:0; right:0;
       align-items:center; justify-content:center;
     }
     #sonoArea.visible { display:flex; }
-    body.sono-file #sonoArea { bottom:228px; }
+    body.sono-file #sonoArea { bottom:256px; }
     #sonoCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
 
     /* ── SONO permission overlay ── */
     #sonoPerm {
-      display:none; position:fixed; top:40px; bottom:192px; left:0; right:0;
+      display:none; position:fixed; top:40px; bottom:220px; left:0; right:0;
       flex-direction:column; align-items:center; justify-content:center;
       gap:18px; padding:32px; z-index:11;
     }
@@ -294,25 +304,31 @@
     }
     #btnSonoStart:active { opacity:.8; }
 
-    /* ── SONO HUD (above bar) — 96px, stacked rows ── */
+    /* ── SONO HUD (above bar) — 124px, clear rows ── */
     #sonoHUD {
-      display:none; position:fixed; bottom:96px; left:0; right:0; height:96px;
+      display:none; position:fixed; bottom:96px; left:0; right:0; height:124px;
       background:var(--ink); border-top:1px solid var(--dark);
-      flex-direction:column; justify-content:space-around;
-      padding:6px 16px; gap:4px; z-index:9;
+      flex-direction:column; justify-content:space-evenly;
+      padding:4px 14px; gap:2px; z-index:9;
     }
     #sonoHUD.visible { display:flex; }
     body.sono-file #sonoHUD { bottom:132px; }
-    .sono-hud-top { display:flex; align-items:center; gap:10px; }
+    /* Row 1: preset tabs + amp dot */
+    .sono-row1 { display:flex; align-items:center; gap:8px; }
     #sonoAmpDot {
-      width:12px; height:12px; border-radius:50%; flex-shrink:0;
+      width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-left:4px;
       background:var(--dark); transition:background .08s, box-shadow .08s;
     }
-    .sono-sliders { display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; }
-    .sono-ctrl { display:flex; align-items:center; gap:6px; }
-    .sono-lbl { color:var(--mid); font-size:9px; letter-spacing:1px; white-space:nowrap; min-width:44px; }
-    .sono-val { color:var(--paper); font-size:9px; min-width:20px; text-align:right; flex-shrink:0; }
-    .sono-ctrl input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
+    /* Row 2: blend mode label + two buttons */
+    .sono-row2 { display:flex; align-items:center; gap:6px; }
+    /* Row 3: blend slider */
+    .sono-row3 { display:flex; align-items:center; gap:6px; }
+    /* Row 4: chaos slider */
+    .sono-row4 { display:flex; align-items:center; gap:6px; }
+    .sono-lbl { color:var(--mid); font-size:9px; letter-spacing:1px; white-space:nowrap; min-width:48px; }
+    .sono-val { color:var(--paper); font-size:9px; min-width:22px; text-align:right; flex-shrink:0; }
+    .sono-row3 input[type="range"],
+    .sono-row4 input[type="range"] { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
 
     /* ── SONO bottom bar ── */
     #barSono {
@@ -432,17 +448,8 @@
     /* ── WMP RANDOM button ── */
     #btnWmpRandom.active { color:#ff9900; border-color:#ff9900; background:rgba(255,153,0,.06); }
 
-    /* ── Decorative border overlay ── */
-    #decoOverlay { position:fixed; inset:0; pointer-events:none; z-index:6; overflow:hidden; }
-    .deco-edge {
-      position:absolute; overflow:hidden; font-family:'BN Nektar',monospace;
-      font-size:8px; color:var(--paper); opacity:0.28; white-space:nowrap;
-      display:flex; align-items:center;
-    }
-    .deco-top  { top:40px; left:0; right:0; height:11px; }
-    .deco-bot  { bottom:96px; left:0; right:0; height:11px; align-items:flex-end; }
-    .deco-left  { top:51px; bottom:107px; left:0; width:11px; writing-mode:vertical-rl; transform:rotate(180deg); }
-    .deco-right { top:51px; bottom:107px; right:0; width:11px; writing-mode:vertical-rl; }
+    /* ── Decorative border overlay — hidden after splash ── */
+    #decoOverlay { display:none; }
   </style>
 </head>
 <body>
@@ -604,9 +611,7 @@
 </div>
 
 <div id="splash">
-  <div class="logo">FLIPNOTE<br>FILTER<span>CAMERA EFFECT</span></div>
-  <button class="start-btn" id="btnStart">▶ INICIAR</button>
-  <p class="credits">Bayer dithering · Game Boy palette · Scanlines<br>Cámara en vivo · Sube fotos y videos</p>
+  <div class="splash-title">FLIP1</div>
 </div>
 
 <div id="flash"></div>
@@ -689,28 +694,33 @@
   </button>
 </div>
 
-<!-- SONO HUD: preset row + amp dot + sliders -->
+<!-- SONO HUD: 4 clear rows -->
 <div id="sonoHUD">
-  <div class="sono-presets">
-    <button class="sono-preset-btn active" data-preset="0">SONO</button>
-    <button class="sono-preset-btn" data-preset="1">SCOPE</button>
-  </div>
-  <div class="sono-hud-top">
-    <div id="sonoAmpDot"></div>
-    <div class="sono-sliders">
-      <div class="sono-blend-row">
-        <span class="sono-lbl">BLEND</span>
-        <button class="sono-blend-btn active" id="btnBlendFlip">FLIP</button>
-        <button class="sono-blend-btn" id="btnBlendAscii">ASCII</button>
-        <span class="sono-val" id="vSonoMix">0</span>
-        <input type="range" id="sonoMix" min="0" max="100" value="0" style="flex:1;height:3px;accent-color:var(--paper);cursor:pointer;">
-      </div>
-      <div class="sono-ctrl">
-        <span class="sono-lbl">COLOR CHAOS</span>
-        <span class="sono-val" id="vSonoChaos">0</span>
-        <input type="range" id="sonoChaos" min="0" max="100" value="0">
-      </div>
+  <!-- Row 1: preset tabs + amp dot -->
+  <div class="sono-row1">
+    <div class="sono-presets">
+      <button class="sono-preset-btn active" data-preset="0">SONO</button>
+      <button class="sono-preset-btn" data-preset="1">SCOPE</button>
     </div>
+    <div id="sonoAmpDot"></div>
+  </div>
+  <!-- Row 2: blend target -->
+  <div class="sono-row2">
+    <span class="sono-lbl">BLEND</span>
+    <button class="sono-blend-btn active" id="btnBlendFlip">FLIP</button>
+    <button class="sono-blend-btn" id="btnBlendAscii">ASCII</button>
+  </div>
+  <!-- Row 3: blend amount -->
+  <div class="sono-row3">
+    <span class="sono-lbl">AMOUNT</span>
+    <span class="sono-val" id="vSonoMix">0</span>
+    <input type="range" id="sonoMix" min="0" max="100" value="0">
+  </div>
+  <!-- Row 4: color chaos -->
+  <div class="sono-row4">
+    <span class="sono-lbl">COLOR CHAOS</span>
+    <span class="sono-val" id="vSonoChaos">0</span>
+    <input type="range" id="sonoChaos" min="0" max="100" value="0">
   </div>
 </div>
 
@@ -816,14 +826,28 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════════
-// PALETTES
-// ── Decorative border text init ────────────────────────────────────────
+// SPLASH — scattered chars
+// ════════════════════════════════════════════════════════════════════
 (function() {
-  const DECO = '☼︎ ☞︎ ☺︎ ✿ 𓃰 ✰ ♫ *.✧˚˳ °｡☆ ';
-  document.querySelectorAll('.deco-edge').forEach(el => {
-    el.textContent = DECO.repeat(30);
-  });
+  const CHARS = ['☼︎','☞︎','☺︎','✿','𓃰','✰','♫','*','.','✧','˚','˳','°','｡','☆'];
+  const splashEl = document.getElementById('splash');
+  const count = 40;
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('span');
+    el.className = 'splash-char';
+    el.textContent = CHARS[Math.floor(Math.random() * CHARS.length)];
+    el.style.left   = (Math.random() * 100) + '%';
+    el.style.top    = (Math.random() * 100) + '%';
+    el.style.fontSize = (10 + Math.random() * 16) + 'px';
+    el.style.opacity  = (0.15 + Math.random() * 0.5).toFixed(2);
+    el.style.animationDelay = (Math.random() * 3) + 's';
+    el.style.animationDuration = (1.5 + Math.random() * 2.5) + 's';
+    splashEl.appendChild(el);
+  }
 })();
+
+// ════════════════════════════════════════════════════════════════════
+// PALETTES
 
 // ════════════════════════════════════════════════════════════════════
 const PALETTES = [
@@ -958,8 +982,8 @@ function relayout() {
   }
   asciiCvs.style.width = aw + 'px'; asciiCvs.style.height = ah + 'px';
 
-  // SONO canvas: top:40px bottom:192px (96px HUD + 96px bar), or 228px with file progress
-  const avHS = window.innerHeight - 40 - (document.body.classList.contains('sono-file') ? 228 : 192);
+  // SONO canvas: top:40px bottom:220px (124px HUD + 96px bar), or 256px with file progress
+  const avHS = window.innerHeight - 40 - (document.body.classList.contains('sono-file') ? 256 : 220);
   let sw, sh;
   if (avW / avHS > aspect) { sh = avHS; sw = sh * aspect; }
   else                      { sw = avW;  sh = sw / aspect; }
@@ -1536,9 +1560,9 @@ async function processVideo(file){
 }
 
 // ════════════════════════════════════════════════════════════════════
-// START (splash)
+// START (splash — click anywhere)
 // ════════════════════════════════════════════════════════════════════
-document.getElementById('btnStart').addEventListener('click', async () => {
+document.getElementById('splash').addEventListener('click', async () => {
   await startCamera(facingMode);
   splash.classList.add('hidden');
   cameraRunning = true;
@@ -2884,20 +2908,66 @@ function renderAlchemy(freqData, timeData, sens, trailsN) {
   ctxWmp.restore();
 }
 
-// ── WMP RANDOM state ──────────────────────────────────────────────────
-let wmpRandom      = false;
-let wmpRandTimer   = 0;
-let wmpRandBlend   = 0;
-let wmpRandBlendDur= 0;
-let wmpRandFromPre = 0;
-let wmpRandToPre   = 1;
-const wmpRandOffCvs = document.createElement('canvas');
-wmpRandOffCvs.width = WW; wmpRandOffCvs.height = WH;
-const wmpRandOffCtx = wmpRandOffCvs.getContext('2d');
+// ── WMP RANDOM state — up to 3 simultaneous morphs ────────────────────
+let wmpRandom    = false;
+// Each slot: { from, to, blend, blendDur, active }
+let wmpRandSlots = [];
+let wmpRandSpawnTimer = 0; // frames until next morph spawn
 
-function _wmpNextPreset(current) {
-  const choices = [0, 1, 2, 3].filter(p => p !== current);
+function _wmpNextPreset(exclude) {
+  const choices = [0, 1, 2, 3].filter(p => p !== exclude);
   return choices[Math.floor(Math.random() * choices.length)];
+}
+
+function _wmpRandSpawnSlot() {
+  // Up to 3 simultaneous slots
+  if (wmpRandSlots.length >= 3) return;
+  const fromPre = wmpPreset;
+  const toPre   = _wmpNextPreset(fromPre);
+  const dur     = Math.floor((4 + Math.random() * 3) * 60); // 4–7 s
+  wmpRandSlots.push({ from: fromPre, to: toPre, blend: 0.001, blendDur: dur });
+  // Schedule next spawn: 3–8s
+  wmpRandSpawnTimer = Math.floor((3 + Math.random() * 5) * 60);
+}
+
+// Variant of renderMorph that doesn't clear — for layered rendering
+function renderMorphLayer(freqData, timeData, sens, trailsN, fromP, toP, t) {
+  const ease  = wmpSmoothstep(Math.min(1, Math.max(0, t)));
+  const angle = wmpAlchemyAngle;
+  const N = Math.min(200, freqData.length);
+  for (let i = 0; i < N; i++) {
+    const amp = (freqData[i] / 255) * sens;
+    if (amp < 0.015) continue;
+    const from = wmpBinGeom(fromP, i, N, amp, angle);
+    const to   = wmpBinGeom(toP,   i, N, amp, angle);
+    const x = wmpLerp(from.x, to.x, ease);
+    const y = wmpLerp(from.y, to.y, ease);
+    const r = Math.max(0.5, wmpLerp(from.r, to.r, ease));
+    const c = wmpLerpC(from.c, to.c, ease);
+    const alpha = 0.3 + amp*0.7;
+    ctxWmp.shadowColor = `rgb(${c[0]},${c[1]},${c[2]})`; ctxWmp.shadowBlur = 4;
+    ctxWmp.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${alpha.toFixed(2)})`;
+    ctxWmp.beginPath(); ctxWmp.arc(x, y, r, 0, Math.PI*2); ctxWmp.fill();
+  }
+  ctxWmp.shadowBlur = 0;
+  const wS = 200, sStep = Math.max(1, Math.floor(timeData.length / wS));
+  const lineC = [[0,255,65],[255,160,0],[80,200,255],[0,255,200]];
+  const lc = wmpLerpC(lineC[fromP], lineC[toP], ease);
+  ctxWmp.beginPath();
+  let firstPt = true;
+  for (let i = 0; i < wS; i++) {
+    const v   = ((timeData[Math.min(timeData.length-1, i*sStep)] - 128) / 128) * sens;
+    const t_i = i / wS;
+    const from = wmpWaveGeom(fromP, t_i, v, angle);
+    const to   = wmpWaveGeom(toP,   t_i, v, angle);
+    const x = wmpLerp(from.x, to.x, ease);
+    const y = wmpLerp(from.y, to.y, ease);
+    if (firstPt) { ctxWmp.moveTo(x, y); firstPt = false; } else ctxWmp.lineTo(x, y);
+  }
+  ctxWmp.strokeStyle = `rgba(${lc[0]},${lc[1]},${lc[2]},0.85)`;
+  ctxWmp.lineWidth = 1.5;
+  ctxWmp.shadowColor = `rgb(${lc[0]},${lc[1]},${lc[2]})`; ctxWmp.shadowBlur = 8;
+  ctxWmp.stroke(); ctxWmp.shadowBlur = 0;
 }
 
 // ── Main loop ─────────────────────────────────────────────────────────
@@ -2921,29 +2991,28 @@ function wmpLoop() {
     document.getElementById('wmpProgDur').textContent  = fmtTime(dur);
   }
 
-  // RANDOM: advance timer, then morph or render normally
-  if (wmpRandom && wmpRandBlend === 0) {
-    wmpRandTimer--;
-    if (wmpRandTimer <= 0) {
-      wmpRandFromPre  = wmpPreset;
-      wmpRandBlendDur = Math.floor((3 + Math.random() * 3) * 60); // 3–6 s
-      wmpRandBlend    = 0.001;
-    }
-  }
+  // RANDOM: overlapping multi-morph — never stable
+  if (wmpRandom) {
+    // Spawn new morph slots on timer
+    wmpRandSpawnTimer--;
+    if (wmpRandSpawnTimer <= 0) _wmpRandSpawnSlot();
 
-  if (wmpRandom && wmpRandBlend > 0) {
-    // True geometric morph between presets
-    renderMorph(freqData, timeData, sens, trailsN, wmpRandFromPre, wmpRandToPre, wmpRandBlend);
-    wmpRandBlend += 1 / wmpRandBlendDur;
-    if (wmpRandBlend >= 1) {
-      wmpRandBlend   = 0;
-      wmpPreset      = wmpRandToPre;
-      document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(b =>
-        b.classList.toggle('active', parseInt(b.dataset.preset) === wmpPreset));
-      wmpRandFromPre = wmpPreset;
-      wmpRandToPre   = _wmpNextPreset(wmpPreset);
-      wmpRandTimer   = Math.floor((8 + Math.random() * 12) * 60);
+    // Clear with trails
+    wmpTrailClear(trailsN * 0.55);
+
+    // Render all active morph slots layered
+    for (const slot of wmpRandSlots) {
+      renderMorphLayer(freqData, timeData, sens, trailsN, slot.from, slot.to, slot.blend);
+      slot.blend += 1 / slot.blendDur;
     }
+    // Advance completed slots: update wmpPreset to their destination and remove
+    wmpRandSlots = wmpRandSlots.filter(slot => {
+      if (slot.blend >= 1) {
+        wmpPreset = slot.to;
+        return false; // remove
+      }
+      return true;
+    });
   } else {
     switch (wmpPreset) {
       case 0: renderScopeGreen(timeData, sens); break;
@@ -2964,10 +3033,10 @@ document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(btn => {
       b.classList.toggle('active', parseInt(b.dataset.preset) === wmpPreset));
     wmpPeaks.fill(0); wmpPeakHold.fill(0);
     ctxWmp.fillStyle = '#000'; ctxWmp.fillRect(0, 0, WW, WH);
-    // If random is on, update fromPreset
+    // If random is on, reset slots
     if (wmpRandom) {
-      wmpRandFromPre = wmpPreset;
-      wmpRandToPre   = _wmpNextPreset(wmpPreset);
+      wmpRandSlots = [];
+      wmpRandSpawnTimer = 1;
     }
   });
 });
@@ -2976,10 +3045,8 @@ document.getElementById('btnWmpRandom').addEventListener('click', () => {
   wmpRandom = !wmpRandom;
   document.getElementById('btnWmpRandom').classList.toggle('active', wmpRandom);
   if (wmpRandom) {
-    wmpRandFromPre = wmpPreset;
-    wmpRandToPre   = _wmpNextPreset(wmpRandFromPre);
-    wmpRandTimer   = Math.floor((8 + Math.random() * 12) * 60);
-    wmpRandBlend   = 0; wmpRandBlendDur = 0;
+    wmpRandSlots = [];
+    wmpRandSpawnTimer = 1; // spawn first morph immediately
   }
 });
 document.getElementById('wmpSens').addEventListener('input', e => {

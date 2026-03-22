@@ -239,7 +239,7 @@
     .drop-zone .dz-icon { font-size:36px; }
     .drop-zone p { color:var(--mid); font-size:12px; letter-spacing:1px; text-align:center; line-height:1.6; }
     .drop-zone strong { color:var(--paper); display:block; margin-bottom:4px; font-size:13px; letter-spacing:2px; }
-    #fileInput { display:none; }
+    /* #fileInput moved to hidden inputs block for iOS Safari compatibility */
     .fps-row { display:flex; gap:8px; align-items:center; }
     .fps-row label { color:var(--mid); font-size:10px; letter-spacing:2px; margin-right:4px; }
     .fps-btn { background:none; border:2px solid var(--dark); color:var(--dark); padding:6px 14px; font-family:monospace; font-size:11px; font-weight:bold; cursor:pointer; transition:.1s; }
@@ -498,6 +498,7 @@
 
 <video id="vid" autoplay playsinline muted style="display:none"></video>
 <video id="uploadVid" playsinline style="display:none"></video>
+<video id="asciiVid" playsinline loop muted style="display:none"></video>
 <audio id="wmpAudio"  style="display:none"></audio>
 <audio id="sonoAudio" style="display:none"></audio>
 <!-- File inputs in HTML so iOS Safari can trigger them via .click() -->
@@ -506,6 +507,10 @@
 <input type="file" id="wmpFileInputEl"  accept="audio/*" tabindex="-1"
        style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
 <input type="file" id="asciiFileInputEl" accept="image/*" tabindex="-1"
+       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
+<input type="file" id="fileInput" accept="image/*,video/*" tabindex="-1"
+       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
+<input type="file" id="asciiVideoInputEl" accept="video/*" tabindex="-1"
        style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
 <canvas id="small"   style="display:none"></canvas>
 <canvas id="scanCvs" style="display:none"></canvas>
@@ -690,7 +695,6 @@
     <p><strong>ARRASTRA UN ARCHIVO AQUÍ</strong>
        Foto o video · Cualquier duración<br>
        JPG · PNG · HEIC · MP4 · MOV · WEBM</p>
-    <input type="file" id="fileInput" accept="image/*,video/*">
   </div>
   <div class="fps-row" id="fpsRow" style="display:none">
     <label>FPS</label>
@@ -726,6 +730,10 @@
   <button class="btn" id="btnAsciiUpload">
     <div class="btn-icon">📂</div>
     <span class="btn-label">SUBIR</span>
+  </button>
+  <button class="btn" id="btnAsciiVideo">
+    <div class="btn-icon">🎬</div>
+    <span class="btn-label">VIDEO</span>
   </button>
   <button class="btn btn-center" id="btnAsciiCapture">
     <div class="btn-icon">●</div>
@@ -1411,8 +1419,15 @@ function applyCamAspect(aw, ah) {
   buildScanlines();
   relayout();
 
-  // Re-request camera with new aspect ratio
-  if (stream) startCamera(facingMode);
+  // Re-render content after canvas resize clears it
+  if (activeTab === 'ascii') {
+    if (asciiVideoEl) { /* video loop handles re-render */ }
+    else if (asciiStaticSrc) renderASCII(asciiStaticSrc, asciiStaticW, asciiStaticH, false);
+    // Keep panel state
+    if (asciiPanelOpen) document.body.classList.add('ascii-edit');
+  }
+  // Only restart camera when in cam tab
+  if (stream && activeTab === 'cam') startCamera(facingMode);
 }
 
 document.querySelectorAll('.asp-btn').forEach(btn => {
@@ -1429,6 +1444,7 @@ document.querySelectorAll('.asp-btn').forEach(btn => {
 let cameraRunning = false, asciiRunning = false;
 let lastFPSt = performance.now(), frames = 0;
 let asciiStaticSrc = null, asciiStaticW = 0, asciiStaticH = 0;
+let asciiVideoEl = null;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 
 function cameraLoop(t) {
@@ -1445,6 +1461,12 @@ function cameraLoop(t) {
 
 function asciiLoop() {
   if (!asciiRunning) return;
+  if (asciiVideoEl) {
+    if (asciiVideoEl.videoWidth && !asciiVideoEl.paused)
+      renderASCII(asciiVideoEl, asciiVideoEl.videoWidth, asciiVideoEl.videoHeight, false);
+    requestAnimationFrame(asciiLoop);
+    return;
+  }
   if (!asciiStaticSrc && vid.videoWidth)
     renderASCII(vid, vid.videoWidth, vid.videoHeight, facingMode==='user');
   if (!asciiStaticSrc) requestAnimationFrame(asciiLoop);
@@ -1452,6 +1474,7 @@ function asciiLoop() {
 
 function clearAsciiStatic() {
   asciiStaticSrc = null; asciiStaticW = 0; asciiStaticH = 0;
+  if (asciiVideoEl) { asciiVideoEl.pause(); asciiVideoEl.removeAttribute('src'); asciiVideoEl = null; }
   if (asciiRunning) requestAnimationFrame(asciiLoop);
 }
 
@@ -1732,6 +1755,7 @@ document.getElementById('btnAsciiUpload').addEventListener('click', () => {
 asciiFileInput.addEventListener('change', async e => {
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
+  if (asciiVideoEl) { asciiVideoEl.pause(); asciiVideoEl.removeAttribute('src'); asciiVideoEl = null; }
   // Clear canvas before async load to avoid camera residue
   ctxAscii.fillStyle = '#000';
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
@@ -1747,6 +1771,33 @@ asciiFileInput.addEventListener('change', async e => {
   URL.revokeObjectURL(url);
   asciiStaticSrc = source; asciiStaticW = w; asciiStaticH = h;
   renderASCII(source, w, h, false);
+});
+
+// ── ASCII VIDEO ───────────────────────────────────────────────────────
+const asciiVideoInput = document.getElementById('asciiVideoInputEl');
+const asciiVidEl      = document.getElementById('asciiVid');
+
+document.getElementById('btnAsciiVideo').addEventListener('click', () => {
+  asciiVideoInput.click();
+});
+
+asciiVideoInput.addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  // Clear static image
+  asciiStaticSrc = null; asciiStaticW = 0; asciiStaticH = 0;
+  // Clear canvas
+  ctxAscii.fillStyle = '#000'; ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
+  // Stop previous video if any
+  asciiVidEl.pause(); asciiVidEl.removeAttribute('src');
+  // Load new video
+  const url = URL.createObjectURL(file);
+  asciiVidEl.src = url;
+  asciiVidEl.loop = true;
+  asciiVidEl.muted = true;
+  asciiVideoEl = asciiVidEl;
+  await asciiVidEl.play().catch(() => {});
+  if (asciiRunning) requestAnimationFrame(asciiLoop);
 });
 
 // ════════════════════════════════════════════════════════════════════

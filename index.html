@@ -169,6 +169,33 @@
     }
     #btnFlip .btn-icon { width:36px; height:36px; font-size:16px; }
 
+    /* ── Cam FPS control ── */
+    #camFpsCtrl {
+      position:fixed; bottom:100px; right:12px; z-index:10;
+      display:flex; flex-direction:column; align-items:flex-end; gap:4px;
+    }
+    #camFpsCtrl label { color:var(--dark); font-size:9px; font-family:monospace; letter-spacing:.5px; cursor:pointer; }
+    #camFpsCtrl input[type=range] {
+      width:72px; height:4px; accent-color:var(--paper); cursor:pointer;
+    }
+    #camFpsCtrl .fps-val { color:var(--paper); font-size:9px; font-family:monospace; min-width:28px; text-align:right; }
+    #camFpsCtrl .fps-toggle {
+      display:flex; align-items:center; gap:4px;
+    }
+
+    /* ── Aspect ratio selector ── */
+    #camAspect {
+      position:fixed; top:118px; left:8px; z-index:10;
+      display:none; flex-direction:column; gap:3px;
+    }
+    .asp-btn {
+      background:none; border:1px solid var(--dark); color:var(--dark);
+      font-family:monospace; font-size:8px; cursor:pointer; padding:2px 4px;
+      letter-spacing:.5px; transition:.1s;
+    }
+    .asp-btn.active { border-color:var(--paper); color:var(--paper); }
+    .asp-btn:active { transform:scale(.9); }
+
     /* ── FPS / flash / splash ── */
     #fps { position:fixed; bottom:100px; left:12px; color:var(--dark); font-size:10px; pointer-events:none; z-index:10; }
     #flash { position:fixed; inset:0; background:var(--paper); opacity:0; pointer-events:none; z-index:99; transition:opacity .04s; }
@@ -287,7 +314,7 @@
       align-items:center; justify-content:center;
     }
     #sonoArea.visible { display:flex; }
-    body.sono-file #sonoArea { bottom:256px; }
+    body.sono-file #sonoArea { bottom:280px; }
     #sonoCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
 
     /* ── SONO permission overlay ── */
@@ -313,7 +340,7 @@
       padding:4px 14px; gap:2px; z-index:9;
     }
     #sonoHUD.visible { display:flex; }
-    body.sono-file #sonoHUD { bottom:132px; }
+    body.sono-file #sonoHUD { bottom:156px; }
     /* Row 1: preset tabs + amp dot */
     .sono-row1 { display:flex; align-items:center; gap:8px; }
     #sonoAmpDot {
@@ -410,14 +437,16 @@
     body.wmp-pseudo-full { overflow:hidden; }
 
     /* ── WMP file mode layout adjustments ── */
-    body.wmp-file #wmpArea { bottom:204px; }
-    body.wmp-file #wmpHUD  { bottom:132px; }
+    body.wmp-file #wmpArea { bottom:228px; }
+    body.wmp-file #wmpHUD  { bottom:156px; }
 
     /* ── Progress bars (SONO + WMP) ── */
     #sonoProgress, #wmpProgress {
-      position:fixed; bottom:96px; left:0; right:0; height:32px;
-      display:none; align-items:center; gap:8px; padding:0 12px; z-index:9;
+      position:fixed; bottom:96px; left:0; right:0; height:56px;
+      display:none; flex-direction:column; justify-content:center; gap:3px;
+      padding:4px 12px; z-index:9;
     }
+    .prog-main-row { display:flex; align-items:center; gap:8px; }
     #sonoProgress { background:var(--ink); border-top:1px solid var(--dark); }
     #wmpProgress  { background:#0d0d0d; border-top:1px solid #1e1e1e; }
     body.sono-file #sonoProgress { display:flex; }
@@ -427,6 +456,11 @@
     .prog-track { flex:1; height:6px; background:rgba(255,255,255,.15); cursor:pointer; position:relative; border-radius:0; }
     .prog-fill  { height:100%; background:var(--paper); pointer-events:none; width:0%; }
     #wmpProgress .prog-fill { background:#00ff41; }
+    .vol-row { display:flex; align-items:center; gap:4px; margin-top:3px; }
+    .vol-lbl { color:var(--paper); font-size:8px; font-family:monospace; letter-spacing:.5px; }
+    #wmpProgress .vol-lbl { color:#00ff41; }
+    .vol-slider { flex:1; height:3px; accent-color:var(--paper); cursor:pointer; }
+    #wmpProgress .vol-slider { accent-color:#00ff41; }
 
     /* ── SONO preset buttons ── */
     .sono-presets { display:flex; gap:5px; margin-bottom:2px; }
@@ -621,6 +655,24 @@
   <div class="btn-icon">⟳</div>
 </button>
 
+<!-- Aspect ratio selector (camera/ascii) -->
+<div id="camAspect">
+  <button class="asp-btn" data-aw="9"  data-ah="16">9:16</button>
+  <button class="asp-btn" data-aw="3"  data-ah="4">3:4</button>
+  <button class="asp-btn active" data-aw="4" data-ah="3">4:3</button>
+  <button class="asp-btn" data-aw="16" data-ah="9">16:9</button>
+</div>
+
+<!-- Camera FPS control -->
+<div id="camFpsCtrl">
+  <div class="fps-toggle">
+    <label for="camFpsToggle">FPS</label>
+    <input type="checkbox" id="camFpsToggle" checked>
+    <span class="fps-val" id="camFpsVal">8</span>
+  </div>
+  <input type="range" id="camFpsSlider" min="1" max="30" value="8">
+</div>
+
 <div class="palettes" id="palettes">
   <button id="btnMode" title="Flipnote Legacy">STD</button>
 </div>
@@ -807,20 +859,32 @@
 
 <!-- SONO audio progress bar -->
 <div id="sonoProgress">
-  <span class="prog-time" id="sonoProgTime">0:00</span>
-  <div class="prog-track" id="sonoProgTrack">
-    <div class="prog-fill" id="sonoProgFill"></div>
+  <div class="prog-main-row">
+    <span class="prog-time" id="sonoProgTime">0:00</span>
+    <div class="prog-track" id="sonoProgTrack">
+      <div class="prog-fill" id="sonoProgFill"></div>
+    </div>
+    <span class="prog-time" id="sonoProgDur">0:00</span>
   </div>
-  <span class="prog-time" id="sonoProgDur">0:00</span>
+  <div class="vol-row">
+    <span class="vol-lbl">VOL</span>
+    <input type="range" class="vol-slider" id="sonoVolSlider" min="0" max="100" value="100">
+  </div>
 </div>
 
 <!-- WMP audio progress bar -->
 <div id="wmpProgress">
-  <span class="prog-time" id="wmpProgTime">0:00</span>
-  <div class="prog-track" id="wmpProgTrack">
-    <div class="prog-fill" id="wmpProgFill"></div>
+  <div class="prog-main-row">
+    <span class="prog-time" id="wmpProgTime">0:00</span>
+    <div class="prog-track" id="wmpProgTrack">
+      <div class="prog-fill" id="wmpProgFill"></div>
+    </div>
+    <span class="prog-time" id="wmpProgDur">0:00</span>
   </div>
-  <span class="prog-time" id="wmpProgDur">0:00</span>
+  <div class="vol-row">
+    <span class="vol-lbl">VOL</span>
+    <input type="range" class="vol-slider" id="wmpVolSlider" min="0" max="100" value="100">
+  </div>
 </div>
 
 <div id="fps"></div>
@@ -913,8 +977,8 @@ const BAYER8 = new Uint8Array([
 // ════════════════════════════════════════════════════════════════════
 // DIMENSIONS
 // ════════════════════════════════════════════════════════════════════
-const DSI_W = 256, DSI_H = 192, SCALE = 4;
-const OUT_W = DSI_W * SCALE, OUT_H = DSI_H * SCALE; // 1024×768
+let DSI_W = 256, DSI_H = 192; const SCALE = 4;
+let OUT_W = DSI_W * SCALE, OUT_H = DSI_H * SCALE; // 1024×768
 
 // ════════════════════════════════════════════════════════════════════
 // DOM
@@ -983,8 +1047,8 @@ function relayout() {
   }
   asciiCvs.style.width = aw + 'px'; asciiCvs.style.height = ah + 'px';
 
-  // SONO canvas: top:40px bottom:220px (124px HUD + 96px bar), or 256px with file progress
-  const avHS = window.innerHeight - 40 - (document.body.classList.contains('sono-file') ? 256 : 220);
+  // SONO canvas: top:40px bottom:220px (124px HUD + 96px bar), or 280px with file progress
+  const avHS = window.innerHeight - 40 - (document.body.classList.contains('sono-file') ? 280 : 220);
   let sw, sh;
   if (avW / avHS > aspect) { sh = avHS; sw = sh * aspect; }
   else                      { sw = avW;  sh = sw / aspect; }
@@ -992,7 +1056,7 @@ function relayout() {
   document.getElementById('sonoCanvas').style.height = sh + 'px';
   // WMP canvas fills its area completely (1024×576 internal)
   if (!wmpPseudoFull) {
-    const avHW = window.innerHeight - 40 - (document.body.classList.contains('wmp-file') ? 204 : 168);
+    const avHW = window.innerHeight - 40 - (document.body.classList.contains('wmp-file') ? 228 : 168);
     document.getElementById('wmpCanvas').style.width  = avW + 'px';
     document.getElementById('wmpCanvas').style.height = avHW + 'px';
   }
@@ -1003,12 +1067,14 @@ relayout();
 // ════════════════════════════════════════════════════════════════════
 // SCANLINES
 // ════════════════════════════════════════════════════════════════════
-(function() {
+function buildScanlines() {
+  ctxSc.clearRect(0, 0, scanCvs.width, scanCvs.height);
   ctxSc.fillStyle = 'rgba(0,0,0,0.65)';
   for (let y = 0; y < OUT_H; y += SCALE) ctxSc.fillRect(0, y, OUT_W, 1);
   ctxSc.fillStyle = 'rgba(0,0,0,0.20)';
   for (let y = 1; y < OUT_H; y += 2)    ctxSc.fillRect(0, y, OUT_W, 1);
-})();
+}
+buildScanlines();
 
 // ════════════════════════════════════════════════════════════════════
 // PALETTES UI
@@ -1035,7 +1101,7 @@ document.getElementById('btnMode').addEventListener('click', () => {
 // ════════════════════════════════════════════════════════════════════
 // CORE: dithering render
 // ════════════════════════════════════════════════════════════════════
-const lowBuf = new Uint8ClampedArray(DSI_W * DSI_H * 4);
+let lowBuf = new Uint8ClampedArray(DSI_W * DSI_H * 4);
 
 function cropCoords(srcW, srcH) {
   const vA = srcW / srcH, cA = DSI_W / DSI_H;
@@ -1296,16 +1362,76 @@ document.getElementById('btnFlip').addEventListener('click', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════
+// CAM FPS CONTROL
+// ════════════════════════════════════════════════════════════════════
+document.getElementById('camFpsSlider').addEventListener('input', e => {
+  camFpsTarget = parseInt(e.target.value);
+  document.getElementById('camFpsVal').textContent = camFpsTarget;
+});
+document.getElementById('camFpsToggle').addEventListener('change', e => {
+  camFpsEnabled = e.target.checked;
+});
+// Hide initially; switchTab will show them when in cam/ascii tabs
+document.getElementById('camFpsCtrl').style.display = 'flex'; // cam is default tab
+document.getElementById('camAspect').style.display  = 'flex';
+
+// ════════════════════════════════════════════════════════════════════
+// ASPECT RATIO SELECTOR
+// ════════════════════════════════════════════════════════════════════
+let camAspW = 4, camAspH = 3; // default 4:3
+
+function applyCamAspect(aw, ah) {
+  camAspW = aw; camAspH = ah;
+  // Fix h=192 for landscape/square, fix w=192 for portrait
+  let newW, newH;
+  if (aw >= ah) { // landscape or square: fix width at 256
+    newW = 256; newH = Math.max(64, (Math.round(256 * ah / aw) & ~1));
+  } else {         // portrait: fix height at 192
+    newH = 192; newW = Math.max(64, (Math.round(192 * aw / ah) & ~1));
+  }
+  // Update global let variables
+  DSI_W = newW; DSI_H = newH;
+  OUT_W = DSI_W * SCALE; OUT_H = DSI_H * SCALE;
+
+  small.width   = DSI_W; small.height   = DSI_H;
+  scanCvs.width = OUT_W; scanCvs.height = OUT_H;
+  display.width = OUT_W; display.height = OUT_H;
+  asciiCvs.width= OUT_W; asciiCvs.height= OUT_H;
+
+  lowBuf = new Uint8ClampedArray(DSI_W * DSI_H * 4);
+  ctxS.imageSmoothingEnabled = false;
+  ctxD.imageSmoothingEnabled = false;
+  buildScanlines();
+  relayout();
+
+  // Re-request camera with new aspect ratio
+  if (stream) startCamera(facingMode);
+}
+
+document.querySelectorAll('.asp-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.asp-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyCamAspect(parseInt(btn.dataset.aw), parseInt(btn.dataset.ah));
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════
 // RENDER LOOPS
 // ════════════════════════════════════════════════════════════════════
 let cameraRunning = false, asciiRunning = false;
 let lastFPSt = performance.now(), frames = 0;
 let asciiStaticSrc = null, asciiStaticW = 0, asciiStaticH = 0;
+let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 
 function cameraLoop(t) {
   if (!cameraRunning) return;
-  if (vid.videoWidth) renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
-  frames++;
+  const minInterval = camFpsEnabled ? 1000 / camFpsTarget : 0;
+  if (t - camLastFrameMs >= minInterval) {
+    if (vid.videoWidth) renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
+    camLastFrameMs = t;
+    frames++;
+  }
   if (t - lastFPSt >= 1000) { fpsEl.textContent = frames + ' fps'; frames = 0; lastFPSt = t; }
   requestAnimationFrame(cameraLoop);
 }
@@ -1354,6 +1480,8 @@ function switchTab(tab) {
   document.getElementById('barWmp'   ).classList.toggle('visible', isWmp);
   document.getElementById('wmpHUD'   ).classList.toggle('visible', isWmp);
   document.getElementById('btnFlip'  ).style.display = isCam  ? '' : 'none';
+  document.getElementById('camFpsCtrl').style.display = isCam ? 'flex' : 'none';
+  document.getElementById('camAspect').style.display  = (isCam || isAscii) ? 'flex' : 'none';
   document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp) ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
 
@@ -2345,6 +2473,14 @@ document.getElementById('sonoProgTrack').addEventListener('click', e => {
   sonoAudioEl.currentTime = (e.offsetX / e.currentTarget.clientWidth) * sonoAudioEl.duration;
 });
 
+// ── Volume sliders ─────────────────────────────────────────────────────
+document.getElementById('sonoVolSlider').addEventListener('input', e => {
+  sonoAudioEl.volume = e.target.value / 100;
+});
+document.getElementById('wmpVolSlider').addEventListener('input', e => {
+  if (wmpAudioEl) wmpAudioEl.volume = e.target.value / 100;
+});
+
 // ── WMP progress bar scrub ────────────────────────────────────────────
 document.getElementById('wmpProgTrack').addEventListener('click', e => {
   if (!wmpAudioEl.src || !wmpAudioEl.duration) return;
@@ -2493,9 +2629,10 @@ function wmpDrawFog(preset, mixT, preset2) {
   const g   = (fc1[1] + (fc2[1] - fc1[1]) * t) | 0;
   const b   = (fc1[2] + (fc2[2] - fc1[2]) * t) | 0;
   const gr  = ctxWmp.createRadialGradient(WW * 0.5, WH * 0.55, WH * 0.04, WW * 0.5, WH * 0.55, WW * 0.82);
-  gr.addColorStop(0,    `rgba(${r},${g},${b},0.22)`);
-  gr.addColorStop(0.45, `rgba(${r>>1},${g>>1},${b>>1},0.10)`);
-  gr.addColorStop(1,    `rgba(0,0,0,0)`);
+  gr.addColorStop(0,    `rgba(${r},${g},${b},0.45)`);
+  gr.addColorStop(0.35, `rgba(${r},${g},${b},0.22)`);
+  gr.addColorStop(0.65, `rgba(${r>>1},${g>>1},${b>>1},0.12)`);
+  gr.addColorStop(1,    `rgba(0,0,0,0.04)`);
   ctxWmp.fillStyle = gr;
   ctxWmp.fillRect(0, 0, WW, WH);
 }
@@ -3154,9 +3291,13 @@ function wmpLoop() {
       wmpDrawFog(wmpPreset, 0, wmpPreset);
     }
 
-    // Render all active morph slots layered
-    for (const slot of wmpRandSlots) {
-      renderMorphLayer(freqData, timeData, sens, trailsN, slot.from, slot.to, slot.blend);
+    // Render all active morph slots layered; fallback to current preset when idle
+    if (wmpRandSlots.length === 0) {
+      renderMorphLayer(freqData, timeData, sens, trailsN, wmpPreset, wmpPreset, 0);
+    } else {
+      for (const slot of wmpRandSlots) {
+        renderMorphLayer(freqData, timeData, sens, trailsN, slot.from, slot.to, slot.blend);
+      }
     }
 
     // Advance blends: louder audio = faster morphing
@@ -3218,7 +3359,9 @@ document.getElementById('btnWmpRandom').addEventListener('click', () => {
   document.getElementById('btnWmpRandom').classList.toggle('active', wmpRandom);
   if (wmpRandom) {
     wmpRandSlots = [];
-    wmpRandSpawnTimer = 1; // spawn first morph immediately
+    wmpRandGapFrames = WMP_RAND_MIN_GAP; // allow immediate spawn
+    wmpRandEnergy = 0;
+    _wmpRandSpawnSlot(); // spawn first morph right away
   }
 });
 document.getElementById('wmpSens').addEventListener('input', e => {

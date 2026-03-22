@@ -485,6 +485,41 @@
 
     /* ── Decorative border overlay — hidden after splash ── */
     #decoOverlay { display:none; }
+
+    /* ── Upload mode toggle ── */
+    .up-mode-row { display:flex; gap:8px; padding:8px 12px; justify-content:center; }
+    .up-mode-btn { background:none; border:2px solid var(--dark); color:var(--dark); font-family:monospace; font-size:10px; letter-spacing:2px; padding:4px 10px; cursor:pointer; }
+    .up-mode-btn.active { border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.1); }
+
+    @media (min-width:769px) {
+      #audioIOPanel {
+        position:fixed; top:48px; right:0; width:240px; height:auto;
+        background:var(--ink); border-left:2px solid var(--dark); border-bottom:2px solid var(--dark);
+        padding:12px; z-index:50; display:none; flex-direction:column; gap:8px;
+      }
+      #audioIOPanel.open { display:flex; }
+      #btnAudioIO {
+        position:fixed; top:48px; right:0; z-index:51;
+        background:var(--ink); border:none; border-left:2px solid var(--dark); border-bottom:2px solid var(--dark);
+        color:var(--dark); font-family:monospace; font-size:9px; letter-spacing:1px;
+        padding:4px 8px; cursor:pointer;
+      }
+      body.ext-audio #btnAudioIO { color:var(--paper); border-color:var(--paper); }
+      .audio-io-label { color:var(--mid); font-size:9px; font-family:monospace; letter-spacing:1px; margin-top:4px; }
+      .audio-io-select { width:100%; background:var(--ink); color:var(--paper); border:1px solid var(--dark); font-family:monospace; font-size:9px; padding:3px; }
+      #btnExtAudioToggle {
+        background:none; border:1px solid var(--dark); color:var(--dark);
+        font-family:monospace; font-size:9px; letter-spacing:1px; padding:4px 8px; cursor:pointer; margin-top:4px;
+      }
+      #btnExtAudioToggle.active { border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.1); }
+      #btnExtCapture {
+        position:fixed; bottom:104px; right:12px; z-index:50;
+        background:var(--paper); color:var(--ink); border:none;
+        font-family:monospace; font-size:11px; font-weight:bold; letter-spacing:1px;
+        padding:8px 12px; cursor:pointer; display:none;
+      }
+      body.ext-audio #btnExtCapture { display:block; }
+    }
   </style>
 </head>
 <body>
@@ -501,17 +536,7 @@
 <video id="asciiVid" playsinline loop muted style="display:none"></video>
 <audio id="wmpAudio"  style="display:none"></audio>
 <audio id="sonoAudio" style="display:none"></audio>
-<!-- File inputs in HTML so iOS Safari can trigger them via .click() -->
-<input type="file" id="sonoFileInputEl" accept="audio/*" tabindex="-1"
-       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
-<input type="file" id="wmpFileInputEl"  accept="audio/*" tabindex="-1"
-       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
-<input type="file" id="asciiFileInputEl" accept="image/*" tabindex="-1"
-       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
-<input type="file" id="fileInput" accept="image/*,video/*" tabindex="-1"
-       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
-<input type="file" id="asciiVideoInputEl" accept="video/*" tabindex="-1"
-       style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;">
+<!-- File inputs are now embedded directly inside their trigger buttons for iOS Safari compatibility -->
 <canvas id="small"   style="display:none"></canvas>
 <canvas id="scanCvs" style="display:none"></canvas>
 
@@ -690,11 +715,16 @@
 </div>
 
 <div id="uploadSection">
-  <div class="drop-zone" id="dropZone">
+  <div class="up-mode-row" id="upModeRow">
+    <button class="up-mode-btn active" id="btnUpFlip">FLIPNOTE</button>
+    <button class="up-mode-btn" id="btnUpAscii">ASCII</button>
+  </div>
+  <div class="drop-zone" id="dropZone" style="position:relative;">
     <span class="dz-icon">🎞</span>
     <p><strong>ARRASTRA UN ARCHIVO AQUÍ</strong>
        Foto o video · Cualquier duración<br>
        JPG · PNG · HEIC · MP4 · MOV · WEBM</p>
+    <input type="file" id="fileInputInDrop" accept="image/*,video/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
   </div>
   <div class="fps-row" id="fpsRow" style="display:none">
     <label>FPS</label>
@@ -727,13 +757,14 @@
 </div>
 
 <div id="barAscii">
-  <button class="btn" id="btnAsciiUpload">
+  <button class="btn" id="btnAsciiUpload" style="position:relative;overflow:hidden;">
     <div class="btn-icon">📂</div>
     <span class="btn-label">SUBIR</span>
+    <input type="file" id="asciiFileInputEl" accept="image/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
   </button>
-  <button class="btn" id="btnAsciiVideo">
-    <div class="btn-icon">🎬</div>
-    <span class="btn-label">VIDEO</span>
+  <button class="btn" id="btnAsciiMode">
+    <div class="btn-icon">📷</div>
+    <span class="btn-label">FOTO</span>
   </button>
   <button class="btn btn-center" id="btnAsciiCapture">
     <div class="btn-icon">●</div>
@@ -749,9 +780,10 @@
 </div>
 
 <div id="barUpload">
-  <button class="btn" id="btnChoose">
+  <button class="btn" id="btnChoose" style="position:relative;overflow:hidden;">
     <div class="btn-icon">📂</div>
     <span class="btn-label">ELEGIR</span>
+    <input type="file" id="fileInputInBtn" accept="image/*,video/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
   </button>
   <button class="btn btn-center" id="btnSaveResult" style="opacity:.4" disabled>
     <div class="btn-icon">💾</div>
@@ -801,9 +833,10 @@
   <button class="btn btn-center" id="btnSonoCapture">
     <div class="btn-icon">●</div>
   </button>
-  <button class="btn" id="btnSonoFile">
+  <button class="btn" id="btnSonoFile" style="position:relative;overflow:hidden;">
     <div class="btn-icon">📂</div>
     <span class="btn-label">FILE</span>
+    <input type="file" id="sonoFileInputEl" accept="audio/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
   </button>
   <button class="btn" id="btnSonoShare">
     <div class="btn-icon">↑</div>
@@ -825,7 +858,7 @@
   <p class="wmp-perm-title">ELIGE FUENTE DE AUDIO</p>
   <div class="wmp-src-row">
     <button class="wmp-src-btn" id="btnWmpMicPerm">🎙 MICRÓFONO</button>
-    <button class="wmp-src-btn" id="btnWmpFilePerm">📂 ARCHIVO</button>
+    <button class="wmp-src-btn" id="btnWmpFilePerm" style="position:relative;overflow:hidden;">📂 ARCHIVO<input type="file" id="wmpFileInputPerm" accept="audio/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;"></button>
   </div>
   <p id="wmpPermErr"></p>
 </div>
@@ -862,9 +895,10 @@
   <button class="btn btn-center" id="btnWmpPlayPause" disabled>
     <div class="btn-icon">▶</div>
   </button>
-  <button class="btn" id="btnWmpFileBar">
+  <button class="btn" id="btnWmpFileBar" style="position:relative;overflow:hidden;">
     <div class="btn-icon">📂</div>
     <span class="btn-label">FILE</span>
+    <input type="file" id="wmpFileInputBar" accept="audio/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
   </button>
   <button class="btn" id="btnWmpFull">
     <div class="btn-icon">⛶</div>
@@ -903,6 +937,21 @@
 </div>
 
 <div id="fps"></div>
+
+<!-- Desktop audio I/O panel (hidden on mobile) -->
+<button id="btnAudioIO" class="desktop-only">⚙ AUDIO</button>
+<div id="audioIOPanel" class="desktop-only">
+  <div class="audio-io-label">ENTRADA DE AUDIO</div>
+  <select class="audio-io-select" id="audioInSelect">
+    <option value="">-- seleccionar --</option>
+  </select>
+  <div class="audio-io-label">SALIDA DE AUDIO</div>
+  <select class="audio-io-select" id="audioOutSelect">
+    <option value="">-- seleccionar --</option>
+  </select>
+  <button id="btnExtAudioToggle">▶ ACTIVAR AUDIO EXTERNO</button>
+</div>
+<button id="btnExtCapture" class="desktop-only">⬛ CAPTURAR</button>
 
 <script>
 // ════════════════════════════════════════════════════════════════════
@@ -1445,7 +1494,14 @@ let cameraRunning = false, asciiRunning = false;
 let lastFPSt = performance.now(), frames = 0;
 let asciiStaticSrc = null, asciiStaticW = 0, asciiStaticH = 0;
 let asciiVideoEl = null;
+let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
+
+// External audio I/O state (desktop only) — declared early for use in analyzeAudio/wmpLoop
+let extAudioCtx  = null;
+let extAnalyser  = null;
+let extMicStream = null;
+let extAudioMode = false;
 
 function cameraLoop(t) {
   if (!cameraRunning) return;
@@ -1461,6 +1517,7 @@ function cameraLoop(t) {
 
 function asciiLoop() {
   if (!asciiRunning) return;
+  if (asciiUploading) { requestAnimationFrame(asciiLoop); return; }
   if (asciiVideoEl) {
     if (asciiVideoEl.videoWidth && !asciiVideoEl.paused)
       renderASCII(asciiVideoEl, asciiVideoEl.videoWidth, asciiVideoEl.videoHeight, false);
@@ -1634,7 +1691,6 @@ document.querySelectorAll('.fps-btn').forEach(btn => {
   });
 });
 
-const fileInput    = document.getElementById('fileInput');
 const dropZone     = document.getElementById('dropZone');
 const fpsRow       = document.getElementById('fpsRow');
 const progressWrap = document.getElementById('progressWrap');
@@ -1655,15 +1711,29 @@ function setUploadResultReady(blob,ext){
   btnShr.onclick =()=>_shareOrDownload(blob,fname);
 }
 
-function openFilePicker(){fileInput.click();}
-dropZone.addEventListener('click',openFilePicker);
-document.getElementById('btnChoose').addEventListener('click',openFilePicker);
+// File inputs are now inside buttons/dropzone for iOS Safari compatibility
+const fileInputInBtn  = document.getElementById('fileInputInBtn');
+const fileInputInDrop = document.getElementById('fileInputInDrop');
+fileInputInBtn.addEventListener('change',  e=>{if(e.target.files[0])handleFile(e.target.files[0]);e.target.value='';});
+fileInputInDrop.addEventListener('change', e=>{if(e.target.files[0])handleFile(e.target.files[0]);e.target.value='';});
+
+// ── Upload mode toggle (FLIPNOTE / ASCII) ─────────────────────────────
+let uploadMode = 'flip'; // 'flip' | 'ascii'
+document.getElementById('btnUpFlip').addEventListener('click', () => {
+  uploadMode = 'flip';
+  document.getElementById('btnUpFlip').classList.add('active');
+  document.getElementById('btnUpAscii').classList.remove('active');
+});
+document.getElementById('btnUpAscii').addEventListener('click', () => {
+  uploadMode = 'ascii';
+  document.getElementById('btnUpAscii').classList.add('active');
+  document.getElementById('btnUpFlip').classList.remove('active');
+});
 dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('dragover');});
 dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop',     e=>{e.preventDefault();dropZone.classList.remove('dragover');handleFile(e.dataTransfer.files[0]);});
-fileInput.addEventListener('change',  e=>{if(e.target.files[0])handleFile(e.target.files[0]);e.target.value='';});
 
-function handleFile(file){
+async function handleFile(file){
   if(!file)return;
   const isVideo=file.type.startsWith('video/'), isImage=file.type.startsWith('image/');
   if(!isVideo&&!isImage){alert('Formato no soportado.');return;}
@@ -1671,6 +1741,20 @@ function handleFile(file){
   showProgress(false);setProgress(0,'Procesando…');
   const btnSave=document.getElementById('btnSaveResult'),btnShr=document.getElementById('btnShareResult');
   btnSave.disabled=true;btnSave.style.opacity='.4';btnShr.disabled=true;btnShr.style.opacity='.4';
+  if(uploadMode==='ascii'&&isImage){
+    setProgress(10,'Procesando ASCII…');
+    const url=URL.createObjectURL(file);
+    let src;
+    try{src=await createImageBitmap(file);}catch(_){
+      src=await new Promise((res,rej)=>{const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url;});
+    }
+    URL.revokeObjectURL(url);
+    renderASCII(src,src.width||src.naturalWidth,src.height||src.naturalHeight,false);
+    ctxUP.drawImage(asciiCvs,0,0,upCanvas.width,upCanvas.height);
+    upCanvas.classList.add('visible');dropZone.style.display='none';
+    setProgress(100,'Listo');setUploadResultReady(await canvasToBlob(ctxUP),'png');
+    return;
+  }
   if(isImage)processImage(file);else processVideo(file);
 }
 
@@ -1745,14 +1829,19 @@ document.getElementById('btnAsciiShare').addEventListener('click', async () => {
 const asciiFileInput = document.getElementById('asciiFileInputEl');
 
 document.getElementById('btnAsciiUpload').addEventListener('click', () => {
-  // Stop camera rendering immediately and clear canvas before picker opens
   asciiStaticSrc = null; asciiStaticW = 0; asciiStaticH = 0;
+  if (asciiVideoEl) { asciiVideoEl.pause(); asciiVideoEl.removeAttribute('src'); asciiVideoEl = null; }
+  asciiUploading = true;
   ctxAscii.fillStyle = '#000';
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
-  asciiFileInput.click();
+  // Reset flag if picker is cancelled (window regains focus without file)
+  const onFocus = () => { setTimeout(() => { asciiUploading = false; }, 500); window.removeEventListener('focus', onFocus); };
+  window.addEventListener('focus', onFocus);
 });
 
 asciiFileInput.addEventListener('change', async e => {
+  asciiUploading = false;
+  window.removeEventListener('focus', () => {}); // cancel any pending focus handler
   const file = e.target.files[0]; if (!file) return;
   e.target.value = '';
   if (asciiVideoEl) { asciiVideoEl.pause(); asciiVideoEl.removeAttribute('src'); asciiVideoEl = null; }
@@ -1773,31 +1862,38 @@ asciiFileInput.addEventListener('change', async e => {
   renderASCII(source, w, h, false);
 });
 
-// ── ASCII VIDEO ───────────────────────────────────────────────────────
-const asciiVideoInput = document.getElementById('asciiVideoInputEl');
-const asciiVidEl      = document.getElementById('asciiVid');
+// ── ASCII FOTO/VIDEO MODE TOGGLE ──────────────────────────────────────
+let asciiCamMode = 'foto'; // 'foto' | 'video'
+let asciiRecorder = null, asciiRecChunks = [], asciiRecMime = '';
 
-document.getElementById('btnAsciiVideo').addEventListener('click', () => {
-  asciiVideoInput.click();
-});
-
-asciiVideoInput.addEventListener('change', async e => {
-  const file = e.target.files[0]; if (!file) return;
-  e.target.value = '';
-  // Clear static image
-  asciiStaticSrc = null; asciiStaticW = 0; asciiStaticH = 0;
-  // Clear canvas
-  ctxAscii.fillStyle = '#000'; ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
-  // Stop previous video if any
-  asciiVidEl.pause(); asciiVidEl.removeAttribute('src');
-  // Load new video
-  const url = URL.createObjectURL(file);
-  asciiVidEl.src = url;
-  asciiVidEl.loop = true;
-  asciiVidEl.muted = true;
-  asciiVideoEl = asciiVidEl;
-  await asciiVidEl.play().catch(() => {});
-  if (asciiRunning) requestAnimationFrame(asciiLoop);
+document.getElementById('btnAsciiMode').addEventListener('click', () => {
+  if (asciiCamMode === 'foto') {
+    asciiCamMode = 'video';
+    document.getElementById('btnAsciiMode').querySelector('.btn-icon').textContent = '🔴';
+    document.getElementById('btnAsciiMode').querySelector('.btn-label').textContent = 'REC';
+  } else if (asciiCamMode === 'video' && (!asciiRecorder || asciiRecorder.state === 'inactive')) {
+    // Start recording
+    const mimes = ['video/mp4','video/webm;codecs=vp9','video/webm'];
+    asciiRecMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+    asciiRecChunks = [];
+    const st = asciiCvs.captureStream(30);
+    asciiRecorder = new MediaRecorder(st, asciiRecMime ? { mimeType: asciiRecMime, videoBitsPerSecond: 6_000_000 } : {});
+    asciiRecorder.ondataavailable = e => { if (e.data.size) asciiRecChunks.push(e.data); };
+    asciiRecorder.onstop = async () => {
+      const ext = asciiRecMime.includes('mp4') ? 'mp4' : 'webm';
+      const blob = new Blob(asciiRecChunks, { type: asciiRecMime || 'video/webm' });
+      await _shareOrDownload(blob, 'ascii_' + Date.now() + '.' + ext);
+    };
+    asciiRecorder.start(200);
+    document.getElementById('btnAsciiMode').querySelector('.btn-icon').textContent = '⏹';
+    document.getElementById('btnAsciiMode').querySelector('.btn-label').textContent = 'STOP';
+  } else if (asciiCamMode === 'video' && asciiRecorder && asciiRecorder.state !== 'inactive') {
+    // Stop recording
+    asciiRecorder.stop();
+    asciiCamMode = 'foto';
+    document.getElementById('btnAsciiMode').querySelector('.btn-icon').textContent = '📷';
+    document.getElementById('btnAsciiMode').querySelector('.btn-label').textContent = 'FOTO';
+  }
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -1950,12 +2046,13 @@ function hslToRgb(h, s, l) {
 
 // ── Audio analysis ───────────────────────────────────────────────────
 function analyzeAudio() {
-  if (!sonoAnalyser) return { amp:0, pitchNorm:0.1, blowStr:0, bassE:0, midE:0, trebE:0, timeData:new Uint8Array(2048) };
-  const N = sonoAnalyser.frequencyBinCount;
+  const _sonoAn = (extAudioMode && extAnalyser) ? extAnalyser : sonoAnalyser;
+  if (!_sonoAn) return { amp:0, pitchNorm:0.1, blowStr:0, bassE:0, midE:0, trebE:0, timeData:new Uint8Array(2048) };
+  const N = _sonoAn.frequencyBinCount;
   const freqData = new Uint8Array(N);
-  sonoAnalyser.getByteFrequencyData(freqData);
-  const timeData = new Uint8Array(sonoAnalyser.fftSize);
-  sonoAnalyser.getByteTimeDomainData(timeData);
+  _sonoAn.getByteFrequencyData(freqData);
+  const timeData = new Uint8Array(_sonoAn.fftSize);
+  _sonoAn.getByteTimeDomainData(timeData);
 
   // RMS amplitude
   let rms = 0;
@@ -1966,8 +2063,9 @@ function analyzeAudio() {
   const amp = Math.sqrt(rms / timeData.length);
 
   // Frequency bands: bin width ≈ sampleRate/(2*N)
-  const sr = sonoAudioCtx.sampleRate;
-  const binW = sr / (sonoAnalyser.fftSize);
+  const _activeCtx = (extAudioMode && extAudioCtx) ? extAudioCtx : sonoAudioCtx;
+  const sr = _activeCtx ? _activeCtx.sampleRate : 44100;
+  const binW = sr / (_sonoAn.fftSize);
   const bassEnd = Math.max(1, Math.floor(250 / binW));
   const midEnd  = Math.max(bassEnd+1, Math.floor(2000 / binW));
   const trebEnd = Math.min(N-1, Math.max(midEnd+1, Math.floor(6000 / binW)));
@@ -2528,7 +2626,6 @@ sonoFileInput.addEventListener('change', e => {
   if (e.target.files[0]) sonoLoadFile(e.target.files[0]);
   e.target.value = '';
 });
-document.getElementById('btnSonoFile').addEventListener('click', () => sonoFileInput.click());
 
 // ── SONO progress bar scrub ───────────────────────────────────────────
 document.getElementById('sonoProgTrack').addEventListener('click', e => {
@@ -3303,12 +3400,13 @@ function renderMorphLayer(freqData, timeData, sens, trailsN, fromP, toP, t) {
 // ── Main loop ─────────────────────────────────────────────────────────
 function wmpLoop() {
   if (!wmpRunning) return;
-  if (!wmpAnalyser) { requestAnimationFrame(wmpLoop); return; }
-  const N = wmpAnalyser.frequencyBinCount;
+  const _wmpAn = (extAudioMode && extAnalyser) ? extAnalyser : wmpAnalyser;
+  if (!_wmpAn) { requestAnimationFrame(wmpLoop); return; }
+  const N = _wmpAn.frequencyBinCount;
   const freqData = new Uint8Array(N);
-  const timeData = new Uint8Array(wmpAnalyser.fftSize);
-  wmpAnalyser.getByteFrequencyData(freqData);
-  wmpAnalyser.getByteTimeDomainData(timeData);
+  const timeData = new Uint8Array(_wmpAn.fftSize);
+  _wmpAn.getByteFrequencyData(freqData);
+  _wmpAn.getByteTimeDomainData(timeData);
   const sens    = 0.4 + (wmpSensVal / 100) * 1.6;
   const trailsN = wmpTrailsVal / 100;
   wmpAlchemyAngle += 0.010; // global time — used by Fire, Ocean, Alchemy
@@ -3437,15 +3535,13 @@ document.getElementById('wmpTrails').addEventListener('input', e => {
 });
 
 // Source buttons
-const wmpFileInput = document.getElementById('wmpFileInputEl');
-wmpFileInput.addEventListener('change', e => {
-  if (e.target.files[0]) wmpLoadFile(e.target.files[0]);
-  e.target.value = '';
+const wmpFileInputPerm = document.getElementById('wmpFileInputPerm');
+const wmpFileInputBar  = document.getElementById('wmpFileInputBar');
+[wmpFileInputPerm, wmpFileInputBar].forEach(inp => {
+  inp.addEventListener('change', e => { if (e.target.files[0]) wmpLoadFile(e.target.files[0]); e.target.value = ''; });
 });
-document.getElementById('btnWmpMicPerm' ).addEventListener('click', wmpStartMic);
-document.getElementById('btnWmpFilePerm').addEventListener('click', () => wmpFileInput.click());
-document.getElementById('btnWmpMicBar'  ).addEventListener('click', wmpStartMic);
-document.getElementById('btnWmpFileBar' ).addEventListener('click', () => wmpFileInput.click());
+document.getElementById('btnWmpMicPerm').addEventListener('click', wmpStartMic);
+document.getElementById('btnWmpMicBar' ).addEventListener('click', wmpStartMic);
 
 // Play/pause for file source
 document.getElementById('btnWmpPlayPause').addEventListener('click', () => {
@@ -3508,6 +3604,98 @@ document.addEventListener('webkitfullscreenchange', () => {
   if (!document.webkitFullscreenElement) document.getElementById('btnWmpFull').textContent = '⛶ FULL';
   relayout();
 });
+
+// ════════════════════════════════════════════════════════════════════
+// EXTERNAL AUDIO I/O (desktop only)
+// ════════════════════════════════════════════════════════════════════
+
+async function enumerateAudioDevices() {
+  if (screen.width <= 768) return;
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true }).then(s => s.getTracks().forEach(t => t.stop()));
+  } catch(_) {}
+  const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  const inSel   = document.getElementById('audioInSelect');
+  const outSel  = document.getElementById('audioOutSelect');
+  inSel.innerHTML  = '<option value="">-- micrófono --</option>';
+  outSel.innerHTML = '<option value="">-- predeterminado --</option>';
+  devices.forEach(d => {
+    if (d.kind === 'audioinput') {
+      const opt = new Option(d.label || `Entrada ${d.deviceId.slice(0,6)}`, d.deviceId);
+      inSel.appendChild(opt);
+    } else if (d.kind === 'audiooutput') {
+      const opt = new Option(d.label || `Salida ${d.deviceId.slice(0,6)}`, d.deviceId);
+      outSel.appendChild(opt);
+    }
+  });
+}
+
+async function startExtAudio(deviceId) {
+  if (extMicStream) { extMicStream.getTracks().forEach(t => t.stop()); extMicStream = null; }
+  if (extAudioCtx)  { await extAudioCtx.close().catch(()=>{}); extAudioCtx = null; }
+  extAnalyser = null;
+
+  const constraints = { audio: deviceId ? { deviceId: { exact: deviceId } } : true, video: false };
+  extMicStream = await navigator.mediaDevices.getUserMedia(constraints);
+  extAudioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+  extAnalyser  = extAudioCtx.createAnalyser();
+  extAnalyser.fftSize = 2048;
+  extAnalyser.smoothingTimeConstant = 0.80;
+  extAudioCtx.createMediaStreamSource(extMicStream).connect(extAnalyser);
+
+  extAudioMode = true;
+  document.body.classList.add('ext-audio');
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  cameraRunning = false;
+  display.style.display = 'none';
+  document.getElementById('btnExtAudioToggle').textContent = '■ DESACTIVAR';
+  document.getElementById('btnExtAudioToggle').classList.add('active');
+}
+
+async function stopExtAudio() {
+  if (extMicStream) { extMicStream.getTracks().forEach(t => t.stop()); extMicStream = null; }
+  if (extAudioCtx)  { await extAudioCtx.close().catch(()=>{}); extAudioCtx = null; }
+  extAnalyser = null;
+  extAudioMode = false;
+  document.body.classList.remove('ext-audio');
+  document.getElementById('btnExtAudioToggle').textContent = '▶ ACTIVAR AUDIO EXTERNO';
+  document.getElementById('btnExtAudioToggle').classList.remove('active');
+  if (activeTab === 'cam') {
+    await startCamera(facingMode);
+    display.style.display = 'block';
+    cameraRunning = true;
+    requestAnimationFrame(cameraLoop);
+  }
+}
+
+if (screen.width > 768) {
+  const btnAudioIO = document.getElementById('btnAudioIO');
+  btnAudioIO.addEventListener('click', () => {
+    const panel = document.getElementById('audioIOPanel');
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) enumerateAudioDevices();
+  });
+
+  document.getElementById('btnExtAudioToggle').addEventListener('click', async () => {
+    if (extAudioMode) {
+      await stopExtAudio();
+    } else {
+      const deviceId = document.getElementById('audioInSelect').value;
+      await startExtAudio(deviceId).catch(err => alert('Error de audio: ' + err.message));
+    }
+  });
+
+  document.getElementById('btnExtCapture').addEventListener('click', async () => {
+    let cvs;
+    if (activeTab === 'cam') cvs = display;
+    else if (activeTab === 'ascii') cvs = asciiCvs;
+    else if (activeTab === 'sono') cvs = document.getElementById('sonoCanvas');
+    else if (activeTab === 'wmp')  cvs = document.getElementById('wmpCanvas');
+    else cvs = display;
+    flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+    await _shareOrDownload(await canvasToBlob(cvs.getContext('2d')), 'capture_' + Date.now() + '.png');
+  });
+}
 
 // ════════════════════════════════════════════════════════════════════
 // SERVICE WORKER

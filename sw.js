@@ -1,4 +1,4 @@
-const CACHE = 'flipnote-filter-v46';
+const CACHE = 'flipnote-filter-v47';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './fonts/Bloom-Regular.otf', './fonts/BNMonica.otf', './fonts/Fluidic-Regular.otf', './fonts/Canterbury.ttf'];
 

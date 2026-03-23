@@ -377,6 +377,15 @@
     #chaosRow .ac-lbl { color:#FFD43B; }
     #chaosRow input[type="range"] { accent-color:#FFD43B; }
     #chaosRow .ac-val { color:#3776AB; }
+    /* ── Pythonization mobile touch targets ── */
+    @media (max-width:900px) {
+      #pyControls .ac-row, #chaosRow { min-height:44px; align-items:center; }
+      #pyControls input[type="range"], #chaosRow input[type="range"] { height:44px; }
+      #pyControls input[type="range"]::-webkit-slider-thumb,
+      #chaosRow input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
+      #pyControls input[type="range"]::-moz-range-thumb,
+      #chaosRow input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+    }
 
     /* ══════════════════════════════════════════════════════
        SONO MODE — red theme
@@ -704,7 +713,7 @@
       <div class="ac-row">
         <span class="ac-lbl">Characters</span>
         <span class="ac-val" id="vChars">100</span>
-        <input type="range" id="acChars" min="1" max="500" value="100">
+        <input type="range" id="acChars" min="1" max="750" value="100">
         <button id="btnAsciiDefault" style="flex:0 0 auto;font-size:8px;padding:2px 5px;background:var(--ink);color:var(--mid);border:1px solid var(--dark);font-family:monospace;cursor:pointer;" title="Óptimo para este dispositivo">DEV</button>
       </div>
       <div class="ac-row" id="asciiPerfWarn" style="display:none;">
@@ -903,8 +912,20 @@
   </div>
   <canvas id="uploadCanvas" width="1024" height="768"></canvas>
 
+  <!-- Video player bar (shown when a video is loaded) -->
+  <div id="vidPlayerBar" style="display:none;align-items:center;justify-content:space-around;padding:6px 12px;gap:8px;border-top:1px solid var(--dark);background:var(--ink);">
+    <button id="btnVidPlayPause" style="background:none;border:1px solid var(--mid);color:var(--paper);font-family:monospace;font-size:16px;width:40px;height:40px;cursor:pointer;">▶</button>
+    <button id="btnVidBack"      style="background:none;border:1px solid var(--dark);color:var(--mid);font-family:monospace;font-size:11px;padding:8px 10px;cursor:pointer;">«5s</button>
+    <button id="btnVidFwd"       style="background:none;border:1px solid var(--dark);color:var(--mid);font-family:monospace;font-size:11px;padding:8px 10px;cursor:pointer;">5s»</button>
+    <button id="btnVidFrame"     style="background:var(--paper);border:none;color:var(--ink);font-family:monospace;font-size:11px;font-weight:bold;padding:8px 14px;cursor:pointer;letter-spacing:1px;">📷 FRAME</button>
+  </div>
+
   <!-- Upload edit panel -->
   <div id="upPanel">
+    <!-- MIX slider: 0=original image, 100=full processed effect -->
+    <div class="ac-section" style="padding:5px 12px 3px;">
+      <div class="ac-row"><span class="ac-lbl">MIX</span><span class="ac-val" id="upVMix">100%</span><input type="range" id="upAcMix" min="0" max="100" value="100"></div>
+    </div>
     <!-- Flipnote tabs (hidden in ASCII mode) -->
     <div id="upFlipTabs" style="display:flex;border-bottom:1px solid var(--dark);padding:6px 12px 0;gap:6px;">
       <button class="up-mode-btn active" id="upTabImg" style="flex:1;font-size:9px;padding:3px 0;">IMAGE</button>
@@ -913,6 +934,7 @@
     </div>
     <!-- Flipnote IMAGE tab -->
     <div id="upFlipImage" class="ac-section">
+      <div class="ac-row"><span class="ac-lbl">Palette Hue</span><span class="ac-val" id="upVPalHue">0°</span><input type="range" id="upAcPalHue" min="0" max="360" value="0"></div>
       <div class="ac-row"><span class="ac-lbl">Brightness</span><span class="ac-val" id="upVBright">100%</span><input type="range" id="upAcBright" min="0" max="200" value="100"></div>
       <div class="ac-row"><span class="ac-lbl">Contrast</span><span class="ac-val" id="upVContrast">100%</span><input type="range" id="upAcContrast" min="0" max="200" value="100"></div>
       <div class="ac-row"><span class="ac-lbl">Saturation</span><span class="ac-val" id="upVSat">100%</span><input type="range" id="upAcSat" min="0" max="200" value="100"></div>
@@ -935,7 +957,7 @@
     <div id="upAsciiSection" style="display:none;">
       <div class="ac-section">
         <div class="ac-title">Output</div>
-        <div class="ac-row"><span class="ac-lbl">Characters</span><span class="ac-val" id="upVChars">100</span><input type="range" id="upAcChars" min="1" max="500" value="100"></div>
+        <div class="ac-row"><span class="ac-lbl">Characters</span><span class="ac-val" id="upVChars">100</span><input type="range" id="upAcChars" min="1" max="750" value="100"></div>
         <div class="ac-row"><span class="ac-lbl">Gradient</span><select id="upAcGradient"><option value="normal">Normal</option><option value="reverse">Reverse</option><option value="block">Block</option><option value="minimal">Minimal</option></select></div>
         <div class="ac-row"><span class="ac-lbl">Space Density</span><span class="ac-val" id="upVSpace">1</span><input type="range" id="upAcSpace" min="1" max="10" value="1"></div>
         <div class="ac-row"><span class="ac-lbl">Quality</span><select id="upAcQuality"><option value="none">None</option><option value="smooth">Smooth</option><option value="sharp">Sharp</option></select></div>
@@ -979,6 +1001,8 @@
     <div class="sc-row"><span class="sc-lbl">NEON</span><span class="sc-val" id="vScrNeon">0</span><input type="range" id="scrNeon" min="0" max="100" value="0"></div>
     <div class="sc-row"><span class="sc-lbl">WAVE</span><span class="sc-val" id="vScrWave">0</span><input type="range" id="scrWave" min="0" max="30" value="0"></div>
     <div class="sc-row"><span class="sc-lbl">CRUSH</span><span class="sc-val" id="vScrCrush">0</span><input type="range" id="scrCrush" min="0" max="100" value="0"></div>
+    <div class="sc-row"><span class="sc-lbl">HUE</span><span class="sc-val" id="vScrHue">0</span><input type="range" id="scrHue" min="0" max="360" value="0"></div>
+    <div class="sc-row"><span class="sc-lbl">GRAIN</span><span class="sc-val" id="vScrGrain">0</span><input type="range" id="scrGrain" min="0" max="100" value="0"></div>
   </div>
   <div class="sc-row" style="gap:8px;margin-top:2px;">
     <button id="btnScrashAnimate">ANIMATE</button>
@@ -1313,6 +1337,8 @@ let upHighlightsVal= 0;    // -100 to 100
 let upDitherIntVal = 100;  // 0=threshold only, 100=full Bayer
 let upGrainVal     = 0;    // 0-100
 let upVignetteVal  = 0;    // 0-100
+let upPalHueVal    = 0;    // 0-360, rotates ink/paper palette colors
+let upMixVal       = 100;  // 0=original, 100=full processed effect
 let upFlipTab      = 'image'; // 'image' | 'effects'
 
 // Pythonization
@@ -1496,6 +1522,14 @@ function cropCoords(srcW, srcH) {
 }
 
 // Apply upload-panel color adjustments to r,g,b — used by renderDithered when applyEdits=true
+function _hueRotateRGB(r, g, b, deg) {
+  const rad = deg * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+  const nr = r*(0.213+cos*0.787-sin*0.213)+g*(0.213-cos*0.213+sin*0.143)+b*(0.213-cos*0.213-sin*0.787);
+  const ng = r*(0.715-cos*0.715-sin*0.715)+g*(0.715+cos*0.285+sin*0.140)+b*(0.715-cos*0.715+sin*0.715);
+  const nb = r*(0.072-cos*0.072+sin*0.928)+g*(0.072-cos*0.072-sin*0.283)+b*(0.072+cos*0.928+sin*0.072);
+  return [Math.max(0,Math.min(255,nr))|0, Math.max(0,Math.min(255,ng))|0, Math.max(0,Math.min(255,nb))|0];
+}
+
 function _applyEditAdj(r, g, b) {
   // Exposure (in 1/10 stops: ±30 → ±3 stops)
   if (upExposureVal !== 0) {
@@ -1562,7 +1596,11 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels, apply
 
   const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
   const p = PALETTES[activePal];
-  const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
+  let [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
+  if (applyEdits && upPalHueVal !== 0) {
+    [PR, PG, PB] = _hueRotateRGB(PR, PG, PB, upPalHueVal);
+    [IR, IG, IB] = _hueRotateRGB(IR, IG, IB, upPalHueVal);
+  }
 
   let minG = 255, maxG = 0;
   if (autoLevels) {
@@ -1584,7 +1622,7 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels, apply
         const raw  = (er*77 + eg*150 + eb*29) >> 8;
         const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
         const g    = Math.max(0, Math.min(255, gray + fsErr[idx]));
-        const isInk = g < 128;
+        const isInk = g < (applyEdits ? acThreshVal : 128);
         const e = g - (isInk ? 0 : 255);
         if (x + 1 < DSI_W)    fsErr[idx + 1]         += e * 7 / 16;
         if (y + 1 < DSI_H) {
@@ -1625,7 +1663,11 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels, apply
         const t = upDitherIntVal / 100;
         isInk = t < 0.5 ? hard : (Math.random() < t ? bayer : hard);
       } else {
-        isInk = gray < BAYER8[row8 + (x & 7)];
+        // Apply threshold offset to Bayer curve when applyEdits is on
+        const bt = (applyEdits && acThreshVal !== 128)
+          ? Math.max(0, Math.min(255, BAYER8[row8 + (x & 7)] + acThreshVal - 128))
+          : BAYER8[row8 + (x & 7)];
+        isInk = gray < bt;
       }
       lowBuf[i]=isInk?IR:PR; lowBuf[i+1]=isInk?IG:PG;
       lowBuf[i+2]=isInk?IB:PB; lowBuf[i+3]=255;
@@ -2237,7 +2279,7 @@ let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 const _isMobile      = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
 const IS_ANDROID     = /Android/i.test(navigator.userAgent);
-const ASCII_DEV_MAX  = IS_ANDROID ? 60 : (_isMobile ? 80 : 200);
+const ASCII_DEV_MAX  = IS_ANDROID ? 60 : 750;
 const ASCII_ANDROID_DEFAULT = 40;
 let asciiFrameSkip   = 0;
 let _asciiFpsHist    = [];
@@ -2378,13 +2420,14 @@ function switchTab(tab) {
   document.getElementById('btnFlip'  ).style.display = isCam  ? '' : 'none';
   document.getElementById('camFpsCtrl').style.display = isCam ? 'flex' : 'none';
   document.getElementById('camAspect').style.display  = (isCam || isAscii) ? 'flex' : 'none';
-  document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp) ? 'none' : '';
+  document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp || isScrash) ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
 
   // Themes
   document.body.classList.toggle('ascii-mode', isAscii);
   document.body.classList.toggle('sono-mode',  isSono);
 
+  if (!isUp && _vidPlayerActive) _stopVidPlayer();
   if (!isAscii) {
     asciiPanelOpen = false;
     document.body.classList.remove('ascii-edit');
@@ -2446,7 +2489,11 @@ function canvasToBlob(ctx) {
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('btnCapture').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  await _shareOrDownload(await canvasToBlob(ctxD), 'flipnote_' + Date.now() + '.png');
+  // Synchronously copy to temp canvas before async ops (prevents black photo on Android)
+  const _capTmp = document.createElement('canvas');
+  _capTmp.width = display.width; _capTmp.height = display.height;
+  _capTmp.getContext('2d').drawImage(display, 0, 0);
+  await _shareOrDownload(await new Promise(r => _capTmp.toBlob(r, 'image/png')), 'flipnote_' + Date.now() + '.png');
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -2611,6 +2658,7 @@ async function handleFile(file){
   const btnSave=document.getElementById('btnSaveResult'),btnShr=document.getElementById('btnShareResult');
   btnSave.disabled=true;btnSave.style.opacity='.4';btnShr.disabled=true;btnShr.style.opacity='.4';
   // Stop camera stream when a file is uploaded; it restarts on return to CAM tab
+  if (_vidPlayerActive) _stopVidPlayer();
   inputMode='file';
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;vid.srcObject=null;}
   cameraRunning=false; asciiRunning=false;
@@ -2643,7 +2691,7 @@ async function handleFile(file){
     setUploadResultReady(await canvasToBlob(ctxUP),'png');
     return;
   }
-  if(isImage)processImage(file);else processVideo(file);
+  if(isImage)processImage(file);else _loadVidPlayer(file);
 }
 
 async function processImage(file){
@@ -2698,6 +2746,82 @@ async function processVideo(file){
 }
 
 // ════════════════════════════════════════════════════════════════════
+// VIDEO PLAYER (SUBIR)
+// ════════════════════════════════════════════════════════════════════
+let _vidPlayerActive = false, _vidPreviewRafId = null, _vidPlayerUrl = null;
+let _vidPlayerW = 0, _vidPlayerH = 0;
+
+function _loadVidPlayer(file) {
+  const url = URL.createObjectURL(file);
+  _vidPlayerUrl = url;
+  uploadVid.src = url; uploadVid.muted = true; uploadVid.loop = true;
+  uploadVid.onloadedmetadata = () => {
+    _vidPlayerW = uploadVid.videoWidth; _vidPlayerH = uploadVid.videoHeight;
+    upCanvas.classList.add('visible'); dropZone.style.display = 'none';
+    document.getElementById('vidPlayerBar').style.display = 'flex';
+    document.getElementById('btnVidPlayPause').textContent = '▶';
+    showProgress(false); hideLoadOverlay();
+    _vidPlayerActive = true;
+    // Preview RAF loop
+    (function _vidPreview() {
+      if (!_vidPlayerActive) { _vidPreviewRafId = null; return; }
+      if (uploadVid.videoWidth && !uploadVid.paused) {
+        if (uploadMode === 'ascii') {
+          renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false);
+          ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
+        } else if (uploadMode === 'scrash') {
+          renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true);
+          _applyScrash(ctxUP, ctxUP, upCanvas.width, upCanvas.height, 0);
+        } else {
+          renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true);
+        }
+        _applyMixBlend();
+      }
+      _vidPreviewRafId = requestAnimationFrame(_vidPreview);
+    })();
+  };
+}
+
+function _stopVidPlayer() {
+  _vidPlayerActive = false;
+  if (_vidPreviewRafId) { cancelAnimationFrame(_vidPreviewRafId); _vidPreviewRafId = null; }
+  uploadVid.pause(); uploadVid.src = '';
+  document.getElementById('vidPlayerBar').style.display = 'none';
+  if (_vidPlayerUrl) { URL.revokeObjectURL(_vidPlayerUrl); _vidPlayerUrl = null; }
+}
+
+document.getElementById('btnVidPlayPause').addEventListener('click', () => {
+  const btn = document.getElementById('btnVidPlayPause');
+  if (uploadVid.paused) { uploadVid.play(); btn.textContent = '⏸'; }
+  else { uploadVid.pause(); btn.textContent = '▶'; }
+});
+document.getElementById('btnVidBack').addEventListener('click', () => {
+  uploadVid.currentTime = Math.max(0, uploadVid.currentTime - 5);
+});
+document.getElementById('btnVidFwd').addEventListener('click', () => {
+  uploadVid.currentTime = Math.min(uploadVid.duration || 0, uploadVid.currentTime + 5);
+});
+document.getElementById('btnVidFrame').addEventListener('click', async () => {
+  // Capture current frame into edit flow
+  uploadVid.pause(); document.getElementById('btnVidPlayPause').textContent = '▶';
+  if (!uploadVid.videoWidth) return;
+  if (uploadMode === 'ascii') {
+    renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false);
+    ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
+  } else if (uploadMode === 'scrash') {
+    renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true);
+    _applyScrash(ctxUP, ctxUP, upCanvas.width, upCanvas.height, 0);
+  } else {
+    renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true);
+  }
+  _applyMixBlend();
+  lastUploadSrc = uploadVid; lastUploadSrcW = _vidPlayerW; lastUploadSrcH = _vidPlayerH; lastUploadIsAscii = false;
+  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+  const blob = await canvasToBlob(ctxUP);
+  setUploadResultReady(blob, 'png');
+});
+
+// ════════════════════════════════════════════════════════════════════
 // START (splash — click anywhere)
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('splash').addEventListener('click', async () => {
@@ -2719,7 +2843,10 @@ document.getElementById('btnSplashSub').addEventListener('click', e => {
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('btnAsciiCapture').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_' + Date.now() + '.png');
+  const _capTmp = document.createElement('canvas');
+  _capTmp.width = asciiCvs.width; _capTmp.height = asciiCvs.height;
+  _capTmp.getContext('2d').drawImage(asciiCvs, 0, 0);
+  await _shareOrDownload(await new Promise(r => _capTmp.toBlob(r, 'image/png')), 'ascii_' + Date.now() + '.png');
 });
 document.getElementById('btnAsciiShare').addEventListener('click', async () => {
   await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_' + Date.now() + '.png');
@@ -2730,18 +2857,36 @@ document.getElementById('btnAsciiShare').addEventListener('click', async () => {
 // ════════════════════════════════════════════════════════════════════
 let lastUploadSrc = null, lastUploadSrcW = 0, lastUploadSrcH = 0, lastUploadIsAscii = false;
 
+function _applyMixBlend() {
+  if (upMixVal >= 100 || !lastUploadSrc) return;
+  // Save processed result
+  const tmp = document.createElement('canvas');
+  tmp.width = upCanvas.width; tmp.height = upCanvas.height;
+  tmp.getContext('2d').drawImage(upCanvas, 0, 0);
+  // Draw original source underneath
+  const [sx, sy, sw, sh] = cropCoords(lastUploadSrcW, lastUploadSrcH);
+  ctxUP.drawImage(lastUploadSrc, sx, sy, sw, sh, 0, 0, upCanvas.width, upCanvas.height);
+  // Blend processed on top
+  ctxUP.globalAlpha = upMixVal / 100;
+  ctxUP.drawImage(tmp, 0, 0);
+  ctxUP.globalAlpha = 1;
+}
+
 function renderUploadPreview() {
   if (!lastUploadSrc) return;
   if (lastUploadIsAscii || uploadMode === 'ascii') {
     renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false);
     ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
+    _applyMixBlend();
     canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
   } else if (uploadMode === 'scrash') {
     renderDithered(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, ctxUP, false, true, true);
     _applyScrash(ctxUP, ctxUP, upCanvas.width, upCanvas.height, 0);
+    _applyMixBlend();
     canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
   } else {
     renderDithered(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, ctxUP, false, true, true);
+    _applyMixBlend();
     canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
   }
 }
@@ -2781,6 +2926,10 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
       renderUploadPreview();
     });
   }
+
+  // ── MIX and Palette HUE (common) ─────────────────────────────────
+  upSlider('upAcMix',      'upVMix',      v=>{upMixVal=v;},       v=>Math.round(v)+'%');
+  upSlider('upAcPalHue',   'upVPalHue',   v=>{upPalHueVal=v;},    v=>Math.round(v)+'°');
 
   // ── Flipnote IMAGE tab ────────────────────────────────────────────
   upSlider('upAcBright',   'upVBright',   v=>{acBrightVal=v;},    v=>Math.round(v)+'%');
@@ -2874,6 +3023,12 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
     acSharpOn=false;acSharpVal=9;acEdgeOn=false;acEdgeVal=10;
     acGradientVal='normal';acSpaceVal=1;acFrameVal=0;acQualityVal='none';asciiCols=100;
     upExposureVal=0;upShadowsVal=0;upHighlightsVal=0;upDitherIntVal=100;upGrainVal=0;upVignetteVal=0;
+    upPalHueVal=0;upMixVal=100;
+    // Reset MIX and Palette HUE
+    const mixEl=document.getElementById('upAcMix');if(mixEl)mixEl.value=100;
+    const vMix=document.getElementById('upVMix');if(vMix)vMix.textContent='100%';
+    const phEl=document.getElementById('upAcPalHue');if(phEl)phEl.value=0;
+    const vph=document.getElementById('upVPalHue');if(vph)vph.textContent='0°';
     // Reset Flipnote IMAGE sliders
     ['upAcBright','upAcContrast','upAcSat'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=100;});
     ['upVBright','upVContrast','upVSat'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='100%';});
@@ -3627,7 +3782,7 @@ document.getElementById('btnAsciiDefault').addEventListener('click', () => {
   asciiCols = IS_ANDROID ? ASCII_ANDROID_DEFAULT : ASCII_DEV_MAX;
   const sl = document.getElementById('acChars');
   const vl = document.getElementById('vChars');
-  if (sl) { sl.value = asciiCols; sl.max = IS_ANDROID ? ASCII_DEV_MAX : ASCII_DEV_MAX * 2; }
+  if (sl) { sl.value = asciiCols; sl.max = ASCII_DEV_MAX; }
   if (vl) vl.textContent = asciiCols;
   document.getElementById('asciiPerfWarn').style.display = 'none';
   _asciiFpsHist = [];
@@ -3646,9 +3801,11 @@ if (IS_ANDROID) {
   asciiCols = ASCII_ANDROID_DEFAULT;
   document.getElementById('androidRow').style.display = 'flex';
 } else if (_isMobile) {
-  // Other mobile: softer limit
+  // Mobile non-Android: allow up to ASCII_DEV_MAX (750)
   const sl = document.getElementById('acChars');
   if (sl) sl.max = ASCII_DEV_MAX;
+  const slUp = document.getElementById('upAcChars');
+  if (slUp) slUp.max = ASCII_DEV_MAX;
 }
 
 // High-perf toggle (Android only)
@@ -3658,7 +3815,7 @@ document.getElementById('btnHighPerf').addEventListener('click', () => {
   _asciiAndroidLastT = 0; // reset timestamp so next frame renders immediately
   if (asciiHighPerf) {
     const sl = document.getElementById('acChars');
-    if (sl) sl.max = 200; // unlock slider max
+    if (sl) sl.max = ASCII_DEV_MAX; // unlock slider max
   } else {
     const sl = document.getElementById('acChars');
     if (sl) { sl.max = ASCII_DEV_MAX; sl.value = Math.min(asciiCols, ASCII_DEV_MAX); }
@@ -5019,6 +5176,7 @@ async function stopExtAudio() {
 // SCRASH — glitch art camera
 // ════════════════════════════════════════════════════════════════════
 let scrChromaVal = 0, scrDripVal = 0, scrNeonVal = 0, scrWaveVal = 0, scrCrushVal = 0;
+let scrHueVal = 0, scrGrainVal = 0;
 let scrAnimateOn = false, scrSpeedVal = 5;
 let scrashRunning = false;
 let _scrRafId = null, _scrStartT = null;
@@ -5064,6 +5222,8 @@ let _ctxScrTmp;
   _scrSlider('scrNeon',   'vScrNeon',   v => { scrNeonVal = v; });
   _scrSlider('scrWave',   'vScrWave',   v => { scrWaveVal = v; });
   _scrSlider('scrCrush',  'vScrCrush',  v => { scrCrushVal = v; });
+  _scrSlider('scrHue',    'vScrHue',    v => { scrHueVal = v; });
+  _scrSlider('scrGrain',  'vScrGrain',  v => { scrGrainVal = v; });
   _scrSlider('scrSpeed',  'vScrSpeed',  v => { scrSpeedVal = v; });
 
   // Animate toggle
@@ -5079,21 +5239,28 @@ let _ctxScrTmp;
   // Snap
   document.getElementById('btnScrashSnap').addEventListener('click', async () => {
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    await _shareOrDownload(await canvasToBlob(ctxScrash), 'scrash_' + Date.now() + '.png');
+    const _st = document.createElement('canvas');
+    _st.width = scrashCvs.width; _st.height = scrashCvs.height;
+    _st.getContext('2d').drawImage(scrashCvs, 0, 0);
+    await _shareOrDownload(await new Promise(r => _st.toBlob(r, 'image/png')), 'scrash_' + Date.now() + '.png');
   });
 
   // Share
   document.getElementById('btnScrashShare').addEventListener('click', async () => {
-    await _shareOrDownload(await canvasToBlob(ctxScrash), 'scrash_' + Date.now() + '.png');
+    const _st = document.createElement('canvas');
+    _st.width = scrashCvs.width; _st.height = scrashCvs.height;
+    _st.getContext('2d').drawImage(scrashCvs, 0, 0);
+    await _shareOrDownload(await new Promise(r => _st.toBlob(r, 'image/png')), 'scrash_' + Date.now() + '.png');
   });
 
   // Reset
   document.getElementById('btnScrashReset').addEventListener('click', () => {
     scrChromaVal = 0; scrDripVal = 0; scrNeonVal = 0; scrWaveVal = 0; scrCrushVal = 0;
-    ['scrChroma','scrDrip','scrNeon','scrWave','scrCrush'].forEach(id => {
+    scrHueVal = 0; scrGrainVal = 0;
+    ['scrChroma','scrDrip','scrNeon','scrWave','scrCrush','scrHue','scrGrain'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = 0;
     });
-    ['vScrChroma','vScrDrip','vScrNeon','vScrWave','vScrCrush'].forEach(id => {
+    ['vScrChroma','vScrDrip','vScrNeon','vScrWave','vScrCrush','vScrHue','vScrGrain'].forEach(id => {
       const el = document.getElementById(id); if (el) el.textContent = '0';
     });
     if (uploadMode === 'scrash' && lastUploadSrc) renderUploadPreview();
@@ -5154,6 +5321,22 @@ function _applyScrash(srcCtx, dstCtx, w, h, t) {
           g = (g + (119 - g) * neonT) | 0;
           b = (b * (1 - neonT)) | 0;
         }
+      }
+
+      // HUE rotation
+      if (scrHueVal !== 0) {
+        const hrad = scrHueVal * Math.PI / 180, hcos = Math.cos(hrad), hsin = Math.sin(hrad);
+        const hr = r*(0.213+hcos*0.787-hsin*0.213)+g*(0.213-hcos*0.213+hsin*0.143)+b*(0.213-hcos*0.213-hsin*0.787);
+        const hg = r*(0.715-hcos*0.715-hsin*0.715)+g*(0.715+hcos*0.285+hsin*0.140)+b*(0.715-hcos*0.715+hsin*0.715);
+        const hb = r*(0.072-hcos*0.072+hsin*0.928)+g*(0.072-hcos*0.072-hsin*0.283)+b*(0.072+hcos*0.928+hsin*0.072);
+        r=Math.max(0,Math.min(255,hr))|0; g=Math.max(0,Math.min(255,hg))|0; b=Math.max(0,Math.min(255,hb))|0;
+      }
+      // GRAIN: luminance noise
+      if (scrGrainVal > 0) {
+        const noise = ((Math.random()-0.5)*scrGrainVal*2)|0;
+        r=Math.max(0,Math.min(255,r+noise));
+        g=Math.max(0,Math.min(255,g+noise));
+        b=Math.max(0,Math.min(255,b+noise));
       }
 
       const oi = (y * w + x) * 4;

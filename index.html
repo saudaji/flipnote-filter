@@ -238,23 +238,33 @@
     }
 
     /* ── Library section ── */
-    #libSection {
-      display:none; position:fixed; top:40px; bottom:0; left:0; right:0;
-      overflow-y:auto; padding:12px; background:var(--ink);
-      -webkit-overflow-scrolling:touch;
+    /* ── SCRASH — glitch art camera ── */
+    #scrashArea {
+      display:none; position:fixed; top:40px; bottom:96px; left:0; right:0;
+      align-items:center; justify-content:center; background:#000;
     }
-    #libSection.visible { display:block; }
-    #libHeader { color:var(--mid); font-size:10px; letter-spacing:2px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
-    #libEmpty { color:var(--dark); font-size:11px; text-align:center; margin-top:40px; font-family:monospace; }
-    #libGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
-    .lib-card { background:var(--ink); border:1px solid var(--dark); overflow:hidden; }
-    .lib-card img { width:100%; display:block; image-rendering:pixelated; }
-    .lib-card-meta { padding:4px 6px; color:var(--mid); font-size:8px; font-family:monospace; line-height:1.4; border-top:1px solid var(--dark); }
-    .lib-card-actions { display:flex; border-top:1px solid var(--dark); }
-    .lib-card-actions button { flex:1; background:none; border:none; border-right:1px solid var(--dark); color:var(--mid); font-size:10px; padding:6px 0; cursor:pointer; font-family:monospace; }
-    .lib-card-actions button:last-child { border-right:none; }
-    .lib-card-actions button:active { background:var(--dark); }
-    #libStorageWarn { color:#ff8844; font-size:9px; font-family:monospace; margin-top:8px; display:none; }
+    #scrashArea.visible { display:flex; }
+    body.scrash-hud-open #scrashArea { bottom:216px; }
+    #scrashCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
+    #scrashControls {
+      display:none; position:fixed; bottom:96px; left:0; right:0; height:120px;
+      background:#050010; border-top:1px solid #cc00ff; padding:6px 12px;
+      flex-direction:column; gap:3px; z-index:9; overflow:hidden;
+    }
+    #scrashControls.visible { display:flex; }
+    #scrashControlsGrid { display:grid; grid-template-columns:1fr 1fr; gap:3px 10px; flex:1; }
+    .sc-row { display:flex; align-items:center; gap:4px; }
+    .sc-lbl { color:#cc00ff; font-family:monospace; font-size:9px; letter-spacing:1px; min-width:44px; flex-shrink:0; }
+    .sc-val { color:#00ff41; font-family:monospace; font-size:9px; min-width:18px; text-align:right; flex-shrink:0; }
+    .sc-row input[type="range"] { flex:1; height:3px; accent-color:#cc00ff; cursor:pointer; }
+    #btnScrashAnimate { background:none; border:1px solid #cc00ff; color:#cc00ff; font-family:monospace; font-size:9px; letter-spacing:1px; padding:3px 8px; cursor:pointer; flex-shrink:0; white-space:nowrap; }
+    #btnScrashAnimate.active { background:#cc00ff; color:#000; }
+    #barScrash {
+      display:none; position:fixed; bottom:0; left:0; right:0;
+      height:96px; background:#050008; border-top:2px solid #cc00ff;
+      align-items:center; justify-content:space-around; padding:0 20px; z-index:10;
+    }
+    #barScrash.visible { display:flex; }
 
     /* ── Upload section ── */
     #uploadSection {
@@ -595,10 +605,10 @@
     }
     /* ── Global loading overlay ── */
     #loadOverlay {
-      display:none; position:fixed; inset:0; background:rgba(0,0,0,.88);
+      display:none; pointer-events:none; position:fixed; inset:0; background:rgba(0,0,0,.88);
       z-index:300; flex-direction:column; align-items:center; justify-content:center; gap:12px;
     }
-    #loadOverlay.visible { display:flex; }
+    #loadOverlay.visible { display:flex; pointer-events:auto; }
     #loadFileName { color:var(--paper); font-family:monospace; font-size:11px; letter-spacing:1px;
       max-width:80vw; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #loadBarBg { width:260px; height:8px; background:rgba(255,255,255,.15); }
@@ -654,7 +664,7 @@
   <button class="tab"        id="tabAscii">🔤 ASCII</button>
   <button class="tab"        id="tabSono" >🔊 SONO</button>
   <button class="tab"        id="tabWmp"  >📺 WMP</button>
-  <button class="tab"        id="tabLib"  >📚 LIB</button>
+  <button class="tab"        id="tabScrash">⚡ GLITCH</button>
 </div>
 
 <canvas id="display"></canvas>
@@ -866,6 +876,7 @@
   <div class="up-mode-row" id="upModeRow">
     <button class="up-mode-btn active" id="btnUpFlip">FLIPNOTE</button>
     <button class="up-mode-btn" id="btnUpAscii">ASCII</button>
+    <button class="up-mode-btn" id="btnUpScrash">SCRASH</button>
   </div>
   <div class="drop-zone" id="dropZone" style="position:relative;">
     <span class="dz-icon">🎞</span>
@@ -955,15 +966,26 @@
   </div>
 </div>
 
-<!-- Library section -->
-<div id="libSection">
-  <div id="libHeader">
-    <span>BIBLIOTECA</span>
-    <button id="btnLibClear" style="background:none;border:1px solid #ff4444;color:#ff4444;font-family:monospace;font-size:8px;padding:2px 6px;cursor:pointer;">BORRAR TODO</button>
+<!-- SCRASH — glitch art camera section -->
+<div id="scrashArea">
+  <canvas id="scrashCanvas"></canvas>
+</div>
+
+<!-- SCRASH controls HUD (also used by SUBIR scrash mode) -->
+<div id="scrashControls">
+  <div id="scrashControlsGrid">
+    <div class="sc-row"><span class="sc-lbl">CHROMA</span><span class="sc-val" id="vScrChroma">0</span><input type="range" id="scrChroma" min="0" max="50" value="0"></div>
+    <div class="sc-row"><span class="sc-lbl">DRIP</span><span class="sc-val" id="vScrDrip">0</span><input type="range" id="scrDrip" min="0" max="100" value="0"></div>
+    <div class="sc-row"><span class="sc-lbl">NEON</span><span class="sc-val" id="vScrNeon">0</span><input type="range" id="scrNeon" min="0" max="100" value="0"></div>
+    <div class="sc-row"><span class="sc-lbl">WAVE</span><span class="sc-val" id="vScrWave">0</span><input type="range" id="scrWave" min="0" max="30" value="0"></div>
+    <div class="sc-row"><span class="sc-lbl">CRUSH</span><span class="sc-val" id="vScrCrush">0</span><input type="range" id="scrCrush" min="0" max="100" value="0"></div>
   </div>
-  <div id="libEmpty">No hay capturas guardadas.<br>Las fotos y videos generados aparecen aquí.</div>
-  <div id="libStorageWarn">⚠ Almacenamiento casi lleno — borra entradas antiguas</div>
-  <div id="libGrid"></div>
+  <div class="sc-row" style="gap:8px;margin-top:2px;">
+    <button id="btnScrashAnimate">ANIMATE</button>
+    <span class="sc-lbl" style="min-width:36px;">SPEED</span>
+    <span class="sc-val" id="vScrSpeed">5</span>
+    <input type="range" id="scrSpeed" min="1" max="20" value="5" style="flex:1;height:3px;accent-color:#ff7700;cursor:pointer;">
+  </div>
 </div>
 
 <div class="bar" id="barCam">
@@ -991,6 +1013,10 @@
   <button class="btn" id="btnAsciiShare">
     <div class="btn-icon">↑</div>
     <span class="btn-label">SHARE</span>
+  </button>
+  <button class="btn" id="btnAsciiGlitch">
+    <div class="btn-icon">⚡</div>
+    <span class="btn-label">GLITCH</span>
   </button>
   <button class="btn" id="btnAsciiEdit">
     <div class="btn-icon">⚙</div>
@@ -1133,6 +1159,21 @@
   <button class="btn" id="btnWmpFull">
     <div class="btn-icon">⛶</div>
     <span class="btn-label">FULL</span>
+  </button>
+</div>
+
+<!-- SCRASH bottom bar -->
+<div id="barScrash">
+  <button class="btn" id="btnScrashSnap">
+    <div class="btn-icon">●</div>
+    <span class="btn-label">SNAP</span>
+  </button>
+  <button class="btn btn-center" id="btnScrashShare">
+    <div class="btn-icon">↑</div>
+  </button>
+  <button class="btn" id="btnScrashReset">
+    <div class="btn-icon">✕</div>
+    <span class="btn-label">RESET</span>
   </button>
 </div>
 
@@ -2313,17 +2354,19 @@ function switchTab(tab) {
   document.getElementById('tabAscii').classList.toggle('active', tab==='ascii');
   document.getElementById('tabSono' ).classList.toggle('active', tab==='sono');
   document.getElementById('tabWmp'  ).classList.toggle('active', tab==='wmp');
-  document.getElementById('tabLib'  ).classList.toggle('active', tab==='lib');
+  document.getElementById('tabScrash').classList.toggle('active', tab==='scrash');
 
   const isCam = tab==='cam', isUp = tab==='up', isAscii = tab==='ascii';
-  const isSono = tab==='sono', isWmp = tab==='wmp', isLib = tab==='lib';
+  const isSono = tab==='sono', isWmp = tab==='wmp', isScrash = tab==='scrash';
   display.style.display = isCam ? 'block' : 'none';
   asciiArea.classList.toggle('visible', isAscii);
   document.getElementById('sonoArea').classList.toggle('visible', isSono);
   document.getElementById('wmpArea' ).classList.toggle('visible', isWmp);
+  document.getElementById('scrashArea').classList.toggle('visible', isScrash);
   document.getElementById('uploadSection').classList.toggle('visible', isUp);
-  document.getElementById('libSection').classList.toggle('visible', isLib);
-  if (isLib) libRender();
+  const _scrashCtrlsOn = isScrash || (isUp && uploadMode === 'scrash');
+  document.getElementById('scrashControls').classList.toggle('visible', _scrashCtrlsOn);
+  document.body.classList.toggle('scrash-hud-open', _scrashCtrlsOn);
   document.getElementById('barCam'   ).style.display = isCam  ? '' : 'none';
   document.getElementById('barUpload').classList.toggle('visible', isUp);
   document.getElementById('barAscii' ).classList.toggle('visible', isAscii);
@@ -2331,6 +2374,7 @@ function switchTab(tab) {
   document.getElementById('sonoHUD'  ).classList.toggle('visible', isSono);
   document.getElementById('barWmp'   ).classList.toggle('visible', isWmp);
   document.getElementById('wmpHUD'   ).classList.toggle('visible', isWmp);
+  document.getElementById('barScrash').classList.toggle('visible', isScrash);
   document.getElementById('btnFlip'  ).style.display = isCam  ? '' : 'none';
   document.getElementById('camFpsCtrl').style.display = isCam ? 'flex' : 'none';
   document.getElementById('camAspect').style.display  = (isCam || isAscii) ? 'flex' : 'none';
@@ -2350,11 +2394,13 @@ function switchTab(tab) {
   if (isSono)  enterSono();
   if (!isWmp)  wmpPauseLoop(); // pause render; keep audio context alive
   if (isWmp)   enterWmp();
+  if (!isScrash) exitScrash();
+  if (isScrash)  enterScrash();
 
   cameraRunning = isCam; asciiRunning = isAscii;
   // Restart camera if it was stopped by a file upload
-  if (isCam || isAscii) inputMode = 'camera';
-  if ((isCam || isAscii) && !stream && !extAudioMode) startCamera(facingMode).catch(()=>{});
+  if (isCam || isAscii || isScrash) inputMode = 'camera';
+  if ((isCam || isAscii || isScrash) && !stream && !extAudioMode) startCamera(facingMode).catch(()=>{});
   if (isCam   && (stream || (extAudioMode && extAnalyser))) requestAnimationFrame(cameraLoop);
   if (isAscii && (stream || (extAudioMode && extAnalyser) || asciiStaticSrc)) requestAnimationFrame(asciiLoop);
 }
@@ -2364,7 +2410,7 @@ document.getElementById('tabUp'   ).addEventListener('click', () => switchTab('u
 document.getElementById('tabAscii').addEventListener('click', () => switchTab('ascii'));
 document.getElementById('tabSono' ).addEventListener('click', () => switchTab('sono'));
 document.getElementById('tabWmp'  ).addEventListener('click', () => switchTab('wmp'));
-document.getElementById('tabLib'  ).addEventListener('click', () => switchTab('lib'));
+document.getElementById('tabScrash').addEventListener('click', () => switchTab('scrash'));
 
 // ASCII EDIT panel toggle
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {
@@ -2400,7 +2446,6 @@ function canvasToBlob(ctx) {
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('btnCapture').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  libSaveEntry(display, 'FLIP');
   await _shareOrDownload(await canvasToBlob(ctxD), 'flipnote_' + Date.now() + '.png');
 });
 
@@ -2436,7 +2481,6 @@ btnRec.addEventListener('click', async () => {
       if(!recChunks.length)return;
       const ext=recMime.includes('mp4')?'mp4':'webm';
       lastBlob=new Blob(recChunks,{type:recMime||'video/webm'});
-      libSaveEntry(display,'FLIP');
       await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+ext);
     };
     recorder.start(200); startRecTimer();
@@ -2459,16 +2503,20 @@ const _loadFill    = document.getElementById('loadBarFill');
 const _loadPct     = document.getElementById('loadPct');
 const _loadName    = document.getElementById('loadFileName');
 
+let _loadSafetyTimer = null;
 function showLoadOverlay(filename) {
+  if (_loadSafetyTimer) { clearTimeout(_loadSafetyTimer); _loadSafetyTimer = null; }
   _loadName.textContent = (filename || 'archivo').slice(0, 40);
   _loadFill.style.width = '0%'; _loadPct.textContent = '0%';
   _loadOverlay.classList.add('visible');
+  _loadSafetyTimer = setTimeout(() => hideLoadOverlay(), 10000);
 }
 function updateLoadOverlay(pct) {
   _loadFill.style.width = Math.round(pct) + '%';
   _loadPct.textContent  = Math.round(pct) + '%';
 }
 function hideLoadOverlay() {
+  if (_loadSafetyTimer) { clearTimeout(_loadSafetyTimer); _loadSafetyTimer = null; }
   _loadOverlay.classList.remove('visible');
 }
 
@@ -2510,9 +2558,8 @@ function setUploadResultReady(blob,ext){
   const btnShr =document.getElementById('btnShareResult');
   btnSave.disabled=false;btnSave.style.opacity='1';
   btnShr.disabled=false; btnShr.style.opacity='1';
-  const _libMod=()=>uploadMode==='ascii'?'ASCII':'FLIP';
-  btnSave.onclick=()=>{ libSaveEntry(upCanvas,_libMod()); _shareOrDownload(blob,fname); };
-  btnShr.onclick =()=>{ libSaveEntry(upCanvas,_libMod()); _shareOrDownload(blob,fname); };
+  btnSave.onclick=()=>{ _shareOrDownload(blob,fname); };
+  btnShr.onclick =()=>{ _shareOrDownload(blob,fname); };
 }
 
 // File inputs are now inside buttons/dropzone for iOS Safari compatibility
@@ -2522,20 +2569,30 @@ fileInputInBtn.addEventListener('change',  e=>{if(e.target.files[0])_withProgres
 fileInputInDrop.addEventListener('change', e=>{if(e.target.files[0])_withProgress(e.target.files[0], handleFile);e.target.value='';});
 
 // ── Upload mode toggle (FLIPNOTE / ASCII) ─────────────────────────────
-let uploadMode = 'flip'; // 'flip' | 'ascii'
+let uploadMode = 'flip'; // 'flip' | 'ascii' | 'scrash'
+function _setUploadMode(mode) {
+  uploadMode = mode;
+  document.getElementById('btnUpFlip').classList.toggle('active', mode === 'flip');
+  document.getElementById('btnUpAscii').classList.toggle('active', mode === 'ascii');
+  document.getElementById('btnUpScrash').classList.toggle('active', mode === 'scrash');
+  document.body.classList.toggle('up-ascii', mode === 'ascii');
+  // Show/hide SCRASH controls when in SUBIR scrash mode
+  const ctrlsEl = document.getElementById('scrashControls');
+  const show = mode === 'scrash';
+  ctrlsEl.classList.toggle('visible', show);
+  document.body.classList.toggle('scrash-hud-open', show);
+}
 document.getElementById('btnUpFlip').addEventListener('click', () => {
-  uploadMode = 'flip';
-  document.getElementById('btnUpFlip').classList.add('active');
-  document.getElementById('btnUpAscii').classList.remove('active');
-  document.body.classList.remove('up-ascii');
+  _setUploadMode('flip');
   if (lastUploadSrc) { lastUploadIsAscii = false; renderUploadPreview(); }
 });
 document.getElementById('btnUpAscii').addEventListener('click', () => {
-  uploadMode = 'ascii';
-  document.getElementById('btnUpAscii').classList.add('active');
-  document.getElementById('btnUpFlip').classList.remove('active');
-  document.body.classList.add('up-ascii');
+  _setUploadMode('ascii');
   if (lastUploadSrc) { lastUploadIsAscii = true; renderUploadPreview(); }
+});
+document.getElementById('btnUpScrash').addEventListener('click', () => {
+  _setUploadMode('scrash');
+  if (lastUploadSrc) renderUploadPreview();
 });
 dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('dragover');});
 dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
@@ -2576,6 +2633,13 @@ async function handleFile(file){
     setProgress(100,'✓ Listo');
     hideLoadOverlay();
     setTimeout(()=>showProgress(false),1500);
+    setUploadResultReady(await canvasToBlob(ctxUP),'png');
+    return;
+  }
+  if(uploadMode==='scrash'&&isImage){
+    await processImage(file);
+    // Apply SCRASH on top of rendered result
+    _applyScrash(ctxUP, ctxUP, upCanvas.width, upCanvas.height, 0);
     setUploadResultReady(await canvasToBlob(ctxUP),'png');
     return;
   }
@@ -2655,7 +2719,6 @@ document.getElementById('btnSplashSub').addEventListener('click', e => {
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('btnAsciiCapture').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  libSaveEntry(asciiCvs, 'ASCII');
   await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_' + Date.now() + '.png');
 });
 document.getElementById('btnAsciiShare').addEventListener('click', async () => {
@@ -2672,6 +2735,10 @@ function renderUploadPreview() {
   if (lastUploadIsAscii || uploadMode === 'ascii') {
     renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false);
     ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
+    canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
+  } else if (uploadMode === 'scrash') {
+    renderDithered(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, ctxUP, false, true, true);
+    _applyScrash(ctxUP, ctxUP, upCanvas.width, upCanvas.height, 0);
     canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
   } else {
     renderDithered(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, ctxUP, false, true, true);
@@ -2852,18 +2919,23 @@ document.getElementById('btnAsciiMode').addEventListener('click', () => {
     asciiRecorder.onstop = async () => {
       const ext = asciiRecMime.includes('mp4') ? 'mp4' : 'webm';
       const blob = new Blob(asciiRecChunks, { type: asciiRecMime || 'video/webm' });
-      libSaveEntry(asciiCvs, 'ASCII');
       await _shareOrDownload(blob, 'ascii_' + Date.now() + '.' + ext);
     };
     asciiRecorder.start(200);
     document.getElementById('btnAsciiMode').querySelector('.btn-icon').textContent = '⏹';
     document.getElementById('btnAsciiMode').querySelector('.btn-label').textContent = 'STOP';
+    // Disable chars slider during recording
+    const _acCharsEl = document.getElementById('acChars');
+    if (_acCharsEl) { _acCharsEl.disabled = true; _acCharsEl.closest('.ac-row').style.opacity = '.4'; }
   } else if (asciiCamMode === 'video' && asciiRecorder && asciiRecorder.state !== 'inactive') {
     // Stop recording
     asciiRecorder.stop();
     asciiCamMode = 'foto';
     document.getElementById('btnAsciiMode').querySelector('.btn-icon').textContent = '📷';
     document.getElementById('btnAsciiMode').querySelector('.btn-label').textContent = 'FOTO';
+    // Re-enable chars slider
+    const _acCharsEl = document.getElementById('acChars');
+    if (_acCharsEl) { _acCharsEl.disabled = false; _acCharsEl.closest('.ac-row').style.opacity = ''; }
   }
 });
 
@@ -2943,7 +3015,6 @@ document.getElementById('acTxt').addEventListener('click', () => {
 });
 document.getElementById('acPng').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(()=>flash.classList.remove('on'),120);
-  libSaveEntry(asciiCvs, 'ASCII');
   await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_'+Date.now()+'.png');
 });
 document.getElementById('acReset').addEventListener('click', () => {
@@ -4945,143 +5016,188 @@ async function stopExtAudio() {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// BIBLIOTECA (localStorage image library)
+// SCRASH — glitch art camera
 // ════════════════════════════════════════════════════════════════════
-const LIB_KEY   = 'flipLib';
-const LIB_MAX   = 30; // max entries
-const LIB_THUMB = 128; // thumb width px
+let scrChromaVal = 0, scrDripVal = 0, scrNeonVal = 0, scrWaveVal = 0, scrCrushVal = 0;
+let scrAnimateOn = false, scrSpeedVal = 5;
+let scrashRunning = false;
+let _scrRafId = null, _scrStartT = null;
 
-function _libLoad() {
-  try { return JSON.parse(localStorage.getItem(LIB_KEY) || '[]'); } catch(_){ return []; }
-}
-function _libSave(entries) {
-  try {
-    localStorage.setItem(LIB_KEY, JSON.stringify(entries));
-    const w = document.getElementById('libStorageWarn');
-    if (w) w.style.display = entries.length >= LIB_MAX * 0.85 ? 'block' : 'none';
-  } catch(e) {
-    const w = document.getElementById('libStorageWarn');
-    if (w) { w.style.display = 'block'; w.textContent = '⚠ localStorage lleno — no se puede guardar más'; }
-  }
-}
+const scrashCvs = document.getElementById('scrashCanvas');
+const ctxScrash = scrashCvs.getContext('2d', { willReadFrequently: true });
+const _scrTmp    = document.createElement('canvas');
+let _ctxScrTmp;
 
-// IndexedDB for full-quality image blobs
-let _libIDB = null;
-function _libOpenIDB() {
-  if (_libIDB) return Promise.resolve(_libIDB);
-  return new Promise((res, rej) => {
-    const req = indexedDB.open('flipLib', 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore('blobs', { keyPath: 'id' });
-    req.onsuccess  = e => { _libIDB = e.target.result; res(_libIDB); };
-    req.onerror    = () => rej(req.error);
-  });
-}
-function _libIDBPut(id, blob) {
-  return _libOpenIDB().then(db => new Promise((res, rej) => {
-    const tx = db.transaction('blobs', 'readwrite');
-    tx.objectStore('blobs').put({ id, blob });
-    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
-  })).catch(()=>{});
-}
-function _libIDBGet(id) {
-  return _libOpenIDB().then(db => new Promise((res) => {
-    const req = db.transaction('blobs').objectStore('blobs').get(id);
-    req.onsuccess = () => res(req.result?.blob || null);
-    req.onerror   = () => res(null);
-  })).catch(()=>null);
-}
-function _libIDBDel(id) {
-  return _libOpenIDB().then(db => new Promise(res => {
-    const tx = db.transaction('blobs', 'readwrite');
-    tx.objectStore('blobs').delete(id);
-    tx.oncomplete = res;
-  })).catch(()=>{});
-}
+(function _initScrash() {
+  const SW = 512, SH = 384;
+  scrashCvs.width = SW; scrashCvs.height = SH;
+  _scrTmp.width = SW; _scrTmp.height = SH;
+  _ctxScrTmp = _scrTmp.getContext('2d', { willReadFrequently: true });
 
-function libSaveEntry(canvas, module) {
-  try {
-    const entries = _libLoad();
-    const id = Date.now();
-    // PNG thumbnail (higher quality, ~128px wide)
-    const tw = LIB_THUMB, th = Math.round(tw * canvas.height / canvas.width);
-    const tc = document.createElement('canvas'); tc.width = tw; tc.height = th;
-    tc.getContext('2d').drawImage(canvas, 0, 0, tw, th);
-    const thumb = tc.toDataURL('image/png');
-    const entry = { id, thumb, module, date: new Date().toISOString() };
-    entries.unshift(entry);
-    if (entries.length > LIB_MAX) {
-      const removed = entries.splice(LIB_MAX);
-      removed.forEach(e => _libIDBDel(e.id));
+  // Resize canvas to fit area
+  function _resize() {
+    const avH = window.innerHeight - 40 - (scrashRunning ? 216 : 216);
+    const avW = window.innerWidth;
+    const aspect = SW / SH;
+    if (avW / avH > aspect) {
+      scrashCvs.style.width = (avH * aspect) + 'px';
+      scrashCvs.style.height = avH + 'px';
+    } else {
+      scrashCvs.style.width = avW + 'px';
+      scrashCvs.style.height = (avW / aspect) + 'px';
     }
-    _libSave(entries);
-    // Save full-quality PNG blob to IndexedDB
-    canvas.toBlob(blob => { if (blob) _libIDBPut(id, blob); }, 'image/png', 1.0);
-    libRender();
-  } catch(_) {}
-}
-
-function libRender() {
-  const entries = _libLoad();
-  const grid  = document.getElementById('libGrid');
-  const empty = document.getElementById('libEmpty');
-  if (!grid) return;
-  if (entries.length === 0) { grid.innerHTML = ''; if(empty) empty.style.display = ''; return; }
-  if (empty) empty.style.display = 'none';
-  grid.innerHTML = '';
-  entries.forEach(e => {
-    const d = new Date(e.date);
-    const dateStr = d.toLocaleDateString('es', {day:'2-digit',month:'2-digit'})
-                  + ' ' + d.toLocaleTimeString('es', {hour:'2-digit',minute:'2-digit'});
-    const card = document.createElement('div');
-    card.className = 'lib-card';
-    card.innerHTML = `<img src="${e.thumb}" alt="${e.module}">
-      <div class="lib-card-meta"><strong>${e.module}</strong><br>${dateStr}</div>
-      <div class="lib-card-actions">
-        <button data-id="${e.id}" data-action="dl">⬇</button>
-        <button data-id="${e.id}" data-action="stage">→ SUBIR</button>
-        <button data-id="${e.id}" data-action="del">✕</button>
-      </div>`;
-    grid.appendChild(card);
-  });
-  // Wire action buttons
-  grid.querySelectorAll('[data-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = Number(btn.dataset.id), action = btn.dataset.action;
-      const all = _libLoad();
-      const entry = all.find(e => e.id === id);
-      if (!entry) return;
-      if (action === 'dl') {
-        _libIDBGet(id).then(blob => {
-          const url = blob ? URL.createObjectURL(blob) : entry.thumb;
-          const ext = blob ? 'png' : 'jpg';
-          const a = document.createElement('a'); a.href = url;
-          a.download = `flipnote_lib_${id}.${ext}`; a.click();
-          if (blob) setTimeout(() => URL.revokeObjectURL(url), 2000);
-        });
-      } else if (action === 'stage') {
-        // Send thumbnail to upload canvas for re-processing
-        const img = new Image(); img.onload = () => {
-          lastUploadSrc = img; lastUploadSrcW = img.naturalWidth; lastUploadSrcH = img.naturalHeight;
-          lastUploadIsAscii = uploadMode === 'ascii';
-          upCanvas.classList.add('visible'); dropZone.style.display = 'none';
-          ctxUP.drawImage(img, 0, 0, upCanvas.width, upCanvas.height);
-          switchTab('up');
-        };
-        img.src = entry.thumb;
-      } else if (action === 'del') {
-        const updated = all.filter(e => e.id !== id);
-        _libSave(updated); _libIDBDel(id); libRender();
-      }
-    });
-  });
-}
-
-document.getElementById('btnLibClear').addEventListener('click', () => {
-  if (confirm('¿Borrar toda la biblioteca?')) {
-    const all = _libLoad();
-    all.forEach(e => _libIDBDel(e.id));
-    _libSave([]); libRender();
   }
+  window.addEventListener('resize', _resize);
+  _resize();
+
+  // Bind sliders
+  function _scrSlider(id, valId, setter) {
+    const el = document.getElementById(id), vEl = document.getElementById(valId);
+    el.addEventListener('input', () => {
+      setter(+el.value); vEl.textContent = el.value;
+      // Re-render SUBIR preview if in scrash mode
+      if (uploadMode === 'scrash' && lastUploadSrc) renderUploadPreview();
+    });
+  }
+  _scrSlider('scrChroma', 'vScrChroma', v => { scrChromaVal = v; });
+  _scrSlider('scrDrip',   'vScrDrip',   v => { scrDripVal = v; });
+  _scrSlider('scrNeon',   'vScrNeon',   v => { scrNeonVal = v; });
+  _scrSlider('scrWave',   'vScrWave',   v => { scrWaveVal = v; });
+  _scrSlider('scrCrush',  'vScrCrush',  v => { scrCrushVal = v; });
+  _scrSlider('scrSpeed',  'vScrSpeed',  v => { scrSpeedVal = v; });
+
+  // Animate toggle
+  document.getElementById('btnScrashAnimate').addEventListener('click', () => {
+    scrAnimateOn = !scrAnimateOn;
+    document.getElementById('btnScrashAnimate').classList.toggle('active', scrAnimateOn);
+    if (scrashRunning && scrAnimateOn && !_scrRafId) {
+      _scrStartT = null;
+      _scrRafId = requestAnimationFrame(_scrashLoop);
+    }
+  });
+
+  // Snap
+  document.getElementById('btnScrashSnap').addEventListener('click', async () => {
+    flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+    await _shareOrDownload(await canvasToBlob(ctxScrash), 'scrash_' + Date.now() + '.png');
+  });
+
+  // Share
+  document.getElementById('btnScrashShare').addEventListener('click', async () => {
+    await _shareOrDownload(await canvasToBlob(ctxScrash), 'scrash_' + Date.now() + '.png');
+  });
+
+  // Reset
+  document.getElementById('btnScrashReset').addEventListener('click', () => {
+    scrChromaVal = 0; scrDripVal = 0; scrNeonVal = 0; scrWaveVal = 0; scrCrushVal = 0;
+    ['scrChroma','scrDrip','scrNeon','scrWave','scrCrush'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = 0;
+    });
+    ['vScrChroma','vScrDrip','vScrNeon','vScrWave','vScrCrush'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = '0';
+    });
+    if (uploadMode === 'scrash' && lastUploadSrc) renderUploadPreview();
+  });
+})();
+
+// Core pixel effect — applies SCRASH effects from srcCtx to dstCtx
+// srcCtx must have pixels already drawn; dstCtx receives result
+// t = elapsed seconds (used for animation)
+function _applyScrash(srcCtx, dstCtx, w, h, t) {
+  const { data: px } = srcCtx.getImageData(0, 0, w, h);
+  const out = new Uint8ClampedArray(w * h * 4);
+
+  const animT    = t * scrSpeedVal * 0.02;
+  const cOff     = scrAnimateOn ? ((Math.sin(animT * 1.3) * 0.5 + 0.5) * scrChromaVal) | 0 : scrChromaVal | 0;
+  const waveAmp  = scrAnimateOn ? (Math.sin(animT * 0.8)  * 0.5 + 0.5) * scrWaveVal   : scrWaveVal;
+  const crushT   = (scrCrushVal / 100) * 255;
+  const neonT    = scrNeonVal / 100;
+  const dripT    = scrDripVal / 100;
+
+  for (let y = 0; y < h; y++) {
+    const waveX = waveAmp > 0 ? Math.round(Math.sin(y * 0.06 + animT) * waveAmp) : 0;
+    let srcY = y;
+    if (dripT > 0 && Math.random() < dripT * 0.15) {
+      srcY = Math.max(0, y + Math.floor(Math.random() * dripT * 30));
+      if (srcY >= h) srcY = y;
+    }
+    for (let x = 0; x < w; x++) {
+      const sx  = ((x + waveX) % w + w) % w;
+      const si  = (srcY * w + sx) * 4;
+      const rSX = ((x + waveX - cOff) % w + w) % w;
+      const bSX = ((x + waveX + cOff) % w + w) % w;
+
+      let r = px[(srcY * w + rSX) * 4];
+      let g = px[si + 1];
+      let b = px[(srcY * w + bSX) * 4 + 2];
+      const a = px[si + 3];
+
+      // CRUSH: dark pixels → black
+      if (crushT > 0) {
+        const lum = (r * 77 + g * 150 + b * 29) >> 8;
+        if (lum < crushT) { r = 0; g = 0; b = 0; }
+      }
+
+      // NEON: push colors toward neon palette by luminance band
+      if (neonT > 0) {
+        const lum = (r * 77 + g * 150 + b * 29) >> 8;
+        if (lum < 85) {
+          r = (r + (204 - r) * neonT) | 0;
+          g = (g * (1 - neonT)) | 0;
+          b = (b + (255 - b) * neonT) | 0;
+        } else if (lum < 170) {
+          r = (r * (1 - neonT)) | 0;
+          g = (g + (255 - g) * neonT) | 0;
+          b = (b * (1 - neonT)) | 0;
+        } else {
+          r = (r + (255 - r) * neonT) | 0;
+          g = (g + (119 - g) * neonT) | 0;
+          b = (b * (1 - neonT)) | 0;
+        }
+      }
+
+      const oi = (y * w + x) * 4;
+      out[oi] = r; out[oi+1] = g; out[oi+2] = b; out[oi+3] = a;
+    }
+  }
+  dstCtx.putImageData(new ImageData(out, w, h), 0, 0);
+}
+
+function _scrashLoop(t) {
+  if (!scrashRunning) { _scrRafId = null; return; }
+  if (_scrStartT === null) _scrStartT = t;
+  const elapsed = (t - _scrStartT) / 1000;
+
+  if (vid.videoWidth) {
+    const SW = scrashCvs.width, SH = scrashCvs.height;
+    _ctxScrTmp.drawImage(vid, 0, 0, SW, SH);
+    _applyScrash(_ctxScrTmp, ctxScrash, SW, SH, elapsed);
+  }
+
+  _scrRafId = requestAnimationFrame(_scrashLoop);
+}
+
+function enterScrash() {
+  scrashRunning = true;
+  _scrStartT = null;
+  _scrRafId = requestAnimationFrame(_scrashLoop);
+}
+
+function exitScrash() {
+  scrashRunning = false;
+  if (_scrRafId) { cancelAnimationFrame(_scrRafId); _scrRafId = null; }
+}
+
+// ASCII GLITCH button — applies SCRASH to current ASCII frame and saves
+document.getElementById('btnAsciiGlitch').addEventListener('click', async () => {
+  // Create a temp canvas with SCRASH applied to current ASCII output
+  const gc = document.createElement('canvas');
+  gc.width = asciiCvs.width; gc.height = asciiCvs.height;
+  const gctx = gc.getContext('2d', { willReadFrequently: true });
+  gctx.drawImage(asciiCvs, 0, 0);
+  _applyScrash(gctx, gctx, gc.width, gc.height, 0);
+  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+  await _shareOrDownload(await new Promise(r => gc.toBlob(r, 'image/png')), 'ascii_glitch_' + Date.now() + '.png');
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -5122,7 +5238,7 @@ function loadSettings() {
     if (s.wmpSensVal !== undefined) { wmpSensVal = s.wmpSensVal; const e=document.getElementById('wmpSens'); if(e){e.value=wmpSensVal;document.getElementById('vWmpSens').textContent=wmpSensVal;} }
     if (s.wmpTrailsVal !== undefined) { wmpTrailsVal = s.wmpTrailsVal; const e=document.getElementById('wmpTrails'); if(e){e.value=wmpTrailsVal;document.getElementById('vWmpTrails').textContent=wmpTrailsVal;} }
     // Upload mode
-    if (s.uploadMode) { uploadMode = s.uploadMode; document.getElementById('btnUpFlip').classList.toggle('active',uploadMode==='flip'); document.getElementById('btnUpAscii').classList.toggle('active',uploadMode==='ascii'); }
+    if (s.uploadMode && s.uploadMode !== 'scrash') { _setUploadMode(s.uploadMode); }
     // ASCII
     if (s.asciiCols !== undefined) { asciiCols = s.asciiCols; const e=document.getElementById('acChars'); if(e){e.value=asciiCols;document.getElementById('vChars').textContent=asciiCols;} }
     if (s.acGradientVal) { acGradientVal=s.acGradientVal; const e=document.getElementById('acGradient'); if(e)e.value=acGradientVal; }

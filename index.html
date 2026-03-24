@@ -244,11 +244,11 @@
       align-items:center; justify-content:center; background:#000;
     }
     #scrashArea.visible { display:flex; }
-    body.scrash-hud-open #scrashArea { bottom:216px; }
+    body.scrash-hud-open #scrashArea { bottom:280px; }
     #scrashCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
     #scrashControls {
-      display:none; position:fixed; bottom:96px; left:0; right:0; height:120px;
-      background:#050010; border-top:1px solid #cc00ff; padding:6px 12px;
+      display:none; position:fixed; bottom:96px; left:0; right:0; height:184px;
+      background:#050010; border-top:1px solid #cc00ff; padding:5px 10px;
       flex-direction:column; gap:3px; z-index:9; overflow:hidden;
     }
     #scrashControls.visible { display:flex; }
@@ -259,6 +259,14 @@
     .sc-row input[type="range"] { flex:1; height:3px; accent-color:#cc00ff; cursor:pointer; }
     #btnScrashAnimate { background:none; border:1px solid #cc00ff; color:#cc00ff; font-family:monospace; font-size:9px; letter-spacing:1px; padding:3px 8px; cursor:pointer; flex-shrink:0; white-space:nowrap; }
     #btnScrashAnimate.active { background:#cc00ff; color:#000; }
+    .sc-top-row { display:flex; gap:4px; }
+    .sc-py-btn, .scr-asp-btn {
+      flex:1; background:none; border:1px solid #550055; color:#cc00ff;
+      font-family:monospace; font-size:8px; letter-spacing:.5px; padding:2px 0;
+      cursor:pointer; transition:.1s;
+    }
+    .sc-py-btn.active, .scr-asp-btn.active { background:#cc00ff; color:#000; border-color:#cc00ff; }
+    #btnCapture.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; color:#fff; }
     #barScrash {
       display:none; position:fixed; bottom:0; left:0; right:0;
       height:96px; background:#050008; border-top:2px solid #cc00ff;
@@ -995,6 +1003,20 @@
 
 <!-- SCRASH controls HUD (also used by SUBIR scrash mode) -->
 <div id="scrashControls">
+  <!-- Palette selector -->
+  <div class="sc-top-row">
+    <button id="btnScrPyNone" class="sc-py-btn active">GLT</button>
+    <button id="btnScrPyPy"   class="sc-py-btn">PY</button>
+    <button id="btnScrPySpy"  class="sc-py-btn">SPY</button>
+    <button id="btnScrPyIde"  class="sc-py-btn">IDE</button>
+  </div>
+  <!-- Aspect ratio selector -->
+  <div class="sc-top-row">
+    <button class="scr-asp-btn" data-sw="216" data-sh="384">9:16</button>
+    <button class="scr-asp-btn" data-sw="288" data-sh="384">3:4</button>
+    <button class="scr-asp-btn active" data-sw="512" data-sh="384">4:3</button>
+    <button class="scr-asp-btn" data-sw="512" data-sh="288">16:9</button>
+  </div>
   <div id="scrashControlsGrid">
     <div class="sc-row"><span class="sc-lbl">CHROMA</span><span class="sc-val" id="vScrChroma">0</span><input type="range" id="scrChroma" min="0" max="50" value="0"></div>
     <div class="sc-row"><span class="sc-lbl">DRIP</span><span class="sc-val" id="vScrDrip">0</span><input type="range" id="scrDrip" min="0" max="100" value="0"></div>
@@ -1003,6 +1025,7 @@
     <div class="sc-row"><span class="sc-lbl">CRUSH</span><span class="sc-val" id="vScrCrush">0</span><input type="range" id="scrCrush" min="0" max="100" value="0"></div>
     <div class="sc-row"><span class="sc-lbl">HUE</span><span class="sc-val" id="vScrHue">0</span><input type="range" id="scrHue" min="0" max="360" value="0"></div>
     <div class="sc-row"><span class="sc-lbl">GRAIN</span><span class="sc-val" id="vScrGrain">0</span><input type="range" id="scrGrain" min="0" max="100" value="0"></div>
+    <div class="sc-row"><span class="sc-lbl">CHAOS</span><span class="sc-val" id="vScrChaos">0</span><input type="range" id="scrChaos" min="0" max="100" value="0"></div>
   </div>
   <div class="sc-row" style="gap:8px;margin-top:2px;">
     <button id="btnScrashAnimate">ANIMATE</button>
@@ -1014,8 +1037,8 @@
 
 <div class="bar" id="barCam">
   <button class="btn" id="btnRecord">
-    <div class="btn-icon">⏺</div>
-    <span class="btn-label">REC</span>
+    <div class="btn-icon">📷</div>
+    <span class="btn-label">FOTO</span>
   </button>
   <button class="btn btn-center" id="btnCapture">
     <div class="btn-icon">●</div>
@@ -2227,12 +2250,12 @@ let camAspW = 4, camAspH = 3; // default 4:3
 
 function applyCamAspect(aw, ah) {
   camAspW = aw; camAspH = ah;
-  // Fix h=192 for landscape/square, fix w=192 for portrait
+  // Landscape: fix W=256, max H=192. Portrait: fix H=256, max W=192 (rotated DSi base)
   let newW, newH;
   if (aw >= ah) { // landscape or square: fix width at 256
-    newW = 256; newH = Math.max(64, (Math.round(256 * ah / aw) & ~1));
-  } else {         // portrait: fix height at 192
-    newH = 192; newW = Math.max(64, (Math.round(192 * aw / ah) & ~1));
+    newW = 256; newH = Math.max(64, Math.min(192, (Math.round(256 * ah / aw) & ~1)));
+  } else {         // portrait: fix height at 256 (rotated DSi resolution)
+    newH = 256; newW = Math.max(64, Math.min(192, (Math.round(256 * aw / ah) & ~1)));
   }
   // Update global let variables
   DSI_W = newW; DSI_H = newH;
@@ -2487,20 +2510,13 @@ function canvasToBlob(ctx) {
 // ════════════════════════════════════════════════════════════════════
 // CAPTURE (camera)
 // ════════════════════════════════════════════════════════════════════
-document.getElementById('btnCapture').addEventListener('click', async () => {
-  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  // Synchronously copy to temp canvas before async ops (prevents black photo on Android)
-  const _capTmp = document.createElement('canvas');
-  _capTmp.width = display.width; _capTmp.height = display.height;
-  _capTmp.getContext('2d').drawImage(display, 0, 0);
-  await _shareOrDownload(await new Promise(r => _capTmp.toBlob(r, 'image/png')), 'flipnote_' + Date.now() + '.png');
-});
-
 // ════════════════════════════════════════════════════════════════════
-// RECORD (camera)
+// CAPTURE & RECORD (camera) — center button is the only action button
 // ════════════════════════════════════════════════════════════════════
+let camMode = 'foto'; // 'foto' | 'video'
 let recorder=null, recChunks=[], lastBlob=null, recMime='';
 const btnRec = document.getElementById('btnRecord');
+const btnCap = document.getElementById('btnCapture');
 let recTimer = null;
 
 function startRecTimer() {
@@ -2508,33 +2524,61 @@ function startRecTimer() {
   recTimer = setInterval(() => {
     s++;
     const mm=String(s/60|0).padStart(2,'0'), ss=String(s%60).padStart(2,'0');
-    btnRec.querySelector('.btn-label').textContent = mm+':'+ss;
+    btnCap.querySelector('.btn-icon').textContent = mm+':'+ss;
   }, 1000);
 }
-function stopRecTimer() { clearInterval(recTimer); btnRec.querySelector('.btn-label').textContent='REC'; }
+function stopRecTimer() {
+  clearInterval(recTimer);
+  btnCap.querySelector('.btn-icon').textContent = '⏺';
+}
 
-btnRec.addEventListener('click', async () => {
-  if (!recorder || recorder.state==='inactive') {
-    if (typeof display.captureStream !== 'function') {
-      alert('⚠️ Grabación no disponible.\nUsa Chrome en Android o guarda fotos con ●.'); return;
-    }
-    const mimes=['video/mp4','video/webm;codecs=vp9','video/webm'];
-    recMime=mimes.find(m=>MediaRecorder.isTypeSupported(m))??'';
-    recChunks=[]; lastBlob=null;
-    try { recorder=new MediaRecorder(display.captureStream(30),{...(recMime?{mimeType:recMime}:{}),videoBitsPerSecond:6_000_000}); }
-    catch(e){alert('Error: '+e.message);return;}
-    recorder.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
-    recorder.onstop=async()=>{
-      if(!recChunks.length)return;
-      const ext=recMime.includes('mp4')?'mp4':'webm';
-      lastBlob=new Blob(recChunks,{type:recMime||'video/webm'});
-      await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+ext);
-    };
-    recorder.start(200); startRecTimer();
-    btnRec.classList.add('recording'); btnRec.querySelector('.btn-icon').textContent='⏹';
-  } else {
+// Left button: mode toggle only (no recording)
+btnRec.addEventListener('click', () => {
+  // Stop any active recording when switching modes
+  if (recorder && recorder.state !== 'inactive') {
     recorder.stop(); stopRecTimer();
-    btnRec.classList.remove('recording'); btnRec.querySelector('.btn-icon').textContent='⏺';
+    btnCap.classList.remove('recording');
+    btnCap.querySelector('.btn-icon').textContent = '●';
+  }
+  camMode = camMode === 'foto' ? 'video' : 'foto';
+  btnRec.querySelector('.btn-icon').textContent = camMode === 'foto' ? '📷' : '🎥';
+  btnRec.querySelector('.btn-label').textContent = camMode === 'foto' ? 'FOTO' : 'VIDEO';
+  btnCap.querySelector('.btn-icon').textContent  = camMode === 'foto' ? '●'  : '⏺';
+});
+
+// Center button: executes the current mode action
+btnCap.addEventListener('click', async () => {
+  if (camMode === 'foto') {
+    // Take photo
+    flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+    const _capTmp = document.createElement('canvas');
+    _capTmp.width = display.width; _capTmp.height = display.height;
+    _capTmp.getContext('2d').drawImage(display, 0, 0);
+    await _shareOrDownload(await new Promise(r => _capTmp.toBlob(r, 'image/png')), 'flipnote_' + Date.now() + '.png');
+  } else {
+    // Toggle video recording
+    if (!recorder || recorder.state === 'inactive') {
+      if (typeof display.captureStream !== 'function') {
+        alert('⚠️ Grabación no disponible.\nUsa Chrome en Android o guarda fotos con ●.'); return;
+      }
+      const mimes=['video/mp4','video/webm;codecs=vp9','video/webm'];
+      recMime=mimes.find(m=>MediaRecorder.isTypeSupported(m))??'';
+      recChunks=[]; lastBlob=null;
+      try { recorder=new MediaRecorder(display.captureStream(30),{...(recMime?{mimeType:recMime}:{}),videoBitsPerSecond:6_000_000}); }
+      catch(e){alert('Error: '+e.message);return;}
+      recorder.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
+      recorder.onstop=async()=>{
+        if(!recChunks.length)return;
+        const ext=recMime.includes('mp4')?'mp4':'webm';
+        lastBlob=new Blob(recChunks,{type:recMime||'video/webm'});
+        btnCap.classList.remove('recording'); btnCap.querySelector('.btn-icon').textContent='⏺';
+        await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+ext);
+      };
+      recorder.start(200); startRecTimer();
+      btnCap.classList.add('recording');
+    } else {
+      recorder.stop(); stopRecTimer();
+    }
   }
 });
 document.getElementById('btnShare').addEventListener('click', async () => {
@@ -2842,11 +2886,41 @@ document.getElementById('btnSplashSub').addEventListener('click', e => {
 // ASCII CAPTURE & SHARE
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('btnAsciiCapture').addEventListener('click', async () => {
-  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  const _capTmp = document.createElement('canvas');
-  _capTmp.width = asciiCvs.width; _capTmp.height = asciiCvs.height;
-  _capTmp.getContext('2d').drawImage(asciiCvs, 0, 0);
-  await _shareOrDownload(await new Promise(r => _capTmp.toBlob(r, 'image/png')), 'ascii_' + Date.now() + '.png');
+  if (asciiCamMode === 'foto') {
+    // Take photo
+    flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+    const _capTmp = document.createElement('canvas');
+    _capTmp.width = asciiCvs.width; _capTmp.height = asciiCvs.height;
+    _capTmp.getContext('2d').drawImage(asciiCvs, 0, 0);
+    await _shareOrDownload(await new Promise(r => _capTmp.toBlob(r, 'image/png')), 'ascii_' + Date.now() + '.png');
+  } else {
+    // Toggle video recording
+    const asciiCapBtn = document.getElementById('btnAsciiCapture');
+    if (!asciiRecorder || asciiRecorder.state === 'inactive') {
+      const mimes = ['video/mp4','video/webm;codecs=vp9','video/webm'];
+      asciiRecMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+      asciiRecChunks = [];
+      const st = asciiCvs.captureStream(30);
+      asciiRecorder = new MediaRecorder(st, asciiRecMime ? { mimeType: asciiRecMime, videoBitsPerSecond: 6_000_000 } : {});
+      asciiRecorder.ondataavailable = e => { if (e.data.size) asciiRecChunks.push(e.data); };
+      asciiRecorder.onstop = async () => {
+        const ext = asciiRecMime.includes('mp4') ? 'mp4' : 'webm';
+        const blob = new Blob(asciiRecChunks, { type: asciiRecMime || 'video/webm' });
+        asciiCapBtn.classList.remove('recording'); asciiCapBtn.querySelector('.btn-icon').textContent = '●';
+        // Re-enable chars slider
+        const _acCharsEl = document.getElementById('acChars');
+        if (_acCharsEl) { _acCharsEl.disabled = false; _acCharsEl.closest('.ac-row').style.opacity = ''; }
+        await _shareOrDownload(blob, 'ascii_' + Date.now() + '.' + ext);
+      };
+      asciiRecorder.start(200);
+      asciiCapBtn.classList.add('recording'); asciiCapBtn.querySelector('.btn-icon').textContent = '⏹';
+      // Disable chars slider during recording
+      const _acCharsEl = document.getElementById('acChars');
+      if (_acCharsEl) { _acCharsEl.disabled = true; _acCharsEl.closest('.ac-row').style.opacity = '.4'; }
+    } else {
+      asciiRecorder.stop();
+    }
+  }
 });
 document.getElementById('btnAsciiShare').addEventListener('click', async () => {
   await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_' + Date.now() + '.png');
@@ -3058,40 +3132,21 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
 let asciiCamMode = 'foto'; // 'foto' | 'video'
 let asciiRecorder = null, asciiRecChunks = [], asciiRecMime = '';
 
+// Left button: mode toggle only (no recording)
 document.getElementById('btnAsciiMode').addEventListener('click', () => {
-  if (asciiCamMode === 'foto') {
-    asciiCamMode = 'video';
-    document.getElementById('btnAsciiMode').querySelector('.btn-icon').textContent = '🔴';
-    document.getElementById('btnAsciiMode').querySelector('.btn-label').textContent = 'REC';
-  } else if (asciiCamMode === 'video' && (!asciiRecorder || asciiRecorder.state === 'inactive')) {
-    // Start recording
-    const mimes = ['video/mp4','video/webm;codecs=vp9','video/webm'];
-    asciiRecMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
-    asciiRecChunks = [];
-    const st = asciiCvs.captureStream(30);
-    asciiRecorder = new MediaRecorder(st, asciiRecMime ? { mimeType: asciiRecMime, videoBitsPerSecond: 6_000_000 } : {});
-    asciiRecorder.ondataavailable = e => { if (e.data.size) asciiRecChunks.push(e.data); };
-    asciiRecorder.onstop = async () => {
-      const ext = asciiRecMime.includes('mp4') ? 'mp4' : 'webm';
-      const blob = new Blob(asciiRecChunks, { type: asciiRecMime || 'video/webm' });
-      await _shareOrDownload(blob, 'ascii_' + Date.now() + '.' + ext);
-    };
-    asciiRecorder.start(200);
-    document.getElementById('btnAsciiMode').querySelector('.btn-icon').textContent = '⏹';
-    document.getElementById('btnAsciiMode').querySelector('.btn-label').textContent = 'STOP';
-    // Disable chars slider during recording
-    const _acCharsEl = document.getElementById('acChars');
-    if (_acCharsEl) { _acCharsEl.disabled = true; _acCharsEl.closest('.ac-row').style.opacity = '.4'; }
-  } else if (asciiCamMode === 'video' && asciiRecorder && asciiRecorder.state !== 'inactive') {
-    // Stop recording
+  // Stop any active recording when switching modes
+  if (asciiRecorder && asciiRecorder.state !== 'inactive') {
     asciiRecorder.stop();
-    asciiCamMode = 'foto';
-    document.getElementById('btnAsciiMode').querySelector('.btn-icon').textContent = '📷';
-    document.getElementById('btnAsciiMode').querySelector('.btn-label').textContent = 'FOTO';
-    // Re-enable chars slider
+    document.getElementById('btnAsciiCapture').classList.remove('recording');
+    document.getElementById('btnAsciiCapture').querySelector('.btn-icon').textContent = '●';
     const _acCharsEl = document.getElementById('acChars');
     if (_acCharsEl) { _acCharsEl.disabled = false; _acCharsEl.closest('.ac-row').style.opacity = ''; }
   }
+  asciiCamMode = asciiCamMode === 'foto' ? 'video' : 'foto';
+  const modeBtn = document.getElementById('btnAsciiMode');
+  modeBtn.querySelector('.btn-icon').textContent  = asciiCamMode === 'foto' ? '📷' : '🎥';
+  modeBtn.querySelector('.btn-label').textContent = asciiCamMode === 'foto' ? 'FOTO' : 'VIDEO';
+  document.getElementById('btnAsciiCapture').querySelector('.btn-icon').textContent = asciiCamMode === 'foto' ? '●' : '⏺';
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -5176,7 +5231,20 @@ async function stopExtAudio() {
 // SCRASH — glitch art camera
 // ════════════════════════════════════════════════════════════════════
 let scrChromaVal = 0, scrDripVal = 0, scrNeonVal = 0, scrWaveVal = 0, scrCrushVal = 0;
-let scrHueVal = 0, scrGrainVal = 0;
+let scrHueVal = 0, scrGrainVal = 0, scrChaosVal = 0;
+let scrPyPal = 'none'; // 'none' | 'py' | 'spy' | 'ide'
+const SCR_PY_PALETTES = {
+  py:  [[55,118,171],[255,212,59]],
+  spy: [[30,30,46],[166,227,161],[243,139,168],[249,226,175],[137,220,235],[137,180,250],[205,214,244]],
+  ide: [[30,30,30],[106,153,85],[86,156,214],[206,145,120],[220,220,170],[197,134,192],[212,212,212]],
+};
+function _scrQuantize(r, g, b) {
+  const pal = SCR_PY_PALETTES[scrPyPal]; if (!pal) return [r, g, b];
+  if (scrChaosVal > 0 && Math.random() < scrChaosVal * 0.003) return pal[Math.floor(Math.random()*pal.length)];
+  let best=0, bestD=Infinity;
+  for (let i=0;i<pal.length;i++){const dr=r-pal[i][0],dg=g-pal[i][1],db=b-pal[i][2];const d=dr*dr+dg*dg+db*db;if(d<bestD){bestD=d;best=i;}}
+  return pal[best];
+}
 let scrAnimateOn = false, scrSpeedVal = 5;
 let scrashRunning = false;
 let _scrRafId = null, _scrStartT = null;
@@ -5187,16 +5255,16 @@ const _scrTmp    = document.createElement('canvas');
 let _ctxScrTmp;
 
 (function _initScrash() {
-  const SW = 512, SH = 384;
-  scrashCvs.width = SW; scrashCvs.height = SH;
-  _scrTmp.width = SW; _scrTmp.height = SH;
+  let _scrW = 512, _scrH = 384;
+  scrashCvs.width = _scrW; scrashCvs.height = _scrH;
+  _scrTmp.width = _scrW; _scrTmp.height = _scrH;
   _ctxScrTmp = _scrTmp.getContext('2d', { willReadFrequently: true });
 
   // Resize canvas to fit area
   function _resize() {
-    const avH = window.innerHeight - 40 - (scrashRunning ? 216 : 216);
+    const avH = window.innerHeight - 40 - 280; // 96px bar + 184px controls
     const avW = window.innerWidth;
-    const aspect = SW / SH;
+    const aspect = _scrW / _scrH;
     if (avW / avH > aspect) {
       scrashCvs.style.width = (avH * aspect) + 'px';
       scrashCvs.style.height = avH + 'px';
@@ -5207,6 +5275,31 @@ let _ctxScrTmp;
   }
   window.addEventListener('resize', _resize);
   _resize();
+
+  // Aspect ratio selector
+  document.querySelectorAll('.scr-asp-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.scr-asp-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _scrW = parseInt(btn.dataset.sw); _scrH = parseInt(btn.dataset.sh);
+      scrashCvs.width = _scrW; scrashCvs.height = _scrH;
+      _scrTmp.width   = _scrW; _scrTmp.height   = _scrH;
+      _resize();
+    });
+  });
+
+  // Python palette buttons
+  ['none','py','spy','ide'].forEach(pal => {
+    const id = pal === 'none' ? 'btnScrPyNone' : 'btnScrPy' + pal.charAt(0).toUpperCase() + pal.slice(1);
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.sc-py-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      scrPyPal = pal;
+      if (uploadMode === 'scrash' && lastUploadSrc) renderUploadPreview();
+    });
+  });
 
   // Bind sliders
   function _scrSlider(id, valId, setter) {
@@ -5224,6 +5317,7 @@ let _ctxScrTmp;
   _scrSlider('scrCrush',  'vScrCrush',  v => { scrCrushVal = v; });
   _scrSlider('scrHue',    'vScrHue',    v => { scrHueVal = v; });
   _scrSlider('scrGrain',  'vScrGrain',  v => { scrGrainVal = v; });
+  _scrSlider('scrChaos',  'vScrChaos',  v => { scrChaosVal = v; });
   _scrSlider('scrSpeed',  'vScrSpeed',  v => { scrSpeedVal = v; });
 
   // Animate toggle
@@ -5256,13 +5350,14 @@ let _ctxScrTmp;
   // Reset
   document.getElementById('btnScrashReset').addEventListener('click', () => {
     scrChromaVal = 0; scrDripVal = 0; scrNeonVal = 0; scrWaveVal = 0; scrCrushVal = 0;
-    scrHueVal = 0; scrGrainVal = 0;
-    ['scrChroma','scrDrip','scrNeon','scrWave','scrCrush','scrHue','scrGrain'].forEach(id => {
+    scrHueVal = 0; scrGrainVal = 0; scrChaosVal = 0; scrPyPal = 'none';
+    ['scrChroma','scrDrip','scrNeon','scrWave','scrCrush','scrHue','scrGrain','scrChaos'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = 0;
     });
-    ['vScrChroma','vScrDrip','vScrNeon','vScrWave','vScrCrush','vScrHue','vScrGrain'].forEach(id => {
+    ['vScrChroma','vScrDrip','vScrNeon','vScrWave','vScrCrush','vScrHue','vScrGrain','vScrChaos'].forEach(id => {
       const el = document.getElementById(id); if (el) el.textContent = '0';
     });
+    document.querySelectorAll('.sc-py-btn').forEach((b,i) => b.classList.toggle('active', i===0));
     if (uploadMode === 'scrash' && lastUploadSrc) renderUploadPreview();
   });
 })();
@@ -5338,6 +5433,12 @@ function _applyScrash(srcCtx, dstCtx, w, h, t) {
         g=Math.max(0,Math.min(255,g+noise));
         b=Math.max(0,Math.min(255,b+noise));
       }
+      // PALETTE quantization (Pythonization palettes)
+      if (scrPyPal !== 'none') { [r,g,b] = _scrQuantize(r,g,b); }
+      // CHAOS: random pixel disruption (when no palette: random color flash)
+      else if (scrChaosVal > 0 && Math.random() < scrChaosVal * 0.003) {
+        r=Math.random()*255|0; g=Math.random()*255|0; b=Math.random()*255|0;
+      }
 
       const oi = (y * w + x) * 4;
       out[oi] = r; out[oi+1] = g; out[oi+2] = b; out[oi+3] = a;
@@ -5353,7 +5454,13 @@ function _scrashLoop(t) {
 
   if (vid.videoWidth) {
     const SW = scrashCvs.width, SH = scrashCvs.height;
-    _ctxScrTmp.drawImage(vid, 0, 0, SW, SH);
+    // Draw video fitting the canvas (letterbox — show full image, no crop)
+    const vA = vid.videoWidth / vid.videoHeight, cA = SW / SH;
+    let dx=0, dy=0, dw=SW, dh=SH;
+    if (vA > cA) { dh = SW / vA; dy = (SH - dh) / 2; }
+    else          { dw = SH * vA; dx = (SW - dw) / 2; }
+    _ctxScrTmp.fillStyle='#000'; _ctxScrTmp.fillRect(0,0,SW,SH);
+    _ctxScrTmp.drawImage(vid, dx, dy, dw, dh);
     _applyScrash(_ctxScrTmp, ctxScrash, SW, SH, elapsed);
   }
 

@@ -656,6 +656,64 @@
     }
     #thermalToast.visible { display:block; }
 
+    /* ── V50: Export CTA bar ── */
+    #flipExportBar {
+      display: none;
+      position: fixed;
+      left: 0; right: 0;
+      z-index: 95;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(8, 8, 8, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    #flipExportBar.visible { display: flex; }
+    .flip-export-primary {
+      flex: 1;
+      max-width: 220px;
+      padding: 11px 18px;
+      background: var(--paper);
+      color: var(--ink);
+      border: none;
+      border-radius: 6px;
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .flip-export-primary:active { transform: scale(0.95); }
+    .flip-export-primary:disabled { opacity: 0.35; cursor: default; }
+    .flip-export-secondary {
+      padding: 11px 14px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--paper);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: opacity 0.12s ease;
+    }
+    .flip-export-secondary:active { opacity: 0.6; }
+    .flip-export-reset {
+      background: none;
+      border: none;
+      color: var(--dark);
+      font-family: monospace;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 8px;
+    }
+    .flip-export-reset:active { opacity: 0.6; }
+
     /* ── V50: Progressive Disclosure ── */
     .flip-advanced-panel {
       max-height: 0;
@@ -1077,6 +1135,13 @@
       <input type="range" id="scrSpeed" min="1" max="20" value="5" style="flex:1;height:3px;accent-color:#ff7700;cursor:pointer;">
     </div>
   </div><!-- #advanced-scrash -->
+</div>
+
+<!-- V50: Global export CTA bar -->
+<div id="flipExportBar">
+  <button id="flipExportReset" class="flip-export-reset" title="Reset">↺</button>
+  <button id="flipExportPrimary" class="flip-export-primary">📷 GUARDAR PNG</button>
+  <div id="flipExportSecondaries" style="display:flex;gap:6px;"></div>
 </div>
 
 <div class="bar" id="barCam">
@@ -2532,6 +2597,52 @@ document.body.addEventListener('click', (e) => {
   toggle.setAttribute('aria-expanded', isOpen);
   toggle.textContent = isOpen ? '⚙ Menos' : '⚙ Avanzado';
 });
+
+// V50: Export CTA bar
+const _EXPORT_CFG = {
+  cam:    { bottom: 96,  label: '📷 GUARDAR PNG', primary: 'btnCapture',   secs: ['btnShare'],                  reset: null           },
+  ascii:  { bottom: 96,  label: '📷 GUARDAR PNG', primary: 'acPng',        secs: ['acTxt', 'acCopy'],           reset: 'acReset'       },
+  up:     { bottom: 96,  label: '💾 GUARDAR',     primary: 'btnSaveResult', secs: ['btnShareResult'],            reset: 'upBtnReset'    },
+  scrash: { bottom: 280, label: '📷 CAPTURAR',    primary: 'btnScrashSnap', secs: ['btnScrashShare'],            reset: 'btnScrashReset'},
+  sono:   { bottom: 246, label: '📷 SNAP',        primary: 'btnSonoCapture',secs: ['btnSonoShare'],              reset: null           },
+  wmp:    null
+};
+const _SEC_LABELS = { btnShare:'↑', btnShareResult:'↑', btnSonoShare:'↑', btnScrashShare:'↑', acTxt:'TXT', acCopy:'📋' };
+
+function _updateExportBar(mode) {
+  const bar  = document.getElementById('flipExportBar');
+  const cfg  = _EXPORT_CFG[mode];
+  if (!cfg) { bar.classList.remove('visible'); return; }
+  bar.style.bottom = cfg.bottom + 'px';
+  // Primary
+  const pri = document.getElementById('flipExportPrimary');
+  pri.textContent = cfg.label;
+  pri.onclick = () => { const t = document.getElementById(cfg.primary); if (t) t.click(); };
+  // Reset
+  const rst = document.getElementById('flipExportReset');
+  if (cfg.reset) { rst.style.display = ''; rst.onclick = () => { const t = document.getElementById(cfg.reset); if (t) t.click(); }; }
+  else { rst.style.display = 'none'; }
+  // Secondaries
+  const secsEl = document.getElementById('flipExportSecondaries');
+  secsEl.innerHTML = '';
+  (cfg.secs || []).forEach(id => {
+    const btn = document.createElement('button');
+    btn.className = 'flip-export-secondary';
+    btn.textContent = _SEC_LABELS[id] || id;
+    btn.onclick = () => { const t = document.getElementById(id); if (t) t.click(); };
+    secsEl.appendChild(btn);
+  });
+  bar.classList.add('visible');
+}
+
+// Initialize and sync on tab change
+_updateExportBar('cam');
+document.getElementById('tabCam'   ).addEventListener('click', () => _updateExportBar('cam'));
+document.getElementById('tabUp'    ).addEventListener('click', () => _updateExportBar('up'));
+document.getElementById('tabAscii' ).addEventListener('click', () => _updateExportBar('ascii'));
+document.getElementById('tabSono'  ).addEventListener('click', () => _updateExportBar('sono'));
+document.getElementById('tabWmp'   ).addEventListener('click', () => _updateExportBar('wmp'));
+document.getElementById('tabScrash').addEventListener('click', () => _updateExportBar('scrash'));
 
 // ASCII EDIT panel toggle
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {

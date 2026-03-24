@@ -656,6 +656,39 @@
     }
     #thermalToast.visible { display:block; }
 
+    /* ── V50: Quick presets ── */
+    .flip-presets-row {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      border-bottom: 1px solid var(--dark);
+    }
+    .flip-presets-row::-webkit-scrollbar { display: none; }
+    .flip-preset-chip {
+      flex: 0 0 auto;
+      background: none;
+      border: 1px solid var(--dark);
+      color: var(--mid);
+      font-family: monospace;
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .flip-preset-chip:active,
+    .flip-preset-chip.active {
+      border-color: var(--paper);
+      color: var(--paper);
+      background: rgba(155, 188, 15, 0.1);
+    }
+
     /* ── V50: Unified bottom nav ── */
     #flipBottomNav {
       display: none;
@@ -2822,6 +2855,75 @@ function renderFlipNav(mode) {
 // Initialize and sync on tab change
 _updateExportBar('cam');
 renderFlipNav('cam');
+
+// V50: Quick presets
+// Presets apply settings by dispatching 'input' events on existing sliders —
+// all original handlers (bindSlider, upSlider, _scrSlider) fire automatically.
+function _applyPreset(settings) {
+  Object.entries(settings).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = val;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+function _renderPresets(container, presets) {
+  if (!container) return;
+  const row = document.createElement('div');
+  row.className = 'flip-presets-row';
+  presets.forEach(({ name, settings }) => {
+    const chip = document.createElement('button');
+    chip.className = 'flip-preset-chip';
+    chip.textContent = name;
+    chip.addEventListener('click', () => {
+      row.querySelectorAll('.flip-preset-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      _applyPreset(settings);
+    });
+    row.appendChild(chip);
+  });
+  container.prepend(row);
+}
+
+const FLIP_PRESETS = {
+  ascii: [
+    { name: 'CLEAN',  settings: { acBright:100, acContrast:100, acSat:100, acHue:0, acGray:0, acSepia:0, acInvert:0, acChars:100 } },
+    { name: 'SKETCH', settings: { acBright:110, acContrast:140, acSat:0,   acHue:0, acGray:100, acSepia:0, acInvert:0, acChars:120, acSpace:3 } },
+    { name: 'CYBER',  settings: { acBright:100, acContrast:120, acSat:180, acHue:160, acGray:0, acSepia:0, acInvert:0, acChars:80 } },
+    { name: 'GHOST',  settings: { acBright:80,  acContrast:90,  acSat:30,  acHue:200, acGray:60, acSepia:0, acInvert:0, acChars:60 } },
+  ],
+  scrash: [
+    { name: 'SUBTLE',  settings: { scrChroma:8,  scrDrip:0,  scrNeon:10, scrWave:3,  scrCrush:0,  scrHue:0,   scrGrain:5,  scrChaos:8  } },
+    { name: 'CHAOS',   settings: { scrChroma:35, scrDrip:50, scrNeon:60, scrWave:20, scrCrush:30, scrHue:120, scrGrain:40, scrChaos:80 } },
+    { name: 'MELT',    settings: { scrChroma:20, scrDrip:80, scrNeon:0,  scrWave:25, scrCrush:10, scrHue:0,   scrGrain:20, scrChaos:30 } },
+    { name: 'PLASMA',  settings: { scrChroma:45, scrDrip:10, scrNeon:80, scrWave:8,  scrCrush:5,  scrHue:240, scrGrain:0,  scrChaos:50 } },
+  ],
+  upload: [
+    { name: 'NATURAL', settings: { upAcBright:100, upAcContrast:100, upAcSat:100, upAcHue:0, upAcExposure:0, upAcShadows:0, upAcHighlights:0 } },
+    { name: 'MOODY',   settings: { upAcBright:85,  upAcContrast:130, upAcSat:70,  upAcHue:0, upAcExposure:-5, upAcShadows:-20, upAcHighlights:-10 } },
+    { name: 'RETRO',   settings: { upAcBright:95,  upAcContrast:100, upAcSat:60,  upAcHue:20, upAcExposure:5, upAcShadows:10, upAcHighlights:0 } },
+    { name: 'POP',     settings: { upAcBright:110, upAcContrast:120, upAcSat:160, upAcHue:0, upAcExposure:0, upAcShadows:0, upAcHighlights:15 } },
+  ],
+  sono: [
+    { name: 'BLEND 0',  settings: { sonoMix: 0   } },
+    { name: 'BLEND 50', settings: { sonoMix: 50  } },
+    { name: 'BLEND 100',settings: { sonoMix: 100 } },
+    { name: 'CHAOS',    settings: { sonoChaos: 80, sonoHue: 120 } },
+  ],
+  wmp: [
+    { name: 'CHILL',  settings: { wmpSens:30,  wmpTrails:70 } },
+    { name: 'REACT',  settings: { wmpSens:150, wmpTrails:20 } },
+    { name: 'DREAM',  settings: { wmpSens:60,  wmpTrails:90 } },
+  ],
+};
+
+// Inject preset chips into each mode's panel
+_renderPresets(document.getElementById('asciiPanel'),   FLIP_PRESETS.ascii);
+_renderPresets(document.getElementById('scrashControls'), FLIP_PRESETS.scrash);
+_renderPresets(document.getElementById('upPanel'),      FLIP_PRESETS.upload);
+_renderPresets(document.getElementById('sonoHUD'),      FLIP_PRESETS.sono);
+_renderPresets(document.getElementById('wmpHUD'),       FLIP_PRESETS.wmp);
 
 // ASCII EDIT panel toggle
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {

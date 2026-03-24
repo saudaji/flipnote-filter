@@ -1,0 +1,29 @@
+{
+  "name": "Flipnote Filter",
+  "short_name": "Flipnote",
+  "description": "Filtro de c\u00e1mara estilo Flipnote Studio DSi",
+  "start_url": "https://saudaji.github.io/flipnote-filter/",
+  "scope": "https://saudaji.github.io/flipnote-filter/",
+  "display": "fullscreen",
+  "orientation": "portrait-primary",
+  "theme_color": "#0F380F",
+  "background_color": "#0F380F",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "photo",
+    "entertainment"
+  ]
+}

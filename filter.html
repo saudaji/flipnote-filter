@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Flipnote Filter</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --ink:   #0F380F;
+      --light: #8BAC0F;
+      --paper: #9BBC0F;
+      --mid:   #306230;
+    }
+
+    body {
+      background: var(--ink);
+      width: 100dvw; height: 100dvh;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-family: monospace;
+    }
+
+    /* ── Canvas principal ── */
+    #display {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+      border: 3px solid var(--mid);
+    }
+
+    /* ── Barra inferior ── */
+    .bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 88px;
+      background: var(--ink);
+      border-top: 3px solid var(--mid);
+      display: flex; align-items: center; justify-content: space-around;
+      padding: 0 24px;
+      z-index: 10;
+    }
+
+    .btn {
+      background: var(--paper);
+      color: var(--ink);
+      border: 3px solid var(--mid);
+      border-radius: 0;
+      width: 64px; height: 48px;
+      font-family: monospace; font-size: 11px; font-weight: bold;
+      letter-spacing: 1px; text-transform: uppercase;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none;
+      transition: transform 0.08s;
+    }
+    .btn:active { transform: scale(0.92); background: var(--light); }
+
+    /* Botón captura — más grande, en el centro */
+    #btnCapture {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      font-size: 24px;
+      border: 4px solid var(--paper);
+      background: var(--ink);
+      color: var(--paper);
+    }
+    #btnCapture:active { background: var(--mid); }
+
+    #btnRecord.recording {
+      background: #cc0000; color: #fff; border-color: #ff4444;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.5 } }
+
+    /* ── Paleta selector ── */
+    .palettes {
+      position: fixed;
+      top: 12px; right: 12px;
+      display: flex; flex-direction: column; gap: 6px;
+      z-index: 10;
+    }
+    .pal-btn {
+      width: 28px; height: 28px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      border-radius: 0;
+    }
+    .pal-btn.active { border-color: white; }
+
+    /* ── FPS ── */
+    #fps {
+      position: fixed; top: 12px; left: 12px;
+      color: var(--paper); font-size: 11px; font-family: monospace;
+      opacity: 0.7;
+    }
+
+    /* ── Permiso pantalla ── */
+    #permission {
+      color: var(--paper); font-size: 14px; text-align: center;
+      padding: 32px; display: none; line-height: 1.8;
+    }
+    #permission button {
+      margin-top: 20px;
+      background: var(--paper); color: var(--ink);
+      border: none; padding: 14px 28px;
+      font-family: monospace; font-size: 14px; font-weight: bold;
+      cursor: pointer; display: block; margin-left: auto; margin-right: auto;
+    }
+
+    /* ── Flash captura ── */
+    #flash {
+      position: fixed; inset: 0;
+      background: var(--paper);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.05s;
+      z-index: 99;
+    }
+    #flash.on { opacity: 0.6; }
+  </style>
+</head>
+<body>
+
+<video id="vid" autoplay playsinline muted style="display:none"></video>
+<canvas id="small"   style="display:none"></canvas>   <!-- 256×192 procesado -->
+<canvas id="scanCvs" style="display:none"></canvas>   <!-- overlay scanlines  -->
+<canvas id="display"></canvas>
+
+<div id="permission">
+  <p>Flipnote Filter necesita<br>acceso a la cámara</p>
+  <button onclick="requestCamera()">▶ INICIAR</button>
+</div>
+
+<div id="flash"></div>
+
+<!-- Paletas de color -->
+<div class="palettes" id="palettes"></div>
+
+<!-- Controles -->
+<div class="bar">
+  <button class="btn" id="btnFlip">FLIP</button>
+  <button class="btn" id="btnCapture">●</button>
+  <button class="btn" id="btnRecord">REC</button>
+</div>
+
+<div id="fps">-- fps</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// PALETAS  (fondo_claro, tinta_oscura)
+// ══════════════════════════════════════════════════════════════════════════════
+const PALETTES = [
+  { name: 'Game Boy',   paper: [155,188, 15], ink: [ 15, 56, 15] },
+  { name: 'B&W',        paper: [255,255,255], ink: [  0,  0,  0] },
+  { name: 'Amber CRT',  paper: [255,176,  0], ink: [ 60, 20,  0] },
+  { name: 'Terminal',   paper: [ 20, 20, 20], ink: [ 57,255, 20] },
+  { name: 'Papel',      paper: [212,200,170], ink: [ 30, 20, 10] },
+  { name: 'Lo-fi Rosa', paper: [242,196,206], ink: [ 45, 10, 20] },
+];
+
+let activePal = 0;
+
+// ── Matriz Bayer 8×8 (valores 0-255) ─────────────────────────────────────────
+const BAYER8 = new Uint8Array([
+   0, 32,  8, 40,  2, 34, 10, 42,
+  48, 16, 56, 24, 50, 18, 58, 26,
+  12, 44,  4, 36, 14, 46,  6, 38,
+  60, 28, 52, 20, 62, 30, 54, 22,
+   3, 35, 11, 43,  1, 33,  9, 41,
+  51, 19, 59, 27, 49, 17, 57, 25,
+  15, 47,  7, 39, 13, 45,  5, 37,
+  63, 31, 55, 23, 61, 29, 53, 21,
+].map(v => Math.round(v * 255 / 63)));
+
+// ── Dimensiones ───────────────────────────────────────────────────────────────
+const DSI_W = 256, DSI_H = 192;
+const SCALE  = 4;
+const OUT_W  = DSI_W * SCALE;   // 1024
+const OUT_H  = DSI_H * SCALE;   // 768
+
+// ── DOM ───────────────────────────────────────────────────────────────────────
+const vid     = document.getElementById('vid');
+const small   = document.getElementById('small');
+const scanCvs = document.getElementById('scanCvs');
+const display = document.getElementById('display');
+const fpsEl   = document.getElementById('fps');
+const permEl  = document.getElementById('permission');
+const flash   = document.getElementById('flash');
+
+small.width   = DSI_W; small.height   = DSI_H;
+scanCvs.width = OUT_W; scanCvs.height = OUT_H;
+display.width = OUT_W; display.height = OUT_H;
+
+const ctxS = small.getContext('2d',   { willReadFrequently: true });
+const ctxD = display.getContext('2d', { willReadFrequently: false });
+const ctxSc = scanCvs.getContext('2d');
+ctxD.imageSmoothingEnabled = false;
+
+// ── Ajuste de tamaño al viewport ───────────────────────────────────────────────
+function resizeDisplay() {
+  const aspect = OUT_W / OUT_H;
+  const avW = window.innerWidth;
+  const avH = window.innerHeight - 88; // reserva barra
+  if (avW / avH > aspect) {
+    display.style.height = avH + 'px';
+    display.style.width  = (avH * aspect) + 'px';
+  } else {
+    display.style.width  = avW + 'px';
+    display.style.height = (avW / aspect) + 'px';
+  }
+}
+window.addEventListener('resize', resizeDisplay);
+resizeDisplay();
+
+// ── Scanline overlay (se pre-renderiza una sola vez por paleta) ───────────────
+function buildScanlines() {
+  ctxSc.clearRect(0, 0, OUT_W, OUT_H);
+  // Borde de pixel DSi → fuerte (65% oscuro)
+  ctxSc.fillStyle = 'rgba(0,0,0,0.65)';
+  for (let y = 0; y < OUT_H; y += SCALE) ctxSc.fillRect(0, y, OUT_W, 1);
+  // Filas impares → CRT suave (20% oscuro)
+  ctxSc.fillStyle = 'rgba(0,0,0,0.20)';
+  for (let y = 1; y < OUT_H; y += 2)    ctxSc.fillRect(0, y, OUT_W, 1);
+}
+buildScanlines();
+
+// ── Paletas UI ────────────────────────────────────────────────────────────────
+const palContainer = document.getElementById('palettes');
+PALETTES.forEach((p, i) => {
+  const btn = document.createElement('div');
+  btn.className = 'pal-btn' + (i === 0 ? ' active' : '');
+  btn.style.background = `rgb(${p.paper.join(',')})`;
+  btn.style.borderColor = `rgb(${p.ink.join(',')})`;
+  btn.title = p.name;
+  btn.addEventListener('click', () => {
+    activePal = i;
+    document.querySelectorAll('.pal-btn').forEach((b,j) =>
+      b.classList.toggle('active', j === i));
+  });
+  palContainer.appendChild(btn);
+});
+
+// ── Cámara ────────────────────────────────────────────────────────────────────
+let facingMode = 'environment';
+let stream = null;
+
+async function startCamera(facing) {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    vid.srcObject = stream;
+    await vid.play();
+    permEl.style.display = 'none';
+    return true;
+  } catch (e) {
+    permEl.style.display = 'block';
+    return false;
+  }
+}
+
+async function requestCamera() { await startCamera(facingMode); }
+
+document.getElementById('btnFlip').addEventListener('click', () => {
+  facingMode = facingMode === 'environment' ? 'user' : 'environment';
+  startCamera(facingMode);
+});
+
+// ── Buffer de procesado ───────────────────────────────────────────────────────
+const lowBuf = new Uint8ClampedArray(DSI_W * DSI_H * 4);
+
+function processFrame() {
+  if (!vid.videoWidth) return;
+
+  const p = PALETTES[activePal];
+  const [PR, PG, PB] = p.paper;
+  const [IR, IG, IB] = p.ink;
+
+  // ── 1. Dibujar video → 256×192 (crop-to-fill para no deformar) ──
+  const vAspect = vid.videoWidth / vid.videoHeight;
+  const cAspect = DSI_W / DSI_H;
+  let sx = 0, sy = 0, sw = vid.videoWidth, sh = vid.videoHeight;
+  if (vAspect > cAspect) { sw = sh * cAspect; sx = (vid.videoWidth - sw) / 2; }
+  else                   { sh = sw / cAspect; sy = (vid.videoHeight - sh) / 2; }
+
+  ctxS.save();
+  if (facingMode === 'user') { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
+  ctxS.drawImage(vid, sx, sy, sw, sh, 0, 0, DSI_W, DSI_H);
+  ctxS.restore();
+
+  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
+
+  // ── 2. Bayer dithering + mapeo de paleta → buffer 256×192 ──
+  for (let y = 0; y < DSI_H; y++) {
+    const row8 = (y & 7) << 3;
+    for (let x = 0; x < DSI_W; x++) {
+      const i    = (y * DSI_W + x) << 2;
+      const gray = (src[i] * 77 + src[i+1] * 150 + src[i+2] * 29) >> 8; // 0-255
+      const isInk = gray < BAYER8[row8 + (x & 7)];
+      lowBuf[i]   = isInk ? IR : PR;
+      lowBuf[i+1] = isInk ? IG : PG;
+      lowBuf[i+2] = isInk ? IB : PB;
+      lowBuf[i+3] = 255;
+    }
+  }
+
+  // ── 3. Escribir buffer → canvas pequeño, escalar → display ──
+  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
+  ctxD.drawImage(small, 0, 0, OUT_W, OUT_H);   // nearest-neighbor upscale
+
+  // ── 4. Scanlines encima ──
+  ctxD.drawImage(scanCvs, 0, 0);
+}
+
+// ── Render loop ───────────────────────────────────────────────────────────────
+let lastT = performance.now(), frameCount = 0;
+function loop(t) {
+  processFrame();
+  frameCount++;
+  if (t - lastT >= 1000) {
+    fpsEl.textContent = frameCount + ' fps';
+    frameCount = 0; lastT = t;
+  }
+  requestAnimationFrame(loop);
+}
+
+// ── Captura de foto ───────────────────────────────────────────────────────────
+document.getElementById('btnCapture').addEventListener('click', () => {
+  // Flash visual
+  flash.classList.add('on');
+  setTimeout(() => flash.classList.remove('on'), 120);
+  // Descargar PNG
+  const a = document.createElement('a');
+  a.href     = display.toDataURL('image/png');
+  a.download = 'flipnote_' + Date.now() + '.png';
+  a.click();
+});
+
+// ── Grabación de video ────────────────────────────────────────────────────────
+let recorder = null, chunks = [];
+const btnRec = document.getElementById('btnRecord');
+
+btnRec.addEventListener('click', () => {
+  if (!recorder || recorder.state === 'inactive') {
+    // Elegir codec compatible (Safari usa mp4, Chrome/Android webm)
+    const mimeTypes = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    const mime = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+    chunks = [];
+    const canvasStream = display.captureStream(30);
+    recorder = new MediaRecorder(canvasStream, {
+      ...(mime ? { mimeType: mime } : {}),
+      videoBitsPerSecond: 6_000_000,
+    });
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    recorder.onstop = () => {
+      const ext  = mime.includes('mp4') ? 'mp4' : 'webm';
+      const blob = new Blob(chunks, { type: mime || 'video/webm' });
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = 'flipnote_' + Date.now() + '.' + ext;
+      a.click();
+    };
+    recorder.start(200);
+    btnRec.textContent = 'STOP';
+    btnRec.classList.add('recording');
+  } else {
+    recorder.stop();
+    btnRec.textContent = 'REC';
+    btnRec.classList.remove('recording');
+  }
+});
+
+// ── Inicio ────────────────────────────────────────────────────────────────────
+startCamera(facingMode).then(ok => { if (ok) requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

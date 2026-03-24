@@ -656,6 +656,21 @@
     }
     #thermalToast.visible { display:block; }
 
+    /* ── V50: Unified bottom nav ── */
+    #flipBottomNav {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 96px;
+      background: var(--ink);
+      border-top: 2px solid var(--dark);
+      z-index: 11;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 20px;
+    }
+    #flipBottomNav.visible { display: flex; }
+
     /* ── V50: Export CTA bar ── */
     #flipExportBar {
       display: none;
@@ -1180,6 +1195,9 @@
     </div>
   </div><!-- #advanced-scrash -->
 </div>
+
+<!-- V50: Unified bottom nav (muta por modo) -->
+<nav id="flipBottomNav"></nav>
 
 <!-- V50: Global export CTA bar -->
 <div id="flipExportBar">
@@ -2706,14 +2724,104 @@ function flipToast(message, duration = 3000) {
   }).observe(el, { attributes: true, attributeFilter: ['style'] });
 })();
 
+// V50: Unified bottom nav
+// Helper: read icon text from original button
+function _navIcon(id) {
+  const el = document.getElementById(id);
+  return el ? (el.querySelector('.btn-icon') || el).textContent.trim() : '';
+}
+// Helper: delegate click — handles both regular buttons and file inputs
+function _navClick(btnId, fileInputId) {
+  if (fileInputId) {
+    const inp = document.getElementById(fileInputId);
+    if (inp) inp.click();
+  } else {
+    const btn = document.getElementById(btnId);
+    if (btn && !btn.disabled) btn.click();
+  }
+}
+
+const FLIP_NAV_CFG = {
+  cam: () => [
+    { icon: _navIcon('btnRecord') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnRecord')  },
+    { icon: '●',                           label: '',       center: true,  click: () => _navClick('btnCapture') },
+    { icon: '↑',                           label: 'SHARE',  center: false, click: () => _navClick('btnShare')   },
+  ],
+  ascii: () => [
+    { icon: _navIcon('btnAsciiMode') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnAsciiMode')    },
+    { icon: '●',                               label: '',       center: true,  click: () => _navClick('btnAsciiCapture') },
+    { icon: '↑',                               label: 'SHARE',  center: false, click: () => _navClick('btnAsciiShare')   },
+    { icon: '⚡',                               label: 'GLITCH', center: false, click: () => _navClick('btnAsciiGlitch')  },
+    { icon: '⚙',                               label: 'EDIT',   center: false, click: () => _navClick('btnAsciiEdit')    },
+  ],
+  up: () => [
+    { icon: '📂', label: 'ELEGIR', center: false, click: () => _navClick(null, 'fileInputInBtn') },
+    { icon: '💾', label: '',       center: true,  click: () => _navClick('btnSaveResult')        },
+    { icon: '↑',  label: 'SHARE',  center: false, click: () => _navClick('btnShareResult')       },
+    { icon: '⚙',  label: 'EDIT',   center: false, click: () => _navClick('btnUpEdit')            },
+  ],
+  sono: () => [
+    { icon: '⏺',  label: 'REC',   center: false, click: () => _navClick('btnSonoRec')              },
+    { icon: '●',  label: '',       center: true,  click: () => _navClick('btnSonoCapture')          },
+    { icon: '📂', label: 'FILE',   center: false, click: () => _navClick(null, 'sonoFileInputEl')   },
+    { icon: '↑',  label: 'SHARE',  center: false, click: () => _navClick('btnSonoShare')            },
+    { icon: '↺',  label: 'RESET',  center: false, click: () => _navClick('btnSonoReset')            },
+  ],
+  wmp: () => [
+    { icon: '🎙', label: 'MIC',  center: false, click: () => _navClick('btnWmpMicBar')             },
+    { icon: '▶',  label: '',     center: true,  click: () => _navClick('btnWmpPlayPause')          },
+    { icon: '📂', label: 'FILE', center: false, click: () => _navClick(null, 'wmpFileInputBar')    },
+    { icon: '⛶',  label: 'FULL', center: false, click: () => _navClick('btnWmpFull')              },
+  ],
+  scrash: () => [
+    { icon: '●',  label: 'SNAP',  center: true,  click: () => _navClick('btnScrashSnap')   },
+    { icon: '↑',  label: 'SHARE', center: false, click: () => _navClick('btnScrashShare')  },
+    { icon: '✕',  label: 'RESET', center: false, click: () => _navClick('btnScrashReset')  },
+  ],
+};
+
+const _OLD_BARS = ['barCam','barUpload','barAscii','barSono','barWmp','barScrash'];
+
+function renderFlipNav(mode) {
+  // Hide all legacy bars
+  _OLD_BARS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = 'none';
+    el.classList.remove('visible');
+  });
+
+  const nav = document.getElementById('flipBottomNav');
+  const cfgFn = FLIP_NAV_CFG[mode];
+  if (!cfgFn) { nav.classList.remove('visible'); return; }
+
+  nav.innerHTML = '';
+  cfgFn().forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'btn' + (item.center ? ' btn-center' : '');
+    btn.innerHTML = `<div class="btn-icon">${item.icon}</div>${item.label ? `<span class="btn-label">${item.label}</span>` : ''}`;
+    btn.addEventListener('click', item.click);
+    nav.appendChild(btn);
+  });
+  nav.classList.add('visible');
+  // TODO: V50 — sincronizar estado dinámico: timer de grabación en btn-center (CAM/ASCII),
+  // ▶/⏸ en WMP, 📷/🎥 toggle en CAM/ASCII, disabled en btnSaveResult/btnShareResult
+}
+
+// Wrap switchTab to always update the unified nav
+// (safe: calls original function first, then adds V50 behaviour)
+(function() {
+  const _origSwitch = switchTab;
+  switchTab = function(tab) {
+    _origSwitch(tab);
+    renderFlipNav(tab);
+    _updateExportBar(tab);
+  };
+})();
+
 // Initialize and sync on tab change
 _updateExportBar('cam');
-document.getElementById('tabCam'   ).addEventListener('click', () => _updateExportBar('cam'));
-document.getElementById('tabUp'    ).addEventListener('click', () => _updateExportBar('up'));
-document.getElementById('tabAscii' ).addEventListener('click', () => _updateExportBar('ascii'));
-document.getElementById('tabSono'  ).addEventListener('click', () => _updateExportBar('sono'));
-document.getElementById('tabWmp'   ).addEventListener('click', () => _updateExportBar('wmp'));
-document.getElementById('tabScrash').addEventListener('click', () => _updateExportBar('scrash'));
+renderFlipNav('cam');
 
 // ASCII EDIT panel toggle
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {

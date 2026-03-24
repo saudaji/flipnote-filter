@@ -826,7 +826,7 @@
 
 <div class="tab-bar">
   <button class="tab active" id="tabCam">📷 CAM</button>
-  <button class="tab"        id="tabUp" >📂 SUBIR</button>
+  <button class="tab"        id="tabUp" >📂 UPLOAD</button>
   <button class="tab"        id="tabAscii">🔤 ASCII</button>
   <button class="tab"        id="tabSono" >🔊 SONO</button>
   <button class="tab"        id="tabWmp"  >📺 WMP</button>
@@ -999,13 +999,13 @@
 
 <!-- SONO mic permission overlay -->
 <div id="sonoPerm">
-  <p>SONOMORPH necesita<br>acceso al micrófono</p>
-  <button id="btnSonoStart">▶ ACTIVAR MIC</button>
+  <p>SONOMORPH needs<br>mic access</p>
+  <button id="btnSonoStart">▶ ENABLE MIC</button>
 </div>
 
 <div id="splash">
   <div class="splash-title">FLIP</div>
-  <button class="splash-sub" id="btnSplashSub">¿lo harías?</button>
+  <button class="splash-sub" id="btnSplashSub">make it weird</button>
 </div>
 
 <div id="flash"></div>
@@ -1018,7 +1018,7 @@
   <div id="loadPct">0%</div>
 </div>
 
-<button id="btnFlip" aria-label="Voltear cámara">
+<button id="btnFlip" aria-label="Flip camera">
   <div class="btn-icon">⟳</div>
 </button>
 
@@ -1052,8 +1052,8 @@
   </div>
   <div class="drop-zone" id="dropZone" style="position:relative;">
     <span class="dz-icon">🎞</span>
-    <p><strong>ARRASTRA UN ARCHIVO AQUÍ</strong>
-       Foto o video · Cualquier duración<br>
+    <p><strong>DROP A FILE HERE</strong>
+       Photo or video · Any length<br>
        JPG · PNG · HEIC · MP4 · MOV · WEBM</p>
     <input type="file" id="fileInputInDrop" accept="image/*,video/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
   </div>
@@ -1069,7 +1069,7 @@
     </div>
     <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
     <div class="progress-info">
-      <span id="progressLabel">Procesando…</span>
+      <span id="progressLabel">Processing…</span>
       <span id="progressPct">0%</span>
     </div>
   </div>
@@ -1245,7 +1245,7 @@
 <div id="barUpload">
   <button class="btn" id="btnChoose" style="position:relative;overflow:hidden;">
     <div class="btn-icon">📂</div>
-    <span class="btn-label">ELEGIR</span>
+    <span class="btn-label">CHOOSE</span>
     <input type="file" id="fileInputInBtn" accept="image/*,video/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
   </button>
   <button class="btn btn-center" id="btnSaveResult" style="opacity:.4" disabled>
@@ -1328,10 +1328,10 @@
 
 <!-- WMP source/permission overlay -->
 <div id="wmpPerm">
-  <p class="wmp-perm-title">ELIGE FUENTE DE AUDIO</p>
+  <p class="wmp-perm-title">CHOOSE AUDIO SOURCE</p>
   <div class="wmp-src-row">
-    <button class="wmp-src-btn" id="btnWmpMicPerm">🎙 MICRÓFONO</button>
-    <label class="wmp-src-btn" id="btnWmpFilePerm" for="wmpFileInputPerm">📂 ARCHIVO</label>
+    <button class="wmp-src-btn" id="btnWmpMicPerm">🎙 MIC</button>
+    <label class="wmp-src-btn" id="btnWmpFilePerm" for="wmpFileInputPerm">📂 FILE</label>
     <input type="file" id="wmpFileInputPerm" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.weba" style="display:none;">
   </div>
   <p id="wmpPermErr"></p>
@@ -2755,7 +2755,7 @@ const FLIP_NAV_CFG = {
     { icon: '⚙',                               label: 'EDIT',   center: false, click: () => _navClick('btnAsciiEdit')    },
   ],
   up: () => [
-    { icon: '📂', label: 'ELEGIR', center: false, click: () => _navClick(null, 'fileInputInBtn') },
+    { icon: '📂', label: 'CHOOSE', center: false, click: () => _navClick(null, 'fileInputInBtn') },
     { icon: '💾', label: '',       center: true,  click: () => _navClick('btnSaveResult')        },
     { icon: '↑',  label: 'SHARE',  center: false, click: () => _navClick('btnShareResult')       },
     { icon: '⚙',  label: 'EDIT',   center: false, click: () => _navClick('btnUpEdit')            },

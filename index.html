@@ -655,6 +655,188 @@
       letter-spacing:1px; padding:6px 14px; z-index:200; white-space:nowrap; pointer-events:none;
     }
     #thermalToast.visible { display:block; }
+
+    /* ── V50: Quick presets ── */
+    .flip-presets-row {
+      display: flex;
+      gap: 6px;
+      padding: 8px 12px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      border-bottom: 1px solid var(--dark);
+    }
+    .flip-presets-row::-webkit-scrollbar { display: none; }
+    .flip-preset-chip {
+      flex: 0 0 auto;
+      background: none;
+      border: 1px solid var(--dark);
+      color: var(--mid);
+      font-family: monospace;
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .flip-preset-chip:active,
+    .flip-preset-chip.active {
+      border-color: var(--paper);
+      color: var(--paper);
+      background: rgba(155, 188, 15, 0.1);
+    }
+
+    /* ── V50: Unified bottom nav ── */
+    #flipBottomNav {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 96px;
+      background: var(--ink);
+      border-top: 2px solid var(--dark);
+      z-index: 11;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 20px;
+    }
+    #flipBottomNav.visible { display: flex; }
+
+    /* ── V50: Export CTA bar ── */
+    #flipExportBar {
+      display: none;
+      position: fixed;
+      left: 0; right: 0;
+      z-index: 95;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(8, 8, 8, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    #flipExportBar.visible { display: flex; }
+    .flip-export-primary {
+      flex: 1;
+      max-width: 220px;
+      padding: 11px 18px;
+      background: var(--paper);
+      color: var(--ink);
+      border: none;
+      border-radius: 6px;
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    .flip-export-primary:active { transform: scale(0.95); }
+    .flip-export-primary:disabled { opacity: 0.35; cursor: default; }
+    .flip-export-secondary {
+      padding: 11px 14px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--paper);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: opacity 0.12s ease;
+    }
+    .flip-export-secondary:active { opacity: 0.6; }
+    .flip-export-reset {
+      background: none;
+      border: none;
+      color: var(--dark);
+      font-family: monospace;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 8px;
+    }
+    .flip-export-reset:active { opacity: 0.6; }
+
+    /* ── V50: Toast notifications ── */
+    .flip-toast-container {
+      position: fixed;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+    .flip-toast {
+      padding: 7px 14px;
+      background: rgba(15, 15, 15, 0.88);
+      backdrop-filter: blur(8px);
+      color: rgba(255, 255, 255, 0.92);
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+      animation: flipToastIn 0.25s ease, flipToastOut 0.3s ease 2.7s forwards;
+    }
+    @keyframes flipToastIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes flipToastOut {
+      from { opacity: 1; }
+      to   { opacity: 0; transform: translateY(-6px); }
+    }
+    /* Restyle thermalToast to match new toast system */
+    #thermalToast {
+      font-family: monospace !important;
+      background: rgba(15, 15, 15, 0.88) !important;
+      border-radius: 6px !important;
+      border: 1px solid rgba(255,80,0,0.4) !important;
+      letter-spacing: 0.5px !important;
+      font-size: 11px !important;
+    }
+
+    /* ── V50: Progressive Disclosure ── */
+    .flip-advanced-panel {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+    }
+    .flip-advanced-panel.open {
+      max-height: 3000px;
+      opacity: 1;
+    }
+    .flip-advanced-toggle {
+      width: 100%;
+      background: none;
+      border: 1px solid var(--dark);
+      color: var(--mid);
+      font-family: monospace;
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 6px 12px;
+      cursor: pointer;
+      margin: 4px 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .flip-advanced-toggle:hover,
+    .flip-advanced-toggle[aria-expanded="true"] {
+      color: var(--paper);
+      border-color: var(--mid);
+    }
   </style>
 </head>
 <body>
@@ -677,7 +859,7 @@
 
 <div class="tab-bar">
   <button class="tab active" id="tabCam">📷 CAM</button>
-  <button class="tab"        id="tabUp" >📂 SUBIR</button>
+  <button class="tab"        id="tabUp" >📂 UPLOAD</button>
   <button class="tab"        id="tabAscii">🔤 ASCII</button>
   <button class="tab"        id="tabSono" >🔊 SONO</button>
   <button class="tab"        id="tabWmp"  >📺 WMP</button>
@@ -694,28 +876,6 @@
 
   <!-- ASCII settings panel (inside asciiArea for split layout) -->
   <div id="asciiPanel">
-    <!-- Pythonization -->
-    <div id="pythonSection">
-      <div class="py-header">🐍 Pythonization</div>
-      <div class="py-mode-row">
-        <button id="btnPyOff"   class="py-mode-btn active">OFF</button>
-        <button id="btnPyChars" class="py-mode-btn">CHARS</button>
-        <button id="btnPyCode"  class="py-mode-btn">CODE</button>
-      </div>
-      <div id="pyControls">
-        <div class="py-pal-row">
-          <button id="btnPyPal0" class="py-pal-btn active">PY</button>
-          <button id="btnPyPal1" class="py-pal-btn">SPY</button>
-          <button id="btnPyPal2" class="py-pal-btn">IDE</button>
-        </div>
-        <div id="chaosRow" class="ac-row">
-          <span class="ac-lbl">Chaos</span>
-          <span class="ac-val" id="vChaos">0</span>
-          <input type="range" id="acChaos" min="0" max="100" value="0">
-        </div>
-      </div>
-    </div>
-
     <div class="ac-section">
       <div class="ac-title">Output</div>
       <div class="ac-row">
@@ -732,101 +892,129 @@
         <span style="color:#ff7700;font-size:9px;font-family:monospace;letter-spacing:1px;">📱 Optimizado para móvil (máx 60 chars)</span>
         <button id="btnHighPerf">⚡ Alto rendimiento ⚠ calor</button>
       </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Font</span>
-        <select id="acFont">
-          <option value="monospace">Default</option>
-          <option value="'Exo 2', Fluidic, sans-serif">Fluidic</option>
-          <option value="Helvetica, Arial, sans-serif">Helvetica</option>
-          <option value="Canterbury, serif">Canterbury</option>
-        </select>
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Gradient</span>
-        <select id="acGradient">
-          <option value="normal">Normal</option>
-          <option value="reverse">Reverse</option>
-          <option value="block">Block</option>
-          <option value="minimal">Minimal</option>
-        </select>
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Space Density</span>
-        <span class="ac-val" id="vSpace">1</span>
-        <input type="range" id="acSpace" min="1" max="10" value="1">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Quality</span>
-        <select id="acQuality">
-          <option value="none">None</option>
-          <option value="smooth">Smooth</option>
-          <option value="sharp">Sharp</option>
-        </select>
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Frame</span>
-        <span class="ac-val" id="vFrame">0px</span>
-        <input type="range" id="acFrame" min="0" max="50" value="0">
-      </div>
     </div>
 
-    <div class="ac-section">
-      <div class="ac-title">Image</div>
-      <div class="ac-row">
-        <span class="ac-lbl">Brightness</span>
-        <span class="ac-val" id="vBright">100%</span>
-        <input type="range" id="acBright" min="0" max="200" value="100">
+    <button class="flip-advanced-toggle" data-target="advanced-ascii" aria-expanded="false">⚙ Avanzado</button>
+    <div id="advanced-ascii" class="flip-advanced-panel">
+      <div class="ac-section">
+        <div class="ac-row">
+          <span class="ac-lbl">Font</span>
+          <select id="acFont">
+            <option value="monospace">Default</option>
+            <option value="'Exo 2', Fluidic, sans-serif">Fluidic</option>
+            <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+            <option value="Canterbury, serif">Canterbury</option>
+          </select>
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Gradient</span>
+          <select id="acGradient">
+            <option value="normal">Normal</option>
+            <option value="reverse">Reverse</option>
+            <option value="block">Block</option>
+            <option value="minimal">Minimal</option>
+          </select>
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Space Density</span>
+          <span class="ac-val" id="vSpace">1</span>
+          <input type="range" id="acSpace" min="1" max="10" value="1">
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Quality</span>
+          <select id="acQuality">
+            <option value="none">None</option>
+            <option value="smooth">Smooth</option>
+            <option value="sharp">Sharp</option>
+          </select>
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Frame</span>
+          <span class="ac-val" id="vFrame">0px</span>
+          <input type="range" id="acFrame" min="0" max="50" value="0">
+        </div>
       </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Contrast</span>
-        <span class="ac-val" id="vContrast">100%</span>
-        <input type="range" id="acContrast" min="0" max="200" value="100">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Saturation</span>
-        <span class="ac-val" id="vSat">100%</span>
-        <input type="range" id="acSat" min="0" max="200" value="100">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Hue</span>
-        <span class="ac-val" id="vHue">0°</span>
-        <input type="range" id="acHue" min="0" max="360" value="0">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Grayscale</span>
-        <span class="ac-val" id="vGray">0%</span>
-        <input type="range" id="acGray" min="0" max="100" value="0">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Sepia</span>
-        <span class="ac-val" id="vSepia">0%</span>
-        <input type="range" id="acSepia" min="0" max="100" value="0">
-      </div>
-      <div class="ac-row">
-        <span class="ac-lbl">Invert</span>
-        <span class="ac-val" id="vInvert">0%</span>
-        <input type="range" id="acInvert" min="0" max="100" value="0">
-      </div>
-    </div>
 
-    <div class="ac-section">
-      <div class="ac-title">Effects</div>
-      <div class="ac-row">
-        <label class="ac-lbl"><input type="checkbox" id="cbThresh"> Threshold</label>
-        <span class="ac-val" id="vThresh">128</span>
-        <input type="range" id="acThresh" min="0" max="255" value="128" disabled>
+      <div class="ac-section">
+        <div class="ac-title">Image</div>
+        <div class="ac-row">
+          <span class="ac-lbl">Brightness</span>
+          <span class="ac-val" id="vBright">100%</span>
+          <input type="range" id="acBright" min="0" max="200" value="100">
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Contrast</span>
+          <span class="ac-val" id="vContrast">100%</span>
+          <input type="range" id="acContrast" min="0" max="200" value="100">
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Saturation</span>
+          <span class="ac-val" id="vSat">100%</span>
+          <input type="range" id="acSat" min="0" max="200" value="100">
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Hue</span>
+          <span class="ac-val" id="vHue">0°</span>
+          <input type="range" id="acHue" min="0" max="360" value="0">
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Grayscale</span>
+          <span class="ac-val" id="vGray">0%</span>
+          <input type="range" id="acGray" min="0" max="100" value="0">
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Sepia</span>
+          <span class="ac-val" id="vSepia">0%</span>
+          <input type="range" id="acSepia" min="0" max="100" value="0">
+        </div>
+        <div class="ac-row">
+          <span class="ac-lbl">Invert</span>
+          <span class="ac-val" id="vInvert">0%</span>
+          <input type="range" id="acInvert" min="0" max="100" value="0">
+        </div>
       </div>
-      <div class="ac-row">
-        <label class="ac-lbl"><input type="checkbox" id="cbSharp"> Sharpness</label>
-        <span class="ac-val" id="vSharp">9</span>
-        <input type="range" id="acSharp" min="0" max="20" value="9" disabled>
+
+      <div class="ac-section">
+        <div class="ac-title">Effects</div>
+        <div class="ac-row">
+          <label class="ac-lbl"><input type="checkbox" id="cbThresh"> Threshold</label>
+          <span class="ac-val" id="vThresh">128</span>
+          <input type="range" id="acThresh" min="0" max="255" value="128" disabled>
+        </div>
+        <div class="ac-row">
+          <label class="ac-lbl"><input type="checkbox" id="cbSharp"> Sharpness</label>
+          <span class="ac-val" id="vSharp">9</span>
+          <input type="range" id="acSharp" min="0" max="20" value="9" disabled>
+        </div>
+        <div class="ac-row">
+          <label class="ac-lbl"><input type="checkbox" id="cbEdge"> Edge Detect</label>
+          <span class="ac-val" id="vEdge">1.0</span>
+          <input type="range" id="acEdge" min="0" max="50" value="10" disabled>
+        </div>
       </div>
-      <div class="ac-row">
-        <label class="ac-lbl"><input type="checkbox" id="cbEdge"> Edge Detect</label>
-        <span class="ac-val" id="vEdge">1.0</span>
-        <input type="range" id="acEdge" min="0" max="50" value="10" disabled>
+
+      <!-- Pythonization -->
+      <div id="pythonSection">
+        <div class="py-header">🐍 Pythonization</div>
+        <div class="py-mode-row">
+          <button id="btnPyOff"   class="py-mode-btn active">OFF</button>
+          <button id="btnPyChars" class="py-mode-btn">CHARS</button>
+          <button id="btnPyCode"  class="py-mode-btn">CODE</button>
+        </div>
+        <div id="pyControls">
+          <div class="py-pal-row">
+            <button id="btnPyPal0" class="py-pal-btn active">PY</button>
+            <button id="btnPyPal1" class="py-pal-btn">SPY</button>
+            <button id="btnPyPal2" class="py-pal-btn">IDE</button>
+          </div>
+          <div id="chaosRow" class="ac-row">
+            <span class="ac-lbl">Chaos</span>
+            <span class="ac-val" id="vChaos">0</span>
+            <input type="range" id="acChaos" min="0" max="100" value="0">
+          </div>
+        </div>
       </div>
-    </div>
+    </div><!-- #advanced-ascii -->
 
     <div class="ac-btn-row">
       <button class="ac-btn" id="acCopy">📋 COPY</button>
@@ -844,13 +1032,13 @@
 
 <!-- SONO mic permission overlay -->
 <div id="sonoPerm">
-  <p>SONOMORPH necesita<br>acceso al micrófono</p>
-  <button id="btnSonoStart">▶ ACTIVAR MIC</button>
+  <p>SONOMORPH needs<br>mic access</p>
+  <button id="btnSonoStart">▶ ENABLE MIC</button>
 </div>
 
 <div id="splash">
   <div class="splash-title">FLIP</div>
-  <button class="splash-sub" id="btnSplashSub">¿lo harías?</button>
+  <button class="splash-sub" id="btnSplashSub">make it weird</button>
 </div>
 
 <div id="flash"></div>
@@ -863,7 +1051,7 @@
   <div id="loadPct">0%</div>
 </div>
 
-<button id="btnFlip" aria-label="Voltear cámara">
+<button id="btnFlip" aria-label="Flip camera">
   <div class="btn-icon">⟳</div>
 </button>
 
@@ -897,8 +1085,8 @@
   </div>
   <div class="drop-zone" id="dropZone" style="position:relative;">
     <span class="dz-icon">🎞</span>
-    <p><strong>ARRASTRA UN ARCHIVO AQUÍ</strong>
-       Foto o video · Cualquier duración<br>
+    <p><strong>DROP A FILE HERE</strong>
+       Photo or video · Any length<br>
        JPG · PNG · HEIC · MP4 · MOV · WEBM</p>
     <input type="file" id="fileInputInDrop" accept="image/*,video/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
   </div>
@@ -914,7 +1102,7 @@
     </div>
     <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
     <div class="progress-info">
-      <span id="progressLabel">Procesando…</span>
+      <span id="progressLabel">Processing…</span>
       <span id="progressPct">0%</span>
     </div>
   </div>
@@ -934,60 +1122,63 @@
     <div class="ac-section" style="padding:5px 12px 3px;">
       <div class="ac-row"><span class="ac-lbl">MIX</span><span class="ac-val" id="upVMix">100%</span><input type="range" id="upAcMix" min="0" max="100" value="100"></div>
     </div>
-    <!-- Flipnote tabs (hidden in ASCII mode) -->
-    <div id="upFlipTabs" style="display:flex;border-bottom:1px solid var(--dark);padding:6px 12px 0;gap:6px;">
-      <button class="up-mode-btn active" id="upTabImg" style="flex:1;font-size:9px;padding:3px 0;">IMAGE</button>
-      <button class="up-mode-btn" id="upTabFx" style="flex:1;font-size:9px;padding:3px 0;">EFFECTS</button>
-      <button id="upBtnLegacy" style="flex:0 0 auto;background:none;border:1px solid var(--dark);color:var(--dark);font-family:monospace;font-size:9px;letter-spacing:.5px;padding:3px 8px;cursor:pointer;">STD</button>
-    </div>
-    <!-- Flipnote IMAGE tab -->
-    <div id="upFlipImage" class="ac-section">
-      <div class="ac-row"><span class="ac-lbl">Palette Hue</span><span class="ac-val" id="upVPalHue">0°</span><input type="range" id="upAcPalHue" min="0" max="360" value="0"></div>
-      <div class="ac-row"><span class="ac-lbl">Brightness</span><span class="ac-val" id="upVBright">100%</span><input type="range" id="upAcBright" min="0" max="200" value="100"></div>
-      <div class="ac-row"><span class="ac-lbl">Contrast</span><span class="ac-val" id="upVContrast">100%</span><input type="range" id="upAcContrast" min="0" max="200" value="100"></div>
-      <div class="ac-row"><span class="ac-lbl">Saturation</span><span class="ac-val" id="upVSat">100%</span><input type="range" id="upAcSat" min="0" max="200" value="100"></div>
-      <div class="ac-row"><span class="ac-lbl">Hue</span><span class="ac-val" id="upVHue">0°</span><input type="range" id="upAcHue" min="0" max="360" value="0"></div>
-      <div class="ac-row"><span class="ac-lbl">Exposure</span><span class="ac-val" id="upVExposure">0</span><input type="range" id="upAcExposure" min="-30" max="30" value="0"></div>
-      <div class="ac-row"><span class="ac-lbl">Shadows</span><span class="ac-val" id="upVShadows">0</span><input type="range" id="upAcShadows" min="-100" max="100" value="0"></div>
-      <div class="ac-row"><span class="ac-lbl">Highlights</span><span class="ac-val" id="upVHighlights">0</span><input type="range" id="upAcHighlights" min="-100" max="100" value="0"></div>
-    </div>
-    <!-- Flipnote EFFECTS tab -->
-    <div id="upFlipEffects" class="ac-section" style="display:none;">
-      <div class="ac-row"><span class="ac-lbl">Threshold</span><span class="ac-val" id="upVThresh">128</span><input type="range" id="upAcThresh" min="0" max="255" value="128"></div>
-      <div class="ac-row"><span class="ac-lbl">Dither</span><span class="ac-val" id="upVDither">100%</span><input type="range" id="upAcDither" min="0" max="100" value="100"></div>
-      <div class="ac-row"><span class="ac-lbl">Grain</span><span class="ac-val" id="upVGrain">0%</span><input type="range" id="upAcGrain" min="0" max="100" value="0"></div>
-      <div class="ac-row"><span class="ac-lbl">Grayscale</span><span class="ac-val" id="upVGray">0%</span><input type="range" id="upAcGray" min="0" max="100" value="0"></div>
-      <div class="ac-row"><span class="ac-lbl">Sepia</span><span class="ac-val" id="upVSepia">0%</span><input type="range" id="upAcSepia" min="0" max="100" value="0"></div>
-      <div class="ac-row"><span class="ac-lbl">Invert</span><span class="ac-val" id="upVInvert">0%</span><input type="range" id="upAcInvert" min="0" max="100" value="0"></div>
-      <div class="ac-row"><span class="ac-lbl">Vignette</span><span class="ac-val" id="upVVignette">0%</span><input type="range" id="upAcVignette" min="0" max="100" value="0"></div>
-    </div>
-    <!-- ASCII Output section (shown only in ASCII mode) -->
-    <div id="upAsciiSection" style="display:none;">
-      <div class="ac-section">
-        <div class="ac-title">Output</div>
-        <div class="ac-row"><span class="ac-lbl">Characters</span><span class="ac-val" id="upVChars">100</span><input type="range" id="upAcChars" min="1" max="750" value="100"></div>
-        <div class="ac-row"><span class="ac-lbl">Gradient</span><select id="upAcGradient"><option value="normal">Normal</option><option value="reverse">Reverse</option><option value="block">Block</option><option value="minimal">Minimal</option></select></div>
-        <div class="ac-row"><span class="ac-lbl">Space Density</span><span class="ac-val" id="upVSpace">1</span><input type="range" id="upAcSpace" min="1" max="10" value="1"></div>
-        <div class="ac-row"><span class="ac-lbl">Quality</span><select id="upAcQuality"><option value="none">None</option><option value="smooth">Smooth</option><option value="sharp">Sharp</option></select></div>
-        <div class="ac-row"><span class="ac-lbl">Frame</span><span class="ac-val" id="upVFrame">0px</span><input type="range" id="upAcFrame" min="0" max="50" value="0"></div>
+    <button class="flip-advanced-toggle" data-target="advanced-upload" aria-expanded="false">⚙ Avanzado</button>
+    <div id="advanced-upload" class="flip-advanced-panel">
+      <!-- Flipnote tabs (hidden in ASCII mode) -->
+      <div id="upFlipTabs" style="display:flex;border-bottom:1px solid var(--dark);padding:6px 12px 0;gap:6px;">
+        <button class="up-mode-btn active" id="upTabImg" style="flex:1;font-size:9px;padding:3px 0;">IMAGE</button>
+        <button class="up-mode-btn" id="upTabFx" style="flex:1;font-size:9px;padding:3px 0;">EFFECTS</button>
+        <button id="upBtnLegacy" style="flex:0 0 auto;background:none;border:1px solid var(--dark);color:var(--dark);font-family:monospace;font-size:9px;letter-spacing:.5px;padding:3px 8px;cursor:pointer;">STD</button>
       </div>
-      <div class="ac-section">
-        <div class="ac-title">Image</div>
-        <div class="ac-row"><span class="ac-lbl">Brightness</span><span class="ac-val" id="upVBrightA">100%</span><input type="range" id="upAcBrightA" min="0" max="200" value="100"></div>
-        <div class="ac-row"><span class="ac-lbl">Contrast</span><span class="ac-val" id="upVContrastA">100%</span><input type="range" id="upAcContrastA" min="0" max="200" value="100"></div>
-        <div class="ac-row"><span class="ac-lbl">Saturation</span><span class="ac-val" id="upVSatA">100%</span><input type="range" id="upAcSatA" min="0" max="200" value="100"></div>
-        <div class="ac-row"><span class="ac-lbl">Hue</span><span class="ac-val" id="upVHueA">0°</span><input type="range" id="upAcHueA" min="0" max="360" value="0"></div>
-        <div class="ac-row"><span class="ac-lbl">Grayscale</span><span class="ac-val" id="upVGrayA">0%</span><input type="range" id="upAcGrayA" min="0" max="100" value="0"></div>
-        <div class="ac-row"><span class="ac-lbl">Sepia</span><span class="ac-val" id="upVSepiaA">0%</span><input type="range" id="upAcSepiaA" min="0" max="100" value="0"></div>
-        <div class="ac-row"><span class="ac-lbl">Invert</span><span class="ac-val" id="upVInvertA">0%</span><input type="range" id="upAcInvertA" min="0" max="100" value="0"></div>
+      <!-- Flipnote IMAGE tab -->
+      <div id="upFlipImage" class="ac-section">
+        <div class="ac-row"><span class="ac-lbl">Palette Hue</span><span class="ac-val" id="upVPalHue">0°</span><input type="range" id="upAcPalHue" min="0" max="360" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Brightness</span><span class="ac-val" id="upVBright">100%</span><input type="range" id="upAcBright" min="0" max="200" value="100"></div>
+        <div class="ac-row"><span class="ac-lbl">Contrast</span><span class="ac-val" id="upVContrast">100%</span><input type="range" id="upAcContrast" min="0" max="200" value="100"></div>
+        <div class="ac-row"><span class="ac-lbl">Saturation</span><span class="ac-val" id="upVSat">100%</span><input type="range" id="upAcSat" min="0" max="200" value="100"></div>
+        <div class="ac-row"><span class="ac-lbl">Hue</span><span class="ac-val" id="upVHue">0°</span><input type="range" id="upAcHue" min="0" max="360" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Exposure</span><span class="ac-val" id="upVExposure">0</span><input type="range" id="upAcExposure" min="-30" max="30" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Shadows</span><span class="ac-val" id="upVShadows">0</span><input type="range" id="upAcShadows" min="-100" max="100" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Highlights</span><span class="ac-val" id="upVHighlights">0</span><input type="range" id="upAcHighlights" min="-100" max="100" value="0"></div>
       </div>
-      <div class="ac-section">
-        <div class="ac-title">Effects</div>
-        <div class="ac-row"><label class="ac-lbl"><input type="checkbox" id="upCbThresh"> Threshold</label><span class="ac-val" id="upVThreshA">128</span><input type="range" id="upAcThreshA" min="0" max="255" value="128" disabled></div>
-        <div class="ac-row"><label class="ac-lbl"><input type="checkbox" id="upCbSharp"> Sharpness</label><span class="ac-val" id="upVSharp">9</span><input type="range" id="upAcSharp" min="0" max="20" value="9" disabled></div>
-        <div class="ac-row"><label class="ac-lbl"><input type="checkbox" id="upCbEdge"> Edge Detect</label><span class="ac-val" id="upVEdge">1.0</span><input type="range" id="upAcEdge" min="0" max="50" value="10" disabled></div>
+      <!-- Flipnote EFFECTS tab -->
+      <div id="upFlipEffects" class="ac-section" style="display:none;">
+        <div class="ac-row"><span class="ac-lbl">Threshold</span><span class="ac-val" id="upVThresh">128</span><input type="range" id="upAcThresh" min="0" max="255" value="128"></div>
+        <div class="ac-row"><span class="ac-lbl">Dither</span><span class="ac-val" id="upVDither">100%</span><input type="range" id="upAcDither" min="0" max="100" value="100"></div>
+        <div class="ac-row"><span class="ac-lbl">Grain</span><span class="ac-val" id="upVGrain">0%</span><input type="range" id="upAcGrain" min="0" max="100" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Grayscale</span><span class="ac-val" id="upVGray">0%</span><input type="range" id="upAcGray" min="0" max="100" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Sepia</span><span class="ac-val" id="upVSepia">0%</span><input type="range" id="upAcSepia" min="0" max="100" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Invert</span><span class="ac-val" id="upVInvert">0%</span><input type="range" id="upAcInvert" min="0" max="100" value="0"></div>
+        <div class="ac-row"><span class="ac-lbl">Vignette</span><span class="ac-val" id="upVVignette">0%</span><input type="range" id="upAcVignette" min="0" max="100" value="0"></div>
       </div>
-    </div>
+      <!-- ASCII Output section (shown only in ASCII mode) -->
+      <div id="upAsciiSection" style="display:none;">
+        <div class="ac-section">
+          <div class="ac-title">Output</div>
+          <div class="ac-row"><span class="ac-lbl">Characters</span><span class="ac-val" id="upVChars">100</span><input type="range" id="upAcChars" min="1" max="750" value="100"></div>
+          <div class="ac-row"><span class="ac-lbl">Gradient</span><select id="upAcGradient"><option value="normal">Normal</option><option value="reverse">Reverse</option><option value="block">Block</option><option value="minimal">Minimal</option></select></div>
+          <div class="ac-row"><span class="ac-lbl">Space Density</span><span class="ac-val" id="upVSpace">1</span><input type="range" id="upAcSpace" min="1" max="10" value="1"></div>
+          <div class="ac-row"><span class="ac-lbl">Quality</span><select id="upAcQuality"><option value="none">None</option><option value="smooth">Smooth</option><option value="sharp">Sharp</option></select></div>
+          <div class="ac-row"><span class="ac-lbl">Frame</span><span class="ac-val" id="upVFrame">0px</span><input type="range" id="upAcFrame" min="0" max="50" value="0"></div>
+        </div>
+        <div class="ac-section">
+          <div class="ac-title">Image</div>
+          <div class="ac-row"><span class="ac-lbl">Brightness</span><span class="ac-val" id="upVBrightA">100%</span><input type="range" id="upAcBrightA" min="0" max="200" value="100"></div>
+          <div class="ac-row"><span class="ac-lbl">Contrast</span><span class="ac-val" id="upVContrastA">100%</span><input type="range" id="upAcContrastA" min="0" max="200" value="100"></div>
+          <div class="ac-row"><span class="ac-lbl">Saturation</span><span class="ac-val" id="upVSatA">100%</span><input type="range" id="upAcSatA" min="0" max="200" value="100"></div>
+          <div class="ac-row"><span class="ac-lbl">Hue</span><span class="ac-val" id="upVHueA">0°</span><input type="range" id="upAcHueA" min="0" max="360" value="0"></div>
+          <div class="ac-row"><span class="ac-lbl">Grayscale</span><span class="ac-val" id="upVGrayA">0%</span><input type="range" id="upAcGrayA" min="0" max="100" value="0"></div>
+          <div class="ac-row"><span class="ac-lbl">Sepia</span><span class="ac-val" id="upVSepiaA">0%</span><input type="range" id="upAcSepiaA" min="0" max="100" value="0"></div>
+          <div class="ac-row"><span class="ac-lbl">Invert</span><span class="ac-val" id="upVInvertA">0%</span><input type="range" id="upAcInvertA" min="0" max="100" value="0"></div>
+        </div>
+        <div class="ac-section">
+          <div class="ac-title">Effects</div>
+          <div class="ac-row"><label class="ac-lbl"><input type="checkbox" id="upCbThresh"> Threshold</label><span class="ac-val" id="upVThreshA">128</span><input type="range" id="upAcThreshA" min="0" max="255" value="128" disabled></div>
+          <div class="ac-row"><label class="ac-lbl"><input type="checkbox" id="upCbSharp"> Sharpness</label><span class="ac-val" id="upVSharp">9</span><input type="range" id="upAcSharp" min="0" max="20" value="9" disabled></div>
+          <div class="ac-row"><label class="ac-lbl"><input type="checkbox" id="upCbEdge"> Edge Detect</label><span class="ac-val" id="upVEdge">1.0</span><input type="range" id="upAcEdge" min="0" max="50" value="10" disabled></div>
+        </div>
+      </div>
+    </div><!-- #advanced-upload -->
     <div class="ac-btn-row">
       <button class="ac-btn" id="upBtnTxt">TXT</button>
       <button class="ac-btn" id="upBtnPng">PNG</button>
@@ -1017,22 +1208,35 @@
     <button class="scr-asp-btn active" data-sw="512" data-sh="384">4:3</button>
     <button class="scr-asp-btn" data-sw="512" data-sh="288">16:9</button>
   </div>
-  <div id="scrashControlsGrid">
-    <div class="sc-row"><span class="sc-lbl">CHROMA</span><span class="sc-val" id="vScrChroma">0</span><input type="range" id="scrChroma" min="0" max="50" value="0"></div>
-    <div class="sc-row"><span class="sc-lbl">DRIP</span><span class="sc-val" id="vScrDrip">0</span><input type="range" id="scrDrip" min="0" max="100" value="0"></div>
-    <div class="sc-row"><span class="sc-lbl">NEON</span><span class="sc-val" id="vScrNeon">0</span><input type="range" id="scrNeon" min="0" max="100" value="0"></div>
-    <div class="sc-row"><span class="sc-lbl">WAVE</span><span class="sc-val" id="vScrWave">0</span><input type="range" id="scrWave" min="0" max="30" value="0"></div>
-    <div class="sc-row"><span class="sc-lbl">CRUSH</span><span class="sc-val" id="vScrCrush">0</span><input type="range" id="scrCrush" min="0" max="100" value="0"></div>
-    <div class="sc-row"><span class="sc-lbl">HUE</span><span class="sc-val" id="vScrHue">0</span><input type="range" id="scrHue" min="0" max="360" value="0"></div>
-    <div class="sc-row"><span class="sc-lbl">GRAIN</span><span class="sc-val" id="vScrGrain">0</span><input type="range" id="scrGrain" min="0" max="100" value="0"></div>
-    <div class="sc-row"><span class="sc-lbl">CHAOS</span><span class="sc-val" id="vScrChaos">0</span><input type="range" id="scrChaos" min="0" max="100" value="0"></div>
-  </div>
-  <div class="sc-row" style="gap:8px;margin-top:2px;">
-    <button id="btnScrashAnimate">ANIMATE</button>
-    <span class="sc-lbl" style="min-width:36px;">SPEED</span>
-    <span class="sc-val" id="vScrSpeed">5</span>
-    <input type="range" id="scrSpeed" min="1" max="20" value="5" style="flex:1;height:3px;accent-color:#ff7700;cursor:pointer;">
-  </div>
+  <button class="flip-advanced-toggle" data-target="advanced-scrash" aria-expanded="false">⚙ Avanzado</button>
+  <div id="advanced-scrash" class="flip-advanced-panel">
+    <div id="scrashControlsGrid">
+      <div class="sc-row"><span class="sc-lbl">CHROMA</span><span class="sc-val" id="vScrChroma">0</span><input type="range" id="scrChroma" min="0" max="50" value="0"></div>
+      <div class="sc-row"><span class="sc-lbl">DRIP</span><span class="sc-val" id="vScrDrip">0</span><input type="range" id="scrDrip" min="0" max="100" value="0"></div>
+      <div class="sc-row"><span class="sc-lbl">NEON</span><span class="sc-val" id="vScrNeon">0</span><input type="range" id="scrNeon" min="0" max="100" value="0"></div>
+      <div class="sc-row"><span class="sc-lbl">WAVE</span><span class="sc-val" id="vScrWave">0</span><input type="range" id="scrWave" min="0" max="30" value="0"></div>
+      <div class="sc-row"><span class="sc-lbl">CRUSH</span><span class="sc-val" id="vScrCrush">0</span><input type="range" id="scrCrush" min="0" max="100" value="0"></div>
+      <div class="sc-row"><span class="sc-lbl">HUE</span><span class="sc-val" id="vScrHue">0</span><input type="range" id="scrHue" min="0" max="360" value="0"></div>
+      <div class="sc-row"><span class="sc-lbl">GRAIN</span><span class="sc-val" id="vScrGrain">0</span><input type="range" id="scrGrain" min="0" max="100" value="0"></div>
+      <div class="sc-row"><span class="sc-lbl">CHAOS</span><span class="sc-val" id="vScrChaos">0</span><input type="range" id="scrChaos" min="0" max="100" value="0"></div>
+    </div>
+    <div class="sc-row" style="gap:8px;margin-top:2px;">
+      <button id="btnScrashAnimate">ANIMATE</button>
+      <span class="sc-lbl" style="min-width:36px;">SPEED</span>
+      <span class="sc-val" id="vScrSpeed">5</span>
+      <input type="range" id="scrSpeed" min="1" max="20" value="5" style="flex:1;height:3px;accent-color:#ff7700;cursor:pointer;">
+    </div>
+  </div><!-- #advanced-scrash -->
+</div>
+
+<!-- V50: Unified bottom nav (muta por modo) -->
+<nav id="flipBottomNav"></nav>
+
+<!-- V50: Global export CTA bar -->
+<div id="flipExportBar">
+  <button id="flipExportReset" class="flip-export-reset" title="Reset">↺</button>
+  <button id="flipExportPrimary" class="flip-export-primary">📷 GUARDAR PNG</button>
+  <div id="flipExportSecondaries" style="display:flex;gap:6px;"></div>
 </div>
 
 <div class="bar" id="barCam">
@@ -1074,7 +1278,7 @@
 <div id="barUpload">
   <button class="btn" id="btnChoose" style="position:relative;overflow:hidden;">
     <div class="btn-icon">📂</div>
-    <span class="btn-label">ELEGIR</span>
+    <span class="btn-label">CHOOSE</span>
     <input type="file" id="fileInputInBtn" accept="image/*,video/*" style="position:absolute;inset:0;opacity:0.001;width:100%;height:100%;cursor:pointer;">
   </button>
   <button class="btn btn-center" id="btnSaveResult" style="opacity:.4" disabled>
@@ -1157,10 +1361,10 @@
 
 <!-- WMP source/permission overlay -->
 <div id="wmpPerm">
-  <p class="wmp-perm-title">ELIGE FUENTE DE AUDIO</p>
+  <p class="wmp-perm-title">CHOOSE AUDIO SOURCE</p>
   <div class="wmp-src-row">
-    <button class="wmp-src-btn" id="btnWmpMicPerm">🎙 MICRÓFONO</button>
-    <label class="wmp-src-btn" id="btnWmpFilePerm" for="wmpFileInputPerm">📂 ARCHIVO</label>
+    <button class="wmp-src-btn" id="btnWmpMicPerm">🎙 MIC</button>
+    <label class="wmp-src-btn" id="btnWmpFilePerm" for="wmpFileInputPerm">📂 FILE</label>
     <input type="file" id="wmpFileInputPerm" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.weba" style="display:none;">
   </div>
   <p id="wmpPermErr"></p>
@@ -2477,6 +2681,249 @@ document.getElementById('tabAscii').addEventListener('click', () => switchTab('a
 document.getElementById('tabSono' ).addEventListener('click', () => switchTab('sono'));
 document.getElementById('tabWmp'  ).addEventListener('click', () => switchTab('wmp'));
 document.getElementById('tabScrash').addEventListener('click', () => switchTab('scrash'));
+
+// V50: Advanced panel toggle (delegated, one handler for all modes)
+document.body.addEventListener('click', (e) => {
+  const toggle = e.target.closest('.flip-advanced-toggle');
+  if (!toggle) return;
+  const panel = document.getElementById(toggle.dataset.target);
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  toggle.setAttribute('aria-expanded', isOpen);
+  toggle.textContent = isOpen ? '⚙ Menos' : '⚙ Avanzado';
+});
+
+// V50: Export CTA bar
+const _EXPORT_CFG = {
+  cam:    { bottom: 96,  label: '📷 GUARDAR PNG', primary: 'btnCapture',   secs: ['btnShare'],                  reset: null           },
+  ascii:  { bottom: 96,  label: '📷 GUARDAR PNG', primary: 'acPng',        secs: ['acTxt', 'acCopy'],           reset: 'acReset'       },
+  up:     { bottom: 96,  label: '💾 GUARDAR',     primary: 'btnSaveResult', secs: ['btnShareResult'],            reset: 'upBtnReset'    },
+  scrash: { bottom: 280, label: '📷 CAPTURAR',    primary: 'btnScrashSnap', secs: ['btnScrashShare'],            reset: 'btnScrashReset'},
+  sono:   { bottom: 246, label: '📷 SNAP',        primary: 'btnSonoCapture',secs: ['btnSonoShare'],              reset: null           },
+  wmp:    null
+};
+const _SEC_LABELS = { btnShare:'↑', btnShareResult:'↑', btnSonoShare:'↑', btnScrashShare:'↑', acTxt:'TXT', acCopy:'📋' };
+
+function _updateExportBar(mode) {
+  const bar  = document.getElementById('flipExportBar');
+  const cfg  = _EXPORT_CFG[mode];
+  if (!cfg) { bar.classList.remove('visible'); return; }
+  bar.style.bottom = cfg.bottom + 'px';
+  // Primary
+  const pri = document.getElementById('flipExportPrimary');
+  pri.textContent = cfg.label;
+  pri.onclick = () => { const t = document.getElementById(cfg.primary); if (t) t.click(); };
+  // Reset
+  const rst = document.getElementById('flipExportReset');
+  if (cfg.reset) { rst.style.display = ''; rst.onclick = () => { const t = document.getElementById(cfg.reset); if (t) t.click(); }; }
+  else { rst.style.display = 'none'; }
+  // Secondaries
+  const secsEl = document.getElementById('flipExportSecondaries');
+  secsEl.innerHTML = '';
+  (cfg.secs || []).forEach(id => {
+    const btn = document.createElement('button');
+    btn.className = 'flip-export-secondary';
+    btn.textContent = _SEC_LABELS[id] || id;
+    btn.onclick = () => { const t = document.getElementById(id); if (t) t.click(); };
+    secsEl.appendChild(btn);
+  });
+  bar.classList.add('visible');
+}
+
+// V50: Toast system
+function flipToast(message, duration = 3000) {
+  let container = document.querySelector('.flip-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'flip-toast-container';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'flip-toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), duration);
+}
+
+// Watch asciiPerfWarn: if it becomes visible (inside collapsed panel), fire a toast
+(function() {
+  const el = document.getElementById('asciiPerfWarn');
+  if (!el) return;
+  let _lastVisible = false;
+  new MutationObserver(() => {
+    const isVisible = el.style.display !== 'none' && el.style.display !== '';
+    if (isVisible && !_lastVisible) flipToast('⚠ FPS bajo — reduciendo chars');
+    _lastVisible = isVisible;
+  }).observe(el, { attributes: true, attributeFilter: ['style'] });
+})();
+
+// V50: Unified bottom nav
+// Helper: read icon text from original button
+function _navIcon(id) {
+  const el = document.getElementById(id);
+  return el ? (el.querySelector('.btn-icon') || el).textContent.trim() : '';
+}
+// Helper: delegate click — handles both regular buttons and file inputs
+function _navClick(btnId, fileInputId) {
+  if (fileInputId) {
+    const inp = document.getElementById(fileInputId);
+    if (inp) inp.click();
+  } else {
+    const btn = document.getElementById(btnId);
+    if (btn && !btn.disabled) btn.click();
+  }
+}
+
+const FLIP_NAV_CFG = {
+  cam: () => [
+    { icon: _navIcon('btnRecord') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnRecord')  },
+    { icon: '●',                           label: '',       center: true,  click: () => _navClick('btnCapture') },
+    { icon: '↑',                           label: 'SHARE',  center: false, click: () => _navClick('btnShare')   },
+  ],
+  ascii: () => [
+    { icon: _navIcon('btnAsciiMode') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnAsciiMode')    },
+    { icon: '●',                               label: '',       center: true,  click: () => _navClick('btnAsciiCapture') },
+    { icon: '↑',                               label: 'SHARE',  center: false, click: () => _navClick('btnAsciiShare')   },
+    { icon: '⚡',                               label: 'GLITCH', center: false, click: () => _navClick('btnAsciiGlitch')  },
+    { icon: '⚙',                               label: 'EDIT',   center: false, click: () => _navClick('btnAsciiEdit')    },
+  ],
+  up: () => [
+    { icon: '📂', label: 'CHOOSE', center: false, click: () => _navClick(null, 'fileInputInBtn') },
+    { icon: '💾', label: '',       center: true,  click: () => _navClick('btnSaveResult')        },
+    { icon: '↑',  label: 'SHARE',  center: false, click: () => _navClick('btnShareResult')       },
+    { icon: '⚙',  label: 'EDIT',   center: false, click: () => _navClick('btnUpEdit')            },
+  ],
+  sono: () => [
+    { icon: '⏺',  label: 'REC',   center: false, click: () => _navClick('btnSonoRec')              },
+    { icon: '●',  label: '',       center: true,  click: () => _navClick('btnSonoCapture')          },
+    { icon: '📂', label: 'FILE',   center: false, click: () => _navClick(null, 'sonoFileInputEl')   },
+    { icon: '↑',  label: 'SHARE',  center: false, click: () => _navClick('btnSonoShare')            },
+    { icon: '↺',  label: 'RESET',  center: false, click: () => _navClick('btnSonoReset')            },
+  ],
+  wmp: () => [
+    { icon: '🎙', label: 'MIC',  center: false, click: () => _navClick('btnWmpMicBar')             },
+    { icon: '▶',  label: '',     center: true,  click: () => _navClick('btnWmpPlayPause')          },
+    { icon: '📂', label: 'FILE', center: false, click: () => _navClick(null, 'wmpFileInputBar')    },
+    { icon: '⛶',  label: 'FULL', center: false, click: () => _navClick('btnWmpFull')              },
+  ],
+  scrash: () => [
+    { icon: '●',  label: 'SNAP',  center: true,  click: () => _navClick('btnScrashSnap')   },
+    { icon: '↑',  label: 'SHARE', center: false, click: () => _navClick('btnScrashShare')  },
+    { icon: '✕',  label: 'RESET', center: false, click: () => _navClick('btnScrashReset')  },
+  ],
+};
+
+const _OLD_BARS = ['barCam','barUpload','barAscii','barSono','barWmp','barScrash'];
+
+function renderFlipNav(mode) {
+  // Hide all legacy bars
+  _OLD_BARS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = 'none';
+    el.classList.remove('visible');
+  });
+
+  const nav = document.getElementById('flipBottomNav');
+  const cfgFn = FLIP_NAV_CFG[mode];
+  if (!cfgFn) { nav.classList.remove('visible'); return; }
+
+  nav.innerHTML = '';
+  cfgFn().forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'btn' + (item.center ? ' btn-center' : '');
+    btn.innerHTML = `<div class="btn-icon">${item.icon}</div>${item.label ? `<span class="btn-label">${item.label}</span>` : ''}`;
+    btn.addEventListener('click', item.click);
+    nav.appendChild(btn);
+  });
+  nav.classList.add('visible');
+  // TODO: V50 — sincronizar estado dinámico: timer de grabación en btn-center (CAM/ASCII),
+  // ▶/⏸ en WMP, 📷/🎥 toggle en CAM/ASCII, disabled en btnSaveResult/btnShareResult
+}
+
+// Wrap switchTab to always update the unified nav
+// (safe: calls original function first, then adds V50 behaviour)
+(function() {
+  const _origSwitch = switchTab;
+  switchTab = function(tab) {
+    _origSwitch(tab);
+    renderFlipNav(tab);
+    _updateExportBar(tab);
+  };
+})();
+
+// Initialize and sync on tab change
+_updateExportBar('cam');
+renderFlipNav('cam');
+
+// V50: Quick presets
+// Presets apply settings by dispatching 'input' events on existing sliders —
+// all original handlers (bindSlider, upSlider, _scrSlider) fire automatically.
+function _applyPreset(settings) {
+  Object.entries(settings).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = val;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+function _renderPresets(container, presets) {
+  if (!container) return;
+  const row = document.createElement('div');
+  row.className = 'flip-presets-row';
+  presets.forEach(({ name, settings }) => {
+    const chip = document.createElement('button');
+    chip.className = 'flip-preset-chip';
+    chip.textContent = name;
+    chip.addEventListener('click', () => {
+      row.querySelectorAll('.flip-preset-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      _applyPreset(settings);
+    });
+    row.appendChild(chip);
+  });
+  container.prepend(row);
+}
+
+const FLIP_PRESETS = {
+  ascii: [
+    { name: 'CLEAN',  settings: { acBright:100, acContrast:100, acSat:100, acHue:0, acGray:0, acSepia:0, acInvert:0, acChars:100 } },
+    { name: 'SKETCH', settings: { acBright:110, acContrast:140, acSat:0,   acHue:0, acGray:100, acSepia:0, acInvert:0, acChars:120, acSpace:3 } },
+    { name: 'CYBER',  settings: { acBright:100, acContrast:120, acSat:180, acHue:160, acGray:0, acSepia:0, acInvert:0, acChars:80 } },
+    { name: 'GHOST',  settings: { acBright:80,  acContrast:90,  acSat:30,  acHue:200, acGray:60, acSepia:0, acInvert:0, acChars:60 } },
+  ],
+  scrash: [
+    { name: 'SUBTLE',  settings: { scrChroma:8,  scrDrip:0,  scrNeon:10, scrWave:3,  scrCrush:0,  scrHue:0,   scrGrain:5,  scrChaos:8  } },
+    { name: 'CHAOS',   settings: { scrChroma:35, scrDrip:50, scrNeon:60, scrWave:20, scrCrush:30, scrHue:120, scrGrain:40, scrChaos:80 } },
+    { name: 'MELT',    settings: { scrChroma:20, scrDrip:80, scrNeon:0,  scrWave:25, scrCrush:10, scrHue:0,   scrGrain:20, scrChaos:30 } },
+    { name: 'PLASMA',  settings: { scrChroma:45, scrDrip:10, scrNeon:80, scrWave:8,  scrCrush:5,  scrHue:240, scrGrain:0,  scrChaos:50 } },
+  ],
+  upload: [
+    { name: 'NATURAL', settings: { upAcBright:100, upAcContrast:100, upAcSat:100, upAcHue:0, upAcExposure:0, upAcShadows:0, upAcHighlights:0 } },
+    { name: 'MOODY',   settings: { upAcBright:85,  upAcContrast:130, upAcSat:70,  upAcHue:0, upAcExposure:-5, upAcShadows:-20, upAcHighlights:-10 } },
+    { name: 'RETRO',   settings: { upAcBright:95,  upAcContrast:100, upAcSat:60,  upAcHue:20, upAcExposure:5, upAcShadows:10, upAcHighlights:0 } },
+    { name: 'POP',     settings: { upAcBright:110, upAcContrast:120, upAcSat:160, upAcHue:0, upAcExposure:0, upAcShadows:0, upAcHighlights:15 } },
+  ],
+  sono: [
+    { name: 'BLEND 0',  settings: { sonoMix: 0   } },
+    { name: 'BLEND 50', settings: { sonoMix: 50  } },
+    { name: 'BLEND 100',settings: { sonoMix: 100 } },
+    { name: 'CHAOS',    settings: { sonoChaos: 80, sonoHue: 120 } },
+  ],
+  wmp: [
+    { name: 'CHILL',  settings: { wmpSens:30,  wmpTrails:70 } },
+    { name: 'REACT',  settings: { wmpSens:150, wmpTrails:20 } },
+    { name: 'DREAM',  settings: { wmpSens:60,  wmpTrails:90 } },
+  ],
+};
+
+// Inject preset chips into each mode's panel
+_renderPresets(document.getElementById('asciiPanel'),   FLIP_PRESETS.ascii);
+_renderPresets(document.getElementById('scrashControls'), FLIP_PRESETS.scrash);
+_renderPresets(document.getElementById('upPanel'),      FLIP_PRESETS.upload);
+_renderPresets(document.getElementById('sonoHUD'),      FLIP_PRESETS.sono);
+_renderPresets(document.getElementById('wmpHUD'),       FLIP_PRESETS.wmp);
 
 // ASCII EDIT panel toggle
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {

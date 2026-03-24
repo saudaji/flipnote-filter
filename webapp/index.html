@@ -714,6 +714,50 @@
     }
     .flip-export-reset:active { opacity: 0.6; }
 
+    /* ── V50: Toast notifications ── */
+    .flip-toast-container {
+      position: fixed;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+    }
+    .flip-toast {
+      padding: 7px 14px;
+      background: rgba(15, 15, 15, 0.88);
+      backdrop-filter: blur(8px);
+      color: rgba(255, 255, 255, 0.92);
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+      animation: flipToastIn 0.25s ease, flipToastOut 0.3s ease 2.7s forwards;
+    }
+    @keyframes flipToastIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes flipToastOut {
+      from { opacity: 1; }
+      to   { opacity: 0; transform: translateY(-6px); }
+    }
+    /* Restyle thermalToast to match new toast system */
+    #thermalToast {
+      font-family: monospace !important;
+      background: rgba(15, 15, 15, 0.88) !important;
+      border-radius: 6px !important;
+      border: 1px solid rgba(255,80,0,0.4) !important;
+      letter-spacing: 0.5px !important;
+      font-size: 11px !important;
+    }
+
     /* ── V50: Progressive Disclosure ── */
     .flip-advanced-panel {
       max-height: 0;
@@ -2634,6 +2678,33 @@ function _updateExportBar(mode) {
   });
   bar.classList.add('visible');
 }
+
+// V50: Toast system
+function flipToast(message, duration = 3000) {
+  let container = document.querySelector('.flip-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'flip-toast-container';
+    document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'flip-toast';
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), duration);
+}
+
+// Watch asciiPerfWarn: if it becomes visible (inside collapsed panel), fire a toast
+(function() {
+  const el = document.getElementById('asciiPerfWarn');
+  if (!el) return;
+  let _lastVisible = false;
+  new MutationObserver(() => {
+    const isVisible = el.style.display !== 'none' && el.style.display !== '';
+    if (isVisible && !_lastVisible) flipToast('⚠ FPS bajo — reduciendo chars');
+    _lastVisible = isVisible;
+  }).observe(el, { attributes: true, attributeFilter: ['style'] });
+})();
 
 // Initialize and sync on tab change
 _updateExportBar('cam');

@@ -205,6 +205,24 @@
     #fps { position:fixed; bottom:100px; left:12px; color:var(--dark); font-size:10px; pointer-events:none; z-index:10; }
     #flash { position:fixed; inset:0; background:var(--paper); opacity:0; pointer-events:none; z-index:99; transition:opacity .04s; }
     #flash.on { opacity:.7; }
+    #preloader {
+      position:fixed; inset:0; background:#000; z-index:200;
+      display:flex; align-items:center; justify-content:center;
+      transition:opacity 0.4s ease;
+    }
+    #preloader.fade-out { opacity:0; pointer-events:none; }
+    #preloader.gone { display:none; }
+    .preloader-glyph {
+      font-family:'BN Monica', monospace, sans-serif;
+      font-size:clamp(72px,18vw,128px);
+      color:#c8a000;
+      animation:preloader-pulse 0.9s ease-in-out infinite alternate;
+      user-select:none;
+    }
+    @keyframes preloader-pulse {
+      from { opacity:0.3; transform:scale(0.92); }
+      to   { opacity:1;   transform:scale(1.05); }
+    }
     #splash {
       position:fixed; inset:0; background:#000;
       display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -878,10 +896,16 @@
   <div id="asciiPanel">
     <div class="ac-section">
       <div class="ac-title">Output</div>
+      <div class="ac-row" style="flex-wrap:wrap;gap:4px;padding:4px 0;">
+        <button class="asp-btn" data-aw="9"  data-ah="16">9:16</button>
+        <button class="asp-btn" data-aw="3"  data-ah="4">3:4</button>
+        <button class="asp-btn active" data-aw="4" data-ah="3">4:3</button>
+        <button class="asp-btn" data-aw="16" data-ah="9">16:9</button>
+      </div>
       <div class="ac-row">
         <span class="ac-lbl">Characters</span>
         <span class="ac-val" id="vChars">100</span>
-        <input type="range" id="acChars" min="1" max="750" value="100">
+        <input type="range" id="acChars" min="1" max="1000" value="100">
         <button id="btnAsciiDefault" style="flex:0 0 auto;font-size:8px;padding:2px 5px;background:var(--ink);color:var(--mid);border:1px solid var(--dark);font-family:monospace;cursor:pointer;" title="Óptimo para este dispositivo">DEV</button>
       </div>
       <div class="ac-row" id="asciiPerfWarn" style="display:none;">
@@ -1035,6 +1059,8 @@
   <p>SONOMORPH needs<br>mic access</p>
   <button id="btnSonoStart">▶ ENABLE MIC</button>
 </div>
+
+<div id="preloader"><span class="preloader-glyph">Ⅎ</span></div>
 
 <div id="splash">
   <div class="splash-title">FLIP</div>
@@ -2506,7 +2532,7 @@ let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 const _isMobile      = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
 const IS_ANDROID     = /Android/i.test(navigator.userAgent);
-const ASCII_DEV_MAX  = IS_ANDROID ? 60 : 750;
+const ASCII_DEV_MAX  = IS_ANDROID ? 60 : (_isMobile ? 750 : 1000);
 const ASCII_ANDROID_DEFAULT = 40;
 let asciiFrameSkip   = 0;
 let _asciiFpsHist    = [];
@@ -2695,10 +2721,10 @@ document.body.addEventListener('click', (e) => {
 
 // V50: Export CTA bar
 const _EXPORT_CFG = {
-  cam:    { bottom: 96,  label: '📷 GUARDAR PNG', primary: 'btnCapture',   secs: ['btnShare'],                  reset: null           },
-  ascii:  { bottom: 96,  label: '📷 GUARDAR PNG', primary: 'acPng',        secs: ['acTxt', 'acCopy'],           reset: 'acReset'       },
+  cam:    null, // ● del nav es el único trigger de captura
+  ascii:  null, // ● del nav es el único trigger de captura
   up:     { bottom: 96,  label: '💾 GUARDAR',     primary: 'btnSaveResult', secs: ['btnShareResult'],            reset: 'upBtnReset'    },
-  scrash: { bottom: 280, label: '📷 CAPTURAR',    primary: 'btnScrashSnap', secs: ['btnScrashShare'],            reset: 'btnScrashReset'},
+  scrash: null, // ● del nav es el único trigger de captura
   sono:   { bottom: 246, label: '📷 SNAP',        primary: 'btnSonoCapture',secs: ['btnSonoShare'],              reset: null           },
   wmp:    null
 };
@@ -2784,7 +2810,6 @@ const FLIP_NAV_CFG = {
     { icon: _navIcon('btnAsciiMode') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnAsciiMode')    },
     { icon: '●',                               label: '',       center: true,  click: () => _navClick('btnAsciiCapture') },
     { icon: '↑',                               label: 'SHARE',  center: false, click: () => _navClick('btnAsciiShare')   },
-    { icon: '⚡',                               label: 'GLITCH', center: false, click: () => _navClick('btnAsciiGlitch')  },
     { icon: '⚙',                               label: 'EDIT',   center: false, click: () => _navClick('btnAsciiEdit')    },
   ],
   up: () => [
@@ -2807,13 +2832,14 @@ const FLIP_NAV_CFG = {
     { icon: '⛶',  label: 'FULL', center: false, click: () => _navClick('btnWmpFull')              },
   ],
   scrash: () => [
-    { icon: '●',  label: 'SNAP',  center: true,  click: () => _navClick('btnScrashSnap')   },
+    { icon: '↺',  label: 'RESET', center: false, click: () => _navClick('btnScrashReset')  },
+    { icon: '●',  label: '',       center: true,  click: () => _navClick('btnScrashSnap')   },
     { icon: '↑',  label: 'SHARE', center: false, click: () => _navClick('btnScrashShare')  },
-    { icon: '✕',  label: 'RESET', center: false, click: () => _navClick('btnScrashReset')  },
   ],
 };
 
 const _OLD_BARS = ['barCam','barUpload','barAscii','barSono','barWmp','barScrash'];
+let _navObserver = null;
 
 function renderFlipNav(mode) {
   // Hide all legacy bars
@@ -2837,8 +2863,30 @@ function renderFlipNav(mode) {
     nav.appendChild(btn);
   });
   nav.classList.add('visible');
-  // TODO: V50 — sincronizar estado dinámico: timer de grabación en btn-center (CAM/ASCII),
-  // ▶/⏸ en WMP, 📷/🎥 toggle en CAM/ASCII, disabled en btnSaveResult/btnShareResult
+
+  // Sync dynamic icons: observe the hidden legacy button for mutations and
+  // mirror its .btn-icon text into the corresponding new nav button.
+  if (_navObserver) { _navObserver.disconnect(); _navObserver = null; }
+  const _syncPairs = mode === 'cam'   ? [['btnRecord', 0], ['btnCapture', 1]]
+                   : mode === 'ascii' ? [['btnAsciiMode', 0], ['btnAsciiCapture', 1]]
+                   : [];
+  if (_syncPairs.length) {
+    const navBtns = nav.querySelectorAll('button');
+    _navObserver = new MutationObserver(() => {
+      _syncPairs.forEach(([srcId, navIdx]) => {
+        const src = document.getElementById(srcId);
+        const dst = navBtns[navIdx];
+        if (!src || !dst) return;
+        const srcIcon = (src.querySelector('.btn-icon') || src).textContent.trim();
+        const dstIcon = dst.querySelector('.btn-icon');
+        if (dstIcon && dstIcon.textContent.trim() !== srcIcon) dstIcon.textContent = srcIcon;
+      });
+    });
+    _syncPairs.forEach(([srcId]) => {
+      const src = document.getElementById(srcId);
+      if (src) _navObserver.observe(src, { subtree: true, characterData: true, childList: true });
+    });
+  }
 }
 
 // Wrap switchTab to always update the unified nav
@@ -2855,6 +2903,30 @@ function renderFlipNav(mode) {
 // Initialize and sync on tab change
 _updateExportBar('cam');
 renderFlipNav('cam');
+
+// Preloader: fade out after fonts load or 1.5s max, whichever comes first
+(function() {
+  const pr = document.getElementById('preloader');
+  if (!pr) return;
+  function _dismissPreloader() {
+    pr.classList.add('fade-out');
+    setTimeout(() => pr.classList.add('gone'), 420);
+  }
+  const _t0 = performance.now();
+  const _maxMs = 1500;
+  function _check() {
+    if (performance.now() - _t0 >= _maxMs) { _dismissPreloader(); return; }
+    setTimeout(_check, 50);
+  }
+  if (document.fonts && document.fonts.ready) {
+    Promise.race([
+      document.fonts.ready,
+      new Promise(r => setTimeout(r, _maxMs))
+    ]).then(_dismissPreloader);
+  } else {
+    _check();
+  }
+})();
 
 // V50: Quick presets
 // Presets apply settings by dispatching 'input' events on existing sliders —

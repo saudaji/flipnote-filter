@@ -177,6 +177,21 @@
     body.dolphin-mode .tab.active { background:rgba(0,229,204,.08); }
     body.dolphin-mode #btnMode { opacity:.4; }
 
+    /* UPLOAD palette context badge */
+    #palettes::before {
+      content: '';
+      display: none;
+      font-family: monospace;
+      font-size: 7px;
+      color: var(--mid);
+      letter-spacing: 1px;
+      text-align: center;
+    }
+    body.up-pal-ctx #palettes::before {
+      content: 'UP';
+      display: block;
+    }
+
     /* FREE palette picker button */
     #btnPalFree {
       width:26px; height:22px; padding:0; margin-top:3px;
@@ -2262,7 +2277,7 @@ function asciiPixelLum(r, g, b) {
 // ════════════════════════════════════════════════════════════════════
 // ASCII RENDER
 // ════════════════════════════════════════════════════════════════════
-function renderASCII(source, srcW, srcH, mirror) {
+function renderASCII(source, srcW, srcH, mirror, forUpload) {
   const SW = 512, SH = 384;
 
   // Frame deduplication: if video hasn't advanced and worker is busy, keep last result
@@ -2284,15 +2299,15 @@ function renderASCII(source, srcW, srcH, mirror) {
   // OffscreenCanvas worker path — all platforms where supported
   if (_asciiWorker && !asciiHighPerf) {
     const imgData = ctxAS.getImageData(0, 0, SW, SH);
-    _dispatchAsciiWorker(imgData, SW, SH);
+    _dispatchAsciiWorker(imgData, SW, SH, forUpload);
     return;
   }
 
   const { data: px } = ctxAS.getImageData(0, 0, SW, SH);
-  _renderASCIISync(px, SW, SH);
+  _renderASCIISync(px, SW, SH, null, forUpload);
 }
 
-function _renderASCIISync(px, SW, SH, colsOverride) {
+function _renderASCIISync(px, SW, SH, colsOverride, forUpload) {
   // colsOverride: used by photo capture to bypass preview cap for full quality
   const _cols = colsOverride || Math.min(asciiCols, ASCII_PREVIEW_MAX);
   // Build grayscale array with image adjustments
@@ -2347,7 +2362,7 @@ function _renderASCIISync(px, SW, SH, colsOverride) {
   const sCW    = SW / _cols;
   const sCH    = SH / rows;
 
-  const pal = _getPal(false);
+  const pal = _getPal(forUpload || false);
 
   // Background
   ctxAscii.fillStyle = pySubMode !== 'off' ? PY_PALETTES[pyPalIdx].bg : `rgb(${pal.paper})`;
@@ -2569,8 +2584,8 @@ function _initAsciiWorker() {
   } catch(_) { _asciiWorker = null; }
 }
 
-function _dispatchAsciiWorker(imgData, sw, sh) {
-  const pal = _getPal(false);
+function _dispatchAsciiWorker(imgData, sw, sh, forUpload) {
+  const pal = _getPal(forUpload || false);
   const s = {
     cols: Math.min(asciiCols, ASCII_PREVIEW_MAX), bright: acBrightVal, contrast: acContrastVal, sat: acSatVal, hue: acHueVal,
     gray: acGrayVal, sepia: acSepiaVal, invert: acInvertVal,
@@ -3114,6 +3129,8 @@ function renderFlipNav(mode) {
     // T3: resync swatch highlights to reflect mode-specific palette
     const palIdx = tab === 'up' ? uploadActivePal : activePal;
     document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===palIdx));
+    // Show "UP" badge on palette panel when in UPLOAD mode
+    document.body.classList.toggle('up-pal-ctx', tab === 'up');
     // T2: hide FREE picker when not in CAM/ASCII context; clear camCustomPal if switching to UPLOAD
     const freeBtn = document.getElementById('btnPalFree');
     const freeBox = document.getElementById('palFreeBox');
@@ -3493,7 +3510,7 @@ async function handleFile(file){
     lastUploadSrc=src; lastUploadSrcW=src.width||src.naturalWidth; lastUploadSrcH=src.height||src.naturalHeight; lastUploadIsAscii=true;
     asciiStaticSrc=src; asciiStaticW=src.width||src.naturalWidth; asciiStaticH=src.height||src.naturalHeight;
     setProgress(60,'Generando ASCII…');
-    renderASCII(src,lastUploadSrcW,lastUploadSrcH,false);
+    renderASCII(src,lastUploadSrcW,lastUploadSrcH,false,true);
     ctxUP.drawImage(asciiCvs,0,0,upCanvas.width,upCanvas.height);
     upCanvas.classList.add('visible');dropZone.style.display='none';
     setProgress(100,'✓ Listo');
@@ -3531,37 +3548,7 @@ async function processImage(file){
 }
 
 let uploadProcessing=false;
-async function processVideo(file){
-  if(uploadProcessing)return;uploadProcessing=true;
-  if(typeof upCanvas.captureStream!=='function'){alert('⚠️ Tu navegador no soporta grabación de video desde canvas.\nPuedes subir fotos sin problema.\nPara video usa Chrome en Android.');uploadProcessing=false;return;}
-  const url=URL.createObjectURL(file);uploadVid.src=url;uploadVid.muted=true;
-  await new Promise((res,rej)=>{uploadVid.onloadedmetadata=res;uploadVid.onerror=()=>rej(new Error('Error'));});
-  const duration=uploadVid.duration,vW=uploadVid.videoWidth,vH=uploadVid.videoHeight;
-  upCanvas.classList.add('visible');dropZone.style.display='none';showProgress(true);setProgress(0,'Iniciando…');
-  let audioStream=null;
-  try{const ac=new(window.AudioContext||window.webkitAudioContext)();const sn=ac.createMediaElementSource(uploadVid);const dn=ac.createMediaStreamDestination();sn.connect(dn);audioStream=dn.stream;}catch(_){}
-  const cs=upCanvas.captureStream(uploadFPS);
-  const ct=[...cs.getVideoTracks(),...(audioStream?.getAudioTracks()??[])];
-  const comb=new MediaStream(ct);
-  const mimes=['video/mp4','video/webm;codecs=vp9','video/webm'];
-  const mime=mimes.find(m=>MediaRecorder.isTypeSupported(m))??'';
-  const chunks=[];
-  const rec=new MediaRecorder(comb,{...(mime?{mimeType:mime}:{}),videoBitsPerSecond:4_000_000});
-  rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-  let lastFT=-1;const fi=1/uploadFPS;let rafID;
-  function tick(){
-    if(uploadVid.paused||uploadVid.ended)return;
-    const ct=uploadVid.currentTime;
-    if(ct-lastFT>=fi-0.005){lastFT=ct;renderDithered(uploadVid,vW,vH,ctxUP,false);setProgress(duration>0?(ct/duration)*100:0,`Procesando… (${Math.ceil(duration-ct)}s)`);}
-    rafID=requestAnimationFrame(tick);
-  }
-  const done=new Promise(resolve=>{rec.onstop=async()=>{cancelAnimationFrame(rafID);URL.revokeObjectURL(url);if(!chunks.length){resolve(null);return;}const ext=mime.includes('mp4')?'mp4':'webm';const blob=new Blob(chunks,{type:mime||'video/webm'});blob._ext=ext;resolve(blob);};});
-  rec.start(200);uploadVid.currentTime=0;await uploadVid.play();requestAnimationFrame(tick);
-  uploadVid.onended=()=>{rec.stop();};
-  const blob=await done;setProgress(100,'Listo');uploadProcessing=false;
-  if(!blob){alert('No se pudo procesar el video.');return;}
-  setUploadResultReady(blob,blob._ext??'webm');
-}
+// processVideo() was superseded by btnVidExport in _loadVidPlayer flow
 
 // ════════════════════════════════════════════════════════════════════
 // VIDEO PLAYER (SUBIR)
@@ -3585,7 +3572,7 @@ function _loadVidPlayer(file) {
       if (!_vidPlayerActive) { _vidPreviewRafId = null; return; }
       if (uploadVid.videoWidth && !uploadVid.paused) {
         if (uploadMode === 'ascii') {
-          renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false);
+          renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false, true);
           ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
         } else if (uploadMode === 'scrash') {
           renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true, _getPal(true));
@@ -3632,7 +3619,7 @@ document.getElementById('btnVidFrame').addEventListener('click', async () => {
   uploadVid.pause(); document.getElementById('btnVidPlayPause').textContent = '▶';
   if (!uploadVid.videoWidth) return;
   if (uploadMode === 'ascii') {
-    renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false);
+    renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false, true);
     ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
   } else if (uploadMode === 'scrash') {
     renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true, _getPal(true));
@@ -3780,7 +3767,7 @@ function _applyMixBlend() {
 function renderUploadPreview() {
   if (!lastUploadSrc) return;
   if (lastUploadIsAscii || uploadMode === 'ascii') {
-    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false);
+    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false, true);
     ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
     _applyMixBlend();
     canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png')); // ASCII stays PNG
@@ -3903,7 +3890,7 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
   // TXT button
   document.getElementById('upBtnTxt').addEventListener('click', () => {
     if (!lastUploadSrc) return;
-    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false);
+    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false, true);
     const blob = new Blob([lastAsciiText], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

@@ -3606,9 +3606,14 @@ function _stopVidPlayer() {
   _vidPlayerActive = false;
   if (_vidPreviewRafId) { cancelAnimationFrame(_vidPreviewRafId); _vidPreviewRafId = null; }
   if (_vidExportRec && _vidExportRec.state !== 'inactive') { _vidExportRec.stop(); }
+  uploadVid.onended = null; // prevent stale handler from firing after stop
   uploadVid.pause(); uploadVid.src = '';
   document.getElementById('vidPlayerBar').style.display = 'none';
   if (_vidPlayerUrl) { URL.revokeObjectURL(_vidPlayerUrl); _vidPlayerUrl = null; }
+  // Safety reset in case onstop never fires (e.g., browser bug)
+  uploadProcessing = false;
+  const btn = document.getElementById('btnVidExport');
+  if (btn) { btn.textContent = '⏺ REC'; btn.style.borderColor = ''; btn.style.color = ''; }
 }
 
 document.getElementById('btnVidPlayPause').addEventListener('click', () => {
@@ -6168,13 +6173,13 @@ let _ctxScrTmp;
       if (!scrashRecorder || scrashRecorder.state === 'inactive') {
         const mimes = ['video/mp4','video/webm;codecs=vp9','video/webm'];
         scrashRecMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
-        scrashRecChunks = [];
+        const _chunks = []; scrashRecChunks = _chunks; // local ref: safe even if global is reassigned
         const st = scrashCvs.captureStream(30);
         scrashRecorder = new MediaRecorder(st, scrashRecMime ? { mimeType: scrashRecMime, videoBitsPerSecond: 6_000_000 } : {});
-        scrashRecorder.ondataavailable = e => { if (e.data.size) scrashRecChunks.push(e.data); };
+        scrashRecorder.ondataavailable = e => { if (e.data.size) _chunks.push(e.data); };
         scrashRecorder.onstop = async () => {
           const ext = scrashRecMime.includes('mp4') ? 'mp4' : 'webm';
-          const blob = new Blob(scrashRecChunks, { type: scrashRecMime || 'video/webm' });
+          const blob = new Blob(_chunks, { type: scrashRecMime || 'video/webm' });
           snapBtn.classList.remove('recording');
           snapBtn.querySelector('.btn-icon').textContent = '⏺';
           await _saveFile(blob, 'flip_glitch_' + Date.now() + '.' + ext);

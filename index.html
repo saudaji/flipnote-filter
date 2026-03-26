@@ -163,6 +163,51 @@
       cursor:pointer; line-height:1; transition:.1s; margin-bottom:3px;
     }
     #btnMode.legacy { border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.12); }
+    /* DOLPHIN mode button */
+    #btnDolphin {
+      width:26px; height:22px; padding:0;
+      background:none; border:2px solid #1a3a3a;
+      color:#1a3a3a; font-family:monospace;
+      font-size:7px; font-weight:bold; letter-spacing:.3px;
+      cursor:pointer; line-height:1; transition:.1s;
+    }
+    #btnDolphin.active { border-color:#00e5cc; color:#00e5cc; background:rgba(0,229,204,.10); }
+    /* DOLPHIN body theme */
+    body.dolphin-mode { --ink:#000d0d; --dark:#003333; --mid:#007777; --paper:#00e5cc; }
+    body.dolphin-mode .tab.active { background:rgba(0,229,204,.08); }
+    body.dolphin-mode #btnMode { opacity:.4; }
+
+    /* UPLOAD palette context badge */
+    #palettes::before {
+      content: '';
+      display: none;
+      font-family: monospace;
+      font-size: 7px;
+      color: var(--mid);
+      letter-spacing: 1px;
+      text-align: center;
+    }
+    body.up-pal-ctx #palettes::before {
+      content: 'UP';
+      display: block;
+    }
+
+    /* COLOR SYSTEM — CLASSIC / FREE tabs (T2) */
+    #palColorTabs { margin-top:5px; }
+    .pal-tab-row { display:flex; gap:3px; }
+    .pal-tab-btn {
+      flex:1; height:20px; padding:0; min-width:0;
+      background:none; border:2px solid var(--mid);
+      color:var(--mid); font-family:monospace;
+      font-size:6px; font-weight:bold; letter-spacing:.3px;
+      cursor:pointer; line-height:1; transition:.1s;
+    }
+    .pal-tab-btn.active { border-color:var(--paper); color:var(--paper); background:rgba(255,255,255,.08); }
+    #palFreeBox input[type="color"] {
+      width:26px; height:22px; padding:0; border:2px solid var(--mid);
+      background:none; cursor:pointer; display:block;
+    }
+    body.pal-free-mode .pal-swatch { display:none; }
 
     /* ── Flip ── */
     #btnFlip {
@@ -359,10 +404,13 @@
 
     /* ── ASCII mobile touch targets ── */
     @media (max-width:767px) {
-      #asciiPanel .ac-row { margin-bottom:8px; min-height:44px; align-items:center; }
-      #asciiPanel input[type="range"] { height:44px; }
-      #asciiPanel input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
-      #asciiPanel input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+      /* Global: all panel sliders get 44px touch height */
+      .ac-row { margin-bottom:8px; min-height:44px; align-items:center; }
+      .ac-row input[type="range"] { height:44px; }
+      .ac-row input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
+      .ac-row input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+      /* Palette swatches: larger tap area */
+      .pal-swatch { width:36px; height:36px; }
     }
 
     /* ── ASCII panel controls ── */
@@ -411,6 +459,27 @@
       #chaosRow input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
       #pyControls input[type="range"]::-moz-range-thumb,
       #chaosRow input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+    }
+    /* ── SONO / WMP / SCRASH mobile touch targets ── */
+    @media (max-width:767px) {
+      .sono-row3, .sono-row4, .sono-row5 { min-height:44px; }
+      .sono-row3 input[type="range"],
+      .sono-row4 input[type="range"],
+      .sono-row5 input[type="range"] { height:44px; }
+      .sono-row3 input[type="range"]::-webkit-slider-thumb,
+      .sono-row4 input[type="range"]::-webkit-slider-thumb,
+      .sono-row5 input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
+      .sono-row3 input[type="range"]::-moz-range-thumb,
+      .sono-row4 input[type="range"]::-moz-range-thumb,
+      .sono-row5 input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+      .sc-row { min-height:44px; }
+      .sc-row input[type="range"] { height:44px; }
+      .sc-row input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
+      .sc-row input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+      .wmp-ctrl { min-height:44px; display:flex; align-items:center; }
+      .wmp-ctrl input[type="range"] { height:44px; }
+      .wmp-ctrl input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
+      .wmp-ctrl input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
     }
 
     /* ══════════════════════════════════════════════════════
@@ -712,13 +781,14 @@
       display: none;
       position: fixed;
       bottom: 0; left: 0; right: 0;
-      height: 96px;
+      min-height: 96px;
       background: var(--ink);
       border-top: 2px solid var(--dark);
       z-index: 11;
       align-items: center;
       justify-content: space-around;
       padding: 0 20px;
+      padding-bottom: max(0px, env(safe-area-inset-bottom));
     }
     #flipBottomNav.visible { display: flex; }
 
@@ -733,6 +803,7 @@
       justify-content: center;
       gap: 8px;
       padding: 10px 16px;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
       background: rgba(8, 8, 8, 0.88);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
@@ -1101,6 +1172,18 @@
 
 <div class="palettes" id="palettes">
   <button id="btnMode" title="Flipnote Legacy">STD</button>
+  <button id="btnDolphin" title="DOLPHIN — OEL Y2K">DLP</button>
+  <!-- COLOR SYSTEM: CLASSIC / FREE tabs (T2) — swatches injected by JS below -->
+  <div id="palColorTabs">
+    <div class="pal-tab-row">
+      <button id="btnPalClassic" class="pal-tab-btn active" title="Classic palettes">CLR</button>
+      <button id="btnPalFree"    class="pal-tab-btn"        title="Free color picker">FREE</button>
+    </div>
+    <div id="palFreeBox" style="display:none;flex-direction:column;gap:4px;align-items:center;margin-top:4px;">
+      <input type="color" id="palFreeInk"   value="#0f3800" title="Ink (foreground)">
+      <input type="color" id="palFreePaper" value="#9bbc0f" title="Paper (background)">
+    </div>
+  </div>
 </div>
 
 <div id="uploadSection">
@@ -1140,6 +1223,7 @@
     <button id="btnVidBack"      style="background:none;border:1px solid var(--dark);color:var(--mid);font-family:monospace;font-size:11px;padding:8px 10px;cursor:pointer;">«5s</button>
     <button id="btnVidFwd"       style="background:none;border:1px solid var(--dark);color:var(--mid);font-family:monospace;font-size:11px;padding:8px 10px;cursor:pointer;">5s»</button>
     <button id="btnVidFrame"     style="background:var(--paper);border:none;color:var(--ink);font-family:monospace;font-size:11px;font-weight:bold;padding:8px 14px;cursor:pointer;letter-spacing:1px;">📷 FRAME</button>
+    <button id="btnVidExport"    style="background:none;border:2px solid var(--mid);color:var(--mid);font-family:monospace;font-size:11px;font-weight:bold;padding:8px 12px;cursor:pointer;letter-spacing:1px;">⏺ REC</button>
   </div>
 
   <!-- Upload edit panel -->
@@ -1441,6 +1525,10 @@
 
 <!-- SCRASH bottom bar -->
 <div id="barScrash">
+  <button class="btn" id="btnScrashMode">
+    <div class="btn-icon">📷</div>
+    <span class="btn-label">FOTO</span>
+  </button>
   <button class="btn" id="btnScrashSnap">
     <div class="btn-icon">●</div>
     <span class="btn-label">SNAP</span>
@@ -1553,8 +1641,18 @@ const PALETTES = [
   { name:'WMP Blue',  paper:[100,160,255], ink:[0,40,160]   },  // #0057ff / #0078d4
   { name:'ASCII Blue',paper:[192,192,255], ink:[12,12,216]  },  // #0c0cd8
 ];
-let activePal  = 0;
-let legacyMode = false;
+let activePal      = 0;  // CAM / ASCII / SONO / WMP palette index
+let uploadActivePal = 0;  // T3: UPLOAD-independent palette index
+let camCustomPal    = null; // T2: {paper:[r,g,b], ink:[r,g,b]} or null
+let uploadCustomPal = null; // T3: UPLOAD independent free color
+let legacyMode  = false;
+
+// Returns the effective palette for the given context
+function _getPal(forUpload) {
+  if (forUpload) return uploadCustomPal || PALETTES[uploadActivePal];
+  return camCustomPal || PALETTES[activePal];
+}
+let dolphinMode = false;
 
 // ════════════════════════════════════════════════════════════════════
 // ASCII GRADIENTS & SETTINGS
@@ -1747,18 +1845,99 @@ PALETTES.forEach((p, i) => {
   s.style.background  = `rgb(${p.paper})`;
   s.style.borderColor = `rgb(${p.ink})`;
   s.addEventListener('click', () => {
-    activePal = i;
-    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===i));
-    asciiSettingsChanged(); // re-render if ASCII static image is loaded
+    if (activeTab === 'up') {
+      uploadActivePal = i;
+      uploadCustomPal = null;
+      document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===i));
+      document.getElementById('btnPalClassic').classList.add('active');
+      document.getElementById('btnPalFree').classList.remove('active');
+      document.getElementById('palFreeBox').style.display = 'none';
+      document.body.classList.remove('pal-free-mode');
+      if (lastUploadSrc) renderUploadPreview();
+    } else {
+      activePal = i;
+      camCustomPal = null;
+      document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===i));
+      document.getElementById('btnPalClassic').classList.add('active');
+      document.getElementById('btnPalFree').classList.remove('active');
+      document.getElementById('palFreeBox').style.display = 'none';
+      document.body.classList.remove('pal-free-mode');
+      asciiSettingsChanged();
+    }
+    saveSettings();
   });
   document.getElementById('palettes').appendChild(s);
 });
 
+// T2: FREE color picker — converts hex #rrggbb to [r,g,b]
+function _hexToRGB(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function _updateFreePal() {
+  const ink   = _hexToRGB(document.getElementById('palFreeInk').value);
+  const paper = _hexToRGB(document.getElementById('palFreePaper').value);
+  if (activeTab === 'up') {
+    uploadCustomPal = { paper, ink };
+    if (lastUploadSrc) renderUploadPreview();
+  } else {
+    camCustomPal = { paper, ink };
+    asciiSettingsChanged();
+  }
+}
+document.getElementById('btnPalClassic').addEventListener('click', () => {
+  if (document.getElementById('btnPalClassic').classList.contains('active')) return;
+  if (activeTab === 'up') {
+    uploadCustomPal = null;
+    if (lastUploadSrc) renderUploadPreview();
+    const palIdx = uploadActivePal;
+    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===palIdx));
+  } else {
+    camCustomPal = null;
+    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===activePal));
+    asciiSettingsChanged();
+  }
+  document.getElementById('btnPalClassic').classList.add('active');
+  document.getElementById('btnPalFree').classList.remove('active');
+  document.getElementById('palFreeBox').style.display = 'none';
+  document.body.classList.remove('pal-free-mode');
+});
+document.getElementById('btnPalFree').addEventListener('click', () => {
+  if (document.getElementById('btnPalFree').classList.contains('active')) return;
+  document.getElementById('btnPalFree').classList.add('active');
+  document.getElementById('btnPalClassic').classList.remove('active');
+  document.getElementById('palFreeBox').style.display = 'flex';
+  document.body.classList.add('pal-free-mode');
+  _updateFreePal();
+});
+document.getElementById('palFreeInk').addEventListener('input', () => { if (camCustomPal) _updateFreePal(); });
+document.getElementById('palFreePaper').addEventListener('input', () => { if (camCustomPal) _updateFreePal(); });
+
 document.getElementById('btnMode').addEventListener('click', () => {
+  // Cycle: STD → LGCY → STD (DOLPHIN has its own button)
+  if (dolphinMode) {
+    // Clicking STD/LGCY button exits DOLPHIN first
+    dolphinMode = false;
+    document.getElementById('btnDolphin').classList.remove('active');
+    document.body.classList.remove('dolphin-mode');
+  }
   legacyMode = !legacyMode;
   const btn = document.getElementById('btnMode');
   btn.textContent = legacyMode ? 'LGCY' : 'STD';
   btn.classList.toggle('legacy', legacyMode);
+});
+
+document.getElementById('btnDolphin').addEventListener('click', () => {
+  dolphinMode = !dolphinMode;
+  const btn = document.getElementById('btnDolphin');
+  btn.classList.toggle('active', dolphinMode);
+  document.body.classList.toggle('dolphin-mode', dolphinMode);
+  if (dolphinMode) {
+    // DOLPHIN overrides STD/LGCY visually — reset to STD for cleanest base
+    legacyMode = false;
+    const mb = document.getElementById('btnMode');
+    mb.textContent = 'STD'; mb.classList.remove('legacy');
+  }
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -1840,7 +2019,7 @@ function _applyEditAdj(r, g, b) {
   return [r|0, g|0, b|0];
 }
 
-function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels, applyEdits) {
+function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels, applyEdits, palOverride) {
   const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
   ctxS.save();
   if (mirror) { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
@@ -1848,7 +2027,7 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels, apply
   ctxS.restore();
 
   const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
-  const p = PALETTES[activePal];
+  const p = palOverride || _getPal(false);
   let [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
   if (applyEdits && upPalHueVal !== 0) {
     [PR, PG, PB] = _hueRotateRGB(PR, PG, PB, upPalHueVal);
@@ -1932,13 +2111,110 @@ function renderDithered(source, srcW, srcH, targetCtx, mirror, autoLevels, apply
 }
 
 // ════════════════════════════════════════════════════════════════════
+// DOLPHIN RENDER — OEL Y2K Pioneer Carrozzeria inspired visual mode
+// Dark deep-sea canvas + aqua phosphor glow + organic luminance field
+// Spirit: early-2000s Japanese car head-unit OEL display
+// NOT a literal stereo mockup — a translation of that visual energy
+// ════════════════════════════════════════════════════════════════════
+// Scanline canvas for DOLPHIN (built once, rebuilt on canvas resize)
+const _dlpScanCvs = document.createElement('canvas');
+let   _dlpScanCtx = null;
+
+function _buildDolphinScanlines() {
+  _dlpScanCvs.width  = OUT_W;
+  _dlpScanCvs.height = OUT_H;
+  if (!_dlpScanCtx) _dlpScanCtx = _dlpScanCvs.getContext('2d');
+  _dlpScanCtx.clearRect(0, 0, OUT_W, OUT_H);
+  // Fine scanlines — soft phosphor interlace feel
+  _dlpScanCtx.fillStyle = 'rgba(0,0,0,0.30)';
+  for (let y = 0; y < OUT_H; y += 2) _dlpScanCtx.fillRect(0, y, OUT_W, 1);
+  // Subtle vignette to push edges dark (OEL bezel falloff)
+  const vg = _dlpScanCtx.createRadialGradient(OUT_W/2,OUT_H/2,OUT_W*0.3,OUT_W/2,OUT_H/2,OUT_W*0.72);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+  _dlpScanCtx.fillStyle = vg;
+  _dlpScanCtx.fillRect(0, 0, OUT_W, OUT_H);
+}
+_buildDolphinScanlines();
+
+function renderDolphin(source, srcW, srcH, targetCtx, mirror) {
+  // 1. Sample source at low-res (same as STD path)
+  const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
+  ctxS.save();
+  if (mirror) { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
+  ctxS.drawImage(source, sx, sy, sw, sh, 0, 0, DSI_W, DSI_H);
+  ctxS.restore();
+  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
+
+  // 2. Build DOLPHIN pixel buffer
+  // Color palette: deep teal-black BG, aqua/cyan highlights, mid-blue shadows
+  // Luminance → 4-step OEL band mapping:
+  //   dark   →  #000d0d  (deep black)
+  //   shadow →  #004455  (deep teal)
+  //   mid    →  #007799  (medium cyan-teal)
+  //   bright →  #00e5cc  (aqua phosphor)
+  const COLS = [
+    [0,   13,  13 ],   // 0 – black
+    [0,   42,  68 ],   // 1 – deep teal shadow
+    [0,   119, 153],   // 2 – mid cyan
+    [0,   229, 204],   // 3 – aqua phosphor
+  ];
+  // Bayer 4-level threshold for OEL band dithering
+  const B4 = [0, 128, 64, 192];  // 2×2 ordered
+
+  for (let y = 0; y < DSI_H; y++) {
+    for (let x = 0; x < DSI_W; x++) {
+      const i = (y * DSI_W + x) << 2;
+      const r = src[i], g = src[i+1], b = src[i+2];
+      // Luminance (BT.601)
+      const lum = (r * 77 + g * 150 + b * 29) >> 8;
+      // Bayer-ordered dither within 4 levels
+      const bayer = B4[((y & 1) << 1) | (x & 1)];
+      const ditLum = Math.max(0, Math.min(255, lum + (bayer >> 1) - 32));
+      // Map to band (0-3)
+      let band;
+      if      (ditLum < 64)  band = 0;
+      else if (ditLum < 128) band = 1;
+      else if (ditLum < 192) band = 2;
+      else                   band = 3;
+      const c = COLS[band];
+      lowBuf[i]   = c[0];
+      lowBuf[i+1] = c[1];
+      lowBuf[i+2] = c[2];
+      lowBuf[i+3] = 255;
+    }
+  }
+  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
+
+  // 3. Scale up pixel-perfect
+  targetCtx.imageSmoothingEnabled = false;
+  targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
+
+  // 4. Phosphor aqua glow pass — draw bright pixels with soft luminous halo
+  // We composite a blurred copy of the aqua channel on top with 'screen' blend
+  // Using a lightweight approach: draw again with globalAlpha + blur via CSS filter
+  targetCtx.save();
+  targetCtx.globalCompositeOperation = 'screen';
+  targetCtx.globalAlpha = 0.28;
+  targetCtx.filter = 'blur(3px)';
+  targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
+  targetCtx.filter = 'none';
+  targetCtx.globalAlpha = 1;
+  targetCtx.globalCompositeOperation = 'source-over';
+  targetCtx.restore();
+
+  // 5. Scanlines + vignette overlay
+  targetCtx.drawImage(_dlpScanCvs, 0, 0);
+}
+
+// ════════════════════════════════════════════════════════════════════
 // AUDIO-REACTIVE FLIPNOTE ABSTRACT
 // Renders a dithered abstract pattern driven by extAnalyser or any
 // active analyser. Called by cameraLoop when no camera is available.
 // ════════════════════════════════════════════════════════════════════
 function renderAudioAbstract() {
   const _an = extAnalyser || sonoAnalyser || wmpAnalyser;
-  const p = PALETTES[activePal];
+  const p = _getPal(false);
   const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
 
   if (!_an) {
@@ -2056,7 +2332,7 @@ function asciiPixelLum(r, g, b) {
 // ════════════════════════════════════════════════════════════════════
 // ASCII RENDER
 // ════════════════════════════════════════════════════════════════════
-function renderASCII(source, srcW, srcH, mirror) {
+function renderASCII(source, srcW, srcH, mirror, forUpload) {
   const SW = 512, SH = 384;
 
   // Frame deduplication: if video hasn't advanced and worker is busy, keep last result
@@ -2078,15 +2354,17 @@ function renderASCII(source, srcW, srcH, mirror) {
   // OffscreenCanvas worker path — all platforms where supported
   if (_asciiWorker && !asciiHighPerf) {
     const imgData = ctxAS.getImageData(0, 0, SW, SH);
-    _dispatchAsciiWorker(imgData, SW, SH);
+    _dispatchAsciiWorker(imgData, SW, SH, forUpload);
     return;
   }
 
   const { data: px } = ctxAS.getImageData(0, 0, SW, SH);
-  _renderASCIISync(px, SW, SH);
+  _renderASCIISync(px, SW, SH, null, forUpload);
 }
 
-function _renderASCIISync(px, SW, SH) {
+function _renderASCIISync(px, SW, SH, colsOverride, forUpload) {
+  // colsOverride: used by photo capture to bypass preview cap for full quality
+  const _cols = colsOverride || Math.min(asciiCols, ASCII_PREVIEW_MAX);
   // Build grayscale array with image adjustments
   const gray = new Float32Array(SW * SH);
   for (let i = 0; i < SW * SH; i++) {
@@ -2133,13 +2411,13 @@ function _renderASCIISync(px, SW, SH) {
   const nChars = grad.length;
   const fw     = OUT_W - 2 * acFrameVal;
   const fh     = OUT_H - 2 * acFrameVal;
-  const rows   = Math.max(1, Math.round(asciiCols * fh / fw));
-  const cW     = fw / asciiCols;
+  const rows   = Math.max(1, Math.round(_cols * fh / fw));
+  const cW     = fw / _cols;
   const cH     = fh / rows;
-  const sCW    = SW / asciiCols;
+  const sCW    = SW / _cols;
   const sCH    = SH / rows;
 
-  const pal = PALETTES[activePal];
+  const pal = _getPal(forUpload || false);
 
   // Background
   ctxAscii.fillStyle = pySubMode !== 'off' ? PY_PALETTES[pyPalIdx].bg : `rgb(${pal.paper})`;
@@ -2156,7 +2434,7 @@ function _renderASCIISync(px, SW, SH) {
 
   for (let r = 0; r < rows; r++) {
     let line = '';
-    for (let c = 0; c < asciiCols; c++) {
+    for (let c = 0; c < _cols; c++) {
       let gSum = 0, cnt = 0;
       const x0 = Math.floor(c * sCW), x1 = Math.min(Math.ceil((c+1)*sCW), SW);
       const y0 = Math.floor(r * sCH), y1 = Math.min(Math.ceil((r+1)*sCH), SH);
@@ -2361,10 +2639,10 @@ function _initAsciiWorker() {
   } catch(_) { _asciiWorker = null; }
 }
 
-function _dispatchAsciiWorker(imgData, sw, sh) {
-  const pal = PALETTES[activePal];
+function _dispatchAsciiWorker(imgData, sw, sh, forUpload) {
+  const pal = _getPal(forUpload || false);
   const s = {
-    cols: asciiCols, bright: acBrightVal, contrast: acContrastVal, sat: acSatVal, hue: acHueVal,
+    cols: Math.min(asciiCols, ASCII_PREVIEW_MAX), bright: acBrightVal, contrast: acContrastVal, sat: acSatVal, hue: acHueVal,
     gray: acGrayVal, sepia: acSepiaVal, invert: acInvertVal,
     threshOn: acThreshOn, thresh: acThreshVal,
     sharpOn: acSharpOn, sharp: acSharpVal,
@@ -2384,7 +2662,7 @@ function _dispatchAsciiWorker(imgData, sw, sh) {
 // ════════════════════════════════════════════════════════════════════
 function renderASCIIAudio() {
   const _an = extAnalyser || sonoAnalyser || wmpAnalyser;
-  const pal  = PALETTES[activePal];
+  const pal  = _getPal(false);
   ctxAscii.fillStyle = `rgb(${pal.paper})`;
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
   if (!_an) return;
@@ -2480,13 +2758,12 @@ let camAspW = 4, camAspH = 3; // default 4:3
 
 function applyCamAspect(aw, ah) {
   camAspW = aw; camAspH = ah;
-  // Landscape: fix W=256, max H=192. Portrait: fix H=256, max W=192 (rotated DSi base)
-  let newW, newH;
-  if (aw >= ah) { // landscape or square: fix width at 256
-    newW = 256; newH = Math.max(64, Math.min(192, (Math.round(256 * ah / aw) & ~1)));
-  } else {         // portrait: fix height at 256 (rotated DSi resolution)
-    newH = 256; newW = Math.max(64, Math.min(192, (Math.round(256 * aw / ah) & ~1)));
-  }
+  // Always fix DSI_W=256 so dot visual density stays constant regardless of aspect ratio.
+  // DSI_H scales proportionally (capped at 512 to keep pixel budget sane on mobile).
+  // Previously portrait used DSI_H=256 fixed, giving DSI_W≈144 for 9:16 — this caused
+  // dots to appear ~1.8× larger in portrait vs landscape (same CSS width, fewer columns).
+  const newW = 256;
+  const newH = Math.max(64, Math.min(512, (Math.round(256 * ah / aw) & ~1)));
   // Update global let variables
   DSI_W = newW; DSI_H = newH;
   OUT_W = DSI_W * SCALE; OUT_H = DSI_H * SCALE;
@@ -2500,6 +2777,7 @@ function applyCamAspect(aw, ah) {
   ctxS.imageSmoothingEnabled = false;
   ctxD.imageSmoothingEnabled = false;
   buildScanlines();
+  _buildDolphinScanlines(); // rebuild DOLPHIN overlay for new canvas size
   relayout();
 
   // Re-render content after canvas resize clears it
@@ -2532,7 +2810,9 @@ let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 const _isMobile      = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
 const IS_ANDROID     = /Android/i.test(navigator.userAgent);
-const ASCII_DEV_MAX  = IS_ANDROID ? 60 : (_isMobile ? 750 : 1000);
+const ASCII_DEV_MAX     = IS_ANDROID ? 60 : (_isMobile ? 750 : 1000);
+// Live preview cap: keeps loop fast; captures bypass this for full quality
+const ASCII_PREVIEW_MAX = IS_ANDROID ? 50 : (_isMobile ? 80 : 150);
 const ASCII_ANDROID_DEFAULT = 40;
 let asciiFrameSkip   = 0;
 let _asciiFpsHist    = [];
@@ -2556,8 +2836,10 @@ function cameraLoop(t) {
   if (!cameraRunning) return;
   const minInterval = camFpsEnabled ? 1000 / camFpsTarget : 0;
   if (t - camLastFrameMs >= minInterval) {
-    if (vid.videoWidth) renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
-    else if (extAudioMode && extAnalyser) renderAudioAbstract();
+    if (vid.videoWidth) {
+      if (dolphinMode) renderDolphin(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
+      else renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
+    } else if (extAudioMode && extAnalyser) renderAudioAbstract();
     camLastFrameMs = t;
     frames++;
   }
@@ -2832,9 +3114,10 @@ const FLIP_NAV_CFG = {
     { icon: '⛶',  label: 'FULL', center: false, click: () => _navClick('btnWmpFull')              },
   ],
   scrash: () => [
-    { icon: '↺',  label: 'RESET', center: false, click: () => _navClick('btnScrashReset')  },
-    { icon: '●',  label: '',       center: true,  click: () => _navClick('btnScrashSnap')   },
-    { icon: '↑',  label: 'SHARE', center: false, click: () => _navClick('btnScrashShare')  },
+    { icon: _navIcon('btnScrashMode') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnScrashMode')  },
+    { icon: _navIcon('btnScrashSnap') || '●',  label: '',       center: true,  click: () => _navClick('btnScrashSnap')  },
+    { icon: '↑',                               label: 'SHARE', center: false, click: () => _navClick('btnScrashShare') },
+    { icon: '↺',                               label: 'RESET', center: false, click: () => _navClick('btnScrashReset') },
   ],
 };
 
@@ -2867,8 +3150,9 @@ function renderFlipNav(mode) {
   // Sync dynamic icons: observe the hidden legacy button for mutations and
   // mirror its .btn-icon text into the corresponding new nav button.
   if (_navObserver) { _navObserver.disconnect(); _navObserver = null; }
-  const _syncPairs = mode === 'cam'   ? [['btnRecord', 0], ['btnCapture', 1]]
-                   : mode === 'ascii' ? [['btnAsciiMode', 0], ['btnAsciiCapture', 1]]
+  const _syncPairs = mode === 'cam'    ? [['btnRecord', 0], ['btnCapture', 1]]
+                   : mode === 'ascii'  ? [['btnAsciiMode', 0], ['btnAsciiCapture', 1]]
+                   : mode === 'scrash' ? [['btnScrashMode', 0], ['btnScrashSnap', 1]]
                    : [];
   if (_syncPairs.length) {
     const navBtns = nav.querySelectorAll('button');
@@ -2897,6 +3181,29 @@ function renderFlipNav(mode) {
     _origSwitch(tab);
     renderFlipNav(tab);
     _updateExportBar(tab);
+    // T2+T3: sync CLASSIC/FREE tab state first (sets pal-free-mode before swatch sync)
+    const freeBtn    = document.getElementById('btnPalFree');
+    const classicBtn = document.getElementById('btnPalClassic');
+    const freeBox    = document.getElementById('palFreeBox');
+    if (freeBtn && classicBtn && freeBox) {
+      const customPal = tab === 'up' ? uploadCustomPal : camCustomPal;
+      if (customPal) {
+        freeBtn.classList.add('active');
+        classicBtn.classList.remove('active');
+        freeBox.style.display = 'flex';
+        document.body.classList.add('pal-free-mode');
+      } else {
+        classicBtn.classList.add('active');
+        freeBtn.classList.remove('active');
+        freeBox.style.display = 'none';
+        document.body.classList.remove('pal-free-mode'); // must clear before swatch sync
+      }
+    }
+    // T3: resync swatch highlights (after pal-free-mode is resolved so visibility is correct)
+    const palIdx = tab === 'up' ? uploadActivePal : activePal;
+    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===palIdx));
+    // Show "UP" badge on palette panel when in UPLOAD mode
+    document.body.classList.toggle('up-pal-ctx', tab === 'up');
   };
 })();
 
@@ -3014,16 +3321,45 @@ function _download(blob, filename) {
   document.body.appendChild(a); a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
 }
+// Platform detection for save strategy
+const _IS_IOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+// _saveFile: default save action.
+//   iOS   → Web Share API (only way to reach Photos from a browser)
+//   Other → direct download (goes to Downloads folder; user can open from there)
+// Limitation: browsers cannot write directly to Android Gallery/Photos or create
+// a "FLIP FILES" album — this requires a native app wrapper (PWA limitation).
+async function _saveFile(blob, filename) {
+  const file = new File([blob], filename, { type: blob.type });
+  if (_IS_IOS && navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'FLIP' }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+  _download(blob, filename);
+}
+// _shareFile: explicit share action — always opens share sheet when available.
 async function _shareOrDownload(blob, filename) {
-  const file = new File([blob], filename, { type:blob.type });
-  if (navigator.canShare?.({ files:[file] })) {
-    try { await navigator.share({ files:[file], title:'Flipnote Filter' }); return; }
-    catch(e) { if (e.name==='AbortError') return; }
+  const file = new File([blob], filename, { type: blob.type });
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'FLIP' }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
   }
   _download(blob, filename);
 }
 function canvasToBlob(ctx) {
   return new Promise(r => ctx.canvas.toBlob(r, 'image/png'));
+}
+// Photo exports use JPEG (no alpha channel) — fixes Android/Instagram black-photo bug.
+// PNG with alpha confuses Android photo pipeline; screenshot workaround proves JPEG works.
+function _canvasToJpeg(canvas, quality) {
+  quality = quality || 0.92;
+  // Flatten onto opaque background before JPEG encode to prevent black-canvas artifacts
+  const flat = document.createElement('canvas');
+  flat.width = canvas.width; flat.height = canvas.height;
+  const fx = flat.getContext('2d');
+  fx.fillStyle = '#000';
+  fx.fillRect(0, 0, flat.width, flat.height);
+  fx.drawImage(canvas, 0, 0);
+  return new Promise(r => flat.toBlob(r, 'image/jpeg', quality));
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -3070,28 +3406,25 @@ btnCap.addEventListener('click', async () => {
   if (camMode === 'foto') {
     // Take photo
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    const _capTmp = document.createElement('canvas');
-    _capTmp.width = display.width; _capTmp.height = display.height;
-    _capTmp.getContext('2d').drawImage(display, 0, 0);
-    await _shareOrDownload(await new Promise(r => _capTmp.toBlob(r, 'image/png')), 'flipnote_' + Date.now() + '.png');
+    await _saveFile(await _canvasToJpeg(display), 'flip_' + Date.now() + '.jpg');
   } else {
     // Toggle video recording
     if (!recorder || recorder.state === 'inactive') {
       if (typeof display.captureStream !== 'function') {
-        alert('⚠️ Grabación no disponible.\nUsa Chrome en Android o guarda fotos con ●.'); return;
+        flipToast('⚠ Recording not available. Use Chrome on Android.'); return;
       }
       const mimes=['video/mp4','video/webm;codecs=vp9','video/webm'];
       recMime=mimes.find(m=>MediaRecorder.isTypeSupported(m))??'';
       recChunks=[]; lastBlob=null;
       try { recorder=new MediaRecorder(display.captureStream(30),{...(recMime?{mimeType:recMime}:{}),videoBitsPerSecond:6_000_000}); }
-      catch(e){alert('Error: '+e.message);return;}
+      catch(e){flipToast('⚠ Error: '+e.message);return;}
       recorder.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
       recorder.onstop=async()=>{
         if(!recChunks.length)return;
         const ext=recMime.includes('mp4')?'mp4':'webm';
         lastBlob=new Blob(recChunks,{type:recMime||'video/webm'});
         btnCap.classList.remove('recording'); btnCap.querySelector('.btn-icon').textContent='⏺';
-        await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+ext);
+        await _saveFile(lastBlob,'flipnote_'+Date.now()+'.'+ext); // T9: default=save, share=explicit
       };
       recorder.start(200); startRecTimer();
       btnCap.classList.add('recording');
@@ -3101,7 +3434,7 @@ btnCap.addEventListener('click', async () => {
   }
 });
 document.getElementById('btnShare').addEventListener('click', async () => {
-  if(!lastBlob){alert('Graba un video primero.');return;}
+  if(!lastBlob){flipToast('Record a video first.');return;}
   await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+(recMime.includes('mp4')?'mp4':'webm'));
 });
 
@@ -3163,13 +3496,13 @@ function setProgress(pct,label){progressFill.style.width=pct+'%';progressPct.tex
 function showProgress(show){progressWrap.classList.toggle('visible',show);}
 
 function setUploadResultReady(blob,ext){
-  const fname='flipnote_'+Date.now()+'.'+ext;
+  const fname='flip_'+Date.now()+'.'+ext;
   const btnSave=document.getElementById('btnSaveResult');
   const btnShr =document.getElementById('btnShareResult');
   btnSave.disabled=false;btnSave.style.opacity='1';
   btnShr.disabled=false; btnShr.style.opacity='1';
-  btnSave.onclick=()=>{ _shareOrDownload(blob,fname); };
-  btnShr.onclick =()=>{ _shareOrDownload(blob,fname); };
+  btnSave.onclick=()=>{ _saveFile(blob,fname); };       // save = direct download on Android
+  btnShr.onclick =()=>{ _shareOrDownload(blob,fname); }; // share = explicit share sheet
 }
 
 // File inputs are now inside buttons/dropzone for iOS Safari compatibility
@@ -3212,7 +3545,7 @@ async function handleFile(file){
   if(!file)return;
   const isVideo=file.type.startsWith('video/');
   const isImage=file.type.startsWith('image/') || (!file.type && /\.(png|jpe?g|webp|gif|heic|heif)$/i.test(file.name||''));
-  if(!isVideo&&!isImage){alert('Formato no soportado.');return;}
+  if(!isVideo&&!isImage){flipToast('⚠ Unsupported format.');return;}
   fpsRow.style.display=isVideo?'flex':'none';
   // Show loading bar immediately with filename
   const shortName=(file.name||'archivo').slice(0,32);
@@ -3238,7 +3571,7 @@ async function handleFile(file){
     lastUploadSrc=src; lastUploadSrcW=src.width||src.naturalWidth; lastUploadSrcH=src.height||src.naturalHeight; lastUploadIsAscii=true;
     asciiStaticSrc=src; asciiStaticW=src.width||src.naturalWidth; asciiStaticH=src.height||src.naturalHeight;
     setProgress(60,'Generando ASCII…');
-    renderASCII(src,lastUploadSrcW,lastUploadSrcH,false);
+    renderASCII(src,lastUploadSrcW,lastUploadSrcH,false,true);
     ctxUP.drawImage(asciiCvs,0,0,upCanvas.width,upCanvas.height);
     upCanvas.classList.add('visible');dropZone.style.display='none';
     setProgress(100,'✓ Listo');
@@ -3251,7 +3584,7 @@ async function handleFile(file){
     await processImage(file);
     // Apply SCRASH on top of rendered result
     _applyScrash(ctxUP, ctxUP, upCanvas.width, upCanvas.height, 0);
-    setUploadResultReady(await canvasToBlob(ctxUP),'png');
+    setUploadResultReady(await _canvasToJpeg(upCanvas),'jpg');
     return;
   }
   if(isImage)processImage(file);else _loadVidPlayer(file);
@@ -3266,47 +3599,17 @@ async function processImage(file){
   lastUploadSrc=source; lastUploadSrcW=w; lastUploadSrcH=h; lastUploadIsAscii=false;
   asciiStaticSrc=source; asciiStaticW=w; asciiStaticH=h;
   setProgress(60,'Aplicando filtro…');
-  renderDithered(source,w,h,ctxUP,false,true,true);
+  renderDithered(source,w,h,ctxUP,false,true,true,_getPal(true));
   URL.revokeObjectURL(url);
   upCanvas.classList.add('visible');dropZone.style.display='none';
   setProgress(100,'✓ Listo');
   hideLoadOverlay();
   setTimeout(()=>showProgress(false),1500);
-  setUploadResultReady(await canvasToBlob(ctxUP),'png');
+  setUploadResultReady(await _canvasToJpeg(upCanvas),'jpg');
 }
 
 let uploadProcessing=false;
-async function processVideo(file){
-  if(uploadProcessing)return;uploadProcessing=true;
-  if(typeof upCanvas.captureStream!=='function'){alert('⚠️ Tu navegador no soporta grabación de video desde canvas.\nPuedes subir fotos sin problema.\nPara video usa Chrome en Android.');uploadProcessing=false;return;}
-  const url=URL.createObjectURL(file);uploadVid.src=url;uploadVid.muted=true;
-  await new Promise((res,rej)=>{uploadVid.onloadedmetadata=res;uploadVid.onerror=()=>rej(new Error('Error'));});
-  const duration=uploadVid.duration,vW=uploadVid.videoWidth,vH=uploadVid.videoHeight;
-  upCanvas.classList.add('visible');dropZone.style.display='none';showProgress(true);setProgress(0,'Iniciando…');
-  let audioStream=null;
-  try{const ac=new(window.AudioContext||window.webkitAudioContext)();const sn=ac.createMediaElementSource(uploadVid);const dn=ac.createMediaStreamDestination();sn.connect(dn);audioStream=dn.stream;}catch(_){}
-  const cs=upCanvas.captureStream(uploadFPS);
-  const ct=[...cs.getVideoTracks(),...(audioStream?.getAudioTracks()??[])];
-  const comb=new MediaStream(ct);
-  const mimes=['video/mp4','video/webm;codecs=vp9','video/webm'];
-  const mime=mimes.find(m=>MediaRecorder.isTypeSupported(m))??'';
-  const chunks=[];
-  const rec=new MediaRecorder(comb,{...(mime?{mimeType:mime}:{}),videoBitsPerSecond:4_000_000});
-  rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-  let lastFT=-1;const fi=1/uploadFPS;let rafID;
-  function tick(){
-    if(uploadVid.paused||uploadVid.ended)return;
-    const ct=uploadVid.currentTime;
-    if(ct-lastFT>=fi-0.005){lastFT=ct;renderDithered(uploadVid,vW,vH,ctxUP,false);setProgress(duration>0?(ct/duration)*100:0,`Procesando… (${Math.ceil(duration-ct)}s)`);}
-    rafID=requestAnimationFrame(tick);
-  }
-  const done=new Promise(resolve=>{rec.onstop=async()=>{cancelAnimationFrame(rafID);URL.revokeObjectURL(url);if(!chunks.length){resolve(null);return;}const ext=mime.includes('mp4')?'mp4':'webm';const blob=new Blob(chunks,{type:mime||'video/webm'});blob._ext=ext;resolve(blob);};});
-  rec.start(200);uploadVid.currentTime=0;await uploadVid.play();requestAnimationFrame(tick);
-  uploadVid.onended=()=>{rec.stop();};
-  const blob=await done;setProgress(100,'Listo');uploadProcessing=false;
-  if(!blob){alert('No se pudo procesar el video.');return;}
-  setUploadResultReady(blob,blob._ext??'webm');
-}
+// processVideo() was superseded by btnVidExport in _loadVidPlayer flow
 
 // ════════════════════════════════════════════════════════════════════
 // VIDEO PLAYER (SUBIR)
@@ -3330,13 +3633,13 @@ function _loadVidPlayer(file) {
       if (!_vidPlayerActive) { _vidPreviewRafId = null; return; }
       if (uploadVid.videoWidth && !uploadVid.paused) {
         if (uploadMode === 'ascii') {
-          renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false);
+          renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false, true);
           ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
         } else if (uploadMode === 'scrash') {
-          renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true);
+          renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true, _getPal(true));
           _applyScrash(ctxUP, ctxUP, upCanvas.width, upCanvas.height, 0);
         } else {
-          renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true);
+          renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true, _getPal(true));
         }
         _applyMixBlend();
       }
@@ -3345,12 +3648,20 @@ function _loadVidPlayer(file) {
   };
 }
 
+let _vidExportRec = null, _vidExportChunks = [];
+
 function _stopVidPlayer() {
   _vidPlayerActive = false;
   if (_vidPreviewRafId) { cancelAnimationFrame(_vidPreviewRafId); _vidPreviewRafId = null; }
+  if (_vidExportRec && _vidExportRec.state !== 'inactive') { _vidExportRec.stop(); }
+  uploadVid.onended = null; // prevent stale handler from firing after stop
   uploadVid.pause(); uploadVid.src = '';
   document.getElementById('vidPlayerBar').style.display = 'none';
   if (_vidPlayerUrl) { URL.revokeObjectURL(_vidPlayerUrl); _vidPlayerUrl = null; }
+  // Safety reset in case onstop never fires (e.g., browser bug)
+  uploadProcessing = false;
+  const btn = document.getElementById('btnVidExport');
+  if (btn) { btn.textContent = '⏺ REC'; btn.style.borderColor = ''; btn.style.color = ''; }
 }
 
 document.getElementById('btnVidPlayPause').addEventListener('click', () => {
@@ -3369,19 +3680,66 @@ document.getElementById('btnVidFrame').addEventListener('click', async () => {
   uploadVid.pause(); document.getElementById('btnVidPlayPause').textContent = '▶';
   if (!uploadVid.videoWidth) return;
   if (uploadMode === 'ascii') {
-    renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false);
+    renderASCII(uploadVid, _vidPlayerW, _vidPlayerH, false, true);
     ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
   } else if (uploadMode === 'scrash') {
-    renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true);
+    renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true, _getPal(true));
     _applyScrash(ctxUP, ctxUP, upCanvas.width, upCanvas.height, 0);
   } else {
-    renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true);
+    renderDithered(uploadVid, _vidPlayerW, _vidPlayerH, ctxUP, false, true, true, _getPal(true));
   }
   _applyMixBlend();
   lastUploadSrc = uploadVid; lastUploadSrcW = _vidPlayerW; lastUploadSrcH = _vidPlayerH; lastUploadIsAscii = false;
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  const blob = await canvasToBlob(ctxUP);
-  setUploadResultReady(blob, 'png');
+  const _isAsciiFrame = uploadMode === 'ascii';
+  const blob = _isAsciiFrame ? await canvasToBlob(ctxUP) : await _canvasToJpeg(upCanvas);
+  setUploadResultReady(blob, _isAsciiFrame ? 'png' : 'jpg');
+});
+
+// ── Video export (REC button): records upCanvas stream through the video
+document.getElementById('btnVidExport').addEventListener('click', async () => {
+  const btn = document.getElementById('btnVidExport');
+  if (_vidExportRec && _vidExportRec.state !== 'inactive') {
+    _vidExportRec.stop();
+    return;
+  }
+  if (typeof upCanvas.captureStream !== 'function') {
+    flipToast('⚠️ Tu navegador no soporta grabación de canvas. Usa Chrome.');
+    return;
+  }
+  // Rewind and play
+  uploadVid.currentTime = 0;
+  await uploadVid.play();
+  document.getElementById('btnVidPlayPause').textContent = '⏸';
+  const duration = uploadVid.duration || 0;
+  const mimes = ['video/mp4','video/webm;codecs=vp9','video/webm'];
+  const mime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+  _vidExportChunks = [];
+  const st = upCanvas.captureStream(30);
+  _vidExportRec = new MediaRecorder(st, mime ? { mimeType: mime, videoBitsPerSecond: 5_000_000 } : {});
+  _vidExportRec.ondataavailable = e => { if (e.data.size) _vidExportChunks.push(e.data); };
+  _vidExportRec.onstop = async () => {
+    btn.textContent = '⏺ REC'; btn.style.borderColor = ''; btn.style.color = '';
+    uploadProcessing = false;
+    setProgress(100, '✓ Listo'); setTimeout(() => showProgress(false), 1500);
+    if (!_vidExportChunks.length) { flipToast('⚠️ No se grabó ningún frame.'); return; }
+    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+    const blob = new Blob(_vidExportChunks, { type: mime || 'video/webm' });
+    setUploadResultReady(blob, ext);
+  };
+  // Progress tracking
+  uploadProcessing = true;
+  showProgress(true); setProgress(0, 'Grabando…');
+  const _progTick = () => {
+    if (_vidExportRec && _vidExportRec.state !== 'inactive') {
+      setProgress(duration > 0 ? (uploadVid.currentTime / duration) * 100 : 0, `Grabando… (${Math.max(0, Math.ceil(duration - uploadVid.currentTime))}s)`);
+      requestAnimationFrame(_progTick);
+    }
+  };
+  _vidExportRec.start(200);
+  btn.textContent = '⏹ STOP'; btn.style.borderColor = '#ff4444'; btn.style.color = '#ff4444';
+  requestAnimationFrame(_progTick);
+  uploadVid.onended = () => { if (_vidExportRec && _vidExportRec.state !== 'inactive') _vidExportRec.stop(); };
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -3406,12 +3764,14 @@ document.getElementById('btnSplashSub').addEventListener('click', e => {
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('btnAsciiCapture').addEventListener('click', async () => {
   if (asciiCamMode === 'foto') {
-    // Take photo
+    // Take photo — re-render at full quality if live preview was capped
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    const _capTmp = document.createElement('canvas');
-    _capTmp.width = asciiCvs.width; _capTmp.height = asciiCvs.height;
-    _capTmp.getContext('2d').drawImage(asciiCvs, 0, 0);
-    await _shareOrDownload(await new Promise(r => _capTmp.toBlob(r, 'image/png')), 'ascii_' + Date.now() + '.png');
+    if (asciiCols > ASCII_PREVIEW_MAX) {
+      // Sync render at full asciiCols using last-sampled ctxAS frame
+      const { data: _px } = ctxAS.getImageData(0, 0, 512, 384);
+      _renderASCIISync(_px, 512, 384, asciiCols);
+    }
+    await _saveFile(await _canvasToJpeg(asciiCvs), 'flip_ascii_' + Date.now() + '.jpg');
   } else {
     // Toggle video recording
     const asciiCapBtn = document.getElementById('btnAsciiCapture');
@@ -3429,7 +3789,7 @@ document.getElementById('btnAsciiCapture').addEventListener('click', async () =>
         // Re-enable chars slider
         const _acCharsEl = document.getElementById('acChars');
         if (_acCharsEl) { _acCharsEl.disabled = false; _acCharsEl.closest('.ac-row').style.opacity = ''; }
-        await _shareOrDownload(blob, 'ascii_' + Date.now() + '.' + ext);
+        await _saveFile(blob, 'flip_ascii_' + Date.now() + '.' + ext);
       };
       asciiRecorder.start(200);
       asciiCapBtn.classList.add('recording'); asciiCapBtn.querySelector('.btn-icon').textContent = '⏹';
@@ -3468,19 +3828,19 @@ function _applyMixBlend() {
 function renderUploadPreview() {
   if (!lastUploadSrc) return;
   if (lastUploadIsAscii || uploadMode === 'ascii') {
-    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false);
+    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false, true);
     ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
     _applyMixBlend();
-    canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
+    canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png')); // ASCII stays PNG
   } else if (uploadMode === 'scrash') {
-    renderDithered(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, ctxUP, false, true, true);
+    renderDithered(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, ctxUP, false, true, true, _getPal(true));
     _applyScrash(ctxUP, ctxUP, upCanvas.width, upCanvas.height, 0);
     _applyMixBlend();
-    canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
+    _canvasToJpeg(upCanvas).then(blob => setUploadResultReady(blob, 'jpg'));
   } else {
-    renderDithered(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, ctxUP, false, true, true);
+    renderDithered(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, ctxUP, false, true, true, _getPal(true));
     _applyMixBlend();
-    canvasToBlob(ctxUP).then(blob => setUploadResultReady(blob, 'png'));
+    _canvasToJpeg(upCanvas).then(blob => setUploadResultReady(blob, 'jpg'));
   }
 }
 
@@ -3591,7 +3951,7 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
   // TXT button
   document.getElementById('upBtnTxt').addEventListener('click', () => {
     if (!lastUploadSrc) return;
-    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false);
+    renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false, true);
     const blob = new Blob([lastAsciiText], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -3735,7 +4095,7 @@ document.getElementById('acCopy').addEventListener('click', () => {
       await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
       const btn=document.getElementById('acCopy'), orig=btn.textContent;
       btn.textContent='✓ COPIED'; setTimeout(()=>btn.textContent=orig, 1500);
-    } catch(_) { alert('Copy not supported. Use PNG instead.'); }
+    } catch(_) { flipToast('Copy not supported — use PNG instead.'); }
   });
 });
 document.getElementById('acTxt').addEventListener('click', () => {
@@ -3910,7 +4270,7 @@ function generateSonoField(amp, pitchNorm, blowStr, t) {
 
 // ── FLIPNOTE render from sono field ──────────────────────────────────
 function renderSonoFlip(field, audio, chaosN) {
-  const p = PALETTES[activePal];
+  const p = _getPal(false);
   const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
   const { bassE, midE, trebE } = audio;
 
@@ -4028,7 +4388,7 @@ function renderScopeToLegacy() {
   ctxS.imageSmoothingEnabled = false;
   ctxS.drawImage(sonoScopeCvs, 0, 0, DSI_W, DSI_H);
   const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
-  const p = PALETTES[activePal];
+  const p = _getPal(false);
   const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
   for (let i = 0; i < DSI_W * DSI_H; i++) {
     const i4 = i << 2;
@@ -4059,7 +4419,7 @@ function renderScopeToAscii() {
 
 // ── FLIPNOTE LEGACY render (hard threshold, no dithering) ─────────────
 function renderSonoLegacy(field, audio, chaosN) {
-  const p = PALETTES[activePal];
+  const p = _getPal(false);
   const [PR, PG, PB] = p.paper, [IR, IG, IB] = p.ink;
   const { bassE, midE, trebE } = audio;
 
@@ -4095,7 +4455,7 @@ function renderSonoLegacy(field, audio, chaosN) {
 
 // ── ASCII render from sono field ──────────────────────────────────────
 function renderSonoAscii(field, audio, chaosN) {
-  const p = PALETTES[activePal];
+  const p = _getPal(false);
   const { bassE, midE, trebE } = audio;
   const grad  = ASCII_GRADIENTS.normal;
   const nChars= grad.length;
@@ -4277,7 +4637,7 @@ async function startSonoMic() {
     requestAnimationFrame(sonoLoop);
     return true;
   } catch(e) {
-    alert('No se pudo acceder al micrófono:\n' + e.message);
+    flipToast('⚠ Mic access denied: ' + e.message);
     return false;
   }
 }
@@ -4475,7 +4835,7 @@ async function sonoLoadFile(file) {
   if (!file) return;
   // iOS may report empty MIME type for audio files — skip strict check
   if (file.type && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
-    alert('Solo archivos de audio (MP3, WAV, OGG, etc.)'); return;
+    flipToast('⚠ Audio files only (MP3, WAV, OGG…)'); return;
   }
   // Stop mic if running
   if (sonoMicStream) { sonoMicStream.getTracks().forEach(t => t.stop()); sonoMicStream = null; }
@@ -4516,7 +4876,7 @@ sonoFileInput.addEventListener('change', e => {
   const f = e.target.files[0];
   if (!f) { e.target.value = ''; return; }
   if (f.size > 50 * 1024 * 1024) {
-    alert('⚠ Archivo demasiado grande (máx. 50 MB)');
+    flipToast('⚠ File too large (max 50 MB)');
     e.target.value = ''; return;
   }
   _withProgress(f, file => {
@@ -4526,7 +4886,7 @@ sonoFileInput.addEventListener('change', e => {
       sonoLoadFile(file);
     } catch(err) {
       hideLoadOverlay();
-      alert('No se pudo cargar el archivo: ' + (err.message || err));
+      flipToast('⚠ Could not load file: ' + (err.message || err));
     }
   });
   e.target.value = '';
@@ -4567,11 +4927,11 @@ document.getElementById('btnSonoCapture').addEventListener('click', async () => 
     return;
   }
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  await _shareOrDownload(await new Promise(r => sonoCvs.toBlob(r, 'image/png')), 'sono_' + Date.now() + '.png');
+  await _saveFile(await _canvasToJpeg(sonoCvs), 'flip_sono_' + Date.now() + '.jpg');
 });
 
 document.getElementById('btnSonoShare').addEventListener('click', async () => {
-  if (!sonoLastBlob) { alert('Graba un video primero.'); return; }
+  if (!sonoLastBlob) { flipToast('Record a video first.'); return; }
   const ext = sonoRecMime.includes('mp4') ? 'mp4' : 'webm';
   await _shareOrDownload(sonoLastBlob, 'sono_' + Date.now() + '.' + ext);
 });
@@ -4607,7 +4967,7 @@ const btnSonoRec = document.getElementById('btnSonoRec');
 btnSonoRec.addEventListener('click', async () => {
   if (!sonoRecorder || sonoRecorder.state === 'inactive') {
     if (typeof sonoCvs.captureStream !== 'function') {
-      alert('⚠️ Grabación no disponible.\nUsa Chrome en Android.'); return;
+      flipToast('⚠ Recording not available. Use Chrome on Android.'); return;
     }
     const mimes = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
     sonoRecMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
@@ -4617,13 +4977,13 @@ btnSonoRec.addEventListener('click', async () => {
         ...(sonoRecMime ? { mimeType:sonoRecMime } : {}),
         videoBitsPerSecond: 6_000_000,
       });
-    } catch(e) { alert('Error: ' + e.message); return; }
+    } catch(e) { flipToast('⚠ Error: ' + e.message); return; }
     sonoRecorder.ondataavailable = e => { if (e.data.size) sonoRecChunks.push(e.data); };
     sonoRecorder.onstop = async () => {
       if (!sonoRecChunks.length) return;
       const ext = sonoRecMime.includes('mp4') ? 'mp4' : 'webm';
       sonoLastBlob = new Blob(sonoRecChunks, { type: sonoRecMime || 'video/webm' });
-      await _shareOrDownload(sonoLastBlob, 'sono_' + Date.now() + '.' + ext);
+      await _saveFile(sonoLastBlob, 'sono_' + Date.now() + '.' + ext); // T9: default=save, share=btnSonoShare
     };
     sonoRecorder.start(200);
     let s = 0;
@@ -5493,7 +5853,8 @@ const wmpFileInputBar  = document.getElementById('wmpFileInputBar');
       try {
         const testUrl = URL.createObjectURL(file);
         URL.revokeObjectURL(testUrl);
-        wmpLoadFile(file).then(() => hideLoadOverlay()).catch(err => {
+        // wmpLoadFile handles hideLoadOverlay() internally (both success and error paths)
+        wmpLoadFile(file).catch(err => {
           hideLoadOverlay();
           document.getElementById('wmpPermErr').textContent = '⚠ ' + (err.message || err);
         });
@@ -5766,6 +6127,8 @@ function _scrQuantize(r, g, b) {
 }
 let scrAnimateOn = false, scrSpeedVal = 5;
 let scrashRunning = false;
+let scrashCamMode = 'foto'; // 'foto' | 'video'
+let scrashRecorder = null, scrashRecChunks = [], scrashRecMime = '';
 let _scrRafId = null, _scrStartT = null;
 
 const scrashCvs = document.getElementById('scrashCanvas');
@@ -5849,21 +6212,54 @@ let _ctxScrTmp;
     }
   });
 
-  // Snap
+  // Snap / Record
   document.getElementById('btnScrashSnap').addEventListener('click', async () => {
-    flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    const _st = document.createElement('canvas');
-    _st.width = scrashCvs.width; _st.height = scrashCvs.height;
-    _st.getContext('2d').drawImage(scrashCvs, 0, 0);
-    await _shareOrDownload(await new Promise(r => _st.toBlob(r, 'image/png')), 'scrash_' + Date.now() + '.png');
+    const snapBtn = document.getElementById('btnScrashSnap');
+    if (scrashCamMode === 'foto') {
+      flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+      await _saveFile(await _canvasToJpeg(scrashCvs), 'flip_glitch_' + Date.now() + '.jpg');
+    } else {
+      if (!scrashRecorder || scrashRecorder.state === 'inactive') {
+        const mimes = ['video/mp4','video/webm;codecs=vp9','video/webm'];
+        scrashRecMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+        const _chunks = []; scrashRecChunks = _chunks; // local ref: safe even if global is reassigned
+        const st = scrashCvs.captureStream(30);
+        scrashRecorder = new MediaRecorder(st, scrashRecMime ? { mimeType: scrashRecMime, videoBitsPerSecond: 6_000_000 } : {});
+        scrashRecorder.ondataavailable = e => { if (e.data.size) _chunks.push(e.data); };
+        scrashRecorder.onstop = async () => {
+          const ext = scrashRecMime.includes('mp4') ? 'mp4' : 'webm';
+          const blob = new Blob(_chunks, { type: scrashRecMime || 'video/webm' });
+          snapBtn.classList.remove('recording');
+          snapBtn.querySelector('.btn-icon').textContent = '⏺';
+          await _saveFile(blob, 'flip_glitch_' + Date.now() + '.' + ext);
+        };
+        scrashRecorder.start(200);
+        snapBtn.classList.add('recording');
+        snapBtn.querySelector('.btn-icon').textContent = '⏹';
+      } else {
+        scrashRecorder.stop();
+      }
+    }
+  });
+
+  // Mode toggle (foto / video)
+  document.getElementById('btnScrashMode').addEventListener('click', () => {
+    if (scrashRecorder && scrashRecorder.state !== 'inactive') {
+      scrashRecorder.stop();
+      document.getElementById('btnScrashSnap').classList.remove('recording');
+      document.getElementById('btnScrashSnap').querySelector('.btn-icon').textContent = '●';
+    }
+    scrashCamMode = scrashCamMode === 'foto' ? 'video' : 'foto';
+    const modeBtn = document.getElementById('btnScrashMode');
+    modeBtn.querySelector('.btn-icon').textContent  = scrashCamMode === 'foto' ? '📷' : '🎥';
+    modeBtn.querySelector('.btn-label').textContent = scrashCamMode === 'foto' ? 'FOTO' : 'VIDEO';
+    document.getElementById('btnScrashSnap').querySelector('.btn-icon').textContent = scrashCamMode === 'foto' ? '●' : '⏺';
+    document.getElementById('btnScrashSnap').querySelector('.btn-label').textContent = scrashCamMode === 'foto' ? 'SNAP' : 'REC';
   });
 
   // Share
   document.getElementById('btnScrashShare').addEventListener('click', async () => {
-    const _st = document.createElement('canvas');
-    _st.width = scrashCvs.width; _st.height = scrashCvs.height;
-    _st.getContext('2d').drawImage(scrashCvs, 0, 0);
-    await _shareOrDownload(await new Promise(r => _st.toBlob(r, 'image/png')), 'scrash_' + Date.now() + '.png');
+    await _shareOrDownload(await _canvasToJpeg(scrashCvs), 'flip_glitch_' + Date.now() + '.jpg');
   });
 
   // Reset
@@ -5995,6 +6391,7 @@ function enterScrash() {
 function exitScrash() {
   scrashRunning = false;
   if (_scrRafId) { cancelAnimationFrame(_scrRafId); _scrRafId = null; }
+  if (scrashRecorder && scrashRecorder.state !== 'inactive') { scrashRecorder.stop(); }
 }
 
 // ASCII GLITCH button — applies SCRASH to current ASCII frame and saves
@@ -6011,11 +6408,13 @@ document.getElementById('btnAsciiGlitch').addEventListener('click', async () => 
 
 // ════════════════════════════════════════════════════════════════════
 // SETTINGS PERSISTENCE (localStorage)
+// Note: camCustomPal / uploadCustomPal are intentionally NOT persisted.
+// Custom FREE colors are session-only; palette index (activePal/uploadActivePal) is saved.
 // ════════════════════════════════════════════════════════════════════
 function saveSettings() {
   try {
     localStorage.setItem('flipSettings', JSON.stringify({
-      activePal, legacyMode,
+      activePal, uploadActivePal, legacyMode,
       sonoPreset, sonoMixVal, sonoChaosVal,
       wmpPreset: wmpPreset, wmpSensVal, wmpTrailsVal,
       uploadMode,
@@ -6035,8 +6434,9 @@ function loadSettings() {
     // Palette
     if (s.activePal !== undefined) {
       activePal = s.activePal;
-      document.querySelectorAll('.pal-btn').forEach((b,i) => b.classList.toggle('active', i === activePal));
+      document.querySelectorAll('.pal-swatch').forEach((b,i) => b.classList.toggle('active', i === activePal));
     }
+    if (s.uploadActivePal !== undefined) uploadActivePal = s.uploadActivePal;
     if (s.legacyMode !== undefined) { legacyMode = s.legacyMode; const btn=document.getElementById('btnMode'); if(btn)btn.classList.toggle('active',legacyMode); }
     // SONO
     if (s.sonoPreset !== undefined) { sonoPreset = s.sonoPreset; document.querySelectorAll('.sono-preset-btn').forEach((b,i)=>b.classList.toggle('active',i===sonoPreset)); }

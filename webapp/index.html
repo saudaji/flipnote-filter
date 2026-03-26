@@ -192,19 +192,23 @@
       display: block;
     }
 
-    /* FREE palette picker button */
-    #btnPalFree {
-      width:26px; height:22px; padding:0; margin-top:3px;
+    /* COLOR SYSTEM — CLASSIC / FREE tabs (T2) */
+    #palColorTabs { margin-top:5px; }
+    .pal-tab-row { display:flex; gap:3px; }
+    .pal-tab-btn {
+      flex:1; height:20px; padding:0; min-width:0;
       background:none; border:2px solid var(--mid);
       color:var(--mid); font-family:monospace;
-      font-size:7px; font-weight:bold; letter-spacing:.3px;
+      font-size:6px; font-weight:bold; letter-spacing:.3px;
       cursor:pointer; line-height:1; transition:.1s;
     }
-    #btnPalFree.active { border-color:var(--paper); color:var(--paper); background:rgba(255,255,255,.08); }
+    .pal-tab-btn.active { border-color:var(--paper); color:var(--paper); background:rgba(255,255,255,.08); }
     #palFreeBox input[type="color"] {
       width:26px; height:22px; padding:0; border:2px solid var(--mid);
       background:none; cursor:pointer; display:block;
     }
+    body.pal-free-mode .pal-swatch { display:none; }
+    body.up-pal-ctx #palColorTabs { display:none; }
 
     /* ── Flip ── */
     #btnFlip {
@@ -1149,11 +1153,16 @@
 <div class="palettes" id="palettes">
   <button id="btnMode" title="Flipnote Legacy">STD</button>
   <button id="btnDolphin" title="DOLPHIN — OEL Y2K">DLP</button>
-  <!-- FREE color picker (T2) — injected below palette swatches by JS -->
-  <button id="btnPalFree" title="Free color picker">FREE</button>
-  <div id="palFreeBox" style="display:none;flex-direction:column;gap:4px;align-items:center;">
-    <input type="color" id="palFreeInk"   value="#0f3800" title="Ink (foreground)">
-    <input type="color" id="palFreePaper" value="#9bbc0f" title="Paper (background)">
+  <!-- COLOR SYSTEM: CLASSIC / FREE tabs (T2) — swatches injected by JS below -->
+  <div id="palColorTabs">
+    <div class="pal-tab-row">
+      <button id="btnPalClassic" class="pal-tab-btn active" title="Classic palettes">CLR</button>
+      <button id="btnPalFree"    class="pal-tab-btn"        title="Free color picker">FREE</button>
+    </div>
+    <div id="palFreeBox" style="display:none;flex-direction:column;gap:4px;align-items:center;margin-top:4px;">
+      <input type="color" id="palFreeInk"   value="#0f3800" title="Ink (foreground)">
+      <input type="color" id="palFreePaper" value="#9bbc0f" title="Paper (background)">
+    </div>
   </div>
 </div>
 
@@ -1841,19 +1850,23 @@ function _updateFreePal() {
   camCustomPal = { paper, ink };
   asciiSettingsChanged();
 }
+document.getElementById('btnPalClassic').addEventListener('click', () => {
+  if (document.getElementById('btnPalClassic').classList.contains('active')) return;
+  camCustomPal = null;
+  document.getElementById('btnPalClassic').classList.add('active');
+  document.getElementById('btnPalFree').classList.remove('active');
+  document.getElementById('palFreeBox').style.display = 'none';
+  document.body.classList.remove('pal-free-mode');
+  document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===activePal));
+  asciiSettingsChanged();
+});
 document.getElementById('btnPalFree').addEventListener('click', () => {
-  const btn = document.getElementById('btnPalFree');
-  const box = document.getElementById('palFreeBox');
-  const active = btn.classList.toggle('active');
-  box.style.display = active ? 'flex' : 'none';
-  if (active) {
-    _updateFreePal();
-    document.querySelectorAll('.pal-swatch').forEach(b => b.classList.remove('active'));
-  } else {
-    camCustomPal = null;
-    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===activePal));
-    asciiSettingsChanged();
-  }
+  if (document.getElementById('btnPalFree').classList.contains('active')) return;
+  document.getElementById('btnPalFree').classList.add('active');
+  document.getElementById('btnPalClassic').classList.remove('active');
+  document.getElementById('palFreeBox').style.display = 'flex';
+  document.body.classList.add('pal-free-mode');
+  _updateFreePal();
 });
 document.getElementById('palFreeInk').addEventListener('input', () => { if (camCustomPal) _updateFreePal(); });
 document.getElementById('palFreePaper').addEventListener('input', () => { if (camCustomPal) _updateFreePal(); });
@@ -3131,19 +3144,27 @@ function renderFlipNav(mode) {
     document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===palIdx));
     // Show "UP" badge on palette panel when in UPLOAD mode
     document.body.classList.toggle('up-pal-ctx', tab === 'up');
-    // T2: hide FREE picker when not in CAM/ASCII context; clear camCustomPal if switching to UPLOAD
-    const freeBtn = document.getElementById('btnPalFree');
-    const freeBox = document.getElementById('palFreeBox');
-    if (freeBtn && freeBox) {
-      const freeVisible = tab !== 'up';
-      freeBtn.style.display = freeVisible ? '' : 'none';
-      if (!freeVisible && camCustomPal) {
-        // Don't actually clear camCustomPal — preserve it for when user returns to CAM
+    // T2: sync CLASSIC/FREE tab state on tab switch (palColorTabs hidden via CSS in UPLOAD)
+    const freeBtn     = document.getElementById('btnPalFree');
+    const classicBtn  = document.getElementById('btnPalClassic');
+    const freeBox     = document.getElementById('palFreeBox');
+    if (freeBtn && classicBtn && freeBox) {
+      if (tab === 'up') {
+        // Preserve camCustomPal but collapse the picker visually (hidden via body.up-pal-ctx CSS)
         freeBox.style.display = 'none';
-        freeBtn.classList.remove('active');
-      } else if (freeVisible && camCustomPal) {
+        document.body.classList.remove('pal-free-mode');
+      } else if (camCustomPal) {
+        // Returning to CAM/ASCII with a custom palette active — restore FREE tab
         freeBtn.classList.add('active');
+        classicBtn.classList.remove('active');
         freeBox.style.display = 'flex';
+        document.body.classList.add('pal-free-mode');
+      } else {
+        // Default: CLASSIC tab active
+        classicBtn.classList.add('active');
+        freeBtn.classList.remove('active');
+        freeBox.style.display = 'none';
+        document.body.classList.remove('pal-free-mode');
       }
     }
   };

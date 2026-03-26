@@ -3141,6 +3141,9 @@ function renderFlipNav(mode) {
         // Don't actually clear camCustomPal — preserve it for when user returns to CAM
         freeBox.style.display = 'none';
         freeBtn.classList.remove('active');
+      } else if (freeVisible && camCustomPal) {
+        freeBtn.classList.add('active');
+        freeBox.style.display = 'flex';
       }
     }
   };

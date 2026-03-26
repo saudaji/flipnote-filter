@@ -5795,7 +5795,8 @@ const wmpFileInputBar  = document.getElementById('wmpFileInputBar');
       try {
         const testUrl = URL.createObjectURL(file);
         URL.revokeObjectURL(testUrl);
-        wmpLoadFile(file).then(() => hideLoadOverlay()).catch(err => {
+        // wmpLoadFile handles hideLoadOverlay() internally (both success and error paths)
+        wmpLoadFile(file).catch(err => {
           hideLoadOverlay();
           document.getElementById('wmpPermErr').textContent = '⚠ ' + (err.message || err);
         });

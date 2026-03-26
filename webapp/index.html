@@ -3952,22 +3952,13 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
   document.getElementById('upBtnTxt').addEventListener('click', () => {
     if (!lastUploadSrc) return;
     renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false, true);
-    const blob = new Blob([lastAsciiText], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'flipnote_ascii_' + Date.now() + '.txt';
-    a.click();
+    _download(new Blob([lastAsciiText], { type: 'text/plain' }), 'flipnote_ascii_' + Date.now() + '.txt');
   });
   // PNG button
   document.getElementById('upBtnPng').addEventListener('click', () => {
     if (!lastUploadSrc) return;
     renderUploadPreview();
-    canvasToBlob(ctxUP).then(blob => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'flipnote_' + Date.now() + '.png';
-      a.click();
-    });
+    canvasToBlob(ctxUP).then(blob => { _download(blob, 'flipnote_' + Date.now() + '.png'); });
   });
   // RESET button
   document.getElementById('upBtnReset').addEventListener('click', () => {

@@ -3181,12 +3181,7 @@ function renderFlipNav(mode) {
     _origSwitch(tab);
     renderFlipNav(tab);
     _updateExportBar(tab);
-    // T3: resync swatch highlights to reflect mode-specific palette
-    const palIdx = tab === 'up' ? uploadActivePal : activePal;
-    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===palIdx));
-    // Show "UP" badge on palette panel when in UPLOAD mode
-    document.body.classList.toggle('up-pal-ctx', tab === 'up');
-    // T2+T3: sync CLASSIC/FREE tab state — each mode has its own custom palette
+    // T2+T3: sync CLASSIC/FREE tab state first (sets pal-free-mode before swatch sync)
     const freeBtn    = document.getElementById('btnPalFree');
     const classicBtn = document.getElementById('btnPalClassic');
     const freeBox    = document.getElementById('palFreeBox');
@@ -3201,9 +3196,14 @@ function renderFlipNav(mode) {
         classicBtn.classList.add('active');
         freeBtn.classList.remove('active');
         freeBox.style.display = 'none';
-        document.body.classList.remove('pal-free-mode');
+        document.body.classList.remove('pal-free-mode'); // must clear before swatch sync
       }
     }
+    // T3: resync swatch highlights (after pal-free-mode is resolved so visibility is correct)
+    const palIdx = tab === 'up' ? uploadActivePal : activePal;
+    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===palIdx));
+    // Show "UP" badge on palette panel when in UPLOAD mode
+    document.body.classList.toggle('up-pal-ctx', tab === 'up');
   };
 })();
 
@@ -6408,6 +6408,8 @@ document.getElementById('btnAsciiGlitch').addEventListener('click', async () => 
 
 // ════════════════════════════════════════════════════════════════════
 // SETTINGS PERSISTENCE (localStorage)
+// Note: camCustomPal / uploadCustomPal are intentionally NOT persisted.
+// Custom FREE colors are session-only; palette index (activePal/uploadActivePal) is saved.
 // ════════════════════════════════════════════════════════════════════
 function saveSettings() {
   try {

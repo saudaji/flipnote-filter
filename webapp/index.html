@@ -3366,7 +3366,7 @@ btnCap.addEventListener('click', async () => {
         const ext=recMime.includes('mp4')?'mp4':'webm';
         lastBlob=new Blob(recChunks,{type:recMime||'video/webm'});
         btnCap.classList.remove('recording'); btnCap.querySelector('.btn-icon').textContent='⏺';
-        await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+ext);
+        await _saveFile(lastBlob,'flipnote_'+Date.now()+'.'+ext); // T9: default=save, share=explicit
       };
       recorder.start(200); startRecTimer();
       btnCap.classList.add('recording');
@@ -4925,7 +4925,7 @@ btnSonoRec.addEventListener('click', async () => {
       if (!sonoRecChunks.length) return;
       const ext = sonoRecMime.includes('mp4') ? 'mp4' : 'webm';
       sonoLastBlob = new Blob(sonoRecChunks, { type: sonoRecMime || 'video/webm' });
-      await _shareOrDownload(sonoLastBlob, 'sono_' + Date.now() + '.' + ext);
+      await _saveFile(sonoLastBlob, 'sono_' + Date.now() + '.' + ext); // T9: default=save, share=btnSonoShare
     };
     sonoRecorder.start(200);
     let s = 0;

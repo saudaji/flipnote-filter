@@ -460,6 +460,27 @@
       #pyControls input[type="range"]::-moz-range-thumb,
       #chaosRow input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
     }
+    /* ── SONO / WMP / SCRASH mobile touch targets ── */
+    @media (max-width:767px) {
+      .sono-row3, .sono-row4, .sono-row5 { min-height:44px; }
+      .sono-row3 input[type="range"],
+      .sono-row4 input[type="range"],
+      .sono-row5 input[type="range"] { height:44px; }
+      .sono-row3 input[type="range"]::-webkit-slider-thumb,
+      .sono-row4 input[type="range"]::-webkit-slider-thumb,
+      .sono-row5 input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
+      .sono-row3 input[type="range"]::-moz-range-thumb,
+      .sono-row4 input[type="range"]::-moz-range-thumb,
+      .sono-row5 input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+      .sc-row { min-height:44px; }
+      .sc-row input[type="range"] { height:44px; }
+      .sc-row input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
+      .sc-row input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+      .wmp-ctrl { min-height:44px; display:flex; align-items:center; }
+      .wmp-ctrl input[type="range"] { height:44px; }
+      .wmp-ctrl input[type="range"]::-webkit-slider-thumb { width:28px; height:28px; }
+      .wmp-ctrl input[type="range"]::-moz-range-thumb { width:28px; height:28px; }
+    }
 
     /* ══════════════════════════════════════════════════════
        SONO MODE — red theme
@@ -1826,12 +1847,21 @@ PALETTES.forEach((p, i) => {
   s.addEventListener('click', () => {
     if (activeTab === 'up') {
       uploadActivePal = i;
+      uploadCustomPal = null;
       document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===i));
+      document.getElementById('btnPalClassic').classList.add('active');
+      document.getElementById('btnPalFree').classList.remove('active');
+      document.getElementById('palFreeBox').style.display = 'none';
+      document.body.classList.remove('pal-free-mode');
       if (lastUploadSrc) renderUploadPreview();
     } else {
       activePal = i;
       camCustomPal = null;
       document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===i));
+      document.getElementById('btnPalClassic').classList.add('active');
+      document.getElementById('btnPalFree').classList.remove('active');
+      document.getElementById('palFreeBox').style.display = 'none';
+      document.body.classList.remove('pal-free-mode');
       asciiSettingsChanged();
     }
     saveSettings();

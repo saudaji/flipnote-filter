@@ -148,6 +148,7 @@
     .palettes {
       position:fixed; top:48px; right:12px;
       display:flex; flex-direction:column; gap:7px; z-index:10;
+      min-width:58px;
     }
     .pal-swatch {
       width:26px; height:26px; border:2px solid transparent;
@@ -172,10 +173,80 @@
       cursor:pointer; line-height:1; transition:.1s;
     }
     #btnDolphin.active { border-color:#00e5cc; color:#00e5cc; background:rgba(0,229,204,.10); }
-    /* DOLPHIN body theme */
+    /* DOLPHIN body theme — STD (vivid aqua) */
     body.dolphin-mode { --ink:#000d0d; --dark:#003333; --mid:#007777; --paper:#00e5cc; }
     body.dolphin-mode .tab.active { background:rgba(0,229,204,.08); }
     body.dolphin-mode #btnMode { opacity:.4; }
+    /* DOLPHIN LGCY body theme — pale cold blue, more restrained */
+    body.dolphin-mode.dlp-lgcy-mode { --ink:#00060f; --dark:#0c1e45; --mid:#3c6eb0; --paper:#b2d2ff; }
+    body.dolphin-mode.dlp-lgcy-mode .tab.active { background:rgba(178,210,255,.06); }
+
+    /* ── CAM family selector strip ── */
+    #camFamilyStrip {
+      display:flex; flex-direction:row; flex-wrap:wrap; gap:2px;
+      margin-bottom:2px;
+    }
+    .cam-fam-btn {
+      flex:1 1 calc(50% - 1px); min-width:0;
+      height:20px; padding:0;
+      background:none; border:1.5px solid var(--dark);
+      color:var(--dark); font-family:monospace;
+      font-size:6.5px; font-weight:bold; letter-spacing:.3px;
+      cursor:pointer; line-height:1; transition:.1s;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .cam-fam-btn.active {
+      border-color:var(--paper); color:var(--paper);
+      background:rgba(155,188,15,.10);
+    }
+    body.dolphin-mode .cam-fam-btn.active { background:rgba(0,229,204,.12); }
+    /* ── CAM variant pill (STD / LGCY) ── */
+    #camVariantPill {
+      display:none; flex-direction:row; gap:2px; margin-bottom:4px;
+    }
+    #camVariantPill.visible { display:flex; }
+    .cam-var-btn {
+      flex:1; height:18px; padding:0;
+      background:none; border:1.5px solid var(--dark);
+      color:var(--dark); font-family:monospace;
+      font-size:6px; font-weight:bold; letter-spacing:.3px;
+      cursor:pointer; line-height:1; transition:.1s;
+    }
+    .cam-var-btn.active {
+      border-color:var(--mid); color:var(--paper);
+      background:rgba(255,255,255,.06);
+    }
+    /* Color panel visibility: hidden for non-color families */
+    #palColorTabs.cam-color-hidden { display:none !important; }
+
+    /* ── DLPHN edit panel ── */
+    #dlpEditPanel { margin-bottom:3px; }
+    .dlp-col-row { display:flex; gap:2px; margin-bottom:3px; }
+    .dlp-col-btn {
+      flex:1; height:18px; padding:0;
+      background:none; border:1.5px solid #1a3a3a;
+      color:#1a3a3a; font-family:monospace;
+      font-size:6px; font-weight:bold; letter-spacing:.3px;
+      cursor:pointer; line-height:1; transition:.1s;
+    }
+    .dlp-col-btn.active { border-color:#00e5cc; color:#00e5cc; background:rgba(0,229,204,.10); }
+    .dlp-col-btn[data-dlpcol="WARM"].active { border-color:#ff8800; color:#ff8800; background:rgba(255,136,0,.10); }
+    .dlp-ctrl-row { display:flex; align-items:center; gap:3px; margin-bottom:2px; }
+    .dlp-lbl { color:#007799; font-family:monospace; font-size:7px; letter-spacing:.5px; min-width:28px; flex-shrink:0; }
+    .dlp-val { color:#00e5cc; font-family:monospace; font-size:7px; min-width:18px; text-align:right; flex-shrink:0; }
+    .dlp-ctrl-row input[type="range"] { flex:1; height:2px; accent-color:#00e5cc; cursor:pointer; }
+    /* CASKIA body theme — LCD muted green-grey */
+    body.caskia-mode { --ink:#a4ac82; --dark:#5a6040; --mid:#30401e; --paper:#161c0a; }
+    body.caskia-mode .tab.active { background:rgba(22,28,10,.15); }
+    /* VFD body theme — cyan emisivo */
+    body.vfd-mode { --ink:#000a0a; --dark:#003030; --mid:#008080; --paper:#00e8d0; }
+    body.vfd-mode .tab.active { background:rgba(0,232,208,.08); }
+    body.dlp-warm-mode.dolphin-mode { --ink:#0a0400; --dark:#4a1500; --mid:#c84400; --paper:#ff9400; }
+    /* WARM + LGCY combo: pale warm gold (overrides both dolphin-mode and dlp-lgcy-mode) */
+    body.dlp-warm-mode.dolphin-mode.dlp-lgcy-mode { --ink:#0a0500; --dark:#3a1a00; --mid:#8a5000; --paper:#d4a850; }
+    body.dlp-warm-mode .dlp-val { color:#ff9400; }
+    body.dlp-warm-mode .dlp-lbl { color:#c84400; }
+    body.dlp-warm-mode .dlp-ctrl-row input[type="range"] { accent-color:#ff9400; }
 
     /* UPLOAD palette context badge */
     #palettes::before {
@@ -208,6 +279,29 @@
       background:none; cursor:pointer; display:block;
     }
     body.pal-free-mode .pal-swatch { display:none; }
+    /* ── Custom color slots ── */
+    #palCustomSlots {
+      display:flex; flex-direction:row; gap:2px; margin-top:2px;
+    }
+    .pcs-slot {
+      width:20px; height:20px; border:1.5px solid var(--dark);
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      font-family:monospace; font-size:9px; color:var(--dark);
+      position:relative; transition:.1s; flex-shrink:0;
+      background:transparent;
+    }
+    .pcs-slot:hover { border-color:var(--mid); }
+    .pcs-slot.filled { border-color:var(--mid); color:transparent; }
+    .pcs-slot.active-slot { border-color:#fff; box-shadow:0 0 0 1px var(--paper); }
+    /* Delete badge — top-right corner, visible on filled slots via ::after on hover */
+    .pcs-slot.filled::after {
+      content:'×'; position:absolute; top:-4px; right:-4px;
+      width:10px; height:10px; font-size:8px; line-height:10px;
+      background:var(--ink); color:var(--mid); text-align:center;
+      border:1px solid var(--dark); display:none;
+      font-family:monospace;
+    }
+    .pcs-slot.filled.show-delete::after { display:block; }
 
     /* ── Flip ── */
     #btnFlip {
@@ -310,9 +404,10 @@
     body.scrash-hud-open #scrashArea { bottom:280px; }
     #scrashCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
     #scrashControls {
-      display:none; position:fixed; bottom:96px; left:0; right:0; height:184px;
+      display:none; position:fixed; bottom:96px; left:0; right:0;
+      max-height:calc(100vh - 160px); min-height:80px;
       background:#050010; border-top:1px solid #cc00ff; padding:5px 10px;
-      flex-direction:column; gap:3px; z-index:9; overflow:hidden;
+      flex-direction:column; gap:3px; z-index:9; overflow-y:auto;
     }
     #scrashControls.visible { display:flex; }
     #scrashControlsGrid { display:grid; grid-template-columns:1fr 1fr; gap:3px 10px; flex:1; }
@@ -1171,8 +1266,38 @@
 </div>
 
 <div class="palettes" id="palettes">
-  <button id="btnMode" title="Flipnote Legacy">STD</button>
-  <button id="btnDolphin" title="DOLPHIN — OEL Y2K">DLP</button>
+  <!-- CAM family selector — chip grid (2×2) -->
+  <div id="camFamilyStrip">
+    <button class="cam-fam-btn active" data-family="DSI"   title="DSi — Flipnote original">DSi</button>
+    <button class="cam-fam-btn"        data-family="DLPHN" title="DLPHN — OEL Y2K">DLPHN</button>
+    <button class="cam-fam-btn"        data-family="CASKIA" title="CASKIA — LCD retro">CASKIA</button>
+    <button class="cam-fam-btn"        data-family="VFD"   title="VFD — Vacuum Fluorescent">VFD</button>
+  </div>
+  <!-- STD / LGCY variant pill (shown only when family supports it) -->
+  <div id="camVariantPill">
+    <button class="cam-var-btn active" data-variant="STD">STD</button>
+    <button class="cam-var-btn"        data-variant="LGCY">LGCY</button>
+  </div>
+  <!-- DLPHN edit panel (visible only when camFamily === 'DLPHN') -->
+  <div id="dlpEditPanel" style="display:none;">
+    <div class="dlp-col-row">
+      <button class="dlp-col-btn active" data-dlpcol="AQUA">AQUA</button>
+      <button class="dlp-col-btn"        data-dlpcol="WARM">WARM</button>
+    </div>
+    <div class="dlp-ctrl-row">
+      <span class="dlp-lbl">RESO</span>
+      <span class="dlp-val" id="vDlpReso">28</span>
+      <input type="range" id="dlpReso" min="0" max="100" value="28">
+    </div>
+    <div class="dlp-ctrl-row">
+      <span class="dlp-lbl">CNTR</span>
+      <span class="dlp-val" id="vDlpContr">100</span>
+      <input type="range" id="dlpContr" min="50" max="200" value="100">
+    </div>
+  </div>
+  <!-- Legacy buttons kept hidden — event listeners still wired for compat -->
+  <button id="btnMode"    style="display:none;" aria-hidden="true">DSi</button>
+  <button id="btnDolphin" style="display:none;" aria-hidden="true">DLPHN</button>
   <!-- COLOR SYSTEM: CLASSIC / FREE tabs (T2) — swatches injected by JS below -->
   <div id="palColorTabs">
     <div class="pal-tab-row">
@@ -1182,6 +1307,14 @@
     <div id="palFreeBox" style="display:none;flex-direction:column;gap:4px;align-items:center;margin-top:4px;">
       <input type="color" id="palFreeInk"   value="#0f3800" title="Ink (foreground)">
       <input type="color" id="palFreePaper" value="#9bbc0f" title="Paper (background)">
+      <!-- 5 custom color slots -->
+      <div id="palCustomSlots" title="Tap empty: save · Tap filled: load · Hold: delete">
+        <div class="pcs-slot" data-slot="0">+</div>
+        <div class="pcs-slot" data-slot="1">+</div>
+        <div class="pcs-slot" data-slot="2">+</div>
+        <div class="pcs-slot" data-slot="3">+</div>
+        <div class="pcs-slot" data-slot="4">+</div>
+      </div>
     </div>
   </div>
 </div>
@@ -1357,11 +1490,13 @@
   <button class="btn btn-center" id="btnCapture">
     <div class="btn-icon">●</div>
   </button>
-  <button class="btn" id="btnShare">
-    <div class="btn-icon">↑</div>
-    <span class="btn-label">SHARE</span>
+  <button class="btn" id="btnSwitchCam">
+    <div class="btn-icon">⟳</div>
+    <span class="btn-label">CAM</span>
   </button>
 </div>
+<!-- btnShare hidden: keeps video-share listener alive, not in bottom bar -->
+<button id="btnShare" style="display:none;" aria-hidden="true"></button>
 
 <div id="barAscii">
   <button class="btn" id="btnAsciiMode">
@@ -1645,14 +1780,65 @@ let activePal      = 0;  // CAM / ASCII / SONO / WMP palette index
 let uploadActivePal = 0;  // T3: UPLOAD-independent palette index
 let camCustomPal    = null; // T2: {paper:[r,g,b], ink:[r,g,b]} or null
 let uploadCustomPal = null; // T3: UPLOAD independent free color
-let legacyMode  = false;
+let legacyMode  = false; // derived: true when camFamily==='DSI' && camVariant==='LGCY'
+let dolphinMode = false; // derived: true when camFamily==='DLPHN'
+
+// ── DLPHN edit params ─────────────────────────────────────────────
+let dlpResonanceVal = 28;   // 0–100 → glow alpha (28 = default ~0.28)
+let dlpContrastVal  = 100;  // 0–200 → luminance contrast multiplier
+let dlpColorMode    = 'AQUA'; // 'AQUA' | 'WARM'
+
+// ── CAM family/variant system ─────────────────────────────────────
+let camFamily  = 'DSI';   // 'DSI' | 'DLPHN' | 'CASKIA' | 'VFD'
+let camVariant = 'STD';   // 'STD' | 'LGCY'
+
+// Registry: defines capabilities per family
+const CAM_FAMILIES = {
+  DSI:    { label:'DSi',    variants:true,  hasColor:true  },
+  DLPHN:  { label:'DLPHN',  variants:true,  hasColor:false },
+  CASKIA: { label:'CASKIA', variants:false, hasColor:false },
+  VFD:    { label:'VFD',    variants:false, hasColor:false },
+};
+
+// Syncs derived vars and body/UI state from camFamily + camVariant
+function _applyCamState() {
+  const fam = CAM_FAMILIES[camFamily] || CAM_FAMILIES.DSI;
+  // Sync legacy derived vars (keep render functions unchanged)
+  legacyMode  = (camFamily === 'DSI' && camVariant === 'LGCY');
+  dolphinMode = (camFamily === 'DLPHN');
+  // Body themes — only one family theme active at a time
+  document.body.classList.toggle('dolphin-mode', camFamily === 'DLPHN');
+  document.body.classList.toggle('dlp-lgcy-mode', camFamily === 'DLPHN' && camVariant === 'LGCY');
+  document.body.classList.toggle('caskia-mode',   camFamily === 'CASKIA');
+  document.body.classList.toggle('vfd-mode',      camFamily === 'VFD');
+  // Family strip: highlight active chip
+  document.querySelectorAll('.cam-fam-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.family === camFamily));
+  // Variant pill: show/hide + highlight active
+  const pill = document.getElementById('camVariantPill');
+  if (pill) {
+    pill.classList.toggle('visible', !!fam.variants);
+    pill.querySelectorAll('.cam-var-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.variant === camVariant));
+  }
+  // Color panel: only visible for families with color
+  const colorTabs = document.getElementById('palColorTabs');
+  if (colorTabs) colorTabs.classList.toggle('cam-color-hidden', !fam.hasColor);
+  // DLPHN edit panel: only visible for DLPHN
+  const dlpPanel = document.getElementById('dlpEditPanel');
+  if (dlpPanel) dlpPanel.style.display = (camFamily === 'DLPHN') ? '' : 'none';
+  // Legacy mode button text sync (hidden, but keeps listener compat)
+  const mb = document.getElementById('btnMode');
+  if (mb) { mb.textContent = legacyMode ? 'LGCY' : 'DSi'; mb.classList.toggle('legacy', legacyMode); }
+  const db = document.getElementById('btnDolphin');
+  if (db) db.classList.toggle('active', dolphinMode);
+}
 
 // Returns the effective palette for the given context
 function _getPal(forUpload) {
   if (forUpload) return uploadCustomPal || PALETTES[uploadActivePal];
   return camCustomPal || PALETTES[activePal];
 }
-let dolphinMode = false;
 
 // ════════════════════════════════════════════════════════════════════
 // ASCII GRADIENTS & SETTINGS
@@ -1913,31 +2099,141 @@ document.getElementById('btnPalFree').addEventListener('click', () => {
 document.getElementById('palFreeInk').addEventListener('input', () => { if (camCustomPal) _updateFreePal(); });
 document.getElementById('palFreePaper').addEventListener('input', () => { if (camCustomPal) _updateFreePal(); });
 
-document.getElementById('btnMode').addEventListener('click', () => {
-  // Cycle: STD → LGCY → STD (DOLPHIN has its own button)
-  if (dolphinMode) {
-    // Clicking STD/LGCY button exits DOLPHIN first
-    dolphinMode = false;
-    document.getElementById('btnDolphin').classList.remove('active');
-    document.body.classList.remove('dolphin-mode');
-  }
-  legacyMode = !legacyMode;
-  const btn = document.getElementById('btnMode');
-  btn.textContent = legacyMode ? 'LGCY' : 'STD';
-  btn.classList.toggle('legacy', legacyMode);
+// ════════════════════════════════════════════════════════════════════
+// CUSTOM COLOR SLOTS (5 persistent pairs)
+// Each slot: { ink: '#rrggbb', paper: '#rrggbb' } | null
+// ════════════════════════════════════════════════════════════════════
+const CUSTOM_SLOTS_KEY = 'flipCustomSlots';
+let customSlots = [null, null, null, null, null];
+
+function _rgbToHex([r, g, b]) {
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function _saveCustomSlots() {
+  try { localStorage.setItem(CUSTOM_SLOTS_KEY, JSON.stringify(customSlots)); } catch(_) {}
+}
+function _loadCustomSlots() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_SLOTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length === 5) customSlots = parsed;
+    }
+  } catch(_) {}
+}
+
+function _renderCustomSlots() {
+  document.querySelectorAll('.pcs-slot').forEach((el, i) => {
+    const slot = customSlots[i];
+    if (slot) {
+      el.classList.add('filled');
+      el.style.background = `linear-gradient(135deg, ${slot.ink} 50%, ${slot.paper} 50%)`;
+      el.textContent = '';
+    } else {
+      el.classList.remove('filled', 'show-delete', 'active-slot');
+      el.style.background = '';
+      el.textContent = '+';
+    }
+  });
+}
+
+// Track long-press for delete
+let _pcsHoldTimer = null;
+const _PCS_HOLD_MS = 500;
+
+document.querySelectorAll('.pcs-slot').forEach(el => {
+  const idx = +el.dataset.slot;
+
+  const startHold = () => {
+    if (!customSlots[idx]) return; // nothing to delete
+    _pcsHoldTimer = setTimeout(() => {
+      customSlots[idx] = null;
+      _saveCustomSlots();
+      _renderCustomSlots();
+      flipToast('Color slot deleted');
+    }, _PCS_HOLD_MS);
+  };
+  const cancelHold = () => { if (_pcsHoldTimer) { clearTimeout(_pcsHoldTimer); _pcsHoldTimer = null; } };
+
+  el.addEventListener('mousedown', startHold);
+  el.addEventListener('touchstart', startHold, { passive: true });
+  el.addEventListener('mouseup', cancelHold);
+  el.addEventListener('mouseleave', cancelHold);
+  el.addEventListener('touchend', cancelHold);
+  el.addEventListener('touchcancel', cancelHold);
+  el.addEventListener('touchmove', cancelHold, { passive: true });
+
+  el.addEventListener('click', () => {
+    if (_pcsHoldTimer) return; // was a hold, not click
+    const slot = customSlots[idx];
+    if (!slot) {
+      // Empty slot — save current FREE color
+      const currentInk   = document.getElementById('palFreeInk').value;
+      const currentPaper = document.getElementById('palFreePaper').value;
+      customSlots[idx] = { ink: currentInk, paper: currentPaper };
+      _saveCustomSlots();
+      _renderCustomSlots();
+      flipToast('Color saved to slot ' + (idx + 1));
+    } else {
+      // Filled slot — load color into FREE inputs
+      document.getElementById('palFreeInk').value   = slot.ink;
+      document.getElementById('palFreePaper').value = slot.paper;
+      _updateFreePal();
+      // Highlight active slot
+      document.querySelectorAll('.pcs-slot').forEach((s, j) =>
+        s.classList.toggle('active-slot', j === idx));
+      flipToast('Slot ' + (idx + 1) + ' loaded');
+    }
+  });
 });
 
-document.getElementById('btnDolphin').addEventListener('click', () => {
-  dolphinMode = !dolphinMode;
-  const btn = document.getElementById('btnDolphin');
-  btn.classList.toggle('active', dolphinMode);
-  document.body.classList.toggle('dolphin-mode', dolphinMode);
-  if (dolphinMode) {
-    // DOLPHIN overrides STD/LGCY visually — reset to STD for cleanest base
-    legacyMode = false;
-    const mb = document.getElementById('btnMode');
-    mb.textContent = 'STD'; mb.classList.remove('legacy');
-  }
+_loadCustomSlots();
+_renderCustomSlots();
+
+// Legacy hidden buttons — keep listeners alive for backward compat but they're no-ops visually
+document.getElementById('btnMode').addEventListener('click', () => {});
+document.getElementById('btnDolphin').addEventListener('click', () => {});
+
+// ── CAM family chip handlers ──────────────────────────────────────
+document.querySelectorAll('.cam-fam-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const fam = btn.dataset.family;
+    if (!CAM_FAMILIES[fam]) return;
+    camFamily = fam;
+    // Reset variant to STD when switching family
+    camVariant = 'STD';
+    _applyCamState();
+  });
+});
+
+// ── CAM variant pill handlers ─────────────────────────────────────
+document.querySelectorAll('.cam-var-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    camVariant = btn.dataset.variant;
+    _applyCamState();
+  });
+});
+
+// Apply initial state on load
+_applyCamState();
+
+// ── DLPHN edit panel handlers ─────────────────────────────────────
+document.querySelectorAll('.dlp-col-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    dlpColorMode = btn.dataset.dlpcol;
+    document.querySelectorAll('.dlp-col-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.dlpcol === dlpColorMode));
+    // Update body theme for WARM mode
+    document.body.classList.toggle('dlp-warm-mode', dlpColorMode === 'WARM');
+  });
+});
+document.getElementById('dlpReso').addEventListener('input', function() {
+  dlpResonanceVal = +this.value;
+  document.getElementById('vDlpReso').textContent = this.value;
+});
+document.getElementById('dlpContr').addEventListener('input', function() {
+  dlpContrastVal = +this.value;
+  document.getElementById('vDlpContr').textContent = this.value;
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -2147,18 +2443,46 @@ function renderDolphin(source, srcW, srcH, targetCtx, mirror) {
   const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
 
   // 2. Build DOLPHIN pixel buffer
-  // Color palette: deep teal-black BG, aqua/cyan highlights, mid-blue shadows
-  // Luminance → 4-step OEL band mapping:
-  //   dark   →  #000d0d  (deep black)
-  //   shadow →  #004455  (deep teal)
-  //   mid    →  #007799  (medium cyan-teal)
-  //   bright →  #00e5cc  (aqua phosphor)
-  const COLS = [
-    [0,   13,  13 ],   // 0 – black
+  // STD: vivid aqua phosphor — modern OEL look, high saturation, strong contrast
+  const COLS_STD_AQUA = [
+    [0,   13,  13 ],   // 0 – deep black-teal
     [0,   42,  68 ],   // 1 – deep teal shadow
     [0,   119, 153],   // 2 – mid cyan
     [0,   229, 204],   // 3 – aqua phosphor
   ];
+  // STD WARM: rich amber-red — dark brown → amber → warm orange → bright phosphor orange
+  const COLS_STD_WARM = [
+    [10,  4,   0  ],   // 0 – near-black warm
+    [80,  22,  0  ],   // 1 – dark amber-brown
+    [200, 70,  0  ],   // 2 – warm burnt orange
+    [255, 148, 12 ],   // 3 – bright amber phosphor
+  ];
+  // LGCY: classic early-2000s automotive OEL — pale blue, cooler, less saturated
+  // Pioneer Carrozzeria / Kenwood DDX — precise, slightly cold blue-white phosphor
+  const COLS_LGCY_AQUA = [
+    [0,   6,   18 ],   // 0 – near-black with cold blue cast
+    [10,  30,  70 ],   // 1 – deep navy shadow
+    [60,  110, 180],   // 2 – cold mid-blue
+    [178, 210, 255],   // 3 – pale blue-white phosphor (the classic "pale OEL" tone)
+  ];
+  const COLS_LGCY_WARM = [
+    [10,  6,   0  ],   // 0 – deep near-black warm
+    [60,  28,  4  ],   // 1 – dark sepia-brown
+    [160, 82,  18 ],   // 2 – muted warm amber
+    [220, 175, 100],   // 3 – pale warm gold phosphor
+  ];
+
+  const isLgcy = (camVariant === 'LGCY');
+  let COLS;
+  if      (!isLgcy && dlpColorMode !== 'WARM') COLS = COLS_STD_AQUA;
+  else if (!isLgcy && dlpColorMode === 'WARM') COLS = COLS_STD_WARM;
+  else if ( isLgcy && dlpColorMode !== 'WARM') COLS = COLS_LGCY_AQUA;
+  else                                          COLS = COLS_LGCY_WARM;
+
+  // Contrast: scale luminance around midpoint 128
+  // dlpContrastVal 100 = neutral, 0 = flat grey, 200 = hard clip
+  const cFactor = dlpContrastVal / 100;
+
   // Bayer 4-level threshold for OEL band dithering
   const B4 = [0, 128, 64, 192];  // 2×2 ordered
 
@@ -2167,7 +2491,9 @@ function renderDolphin(source, srcW, srcH, targetCtx, mirror) {
       const i = (y * DSI_W + x) << 2;
       const r = src[i], g = src[i+1], b = src[i+2];
       // Luminance (BT.601)
-      const lum = (r * 77 + g * 150 + b * 29) >> 8;
+      let lum = (r * 77 + g * 150 + b * 29) >> 8;
+      // Apply contrast: scale around midpoint
+      lum = Math.max(0, Math.min(255, ((lum - 128) * cFactor + 128) | 0));
       // Bayer-ordered dither within 4 levels
       const bayer = B4[((y & 1) << 1) | (x & 1)];
       const ditLum = Math.max(0, Math.min(255, lum + (bayer >> 1) - 32));
@@ -2190,21 +2516,258 @@ function renderDolphin(source, srcW, srcH, targetCtx, mirror) {
   targetCtx.imageSmoothingEnabled = false;
   targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
 
-  // 4. Phosphor aqua glow pass — draw bright pixels with soft luminous halo
-  // We composite a blurred copy of the aqua channel on top with 'screen' blend
-  // Using a lightweight approach: draw again with globalAlpha + blur via CSS filter
+  // 4. Phosphor glow pass — intensity driven by dlpResonanceVal (0–100)
+  // LGCY: tighter glow (blur 1.5px vs 3px), slightly lower base alpha for vintage precision
+  const baseGlow = isLgcy ? dlpResonanceVal * 0.7 / 100 : dlpResonanceVal / 100;
+  const glowBlur = isLgcy ? '1.5px' : '3px';
+  if (baseGlow > 0.01) {
+    targetCtx.save();
+    targetCtx.globalCompositeOperation = 'screen';
+    targetCtx.globalAlpha = baseGlow;
+    targetCtx.filter = `blur(${glowBlur})`;
+    targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
+    targetCtx.filter = 'none';
+    targetCtx.globalAlpha = 1;
+    targetCtx.globalCompositeOperation = 'source-over';
+    targetCtx.restore();
+  }
+  // LGCY extra: subtle edge-sharpening pass — second draw at very low alpha, no blur
+  // Gives that precise, high-resolution character of real OEL matrix displays
+  if (isLgcy) {
+    targetCtx.save();
+    targetCtx.globalCompositeOperation = 'screen';
+    targetCtx.globalAlpha = 0.08;
+    targetCtx.filter = 'none';
+    targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
+    targetCtx.globalAlpha = 1;
+    targetCtx.globalCompositeOperation = 'source-over';
+    targetCtx.restore();
+  }
+
+  // 5. Scanlines + vignette overlay
+  targetCtx.drawImage(_dlpScanCvs, 0, 0);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// CASKIA RENDER — LCD Casio/Nokia vintage monocromo pasivo
+// Inspiración: LCD reflectivo de relojes Casio G-Shock, Nokia 3310,
+// calculadoras científicas vintage. Estética utilitaria, baja resolución
+// elegante, contraste controlado, imperfección de pixel leve.
+// Una sola versión (sin STD/LGCY) — identidad única y austera.
+// ════════════════════════════════════════════════════════════════════
+// CASKIA uses a higher-resolution grid to emulate LCD pixel matrix:
+// Each "cell" is a small pixel block with a subtle gap between cells.
+const _CASKIA_CELL = 3;  // px per cell in low-res space (rendered at 4x)
+
+// LCD palette: classic reflective-passive green-grey LCD
+// 4 levels: off → dim → active → bright (no backlight saturation)
+const CASKIA_COLS = [
+  [164, 172, 130],  // 0 – off cell (LCD background, warm grey-green)
+  [110, 120,  84],  // 1 – dim cell (partial activation)
+  [ 48,  60,  32],  // 2 – active cell (classic LCD dark green)
+  [ 22,  28,  10],  // 3 – max dark (deep green-black)
+];
+
+// Pre-built CASKIA scanlines/grid canvas (rebuilt on resize)
+let _caskiaScanCvs = document.createElement('canvas');
+let _caskiaScanCtx = _caskiaScanCvs.getContext('2d');
+
+function _buildCaskiaOverlay() {
+  _caskiaScanCvs.width  = OUT_W;
+  _caskiaScanCvs.height = OUT_H;
+  _caskiaScanCtx.clearRect(0, 0, OUT_W, OUT_H);
+  // Draw subtle pixel grid gaps — every _CASKIA_CELL * SCALE pixels
+  const step = _CASKIA_CELL * SCALE;
+  _caskiaScanCtx.fillStyle = 'rgba(164,172,130,0.28)'; // LCD background bleed
+  for (let x = step - 1; x < OUT_W; x += step) {
+    _caskiaScanCtx.fillRect(x, 0, 1, OUT_H);
+  }
+  for (let y = step - 1; y < OUT_H; y += step) {
+    _caskiaScanCtx.fillRect(0, y, OUT_W, 1);
+  }
+  // Subtle warm vignette for LCD border feel
+  const vg = _caskiaScanCtx.createRadialGradient(
+    OUT_W/2, OUT_H/2, OUT_H*0.30,
+    OUT_W/2, OUT_H/2, OUT_H*0.75
+  );
+  vg.addColorStop(0, 'rgba(164,172,130,0)');
+  vg.addColorStop(1, 'rgba(164,172,130,0.35)');
+  _caskiaScanCtx.fillStyle = vg;
+  _caskiaScanCtx.fillRect(0, 0, OUT_W, OUT_H);
+}
+_buildCaskiaOverlay();
+
+function renderCaskia(source, srcW, srcH, targetCtx, mirror) {
+  // 1. Sample at low-res (same crop as STD)
+  const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
+  ctxS.save();
+  if (mirror) { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
+  ctxS.drawImage(source, sx, sy, sw, sh, 0, 0, DSI_W, DSI_H);
+  ctxS.restore();
+  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
+
+  // 2. Map luminance to 4-level LCD activation using ordered dithering
+  // Bayer 4×4 for finer texture that mimics LCD subpixel variation
+  const B4x4 = [
+     0, 136,  34, 170,
+   204,  68, 238, 102,
+    51, 187,  17, 153,
+   255, 119, 221,  85
+  ];
+  for (let y = 0; y < DSI_H; y++) {
+    for (let x = 0; x < DSI_W; x++) {
+      const i = (y * DSI_W + x) << 2;
+      const r = src[i], g = src[i+1], b = src[i+2];
+      // Luminance — slight de-saturation push for LCD monochrome feel
+      const lum = (r * 77 + g * 150 + b * 29) >> 8;
+      // Ordered dither with 4×4 Bayer
+      const bayer = B4x4[((y & 3) << 2) | (x & 3)];
+      const ditLum = Math.max(0, Math.min(255, lum + (bayer >> 2) - 32));
+      // Map to LCD level (inverted — brighter = less activated = lighter)
+      // LCD passive: bright areas = off (light grey), dark areas = active (dark green)
+      let band;
+      if      (ditLum > 192) band = 0;  // off — LCD background
+      else if (ditLum > 128) band = 1;  // dim
+      else if (ditLum > 64)  band = 2;  // active
+      else                   band = 3;  // max dark
+      const c = CASKIA_COLS[band];
+      lowBuf[i]   = c[0];
+      lowBuf[i+1] = c[1];
+      lowBuf[i+2] = c[2];
+      lowBuf[i+3] = 255;
+    }
+  }
+  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
+
+  // 3. Scale up pixel-perfect
+  targetCtx.imageSmoothingEnabled = false;
+  targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
+
+  // 4. Overlay pixel grid + vignette
+  targetCtx.drawImage(_caskiaScanCvs, 0, 0);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// VFD RENDER — Vacuum Fluorescent Display
+// Inspiración: displays VFD automotrices/audio vintage (Pioneer, Kenwood,
+// Sony car audio, medidores de potencia). Cyan emisivo sobre negro profundo,
+// glow físico controlado, acentos rojo/amarillo en zonas de alta intensidad.
+// Referencia: panel de audio con VU meters, indicadores dB, labels DVD/CD/AUX.
+// Una sola versión — identidad instrumental única y consistente.
+// ════════════════════════════════════════════════════════════════════
+
+// VFD palette: 6-level brightness scale with cyan emission
+// Low levels → near-black. High levels → vivid cyan phosphor.
+// Two accent zones: near-peak yellow, peak red (for "hot" pixel areas)
+const VFD_COLS = [
+  [0,    4,   6  ],  // 0 – off (near-black, faint warm tint)
+  [0,   18,  24  ],  // 1 – dim cyan (almost off)
+  [0,   80,  90  ],  // 2 – mid cyan
+  [0,  190, 185  ],  // 3 – bright cyan phosphor
+  [200, 190,   0 ],  // 4 – yellow-amber accent (near-peak)
+  [220,  30,   0 ],  // 5 – red accent (peak / clip zone)
+];
+
+// Bayer 8-level dithering for smooth VFD gradients
+const VFD_B8 = [
+   0,  32,   8,  40,   2,  34,  10,  42,
+  48,  16,  56,  24,  50,  18,  58,  26,
+  12,  44,   4,  36,  14,  46,   6,  38,
+  60,  28,  52,  20,  62,  30,  54,  22,
+   3,  35,  11,  43,   1,  33,   9,  41,
+  51,  19,  59,  27,  49,  17,  57,  25,
+  15,  47,   7,  39,  13,  45,   5,  37,
+  63,  31,  55,  23,  61,  29,  53,  21,
+].map(v => v * 4); // scale to 0–252
+
+// Pre-built VFD overlay canvas
+let _vfdCvs = document.createElement('canvas');
+let _vfdCtx = _vfdCvs.getContext('2d');
+
+function _buildVFDOverlay() {
+  _vfdCvs.width  = OUT_W;
+  _vfdCvs.height = OUT_H;
+  _vfdCtx.clearRect(0, 0, OUT_W, OUT_H);
+  // Very subtle scan-line grid — fine horizontal lines every 2px (half-scale)
+  // simulates phosphor strip rows of real VFD glass
+  _vfdCtx.fillStyle = 'rgba(0,0,0,0.18)';
+  for (let y = 1; y < OUT_H; y += 2) {
+    _vfdCtx.fillRect(0, y, OUT_W, 1);
+  }
+  // Deep vignette: VFD displays have darker edges (glass mounting + phosphor falloff)
+  const vg = _vfdCtx.createRadialGradient(
+    OUT_W/2, OUT_H/2, OUT_H*0.20,
+    OUT_W/2, OUT_H/2, OUT_H*0.80
+  );
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.65)');
+  _vfdCtx.fillStyle = vg;
+  _vfdCtx.fillRect(0, 0, OUT_W, OUT_H);
+}
+_buildVFDOverlay();
+
+function renderVFD(source, srcW, srcH, targetCtx, mirror) {
+  // 1. Sample at low-res
+  const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
+  ctxS.save();
+  if (mirror) { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
+  ctxS.drawImage(source, sx, sy, sw, sh, 0, 0, DSI_W, DSI_H);
+  ctxS.restore();
+  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
+
+  // 2. Map to VFD phosphor levels
+  // Levels 0-3 = cyan gradient (dim to bright)
+  // Level 4 = yellow accent (near-peak luminance zone)
+  // Level 5 = red accent (peak / clipping zone — "hot" pixels)
+  for (let y = 0; y < DSI_H; y++) {
+    for (let x = 0; x < DSI_W; x++) {
+      const i = (y * DSI_W + x) << 2;
+      const r = src[i], g = src[i+1], b = src[i+2];
+      // Luminance BT.601
+      const lum = (r * 77 + g * 150 + b * 29) >> 8;
+      // 8×8 Bayer dither for fine VFD gradients
+      const bayer = VFD_B8[((y & 7) << 3) | (x & 7)];
+      const ditLum = Math.max(0, Math.min(255, lum + (bayer >> 2) - 32));
+      // Map to 6 VFD levels
+      let band;
+      if      (ditLum < 42)  band = 0;  // off
+      else if (ditLum < 100) band = 1;  // dim cyan
+      else if (ditLum < 160) band = 2;  // mid cyan
+      else if (ditLum < 210) band = 3;  // bright cyan
+      else if (ditLum < 235) band = 4;  // yellow accent (hot zone)
+      else                   band = 5;  // red accent (peak/clip)
+      const c = VFD_COLS[band];
+      lowBuf[i]   = c[0];
+      lowBuf[i+1] = c[1];
+      lowBuf[i+2] = c[2];
+      lowBuf[i+3] = 255;
+    }
+  }
+  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
+
+  // 3. Scale up pixel-perfect
+  targetCtx.imageSmoothingEnabled = false;
+  targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
+
+  // 4. VFD glow pass — two-layer emission effect
+  // Layer A: wide soft glow (feels like phosphor heat spread behind glass)
   targetCtx.save();
   targetCtx.globalCompositeOperation = 'screen';
-  targetCtx.globalAlpha = 0.28;
-  targetCtx.filter = 'blur(3px)';
+  targetCtx.globalAlpha = 0.35;
+  targetCtx.filter = 'blur(4px)';
+  targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
+  targetCtx.filter = 'none';
+  // Layer B: tight bright halo (emission core of each segment)
+  targetCtx.globalAlpha = 0.18;
+  targetCtx.filter = 'blur(1.5px)';
   targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
   targetCtx.filter = 'none';
   targetCtx.globalAlpha = 1;
   targetCtx.globalCompositeOperation = 'source-over';
   targetCtx.restore();
 
-  // 5. Scanlines + vignette overlay
-  targetCtx.drawImage(_dlpScanCvs, 0, 0);
+  // 5. Scan-line grid + deep vignette overlay
+  targetCtx.drawImage(_vfdCvs, 0, 0);
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -2732,10 +3295,12 @@ async function startCamera(facing) {
   vid.srcObject = stream; await vid.play();
 }
 
-document.getElementById('btnFlip').addEventListener('click', () => {
+function _toggleCamera() {
   facingMode = facingMode === 'environment' ? 'user' : 'environment';
   startCamera(facingMode);
-});
+}
+document.getElementById('btnFlip').addEventListener('click', _toggleCamera);
+document.getElementById('btnSwitchCam').addEventListener('click', _toggleCamera);
 
 // ════════════════════════════════════════════════════════════════════
 // CAM FPS CONTROL
@@ -2778,6 +3343,8 @@ function applyCamAspect(aw, ah) {
   ctxD.imageSmoothingEnabled = false;
   buildScanlines();
   _buildDolphinScanlines(); // rebuild DOLPHIN overlay for new canvas size
+  _buildCaskiaOverlay();    // rebuild CASKIA pixel grid overlay for new canvas size
+  _buildVFDOverlay();       // rebuild VFD overlay for new canvas size
   relayout();
 
   // Re-render content after canvas resize clears it
@@ -2837,8 +3404,10 @@ function cameraLoop(t) {
   const minInterval = camFpsEnabled ? 1000 / camFpsTarget : 0;
   if (t - camLastFrameMs >= minInterval) {
     if (vid.videoWidth) {
-      if (dolphinMode) renderDolphin(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
-      else renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
+      if      (camFamily === 'DLPHN')  renderDolphin(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
+      else if (camFamily === 'CASKIA') renderCaskia(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
+      else if (camFamily === 'VFD')    renderVFD(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
+      else                             renderDithered(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user');
     } else if (extAudioMode && extAnalyser) renderAudioAbstract();
     camLastFrameMs = t;
     frames++;
@@ -3084,9 +3653,9 @@ function _navClick(btnId, fileInputId) {
 
 const FLIP_NAV_CFG = {
   cam: () => [
-    { icon: _navIcon('btnRecord') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnRecord')  },
-    { icon: '●',                           label: '',       center: true,  click: () => _navClick('btnCapture') },
-    { icon: '↑',                           label: 'SHARE',  center: false, click: () => _navClick('btnShare')   },
+    { icon: _navIcon('btnRecord') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnRecord')     },
+    { icon: '●',                           label: '',       center: true,  click: () => _navClick('btnCapture')    },
+    { icon: '⟳',                           label: 'CAM',    center: false, click: () => _navClick('btnSwitchCam')  },
   ],
   ascii: () => [
     { icon: _navIcon('btnAsciiMode') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnAsciiMode')    },
@@ -3181,6 +3750,8 @@ function renderFlipNav(mode) {
     _origSwitch(tab);
     renderFlipNav(tab);
     _updateExportBar(tab);
+    // Re-sync CAM family/variant state when returning to cam tab
+    if (tab === 'cam') _applyCamState();
     // T2+T3: sync CLASSIC/FREE tab state first (sets pal-free-mode before swatch sync)
     const freeBtn    = document.getElementById('btnPalFree');
     const classicBtn = document.getElementById('btnPalClassic');
@@ -6405,7 +6976,8 @@ document.getElementById('btnAsciiGlitch').addEventListener('click', async () => 
 function saveSettings() {
   try {
     localStorage.setItem('flipSettings', JSON.stringify({
-      activePal, uploadActivePal, legacyMode,
+      activePal, uploadActivePal, legacyMode, camFamily, camVariant,
+      dlpColorMode, dlpResonanceVal, dlpContrastVal,
       sonoPreset, sonoMixVal, sonoChaosVal,
       wmpPreset: wmpPreset, wmpSensVal, wmpTrailsVal,
       uploadMode,
@@ -6428,7 +7000,20 @@ function loadSettings() {
       document.querySelectorAll('.pal-swatch').forEach((b,i) => b.classList.toggle('active', i === activePal));
     }
     if (s.uploadActivePal !== undefined) uploadActivePal = s.uploadActivePal;
-    if (s.legacyMode !== undefined) { legacyMode = s.legacyMode; const btn=document.getElementById('btnMode'); if(btn)btn.classList.toggle('active',legacyMode); }
+    // CAM family/variant (new system — takes priority over legacy legacyMode flag)
+    if (s.camFamily  && CAM_FAMILIES[s.camFamily])  camFamily  = s.camFamily;
+    if (s.camVariant && ['STD','LGCY'].includes(s.camVariant)) camVariant = s.camVariant;
+    // Backward compat: if no camFamily saved but legacyMode was true, restore DSI LGCY
+    if (!s.camFamily && s.legacyMode) { camFamily = 'DSI'; camVariant = 'LGCY'; }
+    // DLPHN edit params
+    if (s.dlpColorMode   && ['AQUA','WARM'].includes(s.dlpColorMode)) {
+      dlpColorMode = s.dlpColorMode;
+      document.querySelectorAll('.dlp-col-btn').forEach(b => b.classList.toggle('active', b.dataset.dlpcol === dlpColorMode));
+      document.body.classList.toggle('dlp-warm-mode', dlpColorMode === 'WARM');
+    }
+    if (s.dlpResonanceVal !== undefined) { dlpResonanceVal = s.dlpResonanceVal; const e=document.getElementById('dlpReso'); if(e){e.value=dlpResonanceVal;document.getElementById('vDlpReso').textContent=dlpResonanceVal;} }
+    if (s.dlpContrastVal  !== undefined) { dlpContrastVal  = s.dlpContrastVal;  const e=document.getElementById('dlpContr'); if(e){e.value=dlpContrastVal; document.getElementById('vDlpContr').textContent=dlpContrastVal; } }
+    _applyCamState();
     // SONO
     if (s.sonoPreset !== undefined) { sonoPreset = s.sonoPreset; document.querySelectorAll('.sono-preset-btn').forEach((b,i)=>b.classList.toggle('active',i===sonoPreset)); }
     if (s.sonoMixVal !== undefined) { sonoMixVal = s.sonoMixVal; const e=document.getElementById('sonoMix'); if(e){e.value=sonoMixVal;document.getElementById('vSonoMix').textContent=sonoMixVal;} }

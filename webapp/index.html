@@ -208,7 +208,6 @@
       background:none; cursor:pointer; display:block;
     }
     body.pal-free-mode .pal-swatch { display:none; }
-    body.up-pal-ctx #palColorTabs { display:none; }
 
     /* ── Flip ── */
     #btnFlip {
@@ -1623,12 +1622,13 @@ const PALETTES = [
 ];
 let activePal      = 0;  // CAM / ASCII / SONO / WMP palette index
 let uploadActivePal = 0;  // T3: UPLOAD-independent palette index
-let camCustomPal   = null; // T2: {paper:[r,g,b], ink:[r,g,b]} or null
+let camCustomPal    = null; // T2: {paper:[r,g,b], ink:[r,g,b]} or null
+let uploadCustomPal = null; // T3: UPLOAD independent free color
 let legacyMode  = false;
 
 // Returns the effective palette for the given context
 function _getPal(forUpload) {
-  if (forUpload) return PALETTES[uploadActivePal];
+  if (forUpload) return uploadCustomPal || PALETTES[uploadActivePal];
   return camCustomPal || PALETTES[activePal];
 }
 let dolphinMode = false;
@@ -1847,18 +1847,30 @@ function _hexToRGB(hex) {
 function _updateFreePal() {
   const ink   = _hexToRGB(document.getElementById('palFreeInk').value);
   const paper = _hexToRGB(document.getElementById('palFreePaper').value);
-  camCustomPal = { paper, ink };
-  asciiSettingsChanged();
+  if (activeTab === 'up') {
+    uploadCustomPal = { paper, ink };
+    if (lastUploadSrc) renderUploadPreview();
+  } else {
+    camCustomPal = { paper, ink };
+    asciiSettingsChanged();
+  }
 }
 document.getElementById('btnPalClassic').addEventListener('click', () => {
   if (document.getElementById('btnPalClassic').classList.contains('active')) return;
-  camCustomPal = null;
+  if (activeTab === 'up') {
+    uploadCustomPal = null;
+    if (lastUploadSrc) renderUploadPreview();
+    const palIdx = uploadActivePal;
+    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===palIdx));
+  } else {
+    camCustomPal = null;
+    document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===activePal));
+    asciiSettingsChanged();
+  }
   document.getElementById('btnPalClassic').classList.add('active');
   document.getElementById('btnPalFree').classList.remove('active');
   document.getElementById('palFreeBox').style.display = 'none';
   document.body.classList.remove('pal-free-mode');
-  document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===activePal));
-  asciiSettingsChanged();
 });
 document.getElementById('btnPalFree').addEventListener('click', () => {
   if (document.getElementById('btnPalFree').classList.contains('active')) return;
@@ -3144,23 +3156,18 @@ function renderFlipNav(mode) {
     document.querySelectorAll('.pal-swatch').forEach((b,j) => b.classList.toggle('active', j===palIdx));
     // Show "UP" badge on palette panel when in UPLOAD mode
     document.body.classList.toggle('up-pal-ctx', tab === 'up');
-    // T2: sync CLASSIC/FREE tab state on tab switch (palColorTabs hidden via CSS in UPLOAD)
-    const freeBtn     = document.getElementById('btnPalFree');
-    const classicBtn  = document.getElementById('btnPalClassic');
-    const freeBox     = document.getElementById('palFreeBox');
+    // T2+T3: sync CLASSIC/FREE tab state — each mode has its own custom palette
+    const freeBtn    = document.getElementById('btnPalFree');
+    const classicBtn = document.getElementById('btnPalClassic');
+    const freeBox    = document.getElementById('palFreeBox');
     if (freeBtn && classicBtn && freeBox) {
-      if (tab === 'up') {
-        // Preserve camCustomPal but collapse the picker visually (hidden via body.up-pal-ctx CSS)
-        freeBox.style.display = 'none';
-        document.body.classList.remove('pal-free-mode');
-      } else if (camCustomPal) {
-        // Returning to CAM/ASCII with a custom palette active — restore FREE tab
+      const customPal = tab === 'up' ? uploadCustomPal : camCustomPal;
+      if (customPal) {
         freeBtn.classList.add('active');
         classicBtn.classList.remove('active');
         freeBox.style.display = 'flex';
         document.body.classList.add('pal-free-mode');
       } else {
-        // Default: CLASSIC tab active
         classicBtn.classList.add('active');
         freeBtn.classList.remove('active');
         freeBox.style.display = 'none';
@@ -3374,13 +3381,13 @@ btnCap.addEventListener('click', async () => {
     // Toggle video recording
     if (!recorder || recorder.state === 'inactive') {
       if (typeof display.captureStream !== 'function') {
-        alert('⚠️ Grabación no disponible.\nUsa Chrome en Android o guarda fotos con ●.'); return;
+        flipToast('⚠ Recording not available. Use Chrome on Android.'); return;
       }
       const mimes=['video/mp4','video/webm;codecs=vp9','video/webm'];
       recMime=mimes.find(m=>MediaRecorder.isTypeSupported(m))??'';
       recChunks=[]; lastBlob=null;
       try { recorder=new MediaRecorder(display.captureStream(30),{...(recMime?{mimeType:recMime}:{}),videoBitsPerSecond:6_000_000}); }
-      catch(e){alert('Error: '+e.message);return;}
+      catch(e){flipToast('⚠ Error: '+e.message);return;}
       recorder.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
       recorder.onstop=async()=>{
         if(!recChunks.length)return;
@@ -3397,7 +3404,7 @@ btnCap.addEventListener('click', async () => {
   }
 });
 document.getElementById('btnShare').addEventListener('click', async () => {
-  if(!lastBlob){alert('Graba un video primero.');return;}
+  if(!lastBlob){flipToast('Record a video first.');return;}
   await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+(recMime.includes('mp4')?'mp4':'webm'));
 });
 
@@ -3508,7 +3515,7 @@ async function handleFile(file){
   if(!file)return;
   const isVideo=file.type.startsWith('video/');
   const isImage=file.type.startsWith('image/') || (!file.type && /\.(png|jpe?g|webp|gif|heic|heif)$/i.test(file.name||''));
-  if(!isVideo&&!isImage){alert('Formato no soportado.');return;}
+  if(!isVideo&&!isImage){flipToast('⚠ Unsupported format.');return;}
   fpsRow.style.display=isVideo?'flex':'none';
   // Show loading bar immediately with filename
   const shortName=(file.name||'archivo').slice(0,32);
@@ -4058,7 +4065,7 @@ document.getElementById('acCopy').addEventListener('click', () => {
       await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
       const btn=document.getElementById('acCopy'), orig=btn.textContent;
       btn.textContent='✓ COPIED'; setTimeout(()=>btn.textContent=orig, 1500);
-    } catch(_) { alert('Copy not supported. Use PNG instead.'); }
+    } catch(_) { flipToast('Copy not supported — use PNG instead.'); }
   });
 });
 document.getElementById('acTxt').addEventListener('click', () => {
@@ -4600,7 +4607,7 @@ async function startSonoMic() {
     requestAnimationFrame(sonoLoop);
     return true;
   } catch(e) {
-    alert('No se pudo acceder al micrófono:\n' + e.message);
+    flipToast('⚠ Mic access denied: ' + e.message);
     return false;
   }
 }
@@ -4798,7 +4805,7 @@ async function sonoLoadFile(file) {
   if (!file) return;
   // iOS may report empty MIME type for audio files — skip strict check
   if (file.type && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
-    alert('Solo archivos de audio (MP3, WAV, OGG, etc.)'); return;
+    flipToast('⚠ Audio files only (MP3, WAV, OGG…)'); return;
   }
   // Stop mic if running
   if (sonoMicStream) { sonoMicStream.getTracks().forEach(t => t.stop()); sonoMicStream = null; }
@@ -4839,7 +4846,7 @@ sonoFileInput.addEventListener('change', e => {
   const f = e.target.files[0];
   if (!f) { e.target.value = ''; return; }
   if (f.size > 50 * 1024 * 1024) {
-    alert('⚠ Archivo demasiado grande (máx. 50 MB)');
+    flipToast('⚠ File too large (max 50 MB)');
     e.target.value = ''; return;
   }
   _withProgress(f, file => {
@@ -4849,7 +4856,7 @@ sonoFileInput.addEventListener('change', e => {
       sonoLoadFile(file);
     } catch(err) {
       hideLoadOverlay();
-      alert('No se pudo cargar el archivo: ' + (err.message || err));
+      flipToast('⚠ Could not load file: ' + (err.message || err));
     }
   });
   e.target.value = '';
@@ -4894,7 +4901,7 @@ document.getElementById('btnSonoCapture').addEventListener('click', async () => 
 });
 
 document.getElementById('btnSonoShare').addEventListener('click', async () => {
-  if (!sonoLastBlob) { alert('Graba un video primero.'); return; }
+  if (!sonoLastBlob) { flipToast('Record a video first.'); return; }
   const ext = sonoRecMime.includes('mp4') ? 'mp4' : 'webm';
   await _shareOrDownload(sonoLastBlob, 'sono_' + Date.now() + '.' + ext);
 });
@@ -4930,7 +4937,7 @@ const btnSonoRec = document.getElementById('btnSonoRec');
 btnSonoRec.addEventListener('click', async () => {
   if (!sonoRecorder || sonoRecorder.state === 'inactive') {
     if (typeof sonoCvs.captureStream !== 'function') {
-      alert('⚠️ Grabación no disponible.\nUsa Chrome en Android.'); return;
+      flipToast('⚠ Recording not available. Use Chrome on Android.'); return;
     }
     const mimes = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
     sonoRecMime = mimes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
@@ -4940,7 +4947,7 @@ btnSonoRec.addEventListener('click', async () => {
         ...(sonoRecMime ? { mimeType:sonoRecMime } : {}),
         videoBitsPerSecond: 6_000_000,
       });
-    } catch(e) { alert('Error: ' + e.message); return; }
+    } catch(e) { flipToast('⚠ Error: ' + e.message); return; }
     sonoRecorder.ondataavailable = e => { if (e.data.size) sonoRecChunks.push(e.data); };
     sonoRecorder.onstop = async () => {
       if (!sonoRecChunks.length) return;

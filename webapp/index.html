@@ -242,6 +242,8 @@
     body.vfd-mode { --ink:#000a0a; --dark:#003030; --mid:#008080; --paper:#00e8d0; }
     body.vfd-mode .tab.active { background:rgba(0,232,208,.08); }
     body.dlp-warm-mode.dolphin-mode { --ink:#0a0400; --dark:#4a1500; --mid:#c84400; --paper:#ff9400; }
+    /* WARM + LGCY combo: pale warm gold (overrides both dolphin-mode and dlp-lgcy-mode) */
+    body.dlp-warm-mode.dolphin-mode.dlp-lgcy-mode { --ink:#0a0500; --dark:#3a1a00; --mid:#8a5000; --paper:#d4a850; }
     body.dlp-warm-mode .dlp-val { color:#ff9400; }
     body.dlp-warm-mode .dlp-lbl { color:#c84400; }
     body.dlp-warm-mode .dlp-ctrl-row input[type="range"] { accent-color:#ff9400; }
@@ -2159,6 +2161,7 @@ document.querySelectorAll('.pcs-slot').forEach(el => {
   el.addEventListener('mouseleave', cancelHold);
   el.addEventListener('touchend', cancelHold);
   el.addEventListener('touchcancel', cancelHold);
+  el.addEventListener('touchmove', cancelHold, { passive: true });
 
   el.addEventListener('click', () => {
     if (_pcsHoldTimer) return; // was a hold, not click
@@ -6974,6 +6977,7 @@ function saveSettings() {
   try {
     localStorage.setItem('flipSettings', JSON.stringify({
       activePal, uploadActivePal, legacyMode, camFamily, camVariant,
+      dlpColorMode, dlpResonanceVal, dlpContrastVal,
       sonoPreset, sonoMixVal, sonoChaosVal,
       wmpPreset: wmpPreset, wmpSensVal, wmpTrailsVal,
       uploadMode,
@@ -7001,6 +7005,14 @@ function loadSettings() {
     if (s.camVariant && ['STD','LGCY'].includes(s.camVariant)) camVariant = s.camVariant;
     // Backward compat: if no camFamily saved but legacyMode was true, restore DSI LGCY
     if (!s.camFamily && s.legacyMode) { camFamily = 'DSI'; camVariant = 'LGCY'; }
+    // DLPHN edit params
+    if (s.dlpColorMode   && ['AQUA','WARM'].includes(s.dlpColorMode)) {
+      dlpColorMode = s.dlpColorMode;
+      document.querySelectorAll('.dlp-col-btn').forEach(b => b.classList.toggle('active', b.dataset.dlpcol === dlpColorMode));
+      document.body.classList.toggle('dlp-warm-mode', dlpColorMode === 'WARM');
+    }
+    if (s.dlpResonanceVal !== undefined) { dlpResonanceVal = s.dlpResonanceVal; const e=document.getElementById('dlpReso'); if(e){e.value=dlpResonanceVal;document.getElementById('vDlpReso').textContent=dlpResonanceVal;} }
+    if (s.dlpContrastVal  !== undefined) { dlpContrastVal  = s.dlpContrastVal;  const e=document.getElementById('dlpContr'); if(e){e.value=dlpContrastVal; document.getElementById('vDlpContr').textContent=dlpContrastVal; } }
     _applyCamState();
     // SONO
     if (s.sonoPreset !== undefined) { sonoPreset = s.sonoPreset; document.querySelectorAll('.sono-preset-btn').forEach((b,i)=>b.classList.toggle('active',i===sonoPreset)); }

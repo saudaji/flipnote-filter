@@ -9791,7 +9791,7 @@ function switchTab(tab) {
   document.getElementById('camFpsCtrl').style.display = isCam ? 'flex' : 'none';
   document.getElementById('camAspect').style.display  = (isCam || isAscii) ? 'flex' : 'none';
   _syncCamZoomUI();
-  document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp || isScrash) ? 'none' : '';
+  document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp || isScrash || isAscii) ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
 
   // Themes

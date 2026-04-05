@@ -11058,11 +11058,29 @@ function createCombinedStream(canvasStream, audioEngine) {
     ...audioStream.getAudioTracks(),
   ]);
 }
+function _getFlipRecorderMimeCandidates(hasAudio = false) {
+  const webmAudio = [
+    'video/webm;codecs=vp8,opus',
+    'video/webm; codecs=vp8,opus',
+    'video/webm;codecs=vp9,opus',
+    'video/webm; codecs=vp9,opus',
+    'video/webm',
+  ];
+  const webmVideo = [
+    'video/webm;codecs=vp8',
+    'video/webm; codecs=vp8',
+    'video/webm;codecs=vp9',
+    'video/webm; codecs=vp9',
+    'video/webm',
+  ];
+  const mp4 = ['video/mp4'];
+  if (_IS_IOS) return hasAudio ? [...mp4, ...webmAudio] : [...mp4, ...webmVideo];
+  if (IS_ANDROID) return hasAudio ? [...webmAudio, ...mp4] : [...webmVideo, ...mp4];
+  return hasAudio ? [...webmAudio, ...mp4] : [...webmVideo, ...mp4];
+}
 function _pickFlipRecorderMime(stream) {
   const hasAudio = !!(stream && stream.getAudioTracks && stream.getAudioTracks().length);
-  const candidates = hasAudio
-    ? ['video/mp4', 'video/webm; codecs=vp8,opus', 'video/webm; codecs=vp9,opus', 'video/webm']
-    : VIDEO_MIME_CANDIDATES;
+  const candidates = _getFlipRecorderMimeCandidates(hasAudio);
   return candidates.find(m => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported?.(m)) || '';
 }
 function _createFlipRecorder(stream, videoBitsPerSecond) {
@@ -11645,7 +11663,7 @@ const VIDEO_MIME_CANDIDATES = [
 
 function _pickVideoMime() {
   if (typeof MediaRecorder === 'undefined') return '';
-  return VIDEO_MIME_CANDIDATES.find(m => MediaRecorder.isTypeSupported?.(m)) || '';
+  return _getFlipRecorderMimeCandidates(false).find(m => MediaRecorder.isTypeSupported?.(m)) || '';
 }
 function _videoExtFromMime(mime) {
   return /mp4/i.test(mime || '') ? 'mp4' : 'webm';

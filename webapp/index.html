@@ -11658,8 +11658,41 @@ function _createCanvasRecorder(stream, videoBitsPerSecond) {
 }
 function _stopRecorderSafely(rec) {
   if (!rec || rec.state === 'inactive') return;
-  try { rec.requestData(); } catch (_) {}
-  rec.stop();
+  try { rec.stop(); }
+  catch (_) {
+    try { rec.requestData(); } catch (_) {}
+  }
+}
+function _bindRecorderFinalize(rec, { addChunk, onFinalize, finalizeDelay = 120 }) {
+  let stopSeen = false;
+  let finished = false;
+  let finishTimer = 0;
+  const scheduleFinalize = (delay = finalizeDelay) => {
+    if (finished || !stopSeen) return;
+    if (finishTimer) clearTimeout(finishTimer);
+    finishTimer = setTimeout(async () => {
+      if (finished) return;
+      finished = true;
+      finishTimer = 0;
+      try { await onFinalize(); }
+      catch (err) { console.error('Recorder finalize failed', err); }
+    }, Math.max(0, delay));
+  };
+  rec.ondataavailable = e => {
+    if (e?.data?.size) addChunk?.(e.data);
+    if (stopSeen) scheduleFinalize(48);
+  };
+  rec.onstop = () => {
+    stopSeen = true;
+    scheduleFinalize(finalizeDelay);
+  };
+  rec.onerror = () => {
+    stopSeen = true;
+    scheduleFinalize(0);
+  };
+  return () => {
+    if (finishTimer) clearTimeout(finishTimer);
+  };
 }
 function _clearVideoExportStopTimer() {
   if (_vidExportStopTimer) { clearTimeout(_vidExportStopTimer); _vidExportStopTimer = null; }
@@ -11814,16 +11847,21 @@ btnCap.addEventListener('click', async () => {
         recorder = camRecordingJob.recorder;
         recMime = camRecordingJob.mime;
       } catch(e){ camRecordingJob = null; flipToast('⚠ Error: '+e.message);return; }
-      recorder.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
-      recorder.onstop=async()=>{
-        if (camRecordingJob) { camRecordingJob.cleanup(); camRecordingJob = null; }
-        if(!recChunks.length)return;
-        const ext=_videoExtFromMime(recMime);
-        lastBlob=new Blob(recChunks,{type:recMime||'video/webm'});
-        btnCap.classList.remove('recording'); _syncCamCaptureVisual(false);
-        await _saveFile(lastBlob,'flipnote_'+Date.now()+'.'+ext); // T9: default=save, share=explicit
-      };
-      recorder.start();
+      const releaseRecorderFinalize = _bindRecorderFinalize(recorder, {
+        addChunk: chunk => recChunks.push(chunk),
+        onFinalize: async () => {
+          releaseRecorderFinalize();
+          if (camRecordingJob) { camRecordingJob.cleanup(); camRecordingJob = null; }
+          stopRecTimer();
+          btnCap.classList.remove('recording'); _syncCamCaptureVisual(false);
+          recorder = null;
+          if(!recChunks.length){ flipToast('⚠ No se pudo guardar el video.'); return; }
+          const ext=_videoExtFromMime(recMime);
+          lastBlob=new Blob(recChunks,{type:recMime||'video/webm'});
+          await _saveFile(lastBlob,'flipnote_'+Date.now()+'.'+ext); // T9: default=save, share=explicit
+        }
+      });
+      recorder.start(250);
       _syncCamCaptureVisual(true);
       startRecTimer();
       btnCap.classList.add('recording');
@@ -12126,23 +12164,27 @@ document.getElementById('btnVidExport').addEventListener('click', async () => {
     return;
   }
   _vidExportChunks = [];
-  _vidExportRec.ondataavailable = e => { if (e.data.size) _vidExportChunks.push(e.data); };
-  _vidExportRec.onstop = async () => {
-    if (exportRecordingJob) { exportRecordingJob.cleanup(); exportRecordingJob = null; }
-    _clearVideoExportStopTimer();
-    uploadVid.onended = null;
-    uploadVid.loop = true;
-    uploadVid.pause();
-    try { uploadVid.currentTime = 0; } catch (_) {}
-    document.getElementById('btnVidPlayPause').textContent = '▶';
-    btn.textContent = '⏺ REC'; btn.style.borderColor = ''; btn.style.color = '';
-    uploadProcessing = false;
-    setProgress(100, '✓ Listo'); setTimeout(() => showProgress(false), 1500);
-    if (!_vidExportChunks.length) { flipToast('⚠️ No se grabó ningún frame.'); return; }
-    const ext = _videoExtFromMime(mime);
-    const blob = new Blob(_vidExportChunks, { type: mime || 'video/webm' });
-    setUploadResultReady(blob, ext);
-  };
+  const releaseExportFinalize = _bindRecorderFinalize(_vidExportRec, {
+    addChunk: chunk => _vidExportChunks.push(chunk),
+    onFinalize: async () => {
+      releaseExportFinalize();
+      if (exportRecordingJob) { exportRecordingJob.cleanup(); exportRecordingJob = null; }
+      _vidExportRec = null;
+      _clearVideoExportStopTimer();
+      uploadVid.onended = null;
+      uploadVid.loop = true;
+      uploadVid.pause();
+      try { uploadVid.currentTime = 0; } catch (_) {}
+      document.getElementById('btnVidPlayPause').textContent = '▶';
+      btn.textContent = '⏺ REC'; btn.style.borderColor = ''; btn.style.color = '';
+      uploadProcessing = false;
+      setProgress(100, '✓ Listo'); setTimeout(() => showProgress(false), 1500);
+      if (!_vidExportChunks.length) { flipToast('⚠️ No se grabó ningún frame.'); return; }
+      const ext = _videoExtFromMime(mime);
+      const blob = new Blob(_vidExportChunks, { type: mime || 'video/webm' });
+      setUploadResultReady(blob, ext);
+    }
+  });
   uploadProcessing = true;
   showProgress(true); setProgress(0, 'Grabando…');
   const _progTick = () => {
@@ -12154,7 +12196,7 @@ document.getElementById('btnVidExport').addEventListener('click', async () => {
   };
   uploadVid.loop = false;
   uploadVid.currentTime = 0;
-  _vidExportRec.start();
+  _vidExportRec.start(250);
   btn.textContent = '⏹ STOP'; btn.style.borderColor = '#ff4444'; btn.style.color = '#ff4444';
   requestAnimationFrame(_progTick);
   uploadVid.onended = () => { if (_vidExportRec && _vidExportRec.state !== 'inactive') _stopRecorderSafely(_vidExportRec); };
@@ -12229,16 +12271,21 @@ document.getElementById('btnAsciiCapture').addEventListener('click', async () =>
         flipToast('⚠ Error: ' + e.message);
         return;
       }
-      asciiRecorder.ondataavailable = e => { if (e.data.size) asciiRecChunks.push(e.data); };
-      asciiRecorder.onstop = async () => {
-      asciiRecordingHighQuality = false;
-      if (asciiRecordingJob) { asciiRecordingJob.cleanup(); asciiRecordingJob = null; }
-      const ext = _videoExtFromMime(asciiRecMime);
-      const blob = new Blob(asciiRecChunks, { type: asciiRecMime || 'video/webm' });
-      asciiCapBtn.classList.remove('recording'); _syncAsciiCaptureVisual(false);
-        await _saveFile(blob, 'flip_ascii_' + Date.now() + '.' + ext);
-      };
-      asciiRecorder.start();
+      const releaseAsciiFinalize = _bindRecorderFinalize(asciiRecorder, {
+        addChunk: chunk => asciiRecChunks.push(chunk),
+        onFinalize: async () => {
+          releaseAsciiFinalize();
+          asciiRecordingHighQuality = false;
+          if (asciiRecordingJob) { asciiRecordingJob.cleanup(); asciiRecordingJob = null; }
+          asciiRecorder = null;
+          asciiCapBtn.classList.remove('recording'); _syncAsciiCaptureVisual(false);
+          if (!asciiRecChunks.length) { flipToast('⚠ No se pudo guardar el video ASCII.'); return; }
+          const ext = _videoExtFromMime(asciiRecMime);
+          const blob = new Blob(asciiRecChunks, { type: asciiRecMime || 'video/webm' });
+          await _saveFile(blob, 'flip_ascii_' + Date.now() + '.' + ext);
+        }
+      });
+      asciiRecorder.start(250);
       asciiCapBtn.classList.add('recording'); _syncAsciiCaptureVisual(true);
     } else {
       asciiRecordingHighQuality = false;
@@ -13595,15 +13642,19 @@ btnSonoRec.addEventListener('click', async () => {
       sonoRecorder = sonoRecordingJob.recorder;
       sonoRecMime = sonoRecordingJob.mime;
     } catch(e) { if (sonoRecordingJob) { sonoRecordingJob.cleanup(); sonoRecordingJob = null; } flipToast('⚠ Error: ' + e.message); return; }
-    sonoRecorder.ondataavailable = e => { if (e.data.size) sonoRecChunks.push(e.data); };
-    sonoRecorder.onstop = async () => {
-      if (sonoRecordingJob) { sonoRecordingJob.cleanup(); sonoRecordingJob = null; }
-      if (!sonoRecChunks.length) return;
-      const ext = _videoExtFromMime(sonoRecMime);
-      sonoLastBlob = new Blob(sonoRecChunks, { type: sonoRecMime || 'video/webm' });
-      await _saveFile(sonoLastBlob, 'sono_' + Date.now() + '.' + ext); // T9: default=save, share=btnSonoShare
-    };
-    sonoRecorder.start();
+    const releaseSonoFinalize = _bindRecorderFinalize(sonoRecorder, {
+      addChunk: chunk => sonoRecChunks.push(chunk),
+      onFinalize: async () => {
+        releaseSonoFinalize();
+        if (sonoRecordingJob) { sonoRecordingJob.cleanup(); sonoRecordingJob = null; }
+        sonoRecorder = null;
+        if (!sonoRecChunks.length) { flipToast('⚠ No se pudo guardar el video SONO.'); return; }
+        const ext = _videoExtFromMime(sonoRecMime);
+        sonoLastBlob = new Blob(sonoRecChunks, { type: sonoRecMime || 'video/webm' });
+        await _saveFile(sonoLastBlob, 'sono_' + Date.now() + '.' + ext); // T9: default=save, share=btnSonoShare
+      }
+    });
+    sonoRecorder.start(250);
     let s = 0;
     sonoRecTimer = setInterval(() => {
       s++;
@@ -14864,16 +14915,21 @@ let _ctxScrTmp;
           flipToast('⚠ Error: ' + e.message);
           return;
         }
-        scrashRecorder.ondataavailable = e => { if (e.data.size) _chunks.push(e.data); };
-        scrashRecorder.onstop = async () => {
-          if (scrashRecordingJob) { scrashRecordingJob.cleanup(); scrashRecordingJob = null; }
-          const ext = _videoExtFromMime(scrashRecMime);
-          const blob = new Blob(_chunks, { type: scrashRecMime || 'video/webm' });
-          snapBtn.classList.remove('recording');
-          _syncScrashCaptureVisual(false);
-          await _saveFile(blob, 'flip_glitch_' + Date.now() + '.' + ext);
-        };
-        scrashRecorder.start();
+        const releaseScrashFinalize = _bindRecorderFinalize(scrashRecorder, {
+          addChunk: chunk => _chunks.push(chunk),
+          onFinalize: async () => {
+            releaseScrashFinalize();
+            if (scrashRecordingJob) { scrashRecordingJob.cleanup(); scrashRecordingJob = null; }
+            scrashRecorder = null;
+            snapBtn.classList.remove('recording');
+            _syncScrashCaptureVisual(false);
+            if (!_chunks.length) { flipToast('⚠ No se pudo guardar el video GLITCH.'); return; }
+            const ext = _videoExtFromMime(scrashRecMime);
+            const blob = new Blob(_chunks, { type: scrashRecMime || 'video/webm' });
+            await _saveFile(blob, 'flip_glitch_' + Date.now() + '.' + ext);
+          }
+        });
+        scrashRecorder.start(250);
         snapBtn.classList.add('recording');
         _syncScrashCaptureVisual(true);
       } else {

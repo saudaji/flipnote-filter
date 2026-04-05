@@ -46,6 +46,14 @@
     body.ascii-mode .tab.active { background:rgba(160,160,255,.10); }
     /* Hide cam-mode palette overlay in ASCII mode (cam sliders must not float over canvas) */
     body.ascii-mode .palettes { display: none !important; }
+
+    /* ── CAM Stickers ── */
+    #camStickerPanel { border-top:1px solid var(--dark); padding:6px 0 4px; margin-top:4px; }
+    .cam-sticker-header { font-family:monospace; font-size:9px; color:var(--mid); letter-spacing:.08em; padding:0 4px 4px; }
+    .cam-sticker-row { display:flex; gap:4px; flex-wrap:wrap; padding:0 2px; }
+    .cam-sticker-btn { background:none; border:1px solid var(--dark); color:var(--mid); font-family:monospace; font-size:10px; padding:3px 7px; cursor:pointer; border-radius:2px; }
+    .cam-sticker-btn.active { background:var(--dark); color:var(--paper); border-color:var(--mid); }
+    body.cam-sticker-magnifier #display { cursor:crosshair; }
     /* Hide floating aspect selector on mobile when edit panel is open (asp-btns are inside panel) */
     @media (max-width:767px) {
       body.ascii-mode.ascii-edit #camAspect { display: none !important; }
@@ -2145,6 +2153,16 @@
   </div>
   <button id="btnMode"    style="display:none;" aria-hidden="true">DSi</button>
   <button id="btnDolphin" style="display:none;" aria-hidden="true">DLPHN</button>
+
+  <!-- CAM Stickers — works across all cam families -->
+  <div id="camStickerPanel">
+    <div class="cam-sticker-header">STICKERS</div>
+    <div class="cam-sticker-row">
+      <button class="cam-sticker-btn active" id="btnStickerNone"      data-sticker="none">OFF</button>
+      <button class="cam-sticker-btn"        id="btnStickerMagnifier" data-sticker="magnifier">&#x1F50D; ZOOM</button>
+    </div>
+  </div>
+
   <div id="palColorTabs">
     <div class="pal-tab-row">
       <button id="btnPalClassic" class="pal-tab-btn active" title="Classic palettes">CLR</button>
@@ -3097,6 +3115,13 @@ const BAYER8 = new Uint8Array([
 // ════════════════════════════════════════════════════════════════════
 let DSI_W = 256, DSI_H = 192; const SCALE = 4;
 let OUT_W = DSI_W * SCALE, OUT_H = DSI_H * SCALE;
+
+// ── CAM Sticker state ──
+let camStickerType   = 'none';   // 'none' | 'magnifier'
+let camStickerX      = 0.5;      // normalized position [0..1]
+let camStickerY      = 0.35;
+let camStickerActive = false;    // has user placed the sticker?
+let _magBuf          = null;     // offscreen buffer for magnifier
 
 // ════════════════════════════════════════════════════════════════════
 // DOM
@@ -9611,6 +9636,45 @@ let extAnalyser  = null;
 let extMicStream = null;
 let extAudioMode = false;
 
+// Magnifier sticker: circular real-time zoom overlay on ctxD
+function _renderMagnifierSticker(ctx) {
+  if (!camStickerActive) return;
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  const cx = Math.round(camStickerX * W);
+  const cy = Math.round(camStickerY * H);
+  const r  = Math.round(Math.min(W, H) * 0.18);
+  const zoom = 2.5;
+  const srcSize = Math.round(r * 2 / zoom);
+  const srcX = Math.round(cx - srcSize / 2);
+  const srcY = Math.round(cy - srcSize / 2);
+  // Copy region before overdrawing
+  if (!_magBuf) _magBuf = document.createElement('canvas');
+  _magBuf.width = srcSize; _magBuf.height = srcSize;
+  const bCtx = _magBuf.getContext('2d');
+  bCtx.drawImage(ctx.canvas, srcX, srcY, srcSize, srcSize, 0, 0, srcSize, srcSize);
+  // Draw zoomed circle
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(_magBuf, 0, 0, srcSize, srcSize, cx - r, cy - r, r * 2, r * 2);
+  ctx.restore();
+  // Ring border + crosshair
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth   = 3;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.25, cy); ctx.lineTo(cx + r * 0.25, cy);
+  ctx.moveTo(cx, cy - r * 0.25); ctx.lineTo(cx, cy + r * 0.25);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function cameraLoop(t) {
   if (!cameraRunning) return;
   if (stream && (!vid.videoWidth || vid.paused || vid.readyState < 2)) {
@@ -9629,6 +9693,7 @@ function cameraLoop(t) {
         now:t,
       });
     } else if (extAudioMode && extAnalyser) renderAudioAbstract();
+    if (camStickerType === 'magnifier') _renderMagnifierSticker(ctxD);
     camLastFrameMs = t;
     frames++;
   }
@@ -9792,6 +9857,8 @@ function switchTab(tab) {
   // Themes
   document.body.classList.toggle('ascii-mode', isAscii);
   document.body.classList.toggle('sono-mode',  isSono);
+  // Always enter ASCII in CLASSIC submode so Pythonization and all CLASSIC controls are visible
+  if (isAscii) { asciiSubMode = 'classic'; _syncTypoCamUI(); }
 
 
   if (!isUp && _vidPlayerActive) _stopVidPlayer();
@@ -11607,6 +11674,15 @@ _normalizeScrashHudDom();
 document.getElementById('btnAsciiEdit').addEventListener('click', () => {
   asciiPanelOpen = !asciiPanelOpen;
   document.body.classList.toggle('ascii-edit', asciiPanelOpen);
+  if (asciiPanelOpen) {
+    // Auto-expand Fine Tune so all controls (Brightness, Contrast, Pythonization…) are immediately visible
+    const advPanel  = document.getElementById('advanced-ascii');
+    const advToggle = document.querySelector('.flip-advanced-toggle[data-target="advanced-ascii"]');
+    if (advPanel && !advPanel.classList.contains('open')) {
+      advPanel.classList.add('open');
+      if (advToggle) { advToggle.setAttribute('aria-expanded', 'true'); advToggle.textContent = '⚙ Menos'; }
+    }
+  }
   relayout();
   asciiSettingsChanged();
 });
@@ -11619,6 +11695,44 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
     relayout();
   }
 });
+
+// ════════════════════════════════════════════════════════════════════
+// CAM STICKERS
+// ════════════════════════════════════════════════════════════════════
+(function _initCamStickers() {
+  // Sticker select buttons
+  document.querySelectorAll('.cam-sticker-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      camStickerType = btn.dataset.sticker;
+      document.querySelectorAll('.cam-sticker-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.body.classList.toggle('cam-sticker-magnifier', camStickerType === 'magnifier');
+      if (camStickerType === 'none') { camStickerActive = false; }
+    });
+  });
+
+  // Pointer interaction on #display canvas to place / drag sticker
+  let _magDragging = false;
+  function _updateStickerPos(e) {
+    const rect = display.getBoundingClientRect();
+    camStickerX = Math.max(0, Math.min(1, (e.clientX - rect.left)  / rect.width));
+    camStickerY = Math.max(0, Math.min(1, (e.clientY - rect.top)   / rect.height));
+    camStickerActive = true;
+  }
+  display.addEventListener('pointerdown', e => {
+    if (camStickerType === 'none') return;
+    _magDragging = true;
+    display.setPointerCapture(e.pointerId);
+    _updateStickerPos(e);
+    e.preventDefault();
+  });
+  display.addEventListener('pointermove', e => {
+    if (!_magDragging || camStickerType === 'none') return;
+    _updateStickerPos(e);
+    e.preventDefault();
+  });
+  display.addEventListener('pointerup',   () => { _magDragging = false; });
+  display.addEventListener('pointercancel', () => { _magDragging = false; });
+})();
 
 // ════════════════════════════════════════════════════════════════════
 // UTILS

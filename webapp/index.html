@@ -11658,6 +11658,8 @@ function _createCanvasRecorder(stream, videoBitsPerSecond) {
 }
 function _stopRecorderSafely(rec) {
   if (!rec || rec.state === 'inactive') return;
+  try { rec.__flipPrepareStop?.(); } catch (_) {}
+  try { rec.requestData(); } catch (_) {}
   try { rec.stop(); }
   catch (_) {
     try { rec.requestData(); } catch (_) {}
@@ -11667,6 +11669,10 @@ function _bindRecorderFinalize(rec, { addChunk, onFinalize, finalizeDelay = 120 
   let stopSeen = false;
   let finished = false;
   let finishTimer = 0;
+  const requestStopFinalize = (delay = finalizeDelay + 420) => {
+    stopSeen = true;
+    scheduleFinalize(delay);
+  };
   const scheduleFinalize = (delay = finalizeDelay) => {
     if (finished || !stopSeen) return;
     if (finishTimer) clearTimeout(finishTimer);
@@ -11690,8 +11696,10 @@ function _bindRecorderFinalize(rec, { addChunk, onFinalize, finalizeDelay = 120 
     stopSeen = true;
     scheduleFinalize(0);
   };
+  rec.__flipPrepareStop = requestStopFinalize;
   return () => {
     if (finishTimer) clearTimeout(finishTimer);
+    try { delete rec.__flipPrepareStop; } catch (_) { rec.__flipPrepareStop = null; }
   };
 }
 function _clearVideoExportStopTimer() {

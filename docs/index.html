@@ -57,8 +57,10 @@
     .cam-stk-sel-row input[type=range] { flex:1; }
     .cam-stk-del { background:none; border:1px solid var(--mid); color:var(--mid); font-family:monospace; font-size:10px; padding:2px 7px; cursor:pointer; border-radius:2px; white-space:nowrap; }
     .cam-stk-del:active { background:var(--dark); }
-    .cam-stk-zoom-row { padding:4px 2px 0; }
-    body.cam-zoom-active #display { cursor:crosshair; }
+    .cam-stk-sel-label { font-family:monospace; font-size:14px; color:var(--paper); min-width:16px; text-align:center; }
+    .cam-stk-reset-row { padding:4px 2px 0; }
+    .cam-stk-reset { background:none; border:1px solid var(--dark); color:var(--mid); font-family:monospace; font-size:9px; letter-spacing:.5px; width:100%; padding:3px 0; cursor:pointer; border-radius:2px; }
+    .cam-stk-reset:active { background:var(--dark); }
     /* Hide floating aspect selector on mobile when edit panel is open (asp-btns are inside panel) */
     @media (max-width:767px) {
       body.ascii-mode.ascii-edit #camAspect { display: none !important; }
@@ -912,36 +914,7 @@
     }
 
     /* ── ASCII panel controls ── */
-    .ascii-panel-quick {
-      position:sticky;
-      top:0;
-      z-index:3;
-      background:linear-gradient(180deg, rgba(10,15,12,.98), rgba(10,15,12,.94));
-      backdrop-filter:blur(8px);
-      -webkit-backdrop-filter:blur(8px);
-      box-shadow:0 1px 0 rgba(255,255,255,.05), 0 8px 20px rgba(0,0,0,.18);
-    }
-    .ascii-panel-meta {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      margin-bottom:6px;
-      padding:0 0 4px;
-    }
-    .ascii-panel-kicker {
-      color:#FF6B35;
-      font-size:8px;
-      font-weight:bold;
-      letter-spacing:1.6px;
-      text-transform:uppercase;
-    }
-    .ascii-panel-hint {
-      color:var(--mid);
-      font-size:8px;
-      letter-spacing:.6px;
-      text-align:right;
-    }
+    .ascii-panel-quick { /* flat section, no sticky */ }
     .ascii-panel-sticky-actions {
       display:flex;
       gap:6px;
@@ -1727,22 +1700,16 @@
   <!-- ASCII settings panel (inside asciiArea for split layout) -->
   <div id="asciiPanel">
     <div class="ac-section ascii-panel-quick">
-      <div class="ascii-panel-meta">
-        <span class="ascii-panel-kicker">ASCII LIVE EDITOR</span>
-        <span class="ascii-panel-hint">Quick controls stay pinned</span>
+      <div class="ascii-submode-row">
+        <button class="ascii-submode-btn active" id="btnAsciiModeClassic" type="button">CLASSIC</button>
+        <button class="ascii-submode-btn" id="btnAsciiModeTypo" type="button">TYPO</button>
       </div>
-      <div class="ac-title">Capture</div>
       <div class="ac-row" style="flex-wrap:wrap;gap:4px;padding:4px 0;">
         <button class="asp-btn" data-aw="9"  data-ah="16">9:16</button>
         <button class="asp-btn" data-aw="3"  data-ah="4">3:4</button>
         <button class="asp-btn active" data-aw="4" data-ah="3">4:3</button>
         <button class="asp-btn" data-aw="16" data-ah="9">16:9</button>
       </div>
-      <div class="ascii-submode-row">
-        <button class="ascii-submode-btn active" id="btnAsciiModeClassic" type="button">CLASSIC</button>
-        <button class="ascii-submode-btn" id="btnAsciiModeTypo" type="button">TYPO</button>
-      </div>
-      <div class="ascii-submode-caption" id="asciiSubmodeCaption">Classic monospace camera with fast density and look controls.</div>
       <div class="ac-row classic-ascii-only">
         <span class="ac-lbl">Density</span>
         <span class="ac-val" id="vChars">100</span>
@@ -1926,7 +1893,7 @@
       </div>
 
       <!-- Pythonization (CLASSIC only) -->
-      <div id="pythonSection" class="classic-ascii-only" data-ascii-pane="fx">
+      <div id="pythonSection" data-ascii-pane="fx">
         <div class="py-header">&#x1F40D; Pythonization</div>
         <div class="py-mode-row">
           <button id="btnPyOff"   class="py-mode-btn active">OFF</button>
@@ -2155,22 +2122,25 @@
   <div id="camStickerPanel">
     <div class="cam-sticker-header">STICKERS</div>
     <div class="cam-stk-tools" id="camStickerToolRow">
-      <button class="cam-stk-btn active" data-cam-stk="move" title="Move">&#x2715;</button>
-      <button class="cam-stk-btn" data-cam-stk="circle"   title="Circle">&#x25CB;</button>
-      <button class="cam-stk-btn" data-cam-stk="triangle" title="Triangle">&#x25B3;</button>
-      <button class="cam-stk-btn" data-cam-stk="square"   title="Square">&#x25A1;</button>
-      <button class="cam-stk-btn" data-cam-stk="diamond"  title="Diamond">&#x25C7;</button>
-      <button class="cam-stk-btn" data-cam-stk="hexagon"  title="Hexagon">&#x2B21;</button>
-      <button class="cam-stk-btn" data-cam-stk="star"     title="Star">&#x2606;</button>
-      <button class="cam-stk-btn" data-cam-stk="cross"    title="Cross">&#x271A;</button>
-      <button class="cam-stk-btn" data-cam-stk="heart"    title="Heart">&#x2661;</button>
+      <button class="cam-stk-btn active" data-cam-stk="move"     title="Move/Select">&#x2195;</button>
+      <button class="cam-stk-btn" data-cam-stk="circle"          title="Circle">&#x25CB;</button>
+      <button class="cam-stk-btn" data-cam-stk="triangle"        title="Triangle">&#x25B3;</button>
+      <button class="cam-stk-btn" data-cam-stk="square"          title="Square">&#x25A1;</button>
+      <button class="cam-stk-btn" data-cam-stk="diamond"         title="Diamond">&#x25C7;</button>
+      <button class="cam-stk-btn" data-cam-stk="hexagon"         title="Hexagon">&#x2B21;</button>
+      <button class="cam-stk-btn" data-cam-stk="star"            title="Star">&#x2606;</button>
+      <button class="cam-stk-btn" data-cam-stk="cross"           title="Cross">&#x271A;</button>
+      <button class="cam-stk-btn" data-cam-stk="heart"           title="Heart">&#x2661;</button>
+      <button class="cam-stk-btn" data-cam-stk="zoom"            title="Magnifier">&#x1F50D;</button>
     </div>
+    <!-- Controls for selected sticker -->
     <div class="cam-stk-sel-row" id="camStickerSelRow" style="display:none;">
+      <span class="cam-stk-sel-label" id="camStickerSelLabel">&#x25CB;</span>
       <input type="range" id="camStickerSize" min="5" max="50" value="15">
-      <button class="cam-stk-del" id="btnCamStickerDel">&#x2715; DEL</button>
+      <button class="cam-stk-del" id="btnCamStickerDel" title="Delete this sticker">&#x2715;</button>
     </div>
-    <div class="cam-stk-zoom-row">
-      <button class="cam-stk-btn" id="btnCamZoom">&#x1F50D; ZOOM</button>
+    <div class="cam-stk-reset-row">
+      <button class="cam-stk-reset" id="btnCamStickerReset">RESET ALL</button>
     </div>
   </div>
 
@@ -3128,14 +3098,11 @@ let DSI_W = 256, DSI_H = 192; const SCALE = 4;
 let OUT_W = DSI_W * SCALE, OUT_H = DSI_H * SCALE;
 
 // ── CAM Sticker state ──
-let camStickerTool   = 'move';   // active tool: 'move'|shape name
-let camStickers      = [];       // [{id,type,x,y,size}] normalized coords
+let camStickerTool   = 'move';   // active tool: 'move'|'circle'|'triangle'|...|'zoom'
+let camStickers      = [];       // [{id,type,x,y,size}] normalized coords; type='zoom' = magnifier lens
 let camStickerNextId = 1;
 let camStickerSelId  = null;     // id of currently selected sticker
-let camZoomOn        = false;    // magnifier toggle
-let camZoomX         = 0.5;      // magnifier normalized position
-let camZoomY         = 0.35;
-let _magBuf          = null;     // offscreen buffer for magnifier
+let _magBuf          = null;     // offscreen buffer for zoom sticker rendering
 
 // ════════════════════════════════════════════════════════════════════
 // DOM
@@ -9723,44 +9690,50 @@ function _drawCamStickerShape(ctx, type, cx, cy, r, selected) {
   ctx.restore();
 }
 
-// Render all CAM stickers + zoom magnifier onto ctx
+// Render all CAM stickers onto ctx
+// type='zoom' stickers render as magnifier lenses; all others as shapes
 function _renderCamStickerLayer(ctx) {
+  if (!camStickers.length) return;
   const W = ctx.canvas.width, H = ctx.canvas.height;
   const scale = Math.min(W, H);
-  for (const s of camStickers) {
-    const cx = Math.round(s.x * W);
-    const cy = Math.round(s.y * H);
+  // Render shapes first, zoom lenses last (so they magnify already-rendered content)
+  const shapes = camStickers.filter(s => s.type !== 'zoom');
+  const zooms  = camStickers.filter(s => s.type === 'zoom');
+  for (const s of shapes) {
+    const cx = Math.round(s.x * W), cy = Math.round(s.y * H);
     const r  = Math.round(s.size * scale / 100);
     _drawCamStickerShape(ctx, s.type, cx, cy, r, s.id === camStickerSelId);
   }
-  if (camZoomOn) _renderMagnifierSticker(ctx);
+  for (const s of zooms) {
+    const cx = Math.round(s.x * W), cy = Math.round(s.y * H);
+    const r  = Math.round(s.size * scale / 100);
+    _renderZoomSticker(ctx, cx, cy, r, s.id === camStickerSelId);
+  }
 }
 
-// Magnifier sticker: circular real-time zoom overlay
-function _renderMagnifierSticker(ctx) {
-  const W = ctx.canvas.width, H = ctx.canvas.height;
-  const cx = Math.round(camZoomX * W);
-  const cy = Math.round(camZoomY * H);
-  const r  = Math.round(Math.min(W, H) * 0.18);
-  const zoom = 2.5;
-  const srcSize = Math.round(r * 2 / zoom);
-  const srcX = Math.round(cx - srcSize / 2);
-  const srcY = Math.round(cy - srcSize / 2);
+// Zoom (magnifier) sticker — samples the canvas at (cx,cy) and draws a 2.5× zoomed circle
+function _renderZoomSticker(ctx, cx, cy, r, selected) {
+  const zoom    = 2.5;
+  const srcSize = Math.max(4, Math.round(r * 2 / zoom));
+  const srcX    = Math.round(cx - srcSize / 2);
+  const srcY    = Math.round(cy - srcSize / 2);
   if (!_magBuf) _magBuf = document.createElement('canvas');
   _magBuf.width = srcSize; _magBuf.height = srcSize;
   const bCtx = _magBuf.getContext('2d');
   bCtx.drawImage(ctx.canvas, srcX, srcY, srcSize, srcSize, 0, 0, srcSize, srcSize);
+  // Draw zoomed circle
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.clip();
   ctx.drawImage(_magBuf, 0, 0, srcSize, srcSize, cx - r, cy - r, r * 2, r * 2);
   ctx.restore();
+  // Ring + selection indicator
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-  ctx.lineWidth   = 3;
+  ctx.strokeStyle = selected ? '#FF6B35' : 'rgba(255,255,255,0.85)';
+  ctx.lineWidth   = selected ? 3 : 2;
   ctx.stroke();
   ctx.strokeStyle = 'rgba(255,255,255,0.4)';
   ctx.lineWidth   = 1;
@@ -11804,13 +11777,16 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
     }
     return null;
   }
+  const _STICKER_GLYPHS = { circle:'○', triangle:'△', square:'□', diamond:'◇', hexagon:'⬡', star:'☆', cross:'✚', heart:'♡', zoom:'🔍', move:'↕' };
   function _syncSelRow() {
-    const row = document.getElementById('camStickerSelRow');
-    const sel = camStickers.find(s => s.id === camStickerSelId);
+    const row   = document.getElementById('camStickerSelRow');
+    const sel   = camStickers.find(s => s.id === camStickerSelId);
     if (row) row.style.display = sel ? 'flex' : 'none';
     if (sel) {
-      const sizeEl = document.getElementById('camStickerSize');
-      if (sizeEl) sizeEl.value = Math.round(sel.size);
+      const sizeEl  = document.getElementById('camStickerSize');
+      const labelEl = document.getElementById('camStickerSelLabel');
+      if (sizeEl)  sizeEl.value   = Math.round(sel.size);
+      if (labelEl) labelEl.textContent = _STICKER_GLYPHS[sel.type] || '●';
     }
   }
 
@@ -11829,7 +11805,7 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
     if (sel) sel.size = parseFloat(sizeEl.value);
   });
 
-  // Delete button
+  // Delete selected sticker
   const delBtn = document.getElementById('btnCamStickerDel');
   if (delBtn) delBtn.addEventListener('click', () => {
     camStickers = camStickers.filter(s => s.id !== camStickerSelId);
@@ -11837,44 +11813,25 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
     _syncSelRow();
   });
 
-  // Zoom toggle
-  const zoomBtn = document.getElementById('btnCamZoom');
-  if (zoomBtn) zoomBtn.addEventListener('click', () => {
-    camZoomOn = !camZoomOn;
-    zoomBtn.classList.toggle('active', camZoomOn);
-    document.body.classList.toggle('cam-zoom-active', camZoomOn);
+  // Reset ALL stickers
+  const resetBtn = document.getElementById('btnCamStickerReset');
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    camStickers = []; camStickerNextId = 1; camStickerSelId = null;
+    _syncSelRow();
   });
 
-  // Pointer events on #display for sticker placement / dragging / zoom positioning
-  let _dragging = false;
-  let _dragId   = null;
-  let _offX = 0, _offY = 0;
-  let _zoomDrag = false;
+  // Pointer events: place new sticker or select+drag existing
+  let _dragging = false, _dragId = null, _offX = 0, _offY = 0;
   let _pinchStartDist = null, _pinchStartSize = null;
 
   display.addEventListener('pointerdown', e => {
     if (activeTab !== 'cam') return;
     const { x: nx, y: ny } = _getNorm(e);
-
-    // Zoom drag takes priority if zoom is on and no shape tool active
-    if (camZoomOn && camStickerTool === 'move') {
-      const W = display.width, H = display.height;
-      const dcx = (nx - camZoomX) * W, dcy = (ny - camZoomY) * H;
-      const zr  = Math.min(W, H) * 0.18;
-      if (Math.sqrt(dcx * dcx + dcy * dcy) <= zr * 1.3) {
-        _zoomDrag = true;
-        display.setPointerCapture(e.pointerId);
-        e.preventDefault();
-        return;
-      }
-    }
-
     if (camStickerTool === 'move') {
       const hitId = _hitTest(nx, ny);
       if (hitId !== null) {
         camStickerSelId = hitId;
-        _dragging = true;
-        _dragId   = hitId;
+        _dragging = true; _dragId = hitId;
         const s = camStickers.find(s => s.id === hitId);
         _offX = nx - s.x; _offY = ny - s.y;
         display.setPointerCapture(e.pointerId);
@@ -11885,7 +11842,7 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
         _syncSelRow();
       }
     } else {
-      // Place new sticker
+      // Place new sticker of active tool type (including 'zoom')
       const ns = { id: camStickerNextId++, type: camStickerTool, x: nx, y: ny, size: 15 };
       camStickers.push(ns);
       camStickerSelId = ns.id;
@@ -11898,24 +11855,18 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
   });
 
   display.addEventListener('pointermove', e => {
-    if (activeTab !== 'cam') return;
+    if (!_dragging || _dragId === null || activeTab !== 'cam') return;
     const { x: nx, y: ny } = _getNorm(e);
-    if (_zoomDrag) {
-      camZoomX = Math.max(0, Math.min(1, nx));
-      camZoomY = Math.max(0, Math.min(1, ny));
-      e.preventDefault();
-    } else if (_dragging && _dragId !== null) {
-      const s = camStickers.find(s => s.id === _dragId);
-      if (s) {
-        s.x = Math.max(0, Math.min(1, nx - _offX));
-        s.y = Math.max(0, Math.min(1, ny - _offY));
-      }
-      e.preventDefault();
+    const s = camStickers.find(s => s.id === _dragId);
+    if (s) {
+      s.x = Math.max(0, Math.min(1, nx - _offX));
+      s.y = Math.max(0, Math.min(1, ny - _offY));
     }
+    e.preventDefault();
   });
 
-  display.addEventListener('pointerup',     () => { _dragging = false; _dragId = null; _zoomDrag = false; });
-  display.addEventListener('pointercancel', () => { _dragging = false; _dragId = null; _zoomDrag = false; });
+  display.addEventListener('pointerup',     () => { _dragging = false; _dragId = null; });
+  display.addEventListener('pointercancel', () => { _dragging = false; _dragId = null; });
 
   // Pinch-to-resize selected sticker
   display.addEventListener('touchstart', e => {

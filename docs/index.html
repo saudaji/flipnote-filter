@@ -44,11 +44,8 @@
     /* ── Blue theme in ASCII mode ── */
     body.ascii-mode { --ink:#0c0cd8; --dark:#3a3af0; --mid:#7878ff; --paper:#c0c0ff; }
     body.ascii-mode .tab.active { background:rgba(160,160,255,.10); }
-    /* Hide cam-mode palette overlay in ASCII mode — color controls live inside #asciiPanel */
+    /* Hide cam-mode palette overlay in ASCII mode (cam sliders must not float over canvas) */
     body.ascii-mode .palettes { display: none !important; }
-    /* ASCII palette slot inside panel */
-    #asciiPalSlot { padding:8px 12px 4px; border-top:1px solid var(--dark); }
-    #asciiPalSlot #palColorTabs { margin-top:0; }
     /* Hide floating aspect selector on mobile when edit panel is open (asp-btns are inside panel) */
     @media (max-width:767px) {
       body.ascii-mode.ascii-edit #camAspect { display: none !important; }
@@ -1950,8 +1947,6 @@
       <button class="ac-btn" id="btnAsciiAdvancedQuick">DETAILS</button>
       <button class="ac-btn ac-reset" id="btnAsciiResetQuick">RESET</button>
     </div>
-
-    <div id="asciiPalSlot"></div>
 
     <div class="ac-btn-row">
       <button class="ac-btn" id="acCopy">📋 COPY</button>
@@ -9798,15 +9793,6 @@ function switchTab(tab) {
   document.body.classList.toggle('ascii-mode', isAscii);
   document.body.classList.toggle('sono-mode',  isSono);
 
-  // Move #palColorTabs into #asciiPanel when in ASCII (avoids floating overlay over canvas)
-  const _palColorTabs = document.getElementById('palColorTabs');
-  const _asciiPalSlot = document.getElementById('asciiPalSlot');
-  const _palettesDiv  = document.getElementById('palettes');
-  if (isAscii && _asciiPalSlot && !_asciiPalSlot.contains(_palColorTabs)) {
-    _asciiPalSlot.appendChild(_palColorTabs);
-  } else if (!isAscii && _palettesDiv && !_palettesDiv.contains(_palColorTabs)) {
-    _palettesDiv.appendChild(_palColorTabs);
-  }
 
   if (!isUp && _vidPlayerActive) _stopVidPlayer();
   if (!isAscii) {

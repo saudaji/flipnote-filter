@@ -550,6 +550,45 @@
       color:#eaf5ff;
     }
 
+    /* ── SLHT SILHOUETTE edit panel ── */
+    #slhtEditPanel { display:none; margin-bottom:3px; }
+    .slht-ctrl-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+    .slht-lbl {
+      color:#606060;
+      font-family:monospace;
+      font-size:7px;
+      letter-spacing:.7px;
+      min-width:64px;
+      flex-shrink:0;
+      text-transform:uppercase;
+    }
+    .slht-val {
+      color:#d8d8d8;
+      font-family:monospace;
+      font-size:7px;
+      min-width:24px;
+      text-align:right;
+      flex-shrink:0;
+    }
+    .slht-ctrl-row input[type="range"] {
+      flex:1;
+      height:2px;
+      accent-color:#c0c0c0;
+      cursor:pointer;
+    }
+    /* SLHT body theme — minimal monochrome */
+    body.slht-mode { --ink:#080808; --dark:#181818; --mid:#484848; --paper:#c8c8c8; }
+    body.slht-mode .tab.active { background:rgba(200,200,200,.06); }
+    body.slht-mode .cam-fam-btn.active {
+      border-color:#c8c8c8; color:#e0e0e0;
+      background:rgba(200,200,200,.10);
+    }
+    body.slht-mode .cam-var-btn.active {
+      border-color:#a0a0a0;
+      background:rgba(180,180,180,.10);
+    }
+    body.slht-mode #btnCamEditDock { color:#d8d8d8; }
+
     /* UPLOAD palette context badge */
     #palettes::before {
       content: '';
@@ -1113,6 +1152,48 @@
       box-shadow:0 0 12px rgba(255,107,53,.12);
     }
     body.ascii-typo-mode .classic-ascii-only { display:none !important; }
+
+    /* ══════════════════════════════════════════════════
+       SILHOUETTE FLOW — isolated component
+    ══════════════════════════════════════════════════ */
+    #sflowArea {
+      display:none; position:fixed; top:40px; bottom:96px; left:0; right:0;
+      background:#000; align-items:center; justify-content:center;
+    }
+    #sflowArea.visible { display:flex; }
+    #sflowVid { display:none; position:absolute; }
+    #sflowCanvas {
+      display:block; max-width:100%; max-height:100%;
+      image-rendering:pixelated; image-rendering:crisp-edges;
+    }
+    #barSflow {
+      display:none; position:fixed; bottom:0; left:0; right:0; height:96px;
+      background:var(--ink); border-top:2px solid var(--dark);
+      align-items:center; justify-content:space-around; padding:0 8px; z-index:10;
+      gap:6px;
+    }
+    #barSflow.visible { display:flex; }
+    #sflowColorWrap, #sflowAuraWrap {
+      display:flex; gap:4px; align-items:center; flex-shrink:0;
+    }
+    .sflow-btn {
+      min-width:28px; min-height:28px; background:none;
+      border:1px solid var(--dark); color:var(--mid);
+      font-family:monospace; font-size:10px; font-weight:bold;
+      cursor:pointer; transition:.1s; border-radius:3px; padding:0 6px;
+    }
+    .sflow-btn.active { border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.12); }
+    #sflowColorWrap .sflow-btn[data-sflow-color="palette"] { color:#9bbc0f; }
+    #sflowColorWrap .sflow-btn[data-sflow-color="white"]   { color:#ffffff; }
+    #sflowColorWrap .sflow-btn[data-sflow-color="green"]   { color:#39ff14; }
+    #sflowColorWrap .sflow-btn[data-sflow-color="cyan"]    { color:#00e8d0; }
+    #sflowColorWrap .sflow-btn[data-sflow-color="orange"]  { color:#FF6B35; }
+    #sflowStatusBadge {
+      position:absolute; top:6px; left:50%; transform:translateX(-50%);
+      background:rgba(0,0,0,.7); color:var(--mid); font-family:monospace;
+      font-size:8px; letter-spacing:1px; padding:3px 8px; pointer-events:none;
+      z-index:5; white-space:nowrap;
+    }
 
     /* ── Pythonization ── */
     #pythonSection { padding:6px 12px 8px; border-top:1px solid var(--dark); }
@@ -1687,6 +1768,7 @@
   <button class="tab"        id="tabSono" >🔊 SONO</button>
   <button class="tab"        id="tabWmp"  >📺 WMP</button>
   <button class="tab"        id="tabScrash">⚡ GLITCH</button>
+  <button class="tab"        id="tabSflow" >✦ FLOW</button>
 </div>
 
 <canvas id="display"></canvas>
@@ -1892,7 +1974,7 @@
         </div>
       </div>
 
-      <!-- Pythonization (CLASSIC only) -->
+      <!-- Pythonization — visible in CLASSIC and TYPO modes -->
       <div id="pythonSection" data-ascii-pane="fx">
         <div class="py-header">&#x1F40D; Pythonization</div>
         <div class="py-mode-row">
@@ -1994,6 +2076,7 @@
     <button class="cam-fam-btn"        data-family="CASKIA" title="CASKIA — LCD retro">CASKIA</button>
     <button class="cam-fam-btn"        data-family="VFD"    title="VFD — Vacuum Fluorescent">VFD</button>
     <button class="cam-fam-btn"        data-family="OSCAM"  title="OSCAM — Oscilloscope camera">OSCAM</button>
+    <button class="cam-fam-btn"        data-family="SLHT"   title="SLHT — Silhouette field">SLHT</button>
   </div>
 </div>
 
@@ -2118,7 +2201,56 @@
   <button id="btnMode"    style="display:none;" aria-hidden="true">DSi</button>
   <button id="btnDolphin" style="display:none;" aria-hidden="true">DLPHN</button>
 
-  <!-- CAM Stickers — all cam families DSi/DLPHN/CASKIA/VFD/OSCAM -->
+  <!-- SLHT edit panel -->
+  <div id="slhtEditPanel" style="display:none;">
+    <div class="slht-ctrl-row">
+      <span class="slht-lbl">DENSITY</span>
+      <span class="slht-val" id="vSlhtDensity">60</span>
+      <input type="range" id="slhtDensitySlider" min="10" max="100" value="60">
+    </div>
+    <div class="slht-ctrl-row">
+      <span class="slht-lbl">HALO</span>
+      <span class="slht-val" id="vSlhtHalo">40</span>
+      <input type="range" id="slhtHaloSlider" min="0" max="100" value="40">
+    </div>
+    <div class="slht-ctrl-row">
+      <span class="slht-lbl">FLOW</span>
+      <span class="slht-val" id="vSlhtFlow">55</span>
+      <input type="range" id="slhtFlowSlider" min="0" max="100" value="55">
+    </div>
+    <div class="slht-ctrl-row">
+      <span class="slht-lbl">CONTOUR</span>
+      <span class="slht-val" id="vSlhtContour">65</span>
+      <input type="range" id="slhtContourSlider" min="0" max="100" value="65">
+    </div>
+    <div class="slht-ctrl-row">
+      <span class="slht-lbl">MOTION</span>
+      <span class="slht-val" id="vSlhtMotion">40</span>
+      <input type="range" id="slhtMotionSlider" min="0" max="100" value="40">
+    </div>
+    <div class="slht-ctrl-row">
+      <span class="slht-lbl">SIZE</span>
+      <span class="slht-val" id="vSlhtSize">8</span>
+      <input type="range" id="slhtSizeSlider" min="5" max="18" value="8">
+    </div>
+    <div class="slht-ctrl-row">
+      <span class="slht-lbl">NOISE</span>
+      <span class="slht-val" id="vSlhtNoise">20</span>
+      <input type="range" id="slhtNoiseSlider" min="0" max="100" value="20">
+    </div>
+    <div class="slht-ctrl-row">
+      <span class="slht-lbl">FILL</span>
+      <span class="slht-val" id="vSlhtFill">70</span>
+      <input type="range" id="slhtFillSlider" min="0" max="100" value="70">
+    </div>
+    <div class="slht-ctrl-row">
+      <span class="slht-lbl">SMOOTH</span>
+      <span class="slht-val" id="vSlhtSmooth">60</span>
+      <input type="range" id="slhtSmoothSlider" min="0" max="100" value="60">
+    </div>
+  </div>
+
+  <!-- CAM Stickers — all cam families DSi/DLPHN/CASKIA/VFD/OSCAM/SLHT -->
   <div id="camStickerPanel">
     <div class="cam-sticker-header">STICKERS</div>
     <div class="cam-stk-tools" id="camStickerToolRow">
@@ -2568,6 +2700,44 @@
   <button class="btn" id="btnScrashReset">
     <div class="btn-icon">✕</div>
     <span class="btn-label">RESET</span>
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SILHOUETTE FLOW — isolated standalone component
+     Own video element, own canvas, zero relation to other modes
+════════════════════════════════════════════════════════════════ -->
+<div id="sflowArea">
+  <div id="sflowStatusBadge">FLOW — press CAM to start</div>
+  <!-- hidden video feeds MediaPipe only -->
+  <video id="sflowVid" playsinline muted autoplay></video>
+  <canvas id="sflowCanvas"></canvas>
+</div>
+
+<div id="barSflow">
+  <!-- Camera on/off -->
+  <button class="btn" id="btnSflowCam">
+    <div class="btn-icon">📷</div>
+    <span class="btn-label">CAM</span>
+  </button>
+  <!-- Colour picker -->
+  <div id="sflowColorWrap">
+    <button class="sflow-btn active" data-sflow-color="palette" title="Palette">●</button>
+    <button class="sflow-btn" data-sflow-color="white"   title="White">●</button>
+    <button class="sflow-btn" data-sflow-color="green"   title="Green">●</button>
+    <button class="sflow-btn" data-sflow-color="cyan"    title="Cyan">●</button>
+    <button class="sflow-btn" data-sflow-color="orange"  title="Orange">●</button>
+  </div>
+  <!-- Aura width -->
+  <div id="sflowAuraWrap">
+    <button class="sflow-btn" data-sflow-aura="s">S</button>
+    <button class="sflow-btn active" data-sflow-aura="m">M</button>
+    <button class="sflow-btn" data-sflow-aura="l">L</button>
+  </div>
+  <!-- Flip camera -->
+  <button class="btn" id="btnSflowFlip">
+    <div class="btn-icon">🔄</div>
+    <span class="btn-label">FLIP</span>
   </button>
 </div>
 
@@ -3293,6 +3463,13 @@ const CAM_FAMILIES = {
     editMode:'oscam',
     paletteContext:null,
   },
+  SLHT: {
+    label:'SLHT',
+    displayLabel:'SLHT',
+    variants:[{ id:'STD', label:'STD' }],
+    editMode:'slht',
+    paletteContext:null,
+  },
 };
 
 function _getSafeActiveTab() {
@@ -3309,6 +3486,7 @@ const CAMERA_ENGINE_RENDERERS = Object.freeze({
   CASKIA: 'caskia',
   VFD: 'vfd',
   OSCAM: 'oscam',
+  SLHT: 'slht',
 });
 const _camEngineCore = {
   sessionSeed: ((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0),
@@ -3483,6 +3661,9 @@ function _renderCamEngineFrame(source, srcW, srcH, targetCtx, mirror, options = 
         return frame;
       }
       renderOscam(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
+      return frame;
+    case 'slht':
+      renderSlht(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
       return frame;
     case 'dsi':
     default:
@@ -3865,6 +4046,7 @@ function _syncCamThemeClasses() {
   document.body.classList.toggle('caskia-mode', isCam && camFamily === 'CASKIA');
   document.body.classList.toggle('vfd-mode', isCam && camFamily === 'VFD');
   document.body.classList.toggle('oscam-mode', isCam && camFamily === 'OSCAM');
+  document.body.classList.toggle('slht-mode',  isCam && camFamily === 'SLHT');
 }
 
 // Syncs derived vars and body/UI state from camFamily + camVariant
@@ -3882,6 +4064,7 @@ function _applyCamState() {
   if (!(camFamily === 'CASKIA' && camVariant === 'E-INK')) _caskiaEInkPrimed = false;
   if (!(camFamily === 'CASKIA' && camVariant === 'SEIKO')) _caskiaSeikoPrimed = false;
   if (camFamily !== 'OSCAM' && typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
+  if (camFamily !== 'SLHT' && typeof _resetSlht === 'function') _resetSlht();
   document.querySelectorAll('.cam-fam-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.family === camFamily);
   });
@@ -3893,12 +4076,14 @@ function _applyCamState() {
   const caskiaPanel = document.getElementById('caskiaEditPanel');
   const auto03Panel = document.getElementById('auto03EditPanel');
   const oscamPanel = document.getElementById('oscamEditPanel');
+  const slhtPanel = document.getElementById('slhtEditPanel');
   const oscamLegacyRow = document.getElementById('oscamLegacyRow');
   const oscamStaticOnlyRow = document.getElementById('oscamStaticOnlyRow');
   dlpPanel.style.display = editMode === 'dolphin' ? 'block' : 'none';
   caskiaPanel.style.display = editMode === 'caskia' ? 'block' : 'none';
   auto03Panel.style.display = editMode === 'auto03' ? 'block' : 'none';
   oscamPanel.style.display = editMode === 'oscam' ? 'block' : 'none';
+  slhtPanel.style.display = editMode === 'slht' ? 'block' : 'none';
   oscamLegacyRow.classList.toggle('visible', editMode === 'oscam' && camVariant === 'LGCY');
   oscamStaticOnlyRow.classList.toggle('visible', editMode === 'oscam');
   document.getElementById('caskiaGhost').value = caskiaSeikoGhostVal;
@@ -3944,6 +4129,25 @@ function _applyCamState() {
   if (mb) { mb.textContent = legacyMode ? 'LGCY' : 'DSi'; mb.classList.toggle('legacy', legacyMode); }
   const db = document.getElementById('btnDolphin');
   if (db) db.classList.toggle('active', dolphinMode);
+  // Sync SLHT panel values
+  document.getElementById('slhtDensitySlider').value  = slhtDensity;
+  document.getElementById('vSlhtDensity').textContent = slhtDensity;
+  document.getElementById('slhtHaloSlider').value     = slhtHaloReach;
+  document.getElementById('vSlhtHalo').textContent    = slhtHaloReach;
+  document.getElementById('slhtFlowSlider').value     = slhtFlowStr;
+  document.getElementById('vSlhtFlow').textContent    = slhtFlowStr;
+  document.getElementById('slhtContourSlider').value  = slhtContourLk;
+  document.getElementById('vSlhtContour').textContent = slhtContourLk;
+  document.getElementById('slhtMotionSlider').value   = slhtMotionR;
+  document.getElementById('vSlhtMotion').textContent  = slhtMotionR;
+  document.getElementById('slhtSizeSlider').value     = slhtGlyphSz;
+  document.getElementById('vSlhtSize').textContent    = slhtGlyphSz;
+  document.getElementById('slhtNoiseSlider').value    = slhtNoiseAmt;
+  document.getElementById('vSlhtNoise').textContent   = slhtNoiseAmt;
+  document.getElementById('slhtFillSlider').value     = slhtFillAmt;
+  document.getElementById('vSlhtFill').textContent    = slhtFillAmt;
+  document.getElementById('slhtSmoothSlider').value   = slhtSmoothAmt;
+  document.getElementById('vSlhtSmooth').textContent  = slhtSmoothAmt;
   _syncPaletteModeUI();
   _syncCamPanels();
   if (_getSafeActiveTab() === 'cam' && typeof renderFlipNav === 'function') renderFlipNav('cam');
@@ -4130,6 +4334,55 @@ document.getElementById('dlpReso').addEventListener('input', function() {
 document.getElementById('dlpContr').addEventListener('input', function() {
   dlpContrastVal = +this.value;
   document.getElementById('vDlpContr').textContent = this.value;
+});
+
+// ── SLHT edit panel parameters & handlers ─────────────────────────
+let slhtDensity   = 60;
+let slhtHaloReach = 40;
+let slhtFlowStr   = 55;
+let slhtContourLk = 65;
+let slhtMotionR   = 40;
+let slhtGlyphSz   = 8;
+let slhtNoiseAmt  = 20;
+let slhtFillAmt   = 70;
+let slhtSmoothAmt = 60;
+
+document.getElementById('slhtDensitySlider').addEventListener('input', function() {
+  slhtDensity = +this.value;
+  document.getElementById('vSlhtDensity').textContent = this.value;
+});
+document.getElementById('slhtHaloSlider').addEventListener('input', function() {
+  slhtHaloReach = +this.value;
+  document.getElementById('vSlhtHalo').textContent = this.value;
+  _slhtFieldOK = false; // rebuild field on next seg frame
+});
+document.getElementById('slhtFlowSlider').addEventListener('input', function() {
+  slhtFlowStr = +this.value;
+  document.getElementById('vSlhtFlow').textContent = this.value;
+});
+document.getElementById('slhtContourSlider').addEventListener('input', function() {
+  slhtContourLk = +this.value;
+  document.getElementById('vSlhtContour').textContent = this.value;
+});
+document.getElementById('slhtMotionSlider').addEventListener('input', function() {
+  slhtMotionR = +this.value;
+  document.getElementById('vSlhtMotion').textContent = this.value;
+});
+document.getElementById('slhtSizeSlider').addEventListener('input', function() {
+  slhtGlyphSz = +this.value;
+  document.getElementById('vSlhtSize').textContent = this.value;
+});
+document.getElementById('slhtNoiseSlider').addEventListener('input', function() {
+  slhtNoiseAmt = +this.value;
+  document.getElementById('vSlhtNoise').textContent = this.value;
+});
+document.getElementById('slhtFillSlider').addEventListener('input', function() {
+  slhtFillAmt = +this.value;
+  document.getElementById('vSlhtFill').textContent = this.value;
+});
+document.getElementById('slhtSmoothSlider').addEventListener('input', function() {
+  slhtSmoothAmt = +this.value;
+  document.getElementById('vSlhtSmooth').textContent = this.value;
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -7530,6 +7783,552 @@ function renderOscam(source, srcW, srcH, targetCtx, mirror) {
   _renderOscamLegacy(source, srcW, srcH, targetCtx, mirror);
 }
 
+// ════════════════════════════════════════════════════════════════════
+// SLHT CAM — Silhouette Field Camera
+// Real-time silhouette-reactive typographic field
+// Android-safe: reduced analysis res, decoupled segmentation cadence
+// ════════════════════════════════════════════════════════════════════
+
+// ── Analysis dimensions (Android gets smaller buffers) ────────────
+const SLHT_AW = EARLY_IS_ANDROID ? 80  : 128;
+const SLHT_AH = EARLY_IS_ANDROID ? 60  : 96;
+
+// ── Segmenter (lazy async, owns its own MediaPipe instance) ───────
+let _slhtSeg       = null;
+let _slhtSegReady  = false;
+let _slhtSegBusy   = false;
+// Run segmentation every N render frames (Android: skip more frames)
+const SLHT_SEG_SKIP = EARLY_IS_ANDROID ? 3 : 2;
+let _slhtSegFrame  = 0;
+// Offscreen canvas for sampling video at analysis resolution
+let _slhtAnasCvs   = null;
+let _slhtAnasCtx   = null;
+
+// ── Typed field buffers at analysis resolution ────────────────────
+let _slhtMask      = new Float32Array(SLHT_AW * SLHT_AH);
+let _slhtPrevMask  = new Float32Array(SLHT_AW * SLHT_AH);
+let _slhtDist      = new Float32Array(SLHT_AW * SLHT_AH);
+let _slhtNx        = new Float32Array(SLHT_AW * SLHT_AH);
+let _slhtNy        = new Float32Array(SLHT_AW * SLHT_AH);
+let _slhtPrevLuma  = new Uint8Array(SLHT_AW * SLHT_AH);
+let _slhtMotion    = new Float32Array(SLHT_AW * SLHT_AH);
+let _slhtFieldOK   = false;
+let _slhtMaxDist   = 1;
+
+// ── Particle pool (typed arrays for GC-free operation) ────────────
+const _slhtIsMob = EARLY_IS_ANDROID || (window.innerWidth <= 768);
+const SLHT_MAX_P = EARLY_IS_ANDROID ? 550 : (_slhtIsMob ? 850 : 1350);
+const _slhtPX = new Float32Array(SLHT_MAX_P);  // position x (canvas px)
+const _slhtPY = new Float32Array(SLHT_MAX_P);  // position y
+const _slhtVX = new Float32Array(SLHT_MAX_P);  // velocity x
+const _slhtVY = new Float32Array(SLHT_MAX_P);  // velocity y
+const _slhtPA = new Float32Array(SLHT_MAX_P);  // angle (radians)
+const _slhtPC = new Float32Array(SLHT_MAX_P);  // cos(angle) — cached for render
+const _slhtPS = new Float32Array(SLHT_MAX_P);  // sin(angle)
+const _slhtPL = new Float32Array(SLHT_MAX_P);  // life [0,1]
+const _slhtPG = new Uint8Array(SLHT_MAX_P);    // glyph index
+let   _slhtPInited  = false;
+let   _slhtActiveP  = SLHT_MAX_P;
+
+// ── Cheap pseudo-noise LUT (LCG) ──────────────────────────────────
+const _SLHT_NLUT = (() => {
+  const lut = new Float32Array(1024);
+  let s = 0xdeadbeef >>> 0;
+  for (let i = 0; i < 1024; i++) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    lut[i] = (s >>> 0) / 0x100000000 * 2.0 - 1.0;
+  }
+  return lut;
+})();
+function _slhtNoise(xi, yi) {
+  return _SLHT_NLUT[((xi & 31) * 32 + (yi & 31)) & 1023];
+}
+
+// ── Glyph vocabulary (weighted toward dashes) ─────────────────────
+const SLHT_GLYPHS = ['-','-','-','-','-','–','–','/','\\','|'];
+const SLHT_NG = SLHT_GLYPHS.length;
+
+// ── MediaPipe URLs (same model as SFLOW tab) ──────────────────────
+const SLHT_MP_WASM  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm';
+const SLHT_MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+
+// ── Segmenter lazy init ───────────────────────────────────────────
+async function _slhtInitSeg() {
+  if (_slhtSegReady || _slhtSegBusy) return;
+  _slhtSegBusy = true;
+  try {
+    const { ImageSegmenter, FilesetResolver } =
+      await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/+esm');
+    const vision = await FilesetResolver.forVisionTasks(SLHT_MP_WASM);
+    _slhtSeg = await ImageSegmenter.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: SLHT_MP_MODEL, delegate: 'GPU' },
+      outputCategoryMask: false,
+      outputConfidenceMasks: true,
+      runningMode: 'VIDEO',
+    });
+    _slhtSegReady = true;
+    _slhtFieldOK  = false;  // rebuild field on first frame with real mask
+  } catch (e) {
+    console.warn('[SLHT] segmenter init failed:', e);
+  }
+  _slhtSegBusy = false;
+}
+
+// ── Ensure analysis canvas ────────────────────────────────────────
+function _slhtEnsureAnas() {
+  if (_slhtAnasCvs) return;
+  _slhtAnasCvs = document.createElement('canvas');
+  _slhtAnasCvs.width  = SLHT_AW;
+  _slhtAnasCvs.height = SLHT_AH;
+  _slhtAnasCtx = _slhtAnasCvs.getContext('2d', { willReadFrequently: true });
+  _slhtAnasCtx.imageSmoothingEnabled = true;
+}
+
+// ── Chamfer distance + Sobel gradient field ───────────────────────
+// mask: Float32Array[SLHT_AW*SLHT_AH] — 1=person, 0=background
+// Fills _slhtDist, _slhtNx, _slhtNy in-place; both inside & outside body
+function _slhtBuildField(mask, maxDist) {
+  const W = SLHT_AW, H = SLHT_AH, N = W * H;
+  const dist = _slhtDist;
+  const LARGE = 9999.0;
+  dist.fill(LARGE);
+
+  // Boundary: all pixels adjacent to the body/background edge → dist=0
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const v = mask[i];
+      if (v < 0.5) {
+        // outside — check if adjacent to inside
+        if ((x > 0   && mask[i-1] >= 0.5) ||
+            (x < W-1 && mask[i+1] >= 0.5) ||
+            (y > 0   && mask[i-W] >= 0.5) ||
+            (y < H-1 && mask[i+W] >= 0.5)) { dist[i] = 0; }
+        else { dist[i] = LARGE; }
+      } else {
+        // inside — check if adjacent to outside
+        if ((x > 0   && mask[i-1] < 0.5) ||
+            (x < W-1 && mask[i+1] < 0.5) ||
+            (y > 0   && mask[i-W] < 0.5) ||
+            (y < H-1 && mask[i+W] < 0.5)) { dist[i] = 0; }
+        else { dist[i] = LARGE; }
+      }
+    }
+  }
+
+  // Two-pass chamfer (cardinal=1, diagonal≈1.414)
+  for (let y = 1; y < H; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      let d = dist[i];
+      const a = dist[(y-1)*W+(x-1)] + 1.414;
+      const b = dist[(y-1)*W+ x   ] + 1.0;
+      const c = dist[(y-1)*W+(x+1)] + 1.414;
+      const dd = dist[y*W+(x-1)] + 1.0;
+      if (a < d) d = a;
+      if (b < d) d = b;
+      if (c < d) d = c;
+      if (dd < d) d = dd;
+      dist[i] = d;
+    }
+  }
+  for (let y = H - 2; y >= 0; y--) {
+    for (let x = W - 2; x >= 0; x--) {
+      const i = y * W + x;
+      let d = dist[i];
+      const a = dist[(y+1)*W+(x+1)] + 1.414;
+      const b = dist[(y+1)*W+ x   ] + 1.0;
+      const c = dist[(y+1)*W+(x-1)] + 1.414;
+      const dd = dist[y*W+(x+1)] + 1.0;
+      if (a < d) d = a;
+      if (b < d) d = b;
+      if (c < d) d = c;
+      if (dd < d) d = dd;
+      dist[i] = d;
+    }
+  }
+
+  // Clamp and track max
+  let maxActual = 0;
+  for (let i = 0; i < N; i++) {
+    if (dist[i] > maxDist) dist[i] = maxDist;
+    if (dist[i] > maxActual && dist[i] < maxDist) maxActual = dist[i];
+  }
+  _slhtMaxDist = Math.max(1, maxActual);
+
+  // Sobel on dist → gradient (outward normal direction)
+  const nx = _slhtNx, ny = _slhtNy;
+  nx.fill(0); ny.fill(0);
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      if (dist[i] >= maxDist) continue;
+      const tl=dist[(y-1)*W+(x-1)], tc=dist[(y-1)*W+x], tr=dist[(y-1)*W+(x+1)];
+      const ml=dist[ y   *W+(x-1)],                      mr=dist[ y   *W+(x+1)];
+      const bl=dist[(y+1)*W+(x-1)], bc=dist[(y+1)*W+x], br=dist[(y+1)*W+(x+1)];
+      const gx = (-tl - 2*ml - bl + tr + 2*mr + br);
+      const gy = (-tl - 2*tc - tr + bl + 2*bc + br);
+      const len = Math.sqrt(gx*gx + gy*gy) || 1;
+      nx[i] = gx / len;
+      ny[i] = gy / len;
+    }
+  }
+  _slhtFieldOK = true;
+}
+
+// ── Motion map update ─────────────────────────────────────────────
+function _slhtUpdateMotion(imgData) {
+  const pix = imgData.data;
+  for (let i = 0, p = 0; i < SLHT_AW * SLHT_AH; i++, p += 4) {
+    const luma = (pix[p]*77 + pix[p+1]*150 + pix[p+2]*29) >> 8;
+    const diff = Math.abs(luma - _slhtPrevLuma[i]);
+    _slhtMotion[i] = Math.min(1.0, diff * 0.025);
+    _slhtPrevLuma[i] = luma;
+  }
+}
+
+// ── Particle initialization ───────────────────────────────────────
+function _slhtInitParticles(CW, CH) {
+  for (let i = 0; i < SLHT_MAX_P; i++) {
+    _slhtPX[i] = Math.random() * CW;
+    _slhtPY[i] = Math.random() * CH;
+    _slhtVX[i] = 0; _slhtVY[i] = 0;
+    const a = Math.random() * Math.PI * 2;
+    _slhtPA[i] = a;
+    _slhtPC[i] = Math.cos(a);
+    _slhtPS[i] = Math.sin(a);
+    _slhtPL[i] = Math.random();
+    _slhtPG[i] = Math.floor(Math.random() * SLHT_NG);
+  }
+  _slhtPInited = true;
+}
+
+// ── Spawn one particle ────────────────────────────────────────────
+function _slhtSpawnParticle(i, CW, CH) {
+  const fillN = slhtFillAmt / 100;
+  const W = SLHT_AW, H = SLHT_AH;
+  let px = null, py = null;
+  // Try to spawn inside body (scales with fillAmt)
+  if (_slhtFieldOK && Math.random() < 0.5 + 0.45 * fillN) {
+    for (let k = 0; k < 8; k++) {
+      const rx = (Math.random() * W) | 0;
+      const ry = (Math.random() * H) | 0;
+      if (_slhtMask[ry * W + rx] >= 0.5) {
+        px = (rx / W) * CW + (Math.random() - 0.5) * (CW / W) * 2;
+        py = (ry / H) * CH + (Math.random() - 0.5) * (CH / H) * 2;
+        break;
+      }
+    }
+  }
+  if (px == null) {
+    px = Math.random() * CW;
+    py = Math.random() * CH;
+  }
+  _slhtPX[i] = px;
+  _slhtPY[i] = py;
+  _slhtVX[i] = (Math.random() - 0.5) * 0.5;
+  _slhtVY[i] = (Math.random() - 0.5) * 0.5;
+  const a = Math.random() * Math.PI * 2;
+  _slhtPA[i] = a;
+  _slhtPC[i] = Math.cos(a);
+  _slhtPS[i] = Math.sin(a);
+  _slhtPL[i] = 0.25 + Math.random() * 0.75;
+  _slhtPG[i] = Math.floor(Math.random() * SLHT_NG);
+}
+
+// ── Main SLHT renderer ────────────────────────────────────────────
+function renderSlht(source, srcW, srcH, targetCtx, mirror) {
+  const CW = targetCtx.canvas.width;
+  const CH = targetCtx.canvas.height;
+  if (!CW || !CH || !srcW || !srcH) return;
+
+  _slhtEnsureAnas();
+
+  // Kick off segmenter init if not started
+  if (!_slhtSegReady && !_slhtSegBusy) _slhtInitSeg();
+
+  // ── Sample video at analysis resolution ──
+  const [asx, asy, asw, ash] = cropCoordsForDims(srcW, srcH, SLHT_AW, SLHT_AH);
+  _slhtAnasCtx.save();
+  if (mirror) {
+    _slhtAnasCtx.translate(SLHT_AW, 0);
+    _slhtAnasCtx.scale(-1, 1);
+  }
+  _slhtAnasCtx.drawImage(source, asx, asy, asw, ash, 0, 0, SLHT_AW, SLHT_AH);
+  _slhtAnasCtx.restore();
+  const imgData = _slhtAnasCtx.getImageData(0, 0, SLHT_AW, SLHT_AH);
+
+  // ── Motion every frame ──
+  _slhtUpdateMotion(imgData);
+
+  // ── Segmentation (throttled) ──
+  _slhtSegFrame = (_slhtSegFrame + 1) % SLHT_SEG_SKIP;
+  if (_slhtSegFrame === 0 && _slhtSegReady && _slhtSeg) {
+    let rawMask = null, mW = 0, mH = 0;
+    try {
+      const result = _slhtSeg.segmentForVideo(source, performance.now());
+      if (result?.confidenceMasks?.[0]) {
+        rawMask = result.confidenceMasks[0].getAsFloat32Array();
+        mW = result.confidenceMasks[0].width;
+        mH = result.confidenceMasks[0].height;
+        result.close?.();
+      }
+    } catch(_) { /* silently skip on error */ }
+
+    if (rawMask && mW > 0 && mH > 0) {
+      // Downsample + temporal smooth mask into _slhtMask
+      const W = SLHT_AW, H = SLHT_AH;
+      const smooth = Math.min(0.88, 0.05 + slhtSmoothAmt / 100 * 0.83);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const mx = (x / (W - 1)) * (mW - 1);
+          const my = (y / (H - 1)) * (mH - 1);
+          const mx0 = mx | 0, mx1 = Math.min(mx0 + 1, mW - 1);
+          const my0 = my | 0, my1 = Math.min(my0 + 1, mH - 1);
+          const fx = mx - mx0, fy = my - my0;
+          const v =
+            rawMask[my0 * mW + mx0] * (1 - fx) * (1 - fy) +
+            rawMask[my0 * mW + mx1] * fx        * (1 - fy) +
+            rawMask[my1 * mW + mx0] * (1 - fx) * fy        +
+            rawMask[my1 * mW + mx1] * fx        * fy;
+          const i = y * W + x;
+          _slhtMask[i] = _slhtPrevMask[i] * smooth + v * (1 - smooth);
+          _slhtPrevMask[i] = _slhtMask[i];
+        }
+      }
+      // Rebuild distance + gradient field
+      const haloPixels = Math.max(3, Math.round(slhtHaloReach / 100 * (EARLY_IS_ANDROID ? 12 : 18)));
+      _slhtBuildField(_slhtMask, haloPixels);
+    }
+  }
+
+  // ── Init particles on first valid frame ──
+  if (!_slhtPInited) _slhtInitParticles(CW, CH);
+
+  // ── Update particle physics ──
+  if (_slhtFieldOK) {
+    const W = SLHT_AW, H = SLHT_AH;
+    const haloMax     = Math.max(1, _slhtMaxDist);
+    const contourBand = Math.max(1, haloMax * 0.35);
+    const flowN       = slhtFlowStr  / 100;
+    const lockN       = slhtContourLk / 100;
+    const noiseN      = slhtNoiseAmt  / 100;
+    const motN        = slhtMotionR   / 100;
+    const fillN       = slhtFillAmt   / 100;
+    const damping     = 0.88;
+    const maxSpd      = 2.4;
+    const lifeLoss    = 0.0035;
+    const now         = performance.now() * 0.001;
+
+    _slhtActiveP = Math.round(SLHT_MAX_P * Math.max(0.12, slhtDensity / 100));
+
+    for (let i = 0; i < _slhtActiveP; i++) {
+      let px = _slhtPX[i], py = _slhtPY[i];
+      let vx = _slhtVX[i], vy = _slhtVY[i];
+      let angle = _slhtPA[i];
+      let life  = _slhtPL[i];
+
+      // Map to mask space
+      const mx = Math.max(0, Math.min(W - 1, ((px / CW) * W) | 0));
+      const my = Math.max(0, Math.min(H - 1, ((py / CH) * H) | 0));
+      const mi = my * W + mx;
+
+      const inside = _slhtMask[mi] >= 0.5;
+      const d      = _slhtDist[mi];          // distance to contour
+      const normX  = _slhtNx[mi];            // outward normal x
+      const normY  = _slhtNy[mi];            // outward normal y
+      const tanX   = -normY;                 // tangent (perpendicular to normal)
+      const tanY   =  normX;
+      const mot    = _slhtMotion[mi];
+
+      if (inside) {
+        if (d <= contourBand) {
+          // Contour inner band: strong tangent lock + body-hugging
+          const str = lockN * (1.0 - d / contourBand) * 1.3 * flowN;
+          vx += tanX * str;
+          vy += tanY * str;
+          // Soft inward nudge to prevent drift outward
+          vx -= normX * lockN * 0.12;
+          vy -= normY * lockN * 0.12;
+          // Motion amplification at contour
+          vx += tanX * mot * motN * 1.6;
+          vy += tanY * mot * motN * 1.6;
+        } else if (fillN > 0.05) {
+          // Interior fill zone: soft wandering
+          const ni = ((mx * 7 + (now * 5.3) | 0)) & 31;
+          const nj = ((my * 5 + (now * 4.1) | 0)) & 31;
+          const nv = _slhtNoise(ni, nj) * noiseN * 0.22 * fillN;
+          const na = angle + nv * Math.PI;
+          vx += Math.cos(na) * 0.18 * fillN;
+          vy += Math.sin(na) * 0.18 * fillN;
+          vx += mot * normX * motN * 0.5;
+          vy += mot * normY * motN * 0.5;
+        } else {
+          // Low fill: slowly drift toward contour
+          vx -= normX * 0.15;
+          vy -= normY * 0.15;
+        }
+      } else {
+        // Outside body
+        if (d < haloMax) {
+          // Halo band: tangent flow + gentle inward pull
+          const hStr = 1.0 - d / haloMax;
+          vx += tanX * hStr * flowN * 0.65;
+          vy += tanY * hStr * flowN * 0.65;
+          vx -= normX * hStr * 0.22;   // pull toward body
+          vy -= normY * hStr * 0.22;
+          vx += tanX * mot * motN * 0.9;
+          vy += tanY * mot * motN * 0.9;
+        } else {
+          // Far outside: die faster
+          life -= 0.05;
+        }
+      }
+
+      // Secondary noise (texture term, low weight)
+      if (noiseN > 0.02) {
+        const ni2 = ((mx + (now * 3.7) | 0)) & 31;
+        const nj2 = ((my + (now * 2.9) | 0)) & 31;
+        vx += _slhtNoise(ni2, nj2) * noiseN * 0.15;
+        vy += _slhtNoise((ni2+7)&31, (nj2+13)&31) * noiseN * 0.15;
+      }
+
+      // Damping + speed clamp
+      vx *= damping; vy *= damping;
+      const spd2 = vx * vx + vy * vy;
+      if (spd2 > maxSpd * maxSpd) {
+        const inv = maxSpd / Math.sqrt(spd2);
+        vx *= inv; vy *= inv;
+      }
+
+      // Integrate
+      px += vx; py += vy;
+
+      // Angle tracks velocity lazily (smooth orientation update)
+      const spd = Math.sqrt(vx * vx + vy * vy);
+      if (spd > 0.04) {
+        const targetA = Math.atan2(vy, vx);
+        let da = targetA - angle;
+        if (da >  Math.PI) da -= Math.PI * 2;
+        if (da < -Math.PI) da += Math.PI * 2;
+        angle += da * 0.10;
+      }
+
+      life -= lifeLoss + (inside ? 0 : 0.002);
+
+      // Recycle dead / OOB particles
+      if (life <= 0 || px < -25 || px > CW + 25 || py < -25 || py > CH + 25) {
+        _slhtSpawnParticle(i, CW, CH);
+        continue;
+      }
+
+      _slhtPX[i] = px; _slhtPY[i] = py;
+      _slhtVX[i] = vx; _slhtVY[i] = vy;
+      _slhtPA[i] = angle;
+      _slhtPC[i] = Math.cos(angle);
+      _slhtPS[i] = Math.sin(angle);
+      _slhtPL[i] = life;
+    }
+  }
+
+  // ══ RENDER ════════════════════════════════════════════════════════
+  const ctx = targetCtx;
+
+  // 1. Black background
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, CW, CH);
+
+  // 2. Dim video background (grayscale-like via low alpha)
+  const vA = srcW / srcH, cA = CW / CH;
+  let dw, dh, dx, dy;
+  if (vA > cA) { dh = CH; dw = CH * vA; dx = (CW - dw) / 2; dy = 0; }
+  else          { dw = CW; dh = CW / vA; dx = 0; dy = (CH - dh) / 2; }
+
+  ctx.save();
+  if (mirror) { ctx.translate(CW, 0); ctx.scale(-1, 1); }
+  ctx.globalAlpha = 0.20;
+  ctx.drawImage(source, dx, dy, dw, dh);
+  ctx.globalAlpha = 1.0;
+  ctx.restore();
+
+  // 3. Loading overlay if segmenter not ready
+  if (!_slhtSegReady) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(160,160,160,0.75)';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SLHT — LOADING AI…', CW * 0.5, CH * 0.5);
+    ctx.restore();
+    return;
+  }
+
+  // 4. Draw particles — crisp black glyph marks
+  if (!_slhtFieldOK) return;
+
+  const W = SLHT_AW, H = SLHT_AH;
+  const haloMax     = _slhtMaxDist;
+  const contourBand = Math.max(1, haloMax * 0.35);
+  const fillN       = slhtFillAmt / 100;
+  const glyphSz     = slhtGlyphSz;
+
+  ctx.font           = `${glyphSz}px monospace`;
+  ctx.textAlign      = 'center';
+  ctx.textBaseline   = 'middle';
+  ctx.fillStyle      = '#000000';
+
+  for (let i = 0; i < _slhtActiveP; i++) {
+    const life = _slhtPL[i];
+    if (life <= 0) continue;
+
+    const px = _slhtPX[i], py = _slhtPY[i];
+    const mx = Math.max(0, Math.min(W - 1, ((px / CW) * W) | 0));
+    const my = Math.max(0, Math.min(H - 1, ((py / CH) * H) | 0));
+    const mi = my * W + mx;
+
+    const inside = _slhtMask[mi] >= 0.5;
+    const d      = _slhtDist[mi];
+
+    let alpha = life;
+    if (inside) {
+      if (d > contourBand) {
+        // Interior: visibility scales with fill amount
+        alpha *= 0.25 + 0.75 * fillN;
+      }
+      // Contour band: full opacity (alpha = life)
+    } else {
+      if (d < haloMax) {
+        // Halo: fade with distance
+        alpha *= 0.15 + 0.70 * (1.0 - d / haloMax);
+      } else {
+        continue; // too far outside, invisible
+      }
+    }
+    if (alpha < 0.04) continue;
+
+    // Render: use setTransform to avoid save/restore overhead
+    ctx.globalAlpha = alpha > 1 ? 1 : alpha;
+    ctx.setTransform(_slhtPC[i], _slhtPS[i], -_slhtPS[i], _slhtPC[i], px, py);
+    ctx.fillText(SLHT_GLYPHS[_slhtPG[i]], 0, 0);
+  }
+
+  // Reset transform + alpha
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1.0;
+}
+
+// ── SLHT reset (called when switching away from SLHT family) ──────
+function _resetSlht() {
+  _slhtPInited = false;
+  _slhtFieldOK = false;
+  _slhtSegFrame = 0;
+  _slhtPrevMask.fill(0);
+  _slhtMask.fill(0);
+  _slhtPrevLuma.fill(0);
+  _slhtMotion.fill(0);
+  // Keep segmenter alive for fast re-activation
+}
+
 // AUDIO-REACTIVE FLIPNOTE ABSTRACT
 // Renders a dithered abstract pattern driven by extAnalyser or any
 // active analyser. Called by cameraLoop when no camera is available.
@@ -9893,16 +10692,19 @@ function switchTab(tab) {
   document.getElementById('tabSono' ).classList.toggle('active', tab==='sono');
   document.getElementById('tabWmp'  ).classList.toggle('active', tab==='wmp');
   document.getElementById('tabScrash').classList.toggle('active', tab==='scrash');
+  document.getElementById('tabSflow' ).classList.toggle('active', tab==='sflow');
 
   const isCam = tab==='cam', isUp = tab==='up', isAscii = tab==='ascii';
   const isSono = tab==='sono', isWmp = tab==='wmp', isScrash = tab==='scrash';
+  const isSflow = tab==='sflow';
   if (!isAscii) _resetTypoTransient(false);
   if (!isAscii) asciiRecordingHighQuality = false;
   display.style.display = isCam ? 'block' : 'none';
   asciiArea.classList.toggle('visible', isAscii);
-  document.getElementById('sonoArea').classList.toggle('visible', isSono);
-  document.getElementById('wmpArea' ).classList.toggle('visible', isWmp);
-  document.getElementById('scrashArea').classList.toggle('visible', isScrash);
+  document.getElementById('sonoArea'   ).classList.toggle('visible', isSono);
+  document.getElementById('wmpArea'    ).classList.toggle('visible', isWmp);
+  document.getElementById('scrashArea' ).classList.toggle('visible', isScrash);
+  document.getElementById('sflowArea'  ).classList.toggle('visible', isSflow);
   document.getElementById('uploadSection').classList.toggle('visible', isUp);
   const _scrashCtrlsOn = isScrash || (isUp && uploadMode === 'scrash');
   if (_scrashCtrlsOn) _closeCamPanels();
@@ -9916,12 +10718,15 @@ function switchTab(tab) {
   document.getElementById('barWmp'   ).classList.toggle('visible', isWmp);
   document.getElementById('wmpHUD'   ).classList.toggle('visible', isWmp);
   document.getElementById('barScrash').classList.toggle('visible', isScrash);
+  document.getElementById('barSflow' ).classList.toggle('visible', isSflow);
   document.getElementById('btnFlip'  ).style.display = isCam  ? '' : 'none';
   document.getElementById('camFpsCtrl').style.display = isCam ? 'flex' : 'none';
   document.getElementById('camAspect').style.display  = (isCam || isAscii) ? 'flex' : 'none';
   _syncCamZoomUI();
-  document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp || isScrash || isAscii) ? 'none' : '';
+  document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp || isScrash || isAscii || isSflow) ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
+  // Stop SF cam when leaving the tab
+  if (!isSflow) _sflowStop();
 
   // Themes
   document.body.classList.toggle('ascii-mode', isAscii);
@@ -9957,6 +10762,7 @@ document.getElementById('tabAscii').addEventListener('click', () => switchTab('a
 document.getElementById('tabSono' ).addEventListener('click', () => switchTab('sono'));
 document.getElementById('tabWmp'  ).addEventListener('click', () => switchTab('wmp'));
 document.getElementById('tabScrash').addEventListener('click', () => switchTab('scrash'));
+document.getElementById('tabSflow' ).addEventListener('click', () => switchTab('sflow'));
 _syncScrashHudVisibility();
 
 // V50: Advanced panel toggle (delegated, one handler for all modes)
@@ -11906,15 +12712,16 @@ function _download(blob, filename) {
 // Platform detection for save strategy
 const _IS_IOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 // _saveFile: default save action.
-//   iOS   → Web Share API (only way to reach Photos from a browser)
-//   Other → direct download (goes to Downloads folder; user can open from there)
-// Limitation: browsers cannot write directly to Android Gallery/Photos or create
-// a "FLIP FILES" album — this requires a native app wrapper (PWA limitation).
+//   iOS/Android → Web Share API (lets OS route to Photos / Gallery)
+//   Other       → direct download (goes to Downloads folder)
 async function _saveFile(blob, filename) {
   const file = new File([blob], filename, { type: blob.type });
-  if (_IS_IOS && navigator.canShare?.({ files: [file] })) {
+  // Use share sheet on iOS AND Android — it's the only reliable way to reach
+  // the gallery from a browser on both platforms.
+  if ((_IS_IOS || IS_ANDROID) && navigator.canShare?.({ files: [file] })) {
     try { await navigator.share({ files: [file], title: 'FLIP' }); return; }
     catch(e) { if (e.name === 'AbortError') return; }
+    // If share fails (e.g. share API available but no handler), fall through to download
   }
   _download(blob, filename);
 }
@@ -12995,6 +13802,7 @@ const btnTypoDeleteSticker = document.getElementById('btnTypoDeleteSticker');
 if (btnTypoDeleteSticker) btnTypoDeleteSticker.addEventListener('click', () => {
   if (_removeTypoSticker(stickerState.selectedSticker)) flipToast('Sticker deleted');
 });
+
 const typoPhotoThreshEl = document.getElementById('typoPhotoThresh');
 if (typoPhotoThreshEl) {
   typoPhotoThreshEl.addEventListener('input', async e => {
@@ -15428,6 +16236,7 @@ function saveSettings() {
       caskiaSeikoGhostVal, caskiaSeikoDitherVal, caskiaSeikoContrastVal, caskiaSeikoTintVal, caskiaSeikoSoftnessVal,
       auto03ToneMode, auto03SharpMode, auto03NoiseMode, auto03StampMode,
       dlpColorMode, dlpResonanceVal, dlpContrastVal, oscamIntensityVal, oscamDetailVal, oscamPresenceVal, oscamTraceVal, oscamDefinitionVal, oscamLegacyMode, oscamColorMode,
+      slhtDensity, slhtHaloReach, slhtFlowStr, slhtContourLk, slhtMotionR, slhtGlyphSz, slhtNoiseAmt, slhtFillAmt, slhtSmoothAmt,
       sonoPreset, sonoMixVal, sonoChaosVal,
       wmpPreset: wmpPreset, wmpSensVal, wmpTrailsVal,
       uploadMode,
@@ -15558,6 +16367,16 @@ function loadSettings() {
       oscamColorMode = s.oscamColorMode;
       document.querySelectorAll('.oscam-color-btn').forEach(b => b.classList.toggle('active', b.dataset.osccol === oscamColorMode));
     }
+    // SLHT params
+    if (s.slhtDensity   !== undefined) { slhtDensity   = s.slhtDensity; }
+    if (s.slhtHaloReach !== undefined) { slhtHaloReach = s.slhtHaloReach; }
+    if (s.slhtFlowStr   !== undefined) { slhtFlowStr   = s.slhtFlowStr; }
+    if (s.slhtContourLk !== undefined) { slhtContourLk = s.slhtContourLk; }
+    if (s.slhtMotionR   !== undefined) { slhtMotionR   = s.slhtMotionR; }
+    if (s.slhtGlyphSz   !== undefined) { slhtGlyphSz   = s.slhtGlyphSz; }
+    if (s.slhtNoiseAmt  !== undefined) { slhtNoiseAmt  = s.slhtNoiseAmt; }
+    if (s.slhtFillAmt   !== undefined) { slhtFillAmt   = s.slhtFillAmt; }
+    if (s.slhtSmoothAmt !== undefined) { slhtSmoothAmt = s.slhtSmoothAmt; }
     _applyCamState();
     // SONO
     if (s.sonoPreset !== undefined) { sonoPreset = s.sonoPreset; document.querySelectorAll('.sono-preset-btn').forEach((b,i)=>b.classList.toggle('active',i===sonoPreset)); }
@@ -15664,10 +16483,414 @@ if (screen.width > 768) {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// SILHOUETTE FLOW  —  isolated standalone component
+// ════════════════════════════════════════════════════════════════════
+{
+  // ── State ──────────────────────────────────────────────────────────
+  let _sfStream        = null;
+  let _sfFacing        = 'user';
+  let _sfRafId         = 0;
+  let _sfActive        = false;
+  let _sfColorKey      = 'palette';
+  let _sfAuraKey       = 'm';
+  let _sfSegmenter     = null;
+  let _sfSegInitDone   = false;
+  let _sfSegInitBusy   = false;
+  let _sfPretextCache  = null;   // {chars:[{ch,x,y}], cw, ch}
+  let _sfResizeTimer   = 0;
+
+  const SF_AURA_DEPTH  = { s: 6, m: 12, l: 22 };
+  const SF_COLOR_MAP   = {
+    white  : '#ffffff',
+    green  : '#00ff41',
+    cyan   : '#00e5ff',
+    orange : '#ff6d00',
+  };
+  const SF_CHARS       = '01アイウエオカキクケコ★◆●○';
+  const SF_FONT_SIZE   = 10;
+  const SF_FONT        = `bold ${SF_FONT_SIZE}px monospace`;
+  const MEDIAPIPE_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm';
+  const MEDIAPIPE_MODEL= 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+
+  // ── Elements ────────────────────────────────────────────────────────
+  const sfVid     = document.getElementById('sflowVid');
+  const sfCanvas  = document.getElementById('sflowCanvas');
+  const sfBadge   = document.getElementById('sflowStatusBadge');
+  const sfCtx     = sfCanvas.getContext('2d', { willReadFrequently: true });
+
+  // ── MediaPipe init (lazy) ───────────────────────────────────────────
+  async function _sfInitSegmenter() {
+    if (_sfSegInitDone)  return true;
+    if (_sfSegInitBusy)  return false;
+    _sfSegInitBusy = true;
+    _sfBadge('FLOW — loading AI…');
+    try {
+      const { ImageSegmenter, FilesetResolver } =
+        await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/+esm');
+      const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM);
+      _sfSegmenter = await ImageSegmenter.createFromOptions(vision, {
+        baseOptions    : { modelAssetPath: MEDIAPIPE_MODEL, delegate: 'GPU' },
+        outputCategoryMask: false,
+        outputConfidenceMasks: true,
+        runningMode    : 'VIDEO',
+      });
+      _sfSegInitDone = true;
+      _sfSegInitBusy = false;
+      return true;
+    } catch (e) {
+      console.warn('SF segmenter init failed', e);
+      _sfBadge('FLOW — AI unavailable');
+      _sfSegInitBusy = false;
+      return false;
+    }
+  }
+
+  // ── Pretext grid (cached per canvas size) ───────────────────────────
+  async function _sfBuildGrid(cw, ch) {
+    if (_sfPretextCache && _sfPretextCache.cw === cw && _sfPretextCache.ch === ch) {
+      return _sfPretextCache;
+    }
+    let chars = [];
+    try {
+      const PT = await loadPretext();
+      const prepared = PT.prepare(SF_CHARS.repeat(8), SF_FONT);
+      const lines    = PT.layout(prepared, cw);
+      // lines is array of glyph objects with {x,y,char}
+      if (Array.isArray(lines)) {
+        for (const g of lines) {
+          if (g && g.char && g.x != null) chars.push({ ch: g.char, x: g.x, y: g.y || 0 });
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: plain grid
+    if (chars.length < 10) {
+      chars = [];
+      for (let y = SF_FONT_SIZE; y < ch; y += SF_FONT_SIZE) {
+        for (let x = 0; x < cw; x += SF_FONT_SIZE) {
+          chars.push({ ch: SF_CHARS[Math.floor(Math.random() * SF_CHARS.length)], x, y });
+        }
+      }
+    }
+
+    _sfPretextCache = { chars, cw, ch };
+    return _sfPretextCache;
+  }
+
+  // ── Chamfer distance + Sobel normal/tangent ──────────────────────────
+  function _sfBuildVectors(mask, W, H, maxDist) {
+    // dist[i] = distance to nearest boundary pixel
+    const dist  = new Float32Array(W * H);
+    const LARGE = 9999;
+    dist.fill(LARGE);
+
+    // Mark boundary: inside (mask >= 0.5) pixels adjacent to outside
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i   = y * W + x;
+        const val = mask[i] >= 0.5 ? 1 : 0;
+        if (val === 0) { dist[i] = 0; continue; }
+        // check 4-neighbours
+        let onEdge = false;
+        if (x > 0     && mask[i - 1]   < 0.5) onEdge = true;
+        if (x < W - 1 && mask[i + 1]   < 0.5) onEdge = true;
+        if (y > 0     && mask[i - W]   < 0.5) onEdge = true;
+        if (y < H - 1 && mask[i + W]   < 0.5) onEdge = true;
+        if (onEdge) dist[i] = 0;
+      }
+    }
+
+    // 2-pass chamfer (distance 1 for cardinal, 1.414 for diagonal)
+    // Forward pass
+    for (let y = 1; y < H; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        if (mask[i] < 0.5) continue;
+        const d1 = dist[(y-1)*W + (x-1)] + 1.414;
+        const d2 = dist[(y-1)*W +  x   ] + 1.0;
+        const d3 = dist[(y-1)*W + (x+1)] + 1.414;
+        const d4 = dist[ y   *W + (x-1)] + 1.0;
+        dist[i] = Math.min(dist[i], d1, d2, d3, d4);
+      }
+    }
+    // Backward pass
+    for (let y = H - 2; y >= 0; y--) {
+      for (let x = W - 2; x >= 0; x--) {
+        const i = y * W + x;
+        if (mask[i] < 0.5) continue;
+        const d1 = dist[(y+1)*W + (x+1)] + 1.414;
+        const d2 = dist[(y+1)*W +  x   ] + 1.0;
+        const d3 = dist[(y+1)*W + (x-1)] + 1.414;
+        const d4 = dist[ y   *W + (x+1)] + 1.0;
+        dist[i] = Math.min(dist[i], d1, d2, d3, d4);
+      }
+    }
+
+    // Sobel on dist field → outward normal
+    const nx = new Float32Array(W * H);
+    const ny = new Float32Array(W * H);
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        if (mask[i] < 0.5 || dist[i] > maxDist) continue;
+        const gx =
+          -dist[(y-1)*W+(x-1)] + dist[(y-1)*W+(x+1)]
+          -2*dist[y*W+(x-1)]   + 2*dist[y*W+(x+1)]
+          -dist[(y+1)*W+(x-1)] + dist[(y+1)*W+(x+1)];
+        const gy =
+          -dist[(y-1)*W+(x-1)] - 2*dist[(y-1)*W+x] - dist[(y-1)*W+(x+1)]
+          +dist[(y+1)*W+(x-1)] + 2*dist[(y+1)*W+x] + dist[(y+1)*W+(x+1)];
+        const len = Math.sqrt(gx*gx + gy*gy) || 1;
+        nx[i] = -gx / len;  // inward → outward: negate
+        ny[i] = -gy / len;
+      }
+    }
+    return { dist, nx, ny };
+  }
+
+  // ── Badge helper ────────────────────────────────────────────────────
+  function _sfBadge(txt) {
+    sfBadge.textContent = txt;
+    sfBadge.style.display = txt ? '' : 'none';
+  }
+
+  // ── Resize canvas to fill container ─────────────────────────────────
+  function _sfResize() {
+    const area  = document.getElementById('sflowArea');
+    const rect  = area.getBoundingClientRect();
+    const W     = Math.round(rect.width)  || window.innerWidth;
+    const H     = Math.round(rect.height) || (window.innerHeight - 136);
+    if (sfCanvas.width !== W || sfCanvas.height !== H) {
+      sfCanvas.width  = W;
+      sfCanvas.height = H;
+      _sfPretextCache = null;   // invalidate grid
+    }
+  }
+
+  // ── RAF render loop ─────────────────────────────────────────────────
+  async function _sfLoop() {
+    if (!_sfActive) return;
+    _sfRafId = requestAnimationFrame(_sfLoop);
+
+    if (!sfVid.videoWidth || sfVid.readyState < 2) return;
+
+    const VW = sfVid.videoWidth;
+    const VH = sfVid.videoHeight;
+    const CW = sfCanvas.width;
+    const CH = sfCanvas.height;
+    if (!CW || !CH) return;
+
+    // ── Run segmentation ─────────────────────────────────────────────
+    if (!_sfSegmenter) return;
+    let maskArr = null;
+    let maskW   = 0;
+    let maskH   = 0;
+    try {
+      const result = _sfSegmenter.segmentForVideo(sfVid, performance.now());
+      if (result?.confidenceMasks?.[0]) {
+        maskArr = result.confidenceMasks[0].getAsFloat32Array();
+        maskW   = result.confidenceMasks[0].width;
+        maskH   = result.confidenceMasks[0].height;
+        result.close?.();
+      }
+    } catch (_) { return; }
+    if (!maskArr) return;
+
+    // ── Compute aura depth in mask px (scale) ───────────────────────
+    const scaleX   = maskW / VW;
+    const scaleY   = maskH / VH;
+    const auraDepth = SF_AURA_DEPTH[_sfAuraKey] || SF_AURA_DEPTH.m;
+
+    // Build vectors from mask
+    const { dist, nx, ny } = _sfBuildVectors(maskArr, maskW, maskH, auraDepth);
+
+    // ── Colour ──────────────────────────────────────────────────────
+    let inkHex;
+    if (_sfColorKey === 'palette') {
+      const pal = _getPal(false);
+      inkHex = `rgb(${pal.ink[0]},${pal.ink[1]},${pal.ink[2]})`;
+    } else {
+      inkHex = SF_COLOR_MAP[_sfColorKey] || '#ffffff';
+    }
+
+    // ── Clear & draw video frame ─────────────────────────────────────
+    sfCtx.save();
+    sfCtx.fillStyle = '#000';
+    sfCtx.fillRect(0, 0, CW, CH);
+
+    // Draw video (mirrored if front cam)
+    sfCtx.save();
+    if (_sfFacing === 'user') {
+      sfCtx.translate(CW, 0);
+      sfCtx.scale(-1, 1);
+    }
+    // Fit video into canvas (cover)
+    const vAspect = VW / VH;
+    const cAspect = CW / CH;
+    let dw, dh, dx, dy;
+    if (vAspect > cAspect) {
+      dh = CH; dw = CH * vAspect; dx = (CW - dw) / 2; dy = 0;
+    } else {
+      dw = CW; dh = CW / vAspect; dx = 0; dy = (CH - dh) / 2;
+    }
+    sfCtx.globalAlpha = 0.35;
+    sfCtx.drawImage(sfVid, dx, dy, dw, dh);
+    sfCtx.globalAlpha = 1;
+    sfCtx.restore();
+
+    // ── Build/use Pretext grid ───────────────────────────────────────
+    let grid;
+    try {
+      grid = await _sfBuildGrid(CW, CH);
+    } catch (_) { sfCtx.restore(); return; }
+
+    // ── Render aura characters ───────────────────────────────────────
+    sfCtx.font      = SF_FONT;
+    sfCtx.textAlign = 'center';
+    sfCtx.textBaseline = 'middle';
+
+    for (const g of grid.chars) {
+      // Map canvas coord → mask coord
+      const mx = Math.round((g.x / CW) * maskW * scaleX) | 0;
+      const my = Math.round((g.y / CH) * maskH * scaleY) | 0;
+      if (mx < 0 || mx >= maskW || my < 0 || my >= maskH) continue;
+
+      const mi = my * maskW + mx;
+      const d  = dist[mi];
+      if (d <= 0 || d > auraDepth) continue;   // only aura band
+
+      // Density: more opaque near boundary (d ≈ 0)
+      const alpha   = 1 - (d / auraDepth) * 0.6;
+      // Push outward
+      const push    = (auraDepth - d) * 0.8;
+      const normX   = nx[mi];
+      const normY   = ny[mi];
+      const tx      = g.x + normX * push;
+      const ty      = g.y + normY * push;
+      // Tangent angle for rotation
+      const angle   = Math.atan2(normY, normX) + Math.PI / 2;
+
+      sfCtx.save();
+      sfCtx.globalAlpha = alpha;
+      sfCtx.fillStyle   = inkHex;
+      sfCtx.translate(tx, ty);
+      sfCtx.rotate(angle);
+      sfCtx.fillText(g.ch, 0, 0);
+      sfCtx.restore();
+    }
+
+    sfCtx.restore();
+  }
+
+  // ── Start camera ────────────────────────────────────────────────────
+  async function _sfStart(facing) {
+    _sfFacing = facing || _sfFacing;
+    _sfBadge('FLOW — starting…');
+
+    // Stop any existing stream
+    if (_sfStream) {
+      _sfStream.getTracks().forEach(t => t.stop());
+      _sfStream = null;
+    }
+    sfVid.srcObject = null;
+
+    // Get own stream
+    try {
+      _sfStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: _sfFacing, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      sfVid.srcObject = _sfStream;
+      await new Promise((res, rej) => {
+        sfVid.onloadedmetadata = res;
+        sfVid.onerror = rej;
+        setTimeout(rej, 8000);
+      });
+      await sfVid.play();
+    } catch (e) {
+      console.warn('SF cam error', e);
+      _sfBadge('FLOW — camera denied');
+      return;
+    }
+
+    // Init segmenter
+    const ok = await _sfInitSegmenter();
+    if (!ok) return;
+
+    _sfResize();
+    _sfActive = true;
+    _sfBadge('');
+    cancelAnimationFrame(_sfRafId);
+    _sfRafId = requestAnimationFrame(_sfLoop);
+  }
+
+  // ── Stop (exposed globally so switchTab can call it) ────────────────
+  window._sflowStop = function _sflowStop() {
+    _sfActive = false;
+    cancelAnimationFrame(_sfRafId);
+    _sfRafId = 0;
+    if (_sfStream) {
+      _sfStream.getTracks().forEach(t => t.stop());
+      _sfStream = null;
+    }
+    sfVid.srcObject = null;
+    // Clear canvas
+    sfCtx.clearRect(0, 0, sfCanvas.width, sfCanvas.height);
+    _sfBadge('FLOW — press CAM to start');
+  }
+
+  // ── Button: CAM ─────────────────────────────────────────────────────
+  document.getElementById('btnSflowCam').addEventListener('click', () => {
+    if (_sfActive) {
+      _sflowStop();
+    } else {
+      _sfStart(_sfFacing);
+    }
+  });
+
+  // ── Button: FLIP ────────────────────────────────────────────────────
+  document.getElementById('btnSflowFlip').addEventListener('click', () => {
+    const next = _sfFacing === 'user' ? 'environment' : 'user';
+    if (_sfActive) {
+      _sfStart(next);
+    } else {
+      _sfFacing = next;
+    }
+  });
+
+  // ── Color picker ────────────────────────────────────────────────────
+  document.querySelectorAll('[data-sflow-color]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _sfColorKey = btn.dataset.sflowColor;
+      document.querySelectorAll('[data-sflow-color]').forEach(b =>
+        b.classList.toggle('active', b === btn));
+    });
+  });
+
+  // ── Aura size picker ────────────────────────────────────────────────
+  document.querySelectorAll('[data-sflow-aura]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _sfAuraKey = btn.dataset.sflowAura;
+      document.querySelectorAll('[data-sflow-aura]').forEach(b =>
+        b.classList.toggle('active', b === btn));
+    });
+  });
+
+  // ── Resize observer ─────────────────────────────────────────────────
+  new ResizeObserver(() => {
+    clearTimeout(_sfResizeTimer);
+    _sfResizeTimer = setTimeout(() => {
+      _sfResize();
+      _sfPretextCache = null;
+    }, 200);
+  }).observe(document.getElementById('sflowArea'));
+}
+
+// ════════════════════════════════════════════════════════════════════
 // SERVICE WORKER
 // ════════════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=20260404-glitchhud-fix-1').then(reg => {
+  navigator.serviceWorker.register('sw.js?v=20260406-slht-cam-1').then(reg => {
     reg.update().catch(()=>{});
     reg.addEventListener('updatefound', () => {
       reg.installing.addEventListener('statechange', function() {

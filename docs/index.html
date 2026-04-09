@@ -957,7 +957,7 @@
     #upPanel {
       display:none; width:100%; max-width:420px;
       border:2px solid var(--dark); background:var(--ink);
-      overflow-y:auto; max-height:42vh;
+      overflow-y:auto; max-height:var(--up-panel-max-h, 42vh);
       -webkit-overflow-scrolling:touch;
     }
     body.up-edit-open #upPanel { display:block; }
@@ -1273,6 +1273,9 @@
     }
     /* ── SONO / WMP / SCRASH mobile touch targets ── */
     @media (max-width:767px) {
+      #uploadSection {
+        justify-content:flex-start;
+      }
       #sonoHUD {
         height:auto;
         min-height:150px;
@@ -3402,6 +3405,23 @@ function _syncSonoLayoutVars() {
   document.documentElement.style.setProperty('--sono-hud-bottom', `${metrics.hudBottom}px`);
   document.documentElement.style.setProperty('--sono-stack-bottom', `${metrics.stackBottom}px`);
 }
+function _syncUploadPanelLayout() {
+  const section = document.getElementById('uploadSection');
+  const panel = document.getElementById('upPanel');
+  if (!section || !panel) return;
+  const visibleHeights = [
+    document.getElementById('upModeRow'),
+    document.getElementById('dropZone')?.style.display === 'none' ? null : document.getElementById('dropZone'),
+    document.getElementById('fpsRow')?.style.display === 'none' ? null : document.getElementById('fpsRow'),
+    document.getElementById('progressWrap')?.classList.contains('visible') ? document.getElementById('progressWrap') : null,
+    document.getElementById('uploadCanvas')?.classList.contains('visible') ? document.getElementById('uploadCanvas') : null,
+    document.getElementById('vidPlayerBar')?.style.display === 'none' ? null : document.getElementById('vidPlayerBar'),
+  ].filter(Boolean);
+  const occupied = visibleHeights.reduce((sum, el) => sum + (el.offsetHeight || 0), 0);
+  const gaps = Math.max(0, visibleHeights.length) * 14;
+  const available = Math.max(180, section.clientHeight - occupied - gaps - 24);
+  document.documentElement.style.setProperty('--up-panel-max-h', `${available}px`);
+}
 
 function relayout() {
   const aspect = OUT_W / OUT_H;
@@ -3445,6 +3465,7 @@ function relayout() {
     document.getElementById('wmpCanvas').style.width = avW + 'px';
     document.getElementById('wmpCanvas').style.height = avHW + 'px';
   }
+  _syncUploadPanelLayout();
 }
 window.addEventListener('resize', relayout);
 relayout();
@@ -13583,6 +13604,7 @@ function renderUploadPreview() {
 // EDIT panel toggle
 document.getElementById('btnUpEdit').addEventListener('click', () => {
   document.body.classList.toggle('up-edit-open');
+  _syncUploadPanelLayout();
 });
 
 // Wire upload panel sliders

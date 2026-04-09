@@ -240,6 +240,54 @@
       cursor:pointer;
     }
     #btnCamEditClose:active { transform:scale(.96); }
+    #camMobileUtilityDock {
+      display:none;
+      flex-direction:column;
+      gap:10px;
+      border-top:1px solid rgba(255,255,255,.08);
+      padding-top:10px;
+    }
+    .cam-mobile-inline {
+      position:static !important;
+      top:auto !important;
+      right:auto !important;
+      left:auto !important;
+      bottom:auto !important;
+      width:100%;
+      max-width:100%;
+      margin:0;
+      padding:0;
+    }
+    .cam-mobile-inline#camAspect {
+      display:flex !important;
+      flex-direction:row;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+    .cam-mobile-inline#camAspect .asp-btn {
+      flex:1 1 calc(50% - 3px);
+      min-height:30px;
+      padding:6px 8px;
+    }
+    .cam-mobile-inline#camFpsCtrl {
+      display:flex !important;
+      align-items:stretch;
+      gap:8px;
+    }
+    .cam-mobile-inline#camFpsCtrl .fps-toggle,
+    .cam-mobile-inline#camZoomCtrl .zoom-meta {
+      justify-content:space-between;
+      width:100%;
+    }
+    .cam-mobile-inline#camFpsCtrl input[type=range],
+    .cam-mobile-inline#camZoomCtrl input[type=range] {
+      width:100%;
+    }
+    .cam-mobile-inline#camZoomCtrl {
+      align-items:stretch;
+      gap:8px;
+    }
+    body.cam-ui-active.cam-edit-open #camMobileUtilityDock:not(:empty) { display:flex; }
     #palSwatches {
       display:flex;
       flex-wrap:wrap;
@@ -2074,6 +2122,7 @@
   </div>
   <input type="range" id="camZoomSlider" min="1" max="1" step="0.1" value="1">
 </div>
+<div id="camUtilityAnchor" hidden aria-hidden="true"></div>
 
 <div id="camFamilyTray">
   <div id="camFamilyStrip">
@@ -2092,6 +2141,7 @@
     <span id="camEditTitle">DSI EDIT</span>
     <button id="btnCamEditClose" type="button">CLOSE</button>
   </div>
+  <div id="camMobileUtilityDock"></div>
   <div id="dlpEditPanel" style="display:none;">
     <div class="dlp-col-row">
       <button class="dlp-col-btn active" data-dlpcol="AQUA">AQUA</button>
@@ -4042,6 +4092,7 @@ function _syncCamPanels() {
   document.body.classList.toggle('cam-edit-open', isCam && camEditOpen && _hasCamEditor());
   document.getElementById('camControlDock').classList.toggle('visible', isCam);
   document.getElementById('camFamilyTray').classList.toggle('visible', isCam && (camFamilyTrayOpen || (camEditOpen && _hasCamEditor())));
+  _syncCamMobileUtilityDock();
 }
 function _syncCamThemeClasses() {
   const isCam = _getSafeActiveTab() === 'cam';
@@ -10169,6 +10220,20 @@ function _syncCamZoomUI() {
   slider.value = String(Math.max(camZoomMin, Math.min(camZoomMax, camZoomValue)));
   val.textContent = `${Number(slider.value).toFixed(1)}x`;
 }
+function _syncCamMobileUtilityDock() {
+  const dock = document.getElementById('camMobileUtilityDock');
+  const anchor = document.getElementById('camUtilityAnchor');
+  if (!dock || !anchor) return;
+  const useDock = window.innerWidth <= 767 && _getSafeActiveTab() === 'cam';
+  const controls = ['camAspect', 'camFpsCtrl', 'camZoomCtrl']
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  controls.forEach(ctrl => {
+    ctrl.classList.toggle('cam-mobile-inline', useDock);
+    if (useDock) dock.appendChild(ctrl);
+    else anchor.parentNode.insertBefore(ctrl, anchor);
+  });
+}
 function _refreshCamZoomSupport(track) {
   _clearCamZoomSupport();
   if (!track || typeof track.getCapabilities !== 'function') {
@@ -10770,6 +10835,7 @@ document.getElementById('tabSono' ).addEventListener('click', () => switchTab('s
 document.getElementById('tabWmp'  ).addEventListener('click', () => switchTab('wmp'));
 document.getElementById('tabScrash').addEventListener('click', () => switchTab('scrash'));
 document.getElementById('tabSflow' ).addEventListener('click', () => switchTab('sflow'));
+window.addEventListener('resize', _syncCamMobileUtilityDock);
 _syncScrashHudVisibility();
 
 // V50: Advanced panel toggle (delegated, one handler for all modes)

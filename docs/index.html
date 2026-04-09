@@ -849,7 +849,7 @@
       align-items:center; justify-content:center; background:#000;
     }
     #scrashArea.visible { display:flex; }
-    body.scrash-hud-open #scrashArea { bottom:280px; }
+    body.scrash-hud-open #scrashArea { bottom:var(--scrash-stack-bottom, 280px); }
     body.scrash-hud-open #camControlDock,
     body.scrash-hud-open #camFamilyTray { display:none !important; }
     #scrashCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
@@ -10774,6 +10774,8 @@ function _syncScrashHudVisibility() {
     }
   }
   document.body.classList.toggle('scrash-hud-open', show);
+  const stackBottom = show ? ((ctrlsEl?.offsetHeight || 184) + 96) : 96;
+  document.documentElement.style.setProperty('--scrash-stack-bottom', `${stackBottom}px`);
 }
 
 function switchTab(tab) {
@@ -16058,7 +16060,8 @@ let _ctxScrTmp;
 
   // Resize canvas to fit area
   function _resize() {
-    const avH = window.innerHeight - 40 - 280; // 96px bar + 184px controls
+    const stackBottom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scrash-stack-bottom')) || 280;
+    const avH = Math.max(160, window.innerHeight - 40 - stackBottom);
     const avW = window.innerWidth;
     const aspect = _scrW / _scrH;
     if (avW / avH > aspect) {
@@ -16069,7 +16072,10 @@ let _ctxScrTmp;
       scrashCvs.style.height = (avW / aspect) + 'px';
     }
   }
-  window.addEventListener('resize', _resize);
+  window.addEventListener('resize', () => {
+    _syncScrashHudVisibility();
+    _resize();
+  });
   _resize();
 
   // Aspect ratio selector

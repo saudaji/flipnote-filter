@@ -13099,7 +13099,7 @@ dropZone.addEventListener('drop',     e=>{e.preventDefault();dropZone.classList.
 
 async function handleFile(file){
   if(!file)return;
-  const isVideo=file.type.startsWith('video/');
+  const isVideo=file.type.startsWith('video/') || (!file.type && /\.(mov|mp4|m4v|webm|hevc)$/i.test(file.name||''));
   const isImage=file.type.startsWith('image/') || (!file.type && /\.(png|jpe?g|webp|gif|heic|heif)$/i.test(file.name||''));
   if(!isVideo&&!isImage){flipToast('⚠ Unsupported format.');return;}
   fpsRow.style.display=isVideo?'flex':'none';

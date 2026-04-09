@@ -7899,6 +7899,7 @@ const SLHT_AH = EARLY_IS_ANDROID ? 60  : 96;
 let _slhtSeg       = null;
 let _slhtSegReady  = false;
 let _slhtSegBusy   = false;
+let _slhtSegFailedMsg = '';
 // Run segmentation every N render frames (Android: skip more frames)
 const SLHT_SEG_SKIP = EARLY_IS_ANDROID ? 3 : 2;
 let _slhtSegFrame  = 0;
@@ -7969,8 +7970,10 @@ async function _slhtInitSeg() {
       runningMode: 'VIDEO',
     });
     _slhtSegReady = true;
+    _slhtSegFailedMsg = '';
     _slhtFieldOK  = false;  // rebuild field on first frame with real mask
   } catch (e) {
+    _slhtSegFailedMsg = 'SLHT unavailable on this device/network.';
     console.warn('[SLHT] segmenter init failed:', e);
   }
   _slhtSegBusy = false;
@@ -8354,6 +8357,20 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
   ctx.restore();
 
   // 3. Loading overlay if segmenter not ready
+  if (_slhtSegFailedMsg) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(24,24,24,0.78)';
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = 'rgba(220,220,220,0.92)';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SLHT DISABLED', CW * 0.5, CH * 0.5 - 10);
+    ctx.font = '9px monospace';
+    ctx.fillText(_slhtSegFailedMsg, CW * 0.5, CH * 0.5 + 10);
+    ctx.restore();
+    return;
+  }
   if (!_slhtSegReady) {
     ctx.save();
     ctx.fillStyle = 'rgba(160,160,160,0.75)';
@@ -8424,6 +8441,7 @@ function _resetSlht() {
   _slhtPInited = false;
   _slhtFieldOK = false;
   _slhtSegFrame = 0;
+  _slhtSegFailedMsg = '';
   _slhtPrevMask.fill(0);
   _slhtMask.fill(0);
   _slhtPrevLuma.fill(0);

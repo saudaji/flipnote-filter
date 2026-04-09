@@ -3161,7 +3161,6 @@ function _syncTypoCamUI() {
   if (typoPanel) typoPanel.style.display = asciiSubMode === 'typo' ? '' : 'none';
   const classicBtn = document.getElementById('btnAsciiModeClassic');
   const typoBtn = document.getElementById('btnAsciiModeTypo');
-  const submodeCaption = document.getElementById('asciiSubmodeCaption');
   const helperCopy = document.getElementById('typoHelperCopy');
   if (classicBtn) classicBtn.classList.toggle('active', asciiSubMode === 'classic');
   if (typoBtn) typoBtn.classList.toggle('active', asciiSubMode === 'typo');
@@ -3209,11 +3208,6 @@ function _syncTypoCamUI() {
   const tray = document.getElementById('typoStickerTray');
   if (trayBtn) trayBtn.classList.toggle('active', asciiSubMode === 'typo' && typoStickerTrayOpen);
   if (tray) tray.classList.toggle('visible', asciiSubMode === 'typo' && typoStickerTrayOpen);
-  if (submodeCaption) {
-    submodeCaption.textContent = asciiSubMode === 'typo'
-      ? 'Proportional type that bends around touch, stickers, photos and gentle motion.'
-      : 'Classic monospace camera with fast density and look controls.';
-  }
   if (helperCopy) {
     helperCopy.textContent = typoAstroEnabled
       ? 'Drag on the canvas to part the type. STKR pins shapes, PHOTO fills a sticker form, pinch scales and rotates the selected sticker, and ASTRD lets stickers drift like slow asteroids.'
@@ -13982,8 +13976,6 @@ if (typoPhotoThreshEl) {
 }
 const btnAsciiDefaultQuick = document.getElementById('btnAsciiDefaultQuick');
 if (btnAsciiDefaultQuick) btnAsciiDefaultQuick.addEventListener('click', () => document.getElementById('btnAsciiDefault')?.click());
-const btnAsciiAdvancedQuick = document.getElementById('btnAsciiAdvancedQuick');
-if (btnAsciiAdvancedQuick) btnAsciiAdvancedQuick.addEventListener('click', () => document.querySelector('.flip-advanced-toggle[data-target="advanced-ascii"]')?.click());
 const btnScrashAnimateQuick = document.getElementById('btnScrashAnimateQuick');
 if (btnScrashAnimateQuick) btnScrashAnimateQuick.addEventListener('click', () => document.getElementById('btnScrashAnimate')?.click());
 const btnScrashAdvancedQuick = document.getElementById('btnScrashAdvancedQuick');

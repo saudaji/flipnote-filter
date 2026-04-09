@@ -1273,6 +1273,11 @@
     }
     /* ── SONO / WMP / SCRASH mobile touch targets ── */
     @media (max-width:767px) {
+      #sonoHUD {
+        height:auto;
+        min-height:150px;
+        padding:8px 14px 10px;
+      }
       .sono-row3, .sono-row4, .sono-row5 { min-height:44px; }
       .sono-row3 input[type="range"],
       .sono-row4 input[type="range"],
@@ -1301,16 +1306,15 @@
 
     /* ── SONO area ── */
     #sonoArea {
-      display:none; position:fixed; top:40px; bottom:220px; left:0; right:0;
+      display:none; position:fixed; top:40px; bottom:var(--sono-stack-bottom, 220px); left:0; right:0;
       align-items:center; justify-content:center;
     }
     #sonoArea.visible { display:flex; }
-    body.sono-file #sonoArea { bottom:280px; }
     #sonoCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
 
     /* ── SONO permission overlay ── */
     #sonoPerm {
-      display:none; position:fixed; top:40px; bottom:220px; left:0; right:0;
+      display:none; position:fixed; top:40px; bottom:var(--sono-stack-bottom, 220px); left:0; right:0;
       flex-direction:column; align-items:center; justify-content:center;
       gap:18px; padding:32px; z-index:11;
     }
@@ -1325,13 +1329,12 @@
 
     /* ── SONO HUD (above bar) — 124px, clear rows ── */
     #sonoHUD {
-      display:none; position:fixed; bottom:96px; left:0; right:0; height:150px;
+      display:none; position:fixed; bottom:var(--sono-hud-bottom, 96px); left:0; right:0; height:150px;
       background:var(--ink); border-top:1px solid var(--dark);
       flex-direction:column; justify-content:space-evenly;
       padding:4px 14px; gap:2px; z-index:9;
     }
     #sonoHUD.visible { display:flex; }
-    body.sono-file #sonoHUD { bottom:156px; }
     /* Row 1: preset tabs + amp dot */
     .sono-row1 { display:flex; align-items:center; gap:8px; }
     #sonoAmpDot {
@@ -3381,6 +3384,24 @@ function _syncAspectButtonsUI() {
     btn.classList.toggle('active', parseInt(btn.dataset.aw, 10) === camAspW && parseInt(btn.dataset.ah, 10) === camAspH);
   });
 }
+function _getSonoStackMetrics() {
+  const bar = document.getElementById('barSono');
+  const hud = document.getElementById('sonoHUD');
+  const progress = document.getElementById('sonoProgress');
+  const barH = bar ? (bar.offsetHeight || 96) : 96;
+  const progressVisible = document.body.classList.contains('sono-file');
+  const progressH = progressVisible ? (progress?.offsetHeight || 56) : 0;
+  const hudH = hud && hud.classList.contains('visible') ? (hud.offsetHeight || 150) : 150;
+  return {
+    hudBottom: barH + progressH,
+    stackBottom: barH + progressH + hudH,
+  };
+}
+function _syncSonoLayoutVars() {
+  const metrics = _getSonoStackMetrics();
+  document.documentElement.style.setProperty('--sono-hud-bottom', `${metrics.hudBottom}px`);
+  document.documentElement.style.setProperty('--sono-stack-bottom', `${metrics.stackBottom}px`);
+}
 
 function relayout() {
   const aspect = OUT_W / OUT_H;
@@ -3410,7 +3431,9 @@ function relayout() {
   asciiCvs.style.width = aw + 'px';
   asciiCvs.style.height = ah + 'px';
 
-  const avHS = window.innerHeight - 40 - (document.body.classList.contains('sono-file') ? 280 : 220);
+  _syncSonoLayoutVars();
+  const sonoMetrics = _getSonoStackMetrics();
+  const avHS = Math.max(140, window.innerHeight - 40 - sonoMetrics.stackBottom);
   let sw, sh;
   if (avW / avHS > aspect) { sh = avHS; sw = sh * aspect; }
   else { sw = avW; sh = sw / aspect; }

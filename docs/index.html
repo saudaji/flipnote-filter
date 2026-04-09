@@ -10731,8 +10731,8 @@ function switchTab(tab) {
   // Themes
   document.body.classList.toggle('ascii-mode', isAscii);
   document.body.classList.toggle('sono-mode',  isSono);
-  // Always enter ASCII in CLASSIC submode so Pythonization and all CLASSIC controls are visible
-  if (isAscii) { asciiSubMode = 'classic'; _syncTypoCamUI(); }
+  // Preserve the active ASCII submode after first entry; default stays classic from initial state.
+  if (isAscii) _syncTypoCamUI();
 
 
   if (!isUp && _vidPlayerActive) _stopVidPlayer();

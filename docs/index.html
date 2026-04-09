@@ -15572,6 +15572,20 @@ function _wmpNextPreset(exclude) {
   const choices = [0, 1, 2, 3].filter(p => p !== exclude);
   return choices[Math.floor(Math.random() * choices.length)];
 }
+function _syncWmpPresetButtons() {
+  document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(btn =>
+    btn.classList.toggle('active', parseInt(btn.dataset.preset, 10) === wmpPreset));
+}
+function _setWmpPreset(nextPreset, options = {}) {
+  const { clearCanvas = true, resetPeaks = true } = options;
+  wmpPreset = Math.max(0, Math.min(3, parseInt(nextPreset, 10) || 0));
+  _syncWmpPresetButtons();
+  if (resetPeaks) { wmpPeaks.fill(0); wmpPeakHold.fill(0); }
+  if (clearCanvas) {
+    ctxWmp.fillStyle = '#000';
+    ctxWmp.fillRect(0, 0, WW, WH);
+  }
+}
 
 function _wmpRandSpawnSlot() {
   // Limit simultaneous slots: 1 on lite mode, 3 on full
@@ -15709,7 +15723,10 @@ function wmpLoop() {
 
     // Complete finished slots
     wmpRandSlots = wmpRandSlots.filter(slot => {
-      if (slot.blend >= 1) { wmpPreset = slot.to; return false; }
+      if (slot.blend >= 1) {
+        _setWmpPreset(slot.to, { clearCanvas: false, resetPeaks: false });
+        return false;
+      }
       return true;
     });
 
@@ -15742,11 +15759,7 @@ function wmpLoop() {
 // ── Controls ──────────────────────────────────────────────────────────
 document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(btn => {
   btn.addEventListener('click', () => {
-    wmpPreset = parseInt(btn.dataset.preset);
-    document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(b =>
-      b.classList.toggle('active', parseInt(b.dataset.preset) === wmpPreset));
-    wmpPeaks.fill(0); wmpPeakHold.fill(0);
-    ctxWmp.fillStyle = '#000'; ctxWmp.fillRect(0, 0, WW, WH);
+    _setWmpPreset(parseInt(btn.dataset.preset, 10));
     // If random is on, reset slots
     if (wmpRandom) {
       wmpRandSlots = [];

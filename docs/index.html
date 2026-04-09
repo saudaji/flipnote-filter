@@ -12711,17 +12711,40 @@ function _download(blob, filename) {
 }
 // Platform detection for save strategy
 const _IS_IOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+async function _saveViaPicker(blob, filename) {
+  if (typeof window.showSaveFilePicker !== 'function') return false;
+  try {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{
+        description: blob.type || 'Media file',
+        accept: { [blob.type || 'application/octet-stream']: [ext ? `.${ext}` : '.bin'] }
+      }]
+    });
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return true;
+  } catch (e) {
+    if (e?.name === 'AbortError') return true;
+    return false;
+  }
+}
 // _saveFile: default save action.
-//   iOS/Android → Web Share API (lets OS route to Photos / Gallery)
-//   Other       → direct download (goes to Downloads folder)
+//   iOS     → share sheet (best browser-native save path there)
+//   Android → save picker / direct download
+//   Other   → direct download (goes to Downloads folder)
 async function _saveFile(blob, filename) {
+  if (IS_ANDROID) {
+    if (await _saveViaPicker(blob, filename)) return;
+    _download(blob, filename);
+    return;
+  }
   const file = new File([blob], filename, { type: blob.type });
-  // Use share sheet on iOS AND Android — it's the only reliable way to reach
-  // the gallery from a browser on both platforms.
-  if ((_IS_IOS || IS_ANDROID) && navigator.canShare?.({ files: [file] })) {
+  if (_IS_IOS && navigator.canShare?.({ files: [file] })) {
     try { await navigator.share({ files: [file], title: 'FLIP' }); return; }
     catch(e) { if (e.name === 'AbortError') return; }
-    // If share fails (e.g. share API available but no handler), fall through to download
   }
   _download(blob, filename);
 }

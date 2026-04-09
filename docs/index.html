@@ -1876,8 +1876,15 @@
       </div>
     </div>
 
+    <div class="editor-pane-tabs" role="tablist" aria-label="ASCII editor panes">
+      <button class="editor-pane-btn active" data-ascii-pane-btn="type" type="button">Type</button>
+      <button class="editor-pane-btn" data-ascii-pane-btn="image" type="button">Image</button>
+      <button class="editor-pane-btn" data-ascii-pane-btn="fx" type="button">FX</button>
+    </div>
+    <div class="editor-pane-note" id="asciiPaneNote">Choose the character system first. Density, font and frame define the core read of the image.</div>
+
     <div id="advanced-ascii">
-      <div class="ac-section classic-ascii-only" data-ascii-pane="type">
+      <div class="ac-section classic-ascii-only ascii-pane active" data-ascii-pane="type">
         <div class="ac-row" id="acFontRow">
           <span class="ac-lbl">Font</span>
           <select id="acFont">
@@ -1916,7 +1923,7 @@
         </div>
       </div>
 
-      <div class="ac-section classic-ascii-only" data-ascii-pane="image">
+      <div class="ac-section classic-ascii-only ascii-pane" data-ascii-pane="image">
         <div class="ac-title">Look</div>
         <div class="ac-row">
           <span class="ac-lbl">Brightness</span>
@@ -1955,7 +1962,7 @@
         </div>
       </div>
 
-      <div class="ac-section classic-ascii-only" data-ascii-pane="fx">
+      <div class="ac-section classic-ascii-only ascii-pane" data-ascii-pane="fx">
         <div class="ac-title">FX</div>
         <div class="ac-row">
           <label class="ac-lbl"><input type="checkbox" id="cbThresh"> Threshold</label>
@@ -1975,7 +1982,7 @@
       </div>
 
       <!-- Pythonization — visible in CLASSIC and TYPO modes -->
-      <div id="pythonSection" data-ascii-pane="fx">
+      <div id="pythonSection" class="ascii-pane" data-ascii-pane="fx">
         <div class="py-header">&#x1F40D; Pythonization</div>
         <div class="py-mode-row">
           <button id="btnPyOff"   class="py-mode-btn active">OFF</button>

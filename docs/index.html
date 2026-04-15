@@ -2971,6 +2971,7 @@ let acQualityVal  = 'none';
 let acFrameVal    = 0;
 let lastAsciiText = '';
 let asciiSubMode  = 'classic';
+const ASCII_PRESET_STORAGE_KEY = 'flip.ascii.preset';
 let typoFontPreset = 'sans';
 let typoPaletteKey = 'classic';
 let typoColorMode = 'tint';
@@ -3136,6 +3137,24 @@ function _getAsciiModeCols(mode = asciiSubMode) {
 function _getAsciiDefaultCols(mode = asciiSubMode) {
   if (mode === 'typo') return EARLY_IS_ANDROID ? 72 : (EARLY_IS_MOBILE ? 96 : 112);
   return EARLY_IS_ANDROID ? ASCII_ANDROID_DEFAULT : ASCII_DEV_MAX;
+}
+function _readAsciiPresetPreference() {
+  try {
+    const stored = sessionStorage.getItem(ASCII_PRESET_STORAGE_KEY);
+    if (stored == null) return '';
+    return stored === 'typo' ? 'typo' : 'classic';
+  } catch (_) {
+    return '';
+  }
+}
+function _writeAsciiPresetPreference(mode) {
+  try {
+    sessionStorage.setItem(ASCII_PRESET_STORAGE_KEY, mode === 'typo' ? 'typo' : 'classic');
+  } catch (_) {}
+}
+function _applyAsciiPresetPreference(mode) {
+  asciiSubMode = mode === 'typo' ? 'typo' : 'classic';
+  asciiCols = asciiSubMode === 'typo' ? asciiTypoCols : asciiClassicCols;
 }
 function _setAsciiModeCols(next, mode = asciiSubMode) {
   const value = Math.max(1, Math.round(next));
@@ -13875,6 +13894,7 @@ document.getElementById('btnAsciiModeClassic').addEventListener('click', () => {
   asciiTypoCols = asciiSubMode === 'typo' ? asciiCols : asciiTypoCols;
   asciiSubMode = 'classic';
   asciiCols = asciiClassicCols;
+  _writeAsciiPresetPreference(asciiSubMode);
   _resetTypoTransient(false);
   _syncTypoCamUI();
   asciiSettingsChanged();
@@ -13884,12 +13904,14 @@ document.getElementById('btnAsciiModeTypo').addEventListener('click', () => {
   asciiClassicCols = asciiSubMode === 'classic' ? asciiCols : asciiClassicCols;
   asciiSubMode = 'typo';
   asciiCols = asciiTypoCols;
+  _writeAsciiPresetPreference(asciiSubMode);
   _syncTypoCamUI();
   _attachTypoInteractionHandlers();
   _ensureTypoCamInit(true).then(ok => {
     if (!ok) {
       asciiSubMode = 'classic';
       asciiCols = asciiClassicCols;
+      _writeAsciiPresetPreference(asciiSubMode);
       _syncTypoCamUI();
       flipToast('⚠ TYPO unavailable — using classic ASCII');
     }
@@ -13898,6 +13920,7 @@ document.getElementById('btnAsciiModeTypo').addEventListener('click', () => {
   }).catch(() => {
     asciiSubMode = 'classic';
     asciiCols = asciiClassicCols;
+    _writeAsciiPresetPreference(asciiSubMode);
     _syncTypoCamUI();
     saveSettings();
   });
@@ -16574,6 +16597,7 @@ function loadSettings() {
     if (s.asciiClassicCols !== undefined) asciiClassicCols = s.asciiClassicCols;
     if (s.asciiTypoCols !== undefined) asciiTypoCols = s.asciiTypoCols;
     if (s.asciiSubMode && ['classic','typo'].includes(s.asciiSubMode)) asciiSubMode = s.asciiSubMode;
+    asciiSubMode = _readAsciiPresetPreference() || asciiSubMode;
     if (s.typoFontPreset && TYPO_FONTS[s.typoFontPreset]) typoFontPreset = s.typoFontPreset;
     if (s.typoPaletteKey && TYPO_PALETTES[s.typoPaletteKey]) typoPaletteKey = s.typoPaletteKey;
     if (s.typoColorMode && TYPO_COLOR_MODES.includes(s.typoColorMode)) typoColorMode = s.typoColorMode;
@@ -16581,6 +16605,8 @@ function loadSettings() {
     if (s.typoPhotoThreshold !== undefined) typoPhotoThreshold = Math.max(40, Math.min(220, Math.round(s.typoPhotoThreshold)));
     if (s.typoGyroStrength !== undefined) typoGyroStrength = Math.max(10, Math.min(150, Math.round(s.typoGyroStrength)));
     if (s.asciiCols !== undefined && s.asciiClassicCols === undefined) asciiClassicCols = s.asciiCols;
+    _applyAsciiPresetPreference(asciiSubMode);
+    _writeAsciiPresetPreference(asciiSubMode);
     _syncTypoCamUI();
     if (s.acGradientVal) { acGradientVal=s.acGradientVal; const e=document.getElementById('acGradient'); if(e)e.value=acGradientVal; }
     if (s.acSpaceVal !== undefined) { acSpaceVal=s.acSpaceVal; const e=document.getElementById('acSpace'); if(e){e.value=acSpaceVal;document.getElementById('vSpace').textContent=acSpaceVal;} }

@@ -1245,6 +1245,10 @@
 
     /* ── Pythonization ── */
     #pythonSection { padding:6px 12px 8px; border-top:1px solid var(--dark); }
+    .ascii-priority-block {
+      margin:0 0 8px;
+      background:rgba(255,255,255,.02);
+    }
     .py-header { color:var(--mid); font-size:9px; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
     .py-mode-row,.py-pal-row { display:flex; gap:4px; margin-bottom:6px; }
     .py-mode-btn,.py-pal-btn {
@@ -1930,6 +1934,27 @@
       </div>
     </div>
 
+    <div id="pythonSection" class="ac-section ascii-priority-block">
+      <div class="py-header">&#x1F40D; Pythonization</div>
+      <div class="py-mode-row">
+        <button id="btnPyOff"   class="py-mode-btn active">OFF</button>
+        <button id="btnPyChars" class="py-mode-btn">CHARS</button>
+        <button id="btnPyCode"  class="py-mode-btn">CODE</button>
+      </div>
+      <div id="pyControls">
+        <div class="py-pal-row">
+          <button id="btnPyPal0" class="py-pal-btn active">PY</button>
+          <button id="btnPyPal1" class="py-pal-btn">SPY</button>
+          <button id="btnPyPal2" class="py-pal-btn">IDE</button>
+        </div>
+        <div id="chaosRow" class="ac-row">
+          <span class="ac-lbl">Chaos</span>
+          <span class="ac-val" id="vChaos">0</span>
+          <input type="range" id="acChaos" min="0" max="100" value="0">
+        </div>
+      </div>
+    </div>
+
     <div class="editor-pane-tabs" role="tablist" aria-label="ASCII editor panes">
       <button class="editor-pane-btn active" data-ascii-pane-btn="type" type="button">Type</button>
       <button class="editor-pane-btn" data-ascii-pane-btn="image" type="button">Image</button>
@@ -2035,27 +2060,6 @@
         </div>
       </div>
 
-      <!-- Pythonization — visible in CLASSIC and TYPO modes -->
-      <div id="pythonSection" class="ascii-pane" data-ascii-pane="fx">
-        <div class="py-header">&#x1F40D; Pythonization</div>
-        <div class="py-mode-row">
-          <button id="btnPyOff"   class="py-mode-btn active">OFF</button>
-          <button id="btnPyChars" class="py-mode-btn">CHARS</button>
-          <button id="btnPyCode"  class="py-mode-btn">CODE</button>
-        </div>
-        <div id="pyControls">
-          <div class="py-pal-row">
-            <button id="btnPyPal0" class="py-pal-btn active">PY</button>
-            <button id="btnPyPal1" class="py-pal-btn">SPY</button>
-            <button id="btnPyPal2" class="py-pal-btn">IDE</button>
-          </div>
-          <div id="chaosRow" class="ac-row">
-            <span class="ac-lbl">Chaos</span>
-            <span class="ac-val" id="vChaos">0</span>
-            <input type="range" id="acChaos" min="0" max="100" value="0">
-          </div>
-        </div>
-      </div>
     </div><!-- #advanced-ascii -->
 
     <div class="ascii-panel-sticky-actions">

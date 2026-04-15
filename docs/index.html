@@ -874,10 +874,9 @@
     #scrashCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
     #scrashControls {
       display:none; position:fixed; bottom:96px; left:0; right:0;
-      max-height:min(85vh, calc(100vh - 160px)); min-height:80px;
-      background:linear-gradient(180deg,#090013,#050010 22%); border-top:1px solid #cc00ff; padding:8px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+      max-height:calc(100vh - 160px); min-height:80px;
+      background:linear-gradient(180deg,#090013,#050010 22%); border-top:1px solid #cc00ff; padding:8px 10px 10px;
       flex-direction:column; gap:6px; z-index:9; overflow-y:auto;
-      -webkit-overflow-scrolling:touch;
       box-shadow:0 -14px 40px rgba(0,0,0,.32);
       pointer-events:none;
       visibility:hidden;
@@ -977,7 +976,7 @@
     #upPanel {
       display:none; width:100%; max-width:420px;
       border:2px solid var(--dark); background:var(--ink);
-      overflow-y:auto; max-height:min(var(--up-panel-max-h, 42vh), calc(85vh - env(safe-area-inset-bottom, 0px)));
+      overflow-y:auto; max-height:var(--up-panel-max-h, 42vh);
       -webkit-overflow-scrolling:touch;
     }
     body.up-edit-open #upPanel { display:block; }

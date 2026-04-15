@@ -74,6 +74,57 @@
     }
     #flipBetaTooltip.visible { display:block; }
     #flipBetaTooltip a { color:#f4d97f; }
+    #uploadBetaGate {
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:60;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      background:rgba(0,0,0,.58);
+    }
+    #uploadBetaGate.visible { display:flex; }
+    .upload-beta-modal {
+      width:min(360px, calc(100vw - 32px));
+      border:2px solid var(--dark);
+      background:var(--ink);
+      padding:18px 16px 16px;
+      box-shadow:0 18px 40px rgba(0,0,0,.35);
+    }
+    .upload-beta-title {
+      color:var(--paper);
+      font-family:monospace;
+      font-size:12px;
+      letter-spacing:2px;
+      margin-bottom:10px;
+    }
+    .upload-beta-copy {
+      color:var(--mid);
+      font-family:monospace;
+      font-size:10px;
+      line-height:1.6;
+      margin-bottom:14px;
+    }
+    .upload-beta-actions {
+      display:flex;
+      gap:8px;
+    }
+    .upload-beta-btn {
+      flex:1;
+      min-height:34px;
+      border:1px solid var(--dark);
+      background:none;
+      color:var(--paper);
+      font-family:monospace;
+      font-size:10px;
+      letter-spacing:1px;
+      cursor:pointer;
+    }
+    .upload-beta-btn.primary {
+      border-color:var(--paper);
+      background:rgba(255,255,255,.06);
+    }
 
     /* ── Blue theme in ASCII mode ── */
     body.ascii-mode { --ink:#0c0cd8; --dark:#3a3af0; --mid:#7878ff; --paper:#c0c0ff; }
@@ -2168,6 +2219,16 @@
 <button id="flipBetaBadge" type="button" aria-expanded="false">BETA</button>
 <div id="flipBetaTooltip" role="status">Version beta. Reporta bugs a <a href="mailto:saudaji@estudiosagredo.com">saudaji@estudiosagredo.com</a></div>
 <div id="thermalToast">⚠ Ajustando ritmo del preview</div>
+<div id="uploadBetaGate" aria-hidden="true">
+  <div class="upload-beta-modal" role="dialog" aria-modal="true" aria-labelledby="uploadBetaGateTitle">
+    <div class="upload-beta-title" id="uploadBetaGateTitle">EDITOR EN BETA</div>
+    <div class="upload-beta-copy">El editor de fotos está en desarrollo. Pruébalo en la versión beta.</div>
+    <div class="upload-beta-actions">
+      <button id="btnUploadBetaGo" class="upload-beta-btn primary" type="button">IR A BETA</button>
+      <button id="btnUploadBetaCancel" class="upload-beta-btn" type="button">CANCELAR</button>
+    </div>
+  </div>
+</div>
 
 <!-- Global loading overlay -->
 <div id="loadOverlay">
@@ -13354,6 +13415,49 @@ const progressPct  = document.getElementById('progressPct');
 
 function setProgress(pct,label){progressFill.style.width=pct+'%';progressPct.textContent=Math.round(pct)+'%';if(label)progressLabel.textContent=label;}
 function showProgress(show){progressWrap.classList.toggle('visible',show);}
+function _resetUploadHomeState() {
+  lastUploadSrc = null;
+  lastUploadSrcW = 0;
+  lastUploadSrcH = 0;
+  lastUploadIsAscii = false;
+  upCanvas.classList.remove('visible');
+  dropZone.style.display = '';
+  document.body.classList.remove('up-edit-open');
+  showProgress(false);
+  hideLoadOverlay();
+  const btnSave = document.getElementById('btnSaveResult');
+  const btnShr = document.getElementById('btnShareResult');
+  if (btnSave) { btnSave.disabled = true; btnSave.style.opacity = '.4'; btnSave.onclick = null; }
+  if (btnShr) { btnShr.disabled = true; btnShr.style.opacity = '.4'; btnShr.onclick = null; }
+}
+function _openUploadBetaGate() {
+  const gate = document.getElementById('uploadBetaGate');
+  if (!gate) return;
+  gate.classList.add('visible');
+  gate.setAttribute('aria-hidden', 'false');
+}
+function _closeUploadBetaGate() {
+  const gate = document.getElementById('uploadBetaGate');
+  if (!gate) return;
+  gate.classList.remove('visible');
+  gate.setAttribute('aria-hidden', 'true');
+}
+function _bindUploadBetaGate() {
+  const goBtn = document.getElementById('btnUploadBetaGo');
+  const cancelBtn = document.getElementById('btnUploadBetaCancel');
+  if (goBtn) {
+    goBtn.addEventListener('click', () => {
+      const betaUrl = `${window.location.origin}${window.location.pathname}?beta=1`;
+      window.location.href = betaUrl;
+    });
+  }
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      _closeUploadBetaGate();
+      _resetUploadHomeState();
+    });
+  }
+}
 
 function setUploadResultReady(blob,ext){
   const fname = _flipFilename('upload', ext);
@@ -13402,6 +13506,10 @@ async function handleFile(file){
   const isVideo=file.type.startsWith('video/') || (!file.type && /\.(mov|mp4|m4v|webm|hevc)$/i.test(file.name||''));
   const isImage=file.type.startsWith('image/') || (!file.type && /\.(png|jpe?g|webp|gif|heic|heif)$/i.test(file.name||''));
   if(!isVideo&&!isImage){flipToast('⚠ Unsupported format.');return;}
+  if (isImage && !window.FLIP_BETA) {
+    _openUploadBetaGate();
+    return;
+  }
   fpsRow.style.display=isVideo?'flex':'none';
   // Show loading bar immediately with filename
   const shortName=(file.name||'archivo').slice(0,32);
@@ -16773,6 +16881,7 @@ function loadSettings() {
 loadSettings();
 _syncBetaBadge();
 _setupBetaBadge();
+_bindUploadBetaGate();
 _syncTypoCamUI();
 _primeTypoCamSoon();
 

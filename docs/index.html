@@ -40,6 +40,40 @@
       pointer-events:none;
       overflow:hidden;
     }
+    #flipBetaBadge {
+      display:none;
+      position:fixed;
+      top:52px;
+      right:12px;
+      z-index:40;
+      padding:6px 8px;
+      border:1px solid rgba(255,255,255,.28);
+      background:rgba(0,0,0,.72);
+      color:#f4d97f;
+      font-family:monospace;
+      font-size:9px;
+      letter-spacing:1.6px;
+      text-transform:uppercase;
+      cursor:pointer;
+    }
+    body.flip-beta #flipBetaBadge { display:block; }
+    #flipBetaTooltip {
+      display:none;
+      position:fixed;
+      top:84px;
+      right:12px;
+      z-index:40;
+      width:min(240px, calc(100vw - 24px));
+      padding:10px 12px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(8,8,8,.92);
+      color:var(--paper);
+      font-family:monospace;
+      font-size:9px;
+      line-height:1.5;
+    }
+    #flipBetaTooltip.visible { display:block; }
+    #flipBetaTooltip a { color:#f4d97f; }
 
     /* ── Blue theme in ASCII mode ── */
     body.ascii-mode { --ink:#0c0cd8; --dark:#3a3af0; --mid:#7878ff; --paper:#c0c0ff; }
@@ -2131,6 +2165,8 @@
 </div>
 
 <div id="flash"></div>
+<button id="flipBetaBadge" type="button" aria-expanded="false">BETA</button>
+<div id="flipBetaTooltip" role="status">Version beta. Reporta bugs a <a href="mailto:saudaji@estudiosagredo.com">saudaji@estudiosagredo.com</a></div>
 <div id="thermalToast">⚠ Ajustando ritmo del preview</div>
 
 <!-- Global loading overlay -->
@@ -2988,6 +3024,13 @@ const TYPO_FONTS = {
 const TYPO_COLOR_MODES = ['mono', 'tint', 'source'];
 const EARLY_IS_ANDROID = /Android/i.test(navigator.userAgent);
 const EARLY_IS_MOBILE = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
+const _flipParams = new URLSearchParams(window.location.search);
+const IS_BETA = _flipParams.get('beta') === '1';
+window.FLIP_BETA = IS_BETA;
+try {
+  if (IS_BETA) sessionStorage.setItem('flip.beta', '1');
+  else if (sessionStorage.getItem('flip.beta') === '1') window.FLIP_BETA = true;
+} catch (_) {}
 
 let asciiCols     = 100;
 let asciiClassicCols = 100;
@@ -11059,6 +11102,19 @@ function flipToast(message, duration = 3000) {
   container.appendChild(toast);
   setTimeout(() => toast.remove(), duration);
 }
+function _syncBetaBadge() {
+  document.body.classList.toggle('flip-beta', !!window.FLIP_BETA);
+}
+function _setupBetaBadge() {
+  const badge = document.getElementById('flipBetaBadge');
+  const tooltip = document.getElementById('flipBetaTooltip');
+  if (!badge || !tooltip) return;
+  badge.addEventListener('click', () => {
+    const next = !tooltip.classList.contains('visible');
+    tooltip.classList.toggle('visible', next);
+    badge.setAttribute('aria-expanded', next ? 'true' : 'false');
+  });
+}
 
 // Watch asciiPerfWarn: if it becomes visible (inside collapsed panel), fire a toast
 (function() {
@@ -16715,6 +16771,8 @@ function loadSettings() {
 
 // Load on startup
 loadSettings();
+_syncBetaBadge();
+_setupBetaBadge();
 _syncTypoCamUI();
 _primeTypoCamSoon();
 

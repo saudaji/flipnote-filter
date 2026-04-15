@@ -17124,7 +17124,7 @@ if (screen.width > 768) {
 // SERVICE WORKER
 // ════════════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=20260406-slht-cam-1').then(reg => {
+  navigator.serviceWorker.register('sw.js?v=20260415-rollback-fix-1').then(reg => {
     reg.update().catch(()=>{});
     reg.addEventListener('updatefound', () => {
       reg.installing.addEventListener('statechange', function() {

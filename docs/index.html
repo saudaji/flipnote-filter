@@ -8007,6 +8007,16 @@ const SLHT_NG = SLHT_GLYPHS.length;
 // ── MediaPipe URLs (same model as SFLOW tab) ──────────────────────
 const SLHT_MP_WASM  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm';
 const SLHT_MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+const SLHT_INIT_TIMEOUT_MS = 15000;
+
+function _slhtWithTimeout(task, timeoutMs = SLHT_INIT_TIMEOUT_MS) {
+  return Promise.race([
+    task,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('SLHT AI init timeout')), timeoutMs);
+    })
+  ]);
+}
 
 // ── Segmenter lazy init ───────────────────────────────────────────
 async function _slhtInitSeg() {
@@ -8014,19 +8024,21 @@ async function _slhtInitSeg() {
   _slhtSegBusy = true;
   try {
     const { ImageSegmenter, FilesetResolver } =
-      await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/+esm');
-    const vision = await FilesetResolver.forVisionTasks(SLHT_MP_WASM);
-    _slhtSeg = await ImageSegmenter.createFromOptions(vision, {
+      await _slhtWithTimeout(import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/+esm'));
+    const vision = await _slhtWithTimeout(FilesetResolver.forVisionTasks(SLHT_MP_WASM));
+    _slhtSeg = await _slhtWithTimeout(ImageSegmenter.createFromOptions(vision, {
       baseOptions: { modelAssetPath: SLHT_MP_MODEL, delegate: 'GPU' },
       outputCategoryMask: false,
       outputConfidenceMasks: true,
       runningMode: 'VIDEO',
-    });
+    }));
     _slhtSegReady = true;
     _slhtSegFailedMsg = '';
     _slhtFieldOK  = false;  // rebuild field on first frame with real mask
   } catch (e) {
-    _slhtSegFailedMsg = 'SLHT unavailable on this device/network.';
+    _slhtSegReady = false;
+    _slhtSeg = null;
+    _slhtSegFailedMsg = 'AI unavailable, tap to retry.';
     console.warn('[SLHT] segmenter init failed:', e);
   }
   _slhtSegBusy = false;
@@ -8418,9 +8430,10 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
     ctx.font = 'bold 10px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('SLHT DISABLED', CW * 0.5, CH * 0.5 - 10);
+    ctx.fillText('SLHT DISABLED', CW * 0.5, CH * 0.5 - 14);
     ctx.font = '9px monospace';
-    ctx.fillText(_slhtSegFailedMsg, CW * 0.5, CH * 0.5 + 10);
+    ctx.fillText(_slhtSegFailedMsg, CW * 0.5, CH * 0.5 + 4);
+    ctx.fillText('Tap to retry', CW * 0.5, CH * 0.5 + 18);
     ctx.restore();
     return;
   }
@@ -8501,6 +8514,11 @@ function _resetSlht() {
   _slhtMotion.fill(0);
   // Keep segmenter alive for fast re-activation
 }
+display.addEventListener('click', () => {
+  if (activeTab !== 'cam' || camFamily !== 'SLHT' || !_slhtSegFailedMsg || _slhtSegBusy) return;
+  _slhtSegFailedMsg = '';
+  _slhtInitSeg();
+});
 
 // AUDIO-REACTIVE FLIPNOTE ABSTRACT
 // Renders a dithered abstract pattern driven by extAnalyser or any

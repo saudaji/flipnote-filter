@@ -1302,9 +1302,25 @@
       #sonoHUD {
         height:auto;
         min-height:150px;
-        padding:8px 14px 10px;
+        padding:10px 14px 14px;
+        gap:12px;
       }
-      .sono-row3, .sono-row4, .sono-row5 { min-height:44px; }
+      .sono-row1,
+      .sono-row2,
+      .sono-row3,
+      .sono-row4,
+      .sono-row5 {
+        width:100%;
+      }
+      .sono-row3,
+      .sono-row4,
+      .sono-row5 {
+        min-height:44px;
+        display:grid;
+        grid-template-columns:minmax(52px, auto) minmax(30px, auto) 1fr;
+        gap:12px;
+        align-items:center;
+      }
       .sono-row3 input[type="range"],
       .sono-row4 input[type="range"],
       .sono-row5 input[type="range"] { height:44px; }

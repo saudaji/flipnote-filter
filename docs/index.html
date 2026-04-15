@@ -3475,6 +3475,21 @@ function _syncUploadPanelLayout() {
   const available = Math.max(180, section.clientHeight - occupied - gaps - 24);
   document.documentElement.style.setProperty('--up-panel-max-h', `${available}px`);
 }
+function _syncUploadCanvasAspect(srcW, srcH) {
+  const width = Math.max(1, Math.round(srcW || 0));
+  const height = Math.max(1, Math.round(srcH || 0));
+  if (!width || !height) return;
+  const aspect = width / Math.max(1, height);
+  const shortSide = 768;
+  let outW = aspect >= 1 ? Math.round(shortSide * aspect) : shortSide;
+  let outH = aspect >= 1 ? shortSide : Math.round(shortSide / Math.max(0.0001, aspect));
+  outW = Math.max(2, Math.round(outW / 2) * 2);
+  outH = Math.max(2, Math.round(outH / 2) * 2);
+  if (upCanvas.width === outW && upCanvas.height === outH) return;
+  upCanvas.width = outW;
+  upCanvas.height = outH;
+  ctxUP.imageSmoothingEnabled = false;
+}
 
 function relayout() {
   const aspect = OUT_W / OUT_H;
@@ -12926,50 +12941,31 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
 // ════════════════════════════════════════════════════════════════════
 // UTILS
 // ════════════════════════════════════════════════════════════════════
-function _download(blob, filename) {
+function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
-  const a   = Object.assign(document.createElement('a'), { href:url, download:filename });
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-// Platform detection for save strategy
-const _IS_IOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-async function _saveViaPicker(blob, filename) {
-  if (typeof window.showSaveFilePicker !== 'function') return false;
-  try {
-    const ext = (filename.split('.').pop() || '').toLowerCase();
-    const handle = await window.showSaveFilePicker({
-      suggestedName: filename,
-      types: [{
-        description: blob.type || 'Media file',
-        accept: { [blob.type || 'application/octet-stream']: [ext ? `.${ext}` : '.bin'] }
-      }]
-    });
-    const writable = await handle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-    return true;
-  } catch (e) {
-    if (e?.name === 'AbortError') return true;
-    return false;
-  }
+function _flipTimestamp() {
+  const now = new Date();
+  const pad = value => String(value).padStart(2, '0');
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+function _flipFilename(moduleName, ext) {
+  return `flip_${moduleName}_${_flipTimestamp()}.${ext}`;
 }
 // _saveFile: default save action.
-//   iOS     → share sheet (best browser-native save path there)
-//   Android → save picker / direct download
-//   Other   → direct download (goes to Downloads folder)
+// Save always uses a direct anchor download flow:
+// - Android Chrome: downloads to /Downloads without opening the share sheet.
+// - iOS Safari / standalone PWA: downloads to Files; iOS cannot force-save to Photos.
+// - Desktop browsers: downloads to the default Downloads folder.
 async function _saveFile(blob, filename) {
-  if (IS_ANDROID) {
-    if (await _saveViaPicker(blob, filename)) return;
-    _download(blob, filename);
-    return;
-  }
-  const file = new File([blob], filename, { type: blob.type });
-  if (_IS_IOS && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'FLIP' }); return; }
-    catch(e) { if (e.name === 'AbortError') return; }
-  }
-  _download(blob, filename);
+  saveBlob(blob, filename);
 }
 // _shareFile: explicit share action — always opens share sheet when available.
 async function _shareOrDownload(blob, filename) {
@@ -12978,7 +12974,7 @@ async function _shareOrDownload(blob, filename) {
     try { await navigator.share({ files: [file], title: 'FLIP' }); return; }
     catch(e) { if (e.name === 'AbortError') return; }
   }
-  _download(blob, filename);
+  saveBlob(blob, filename);
 }
 function canvasToBlob(ctx) {
   return new Promise(r => ctx.canvas.toBlob(r, 'image/png'));
@@ -13198,7 +13194,7 @@ btnCap.addEventListener('click', async () => {
   if (camMode === 'foto') {
     // Take photo
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    await _saveFile(await _canvasToJpeg(display), 'flip_' + Date.now() + '.jpg');
+    await _saveFile(await _canvasToJpeg(display), _flipFilename('cam', 'jpg'));
   } else {
     // Toggle video recording
     if (!recorder || recorder.state === 'inactive') {
@@ -13228,7 +13224,7 @@ btnCap.addEventListener('click', async () => {
           recMime = _resolveRecordedMime(recMime, recChunks);
           const ext=_videoExtFromMime(recMime);
           lastBlob=new Blob(recChunks,{type:recMime});
-          await _saveFile(lastBlob,'flipnote_'+Date.now()+'.'+ext); // T9: default=save, share=explicit
+          await _saveFile(lastBlob, _flipFilename('cam', ext));
         }
       });
       recorder.start(250);
@@ -13243,7 +13239,7 @@ btnCap.addEventListener('click', async () => {
 document.getElementById('btnShare').addEventListener('click', async () => {
   if(!lastBlob){flipToast('Record a video first.');return;}
   const shareMime = _resolveRecordedMime(recMime, lastBlob ? [lastBlob] : []);
-  await _shareOrDownload(lastBlob,'flipnote_'+Date.now()+'.'+_videoExtFromMime(shareMime));
+  await _shareOrDownload(lastBlob, _flipFilename('cam', _videoExtFromMime(shareMime)));
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -13304,7 +13300,7 @@ function setProgress(pct,label){progressFill.style.width=pct+'%';progressPct.tex
 function showProgress(show){progressWrap.classList.toggle('visible',show);}
 
 function setUploadResultReady(blob,ext){
-  const fname='flip_'+Date.now()+'.'+ext;
+  const fname = _flipFilename('upload', ext);
   const btnSave=document.getElementById('btnSaveResult');
   const btnShr =document.getElementById('btnShareResult');
   btnSave.disabled=false;btnSave.style.opacity='1';
@@ -13373,6 +13369,7 @@ async function handleFile(file){
     }
     URL.revokeObjectURL(url);
     lastUploadSrc=src; lastUploadSrcW=src.width||src.naturalWidth; lastUploadSrcH=src.height||src.naturalHeight; lastUploadIsAscii=true;
+    _syncUploadCanvasAspect(lastUploadSrcW, lastUploadSrcH);
     asciiStaticSrc=src; asciiStaticW=src.width||src.naturalWidth; asciiStaticH=src.height||src.naturalHeight;
     setProgress(60,'Generando ASCII…');
     renderASCII(src,lastUploadSrcW,lastUploadSrcH,false,true);
@@ -13401,6 +13398,7 @@ async function processImage(file){
   try{source=await createImageBitmap(file,{colorSpaceConversion:'none'});w=source.width;h=source.height;}
   catch(_){source=await new Promise((res,rej)=>{const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=url;});w=source.naturalWidth;h=source.naturalHeight;}
   lastUploadSrc=source; lastUploadSrcW=w; lastUploadSrcH=h; lastUploadIsAscii=false;
+  _syncUploadCanvasAspect(w, h);
   asciiStaticSrc=source; asciiStaticW=w; asciiStaticH=h;
   setProgress(60,'Aplicando filtro…');
   renderDithered(source,w,h,ctxUP,false,true,true,_getPal(true));
@@ -13432,6 +13430,7 @@ function _loadVidPlayer(file) {
   uploadVid.onloadedmetadata = async () => {
     _vidPlayerW = uploadVid.videoWidth;
     _vidPlayerH = uploadVid.videoHeight;
+    _syncUploadCanvasAspect(_vidPlayerW, _vidPlayerH);
     _vidSourceDuration = await _resolveFiniteVideoDuration(uploadVid);
     try { uploadVid.currentTime = 0; } catch (_) {}
     upCanvas.classList.add('visible');
@@ -13622,7 +13621,7 @@ document.getElementById('btnAsciiCapture').addEventListener('click', async () =>
       const { data: _px } = ctxAS.getImageData(0, 0, 512, 384);
       _renderASCIISync(_px, 512, 384, asciiCols);
     }
-    await _saveFile(await _canvasToJpeg(asciiCvs), 'flip_ascii_' + Date.now() + '.jpg');
+    await _saveFile(await _canvasToJpeg(asciiCvs), _flipFilename('ascii', 'jpg'));
   } else {
     // Toggle video recording
     const asciiCapBtn = document.getElementById('btnAsciiCapture');
@@ -13655,7 +13654,7 @@ document.getElementById('btnAsciiCapture').addEventListener('click', async () =>
           asciiRecMime = _resolveRecordedMime(asciiRecMime, asciiRecChunks);
           const ext = _videoExtFromMime(asciiRecMime);
           const blob = new Blob(asciiRecChunks, { type: asciiRecMime });
-          await _saveFile(blob, 'flip_ascii_' + Date.now() + '.' + ext);
+          await _saveFile(blob, _flipFilename('ascii', ext));
         }
       });
       asciiRecorder.start(250);
@@ -13667,7 +13666,7 @@ document.getElementById('btnAsciiCapture').addEventListener('click', async () =>
   }
 });
 document.getElementById('btnAsciiShare').addEventListener('click', async () => {
-  await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_' + Date.now() + '.png');
+  await _shareOrDownload(await canvasToBlob(ctxAscii), _flipFilename('ascii', 'png'));
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -13692,6 +13691,7 @@ function _applyMixBlend() {
 
 function renderUploadPreview() {
   if (!lastUploadSrc) return;
+  _syncUploadCanvasAspect(lastUploadSrcW, lastUploadSrcH);
   if (lastUploadIsAscii || uploadMode === 'ascii') {
     renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false, true);
     ctxUP.drawImage(asciiCvs, 0, 0, upCanvas.width, upCanvas.height);
@@ -13818,13 +13818,13 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
   document.getElementById('upBtnTxt').addEventListener('click', () => {
     if (!lastUploadSrc) return;
     renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false, true);
-    _download(new Blob([lastAsciiText], { type: 'text/plain' }), 'flipnote_ascii_' + Date.now() + '.txt');
+    saveBlob(new Blob([lastAsciiText], { type: 'text/plain' }), _flipFilename('ascii', 'txt'));
   });
   // PNG button
   document.getElementById('upBtnPng').addEventListener('click', () => {
     if (!lastUploadSrc) return;
     renderUploadPreview();
-    canvasToBlob(ctxUP).then(blob => { _download(blob, 'flipnote_' + Date.now() + '.png'); });
+    canvasToBlob(ctxUP).then(blob => { saveBlob(blob, _flipFilename('upload', 'png')); });
   });
   // RESET button
 document.getElementById('upBtnReset').addEventListener('click', () => {
@@ -14130,11 +14130,11 @@ document.getElementById('acCopy').addEventListener('click', () => {
 });
 document.getElementById('acTxt').addEventListener('click', () => {
   if (!lastAsciiText) return;
-  _download(new Blob([lastAsciiText],{type:'text/plain'}), 'ascii_'+Date.now()+'.txt');
+  saveBlob(new Blob([lastAsciiText],{type:'text/plain'}), _flipFilename('ascii', 'txt'));
 });
 document.getElementById('acPng').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(()=>flash.classList.remove('on'),120);
-  await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_'+Date.now()+'.png');
+  await _shareOrDownload(await canvasToBlob(ctxAscii), _flipFilename('ascii', 'png'));
 });
 document.getElementById('acReset').addEventListener('click', () => {
   const defs={acChars:100,acSpace:1,acFrame:0,acBright:100,acContrast:100,acSat:100,acHue:0,acGray:0,acSepia:0,acInvert:0,acThresh:128,acSharp:9,acEdge:10};
@@ -14971,13 +14971,13 @@ document.getElementById('btnSonoCapture').addEventListener('click', async () => 
     return;
   }
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  await _saveFile(await _canvasToJpeg(sonoCvs), 'flip_sono_' + Date.now() + '.jpg');
+  await _saveFile(await _canvasToJpeg(sonoCvs), _flipFilename('sono', 'jpg'));
 });
 
 document.getElementById('btnSonoShare').addEventListener('click', async () => {
   if (!sonoLastBlob) { flipToast('Record a video first.'); return; }
   const ext = sonoRecMime.includes('mp4') ? 'mp4' : 'webm';
-  await _shareOrDownload(sonoLastBlob, 'sono_' + Date.now() + '.' + ext);
+  await _shareOrDownload(sonoLastBlob, _flipFilename('sono', ext));
 });
 
 document.getElementById('btnSonoReset').addEventListener('click', () => {
@@ -15029,7 +15029,7 @@ btnSonoRec.addEventListener('click', async () => {
         sonoRecMime = _resolveRecordedMime(sonoRecMime, sonoRecChunks);
         const ext = _videoExtFromMime(sonoRecMime);
         sonoLastBlob = new Blob(sonoRecChunks, { type: sonoRecMime });
-        await _saveFile(sonoLastBlob, 'sono_' + Date.now() + '.' + ext); // T9: default=save, share=btnSonoShare
+        await _saveFile(sonoLastBlob, _flipFilename('sono', ext));
       }
     });
     sonoRecorder.start(250);
@@ -16304,7 +16304,7 @@ let _ctxScrTmp;
     const snapBtn = document.getElementById('btnScrashSnap');
     if (scrashCamMode === 'foto') {
       flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-      await _saveFile(await _canvasToJpeg(scrashCvs), 'flip_glitch_' + Date.now() + '.jpg');
+      await _saveFile(await _canvasToJpeg(scrashCvs), _flipFilename('glitch', 'jpg'));
     } else {
       if (!scrashRecorder || scrashRecorder.state === 'inactive') {
         const _chunks = []; scrashRecChunks = _chunks; // local ref: safe even if global is reassigned
@@ -16330,7 +16330,7 @@ let _ctxScrTmp;
             scrashRecMime = _resolveRecordedMime(scrashRecMime, _chunks);
             const ext = _videoExtFromMime(scrashRecMime);
             const blob = new Blob(_chunks, { type: scrashRecMime });
-            await _saveFile(blob, 'flip_glitch_' + Date.now() + '.' + ext);
+            await _saveFile(blob, _flipFilename('glitch', ext));
           }
         });
         scrashRecorder.start(250);
@@ -16357,7 +16357,7 @@ let _ctxScrTmp;
 
   // Share
   document.getElementById('btnScrashShare').addEventListener('click', async () => {
-    await _shareOrDownload(await _canvasToJpeg(scrashCvs), 'flip_glitch_' + Date.now() + '.jpg');
+    await _shareOrDownload(await _canvasToJpeg(scrashCvs), _flipFilename('glitch', 'jpg'));
   });
 
   // Reset
@@ -16501,7 +16501,7 @@ document.getElementById('btnAsciiGlitch').addEventListener('click', async () => 
   gctx.drawImage(asciiCvs, 0, 0);
   _applyScrash(gctx, gctx, gc.width, gc.height, 0);
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  await _shareOrDownload(await new Promise(r => gc.toBlob(r, 'image/png')), 'ascii_glitch_' + Date.now() + '.png');
+  await _shareOrDownload(await new Promise(r => gc.toBlob(r, 'image/png')), _flipFilename('glitch', 'png'));
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -16759,9 +16759,10 @@ if (screen.width > 768) {
     else if (activeTab === 'ascii') cvs = asciiCvs;
     else if (activeTab === 'sono') cvs = document.getElementById('sonoCanvas');
     else if (activeTab === 'wmp')  cvs = document.getElementById('wmpCanvas');
+    else if (activeTab === 'sflow') cvs = document.getElementById('sflowCanvas');
     else cvs = display;
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    await _shareOrDownload(await canvasToBlob(cvs.getContext('2d')), 'capture_' + Date.now() + '.png');
+    await _shareOrDownload(await canvasToBlob(cvs.getContext('2d')), _flipFilename(activeTab === 'wmp' ? 'wmp' : activeTab === 'sflow' ? 'slht' : 'capture', 'png'));
   });
 }
 

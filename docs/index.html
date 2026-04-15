@@ -15653,6 +15653,7 @@ let _wmpLastFrameT = 0;
 
 // ── WMP RANDOM state — up to 3 simultaneous morphs ────────────────────
 let wmpRandom       = false;
+let wmpRandomSeed   = 0;
 // Each slot: { from, to, blend, blendDur }
 let wmpRandSlots    = [];
 let wmpRandSpawnTimer = 0; // legacy, kept for button init compat
@@ -15661,9 +15662,14 @@ let wmpRandEnergy   = 0;   // smoothed RMS
 let wmpRandGapFrames= 0;   // frames since last slot spawn
 const WMP_RAND_MIN_GAP = 300; // 5 s at 60 fps minimum between spawns
 
-function _wmpNextPreset(exclude) {
+function _wmpNextPreset(exclude, seed = wmpRandomSeed) {
   const choices = [0, 1, 2, 3].filter(p => p !== exclude);
-  return choices[Math.floor(Math.random() * choices.length)];
+  if (!choices.length) return exclude;
+  return choices[Math.abs(seed) % choices.length];
+}
+function _advanceWmpRandomSeed() {
+  wmpRandomSeed = (wmpRandomSeed + 1) >>> 0;
+  return wmpRandomSeed;
 }
 function _syncWmpPresetButtons() {
   document.querySelectorAll('.wmp-preset-btn[data-preset]').forEach(btn =>
@@ -15685,7 +15691,8 @@ function _wmpRandSpawnSlot() {
   const maxSlots = wmpPerfMode === 1 ? 1 : 3;
   if (wmpRandSlots.length >= maxSlots) return;
   const fromPre = wmpPreset;
-  const toPre   = _wmpNextPreset(fromPre);
+  const seed    = _advanceWmpRandomSeed();
+  const toPre   = _wmpNextPreset(fromPre, seed);
   const dur     = Math.floor((4 + Math.random() * 3) * 60); // 4–7 s
   wmpRandSlots.push({ from: fromPre, to: toPre, blend: 0.001, blendDur: dur });
   // Schedule next spawn: 3–8s
@@ -15865,6 +15872,7 @@ document.getElementById('btnWmpRandom').addEventListener('click', () => {
   wmpRandom = !wmpRandom;
   document.getElementById('btnWmpRandom').classList.toggle('active', wmpRandom);
   if (wmpRandom) {
+    wmpRandomSeed = Date.now() >>> 0;
     wmpRandSlots = [];
     wmpRandGapFrames = WMP_RAND_MIN_GAP; // allow immediate spawn
     wmpRandEnergy = 0;

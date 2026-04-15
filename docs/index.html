@@ -64,9 +64,6 @@
     /* Hide floating aspect selector on mobile when edit panel is open (asp-btns are inside panel) */
     @media (max-width:767px) {
       body.ascii-mode.ascii-edit #camAspect { display: none !important; }
-      body.cam-ui-active #display {
-        bottom:var(--cam-mobile-stack-bottom, 96px);
-      }
     }
 
     /* ── Tabs ── */
@@ -290,23 +287,7 @@
       align-items:stretch;
       gap:8px;
     }
-    @media (max-width:767px) {
-      #camMobileUtilityDock {
-        position:fixed;
-        left:12px;
-        right:12px;
-        bottom:calc(96px + env(safe-area-inset-bottom, 0px));
-        z-index:24;
-        padding:12px;
-        border:2px solid var(--dark);
-        border-radius:14px;
-        background:rgba(6,10,12,.94);
-        backdrop-filter:blur(10px);
-        -webkit-backdrop-filter:blur(10px);
-        box-shadow:0 12px 36px rgba(0,0,0,.35);
-      }
-      body.cam-ui-active #camMobileUtilityDock:not(:empty) { display:flex; }
-    }
+    body.cam-ui-active.cam-edit-open #camMobileUtilityDock:not(:empty) { display:flex; }
     #palSwatches {
       display:flex;
       flex-wrap:wrap;
@@ -10335,14 +10316,6 @@ function _syncCamZoomUI() {
   slider.step = String(camZoomStep);
   slider.value = String(Math.max(camZoomMin, Math.min(camZoomMax, camZoomValue)));
   val.textContent = `${Number(slider.value).toFixed(1)}x`;
-  _syncCamMobileUtilityDock();
-}
-function _syncCamMobileUtilityDockLayout() {
-  const dock = document.getElementById('camMobileUtilityDock');
-  const useDock = window.innerWidth <= 767 && _getSafeActiveTab() === 'cam';
-  const dockHeight = useDock && dock && dock.childElementCount ? dock.offsetHeight : 0;
-  const bottom = useDock && dockHeight ? 96 + dockHeight + 16 : 96;
-  document.documentElement.style.setProperty('--cam-mobile-stack-bottom', `${bottom}px`);
 }
 function _syncCamMobileUtilityDock() {
   const dock = document.getElementById('camMobileUtilityDock');
@@ -10357,7 +10330,6 @@ function _syncCamMobileUtilityDock() {
     if (useDock) dock.appendChild(ctrl);
     else anchor.parentNode.insertBefore(ctrl, anchor);
   });
-  requestAnimationFrame(_syncCamMobileUtilityDockLayout);
 }
 function _refreshCamZoomSupport(track) {
   _clearCamZoomSupport();

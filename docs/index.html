@@ -386,6 +386,46 @@
     body.flip-os.flip-os-desktop #flipOsDesktop {
       display:flex;
     }
+    #flipOsBetaBadge {
+      position:fixed;
+      right:12px;
+      bottom:12px;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:4px 8px;
+      background:var(--flip-bg-surface);
+      border:1px solid var(--flip-accent-warm);
+      color:var(--flip-accent-warm);
+      font-size:10px;
+      letter-spacing:1px;
+      z-index:100;
+      cursor:pointer;
+    }
+    body.flip-os.flip-os-desktop #flipOsBetaBadge {
+      display:inline-flex;
+    }
+    #flipOsBetaTooltip {
+      position:fixed;
+      right:12px;
+      bottom:42px;
+      display:none;
+      width:min(240px, calc(100vw - 24px));
+      padding:8px 10px;
+      background:var(--flip-bg-surface);
+      border:1px solid var(--flip-border-bright);
+      color:var(--flip-text-dim);
+      font-size:10px;
+      line-height:1.5;
+      z-index:101;
+      box-shadow:0 0 16px var(--flip-glow);
+    }
+    #flipOsBetaTooltip.visible {
+      display:block;
+    }
+    #flipOsBetaTooltip a {
+      color:var(--flip-accent);
+    }
     #flipOsDesktopGrid {
       width:min(720px, 100%);
       display:grid;
@@ -3567,6 +3607,8 @@ const _flipOsState = {
   windowBody: null,
   windowTitleEl: null,
   clockEl: null,
+  betaBadge: null,
+  betaTooltip: null,
   clockTimer: 0,
   activeModule: null,
   openTimer: 0,
@@ -17845,6 +17887,11 @@ function _flipOsApplyWindowLayout(center = false) {
   win.style.left = `${clamped.left}px`;
   win.style.top = `${clamped.top}px`;
 }
+function _flipOsSetBetaTooltip(open) {
+  if (!_flipOsState.betaTooltip || !_flipOsState.betaBadge) return;
+  _flipOsState.betaTooltip.classList.toggle('visible', !!open);
+  _flipOsState.betaBadge.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 function _flipOsCloseModule() {
   if (!window.FLIP_BETA || !document.body.classList.contains('flip-os-module-open')) return;
   clearTimeout(_flipOsState.openTimer);
@@ -17894,6 +17941,7 @@ function _flipOsOpenModule(key) {
   const module = FLIP_OS_MODULES.find(item => item.key === key);
   if (!module) return;
   clearTimeout(_flipOsState.closeTimer);
+  _flipOsSetBetaTooltip(false);
   _flipOsState.activeModule = module;
   if (_flipOsState.windowTitleEl) _flipOsState.windowTitleEl.textContent = module.title;
   document.body.classList.remove('flip-os-desktop');
@@ -17929,6 +17977,8 @@ function _flipOsEnsureShell() {
     <div id="flipOsDesktop">
       <div id="flipOsDesktopGrid">${_flipOsBuildDesktopIcons()}</div>
     </div>
+    <button id="flipOsBetaBadge" type="button" aria-expanded="false" aria-controls="flipOsBetaTooltip">BETA</button>
+    <div id="flipOsBetaTooltip" role="note">FLIP OS beta — reporta bugs a <a href="mailto:saudaji@estudiosagredo.com">saudaji@estudiosagredo.com</a></div>
     <div id="flipOsAppStage" aria-hidden="true">
       <div id="flipOsWindow">
         <div id="flipOsWindowBar">
@@ -17956,11 +18006,22 @@ function _flipOsEnsureShell() {
   _flipOsState.windowBody = shell.querySelector('#flipOsWindowBody');
   _flipOsState.windowTitleEl = shell.querySelector('#flipOsWindowTitle');
   _flipOsState.clockEl = shell.querySelector('#flipOsClock');
+  _flipOsState.betaBadge = shell.querySelector('#flipOsBetaBadge');
+  _flipOsState.betaTooltip = shell.querySelector('#flipOsBetaTooltip');
   shell.querySelectorAll('[data-flip-os-module]').forEach(btn => {
     btn.addEventListener('click', () => _flipOsOpenModule(btn.dataset.flipOsModule));
   });
   shell.querySelector('#flipOsWindowClose')?.addEventListener('click', _flipOsCloseModule);
   _flipOsState.windowBar?.addEventListener('mousedown', _flipOsStartWindowDrag);
+  _flipOsState.betaBadge?.addEventListener('click', event => {
+    event.stopPropagation();
+    _flipOsSetBetaTooltip(!_flipOsState.betaTooltip?.classList.contains('visible'));
+  });
+  shell.addEventListener('click', event => {
+    if (!event.target.closest('#flipOsBetaBadge') && !event.target.closest('#flipOsBetaTooltip')) {
+      _flipOsSetBetaTooltip(false);
+    }
+  });
   _flipOsStartClock();
   window.addEventListener('resize', () => {
     _flipOsApplyWindowLayout(false);
@@ -18042,7 +18103,7 @@ function _initFlipOsBoot() {
 _initFlipOsBoot();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=20260415-rollback-fix-1').then(reg => {
+  navigator.serviceWorker.register('sw.js?v=20260415-flip-os-beta-1').then(reg => {
     reg.update().catch(()=>{});
     reg.addEventListener('updatefound', () => {
       reg.installing.addEventListener('statechange', function() {

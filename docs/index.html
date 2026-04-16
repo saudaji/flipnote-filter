@@ -118,6 +118,138 @@
     .flip-os-boot-check {
       color:var(--flip-accent);
     }
+    #flipOsShell {
+      position:fixed;
+      inset:0;
+      z-index:1000;
+      display:none;
+      background:var(--flip-bg-deep);
+      color:var(--flip-text-primary);
+      overflow:hidden;
+    }
+    body.flip-os #flipOsShell {
+      display:block;
+    }
+    #flipOsMenuBar {
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      height:28px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:0 12px;
+      background:var(--flip-bg-elevated);
+      border-bottom:1px solid var(--flip-border-bright);
+      color:var(--flip-text-dim);
+      font-size:11px;
+      letter-spacing:1px;
+    }
+    #flipOsMenuBrand {
+      color:var(--flip-accent-warm);
+      font-weight:600;
+    }
+    #flipOsClock {
+      color:var(--flip-text-dim);
+    }
+    #flipOsDesktop {
+      position:absolute;
+      inset:28px 0 0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:28px 18px;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.03) 0 1px, transparent 1px) 0 0 / 14px 14px,
+        radial-gradient(circle at 80% 40%, rgba(255,255,255,0.02) 0 1px, transparent 1px) 0 0 / 18px 18px,
+        var(--flip-bg-deep);
+    }
+    body.flip-os.flip-os-desktop #flipOsDesktop {
+      display:flex;
+    }
+    #flipOsDesktopGrid {
+      width:min(720px, 100%);
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:24px 22px;
+      justify-items:center;
+    }
+    .flip-os-icon {
+      width:100%;
+      max-width:112px;
+      display:grid;
+      gap:8px;
+      justify-items:center;
+      background:none;
+      border:none;
+      color:var(--flip-text-primary);
+      cursor:pointer;
+      text-transform:none;
+    }
+    .flip-os-icon-box {
+      width:80px;
+      height:80px;
+      display:grid;
+      place-items:center;
+      background:var(--flip-bg-surface);
+      border:1px solid var(--flip-border);
+      color:var(--flip-text-primary);
+      font-size:20px;
+      letter-spacing:1px;
+    }
+    .flip-os-icon-label {
+      color:var(--flip-text-dim);
+      font-size:11px;
+      line-height:1.25;
+      text-align:center;
+    }
+    .flip-os-icon:hover .flip-os-icon-box,
+    .flip-os-icon:focus-visible .flip-os-icon-box {
+      border-color:var(--flip-border-bright);
+      color:var(--flip-text-bright);
+      box-shadow:0 0 14px var(--flip-glow);
+    }
+    .flip-os-icon:hover .flip-os-icon-label,
+    .flip-os-icon:focus-visible .flip-os-icon-label {
+      color:var(--flip-text-bright);
+    }
+    #flipOsAppStage {
+      position:absolute;
+      inset:28px 0 0;
+      display:none;
+      background:var(--flip-bg-deep);
+      overflow:hidden;
+    }
+    body.flip-os.flip-os-module-open #flipOsAppStage {
+      display:block;
+    }
+    #flipOsAppHost {
+      position:relative;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      transform:translateZ(0);
+    }
+    @media (max-width:1024px) {
+      #flipOsDesktopGrid {
+        grid-template-columns:repeat(3, minmax(0, 1fr));
+      }
+    }
+    @media (max-width:767px) {
+      #flipOsDesktop {
+        padding:20px 14px;
+      }
+      #flipOsDesktopGrid {
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:18px 16px;
+      }
+      .flip-os-icon-box {
+        width:64px;
+        height:64px;
+        font-size:17px;
+      }
+    }
     .media-probe {
       position:fixed;
       left:-9999px;
@@ -3061,6 +3193,26 @@ const FLIP_OS_BOOT_LINES = [
   '&gt; loading FLIP OS...',
   '&gt; ready.'
 ];
+const FLIP_OS_MODULES = [
+  { key: 'cam', internalTab: 'cam', title: 'CAM', short: 'CAM' },
+  { key: 'up', internalTab: 'up', title: 'UPLOAD', short: 'UP' },
+  { key: 'ascii', internalTab: 'ascii', title: 'ASCII', short: 'ASC' },
+  { key: 'sono', internalTab: 'sono', title: 'SONO', short: 'SON' },
+  { key: 'wmp', internalTab: 'wmp', title: 'WMP', short: 'WMP' },
+  { key: 'scrash', internalTab: 'scrash', title: 'GLITCH', short: 'GLT' },
+  { key: 'slht', internalTab: 'sflow', title: 'SLHT', short: 'SLT' },
+];
+const _flipOsState = {
+  shellReady: false,
+  shell: null,
+  desktop: null,
+  desktopGrid: null,
+  appStage: null,
+  appHost: null,
+  clockEl: null,
+  clockTimer: 0,
+  activeModule: null,
+};
 
 let asciiCols     = 100;
 let asciiClassicCols = 100;
@@ -17236,7 +17388,83 @@ if (screen.width > 768) {
 // ════════════════════════════════════════════════════════════════════
 // SERVICE WORKER
 // ════════════════════════════════════════════════════════════════════
-function _flipOsAfterBoot() {}
+function _flipOsFormatClock() {
+  return new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+}
+function _flipOsTickClock() {
+  if (_flipOsState.clockEl) _flipOsState.clockEl.textContent = _flipOsFormatClock();
+}
+function _flipOsStartClock() {
+  if (_flipOsState.clockTimer) clearInterval(_flipOsState.clockTimer);
+  _flipOsTickClock();
+  _flipOsState.clockTimer = setInterval(_flipOsTickClock, 60_000);
+}
+function _flipOsBuildDesktopIcons() {
+  return FLIP_OS_MODULES.map(module => `
+    <button class="flip-os-icon" type="button" data-flip-os-module="${module.key}" aria-label="${module.title}">
+      <span class="flip-os-icon-box">${module.short}</span>
+      <span class="flip-os-icon-label">${module.title}</span>
+    </button>
+  `).join('');
+}
+function _flipOsShowDesktop() {
+  if (!window.FLIP_BETA) return;
+  document.body.classList.add('flip-os-desktop');
+  document.body.classList.remove('flip-os-module-open');
+}
+function _flipOsOpenModule(key) {
+  const module = FLIP_OS_MODULES.find(item => item.key === key);
+  if (!module) return;
+  _flipOsState.activeModule = module;
+  document.body.classList.remove('flip-os-desktop');
+  document.body.classList.add('flip-os-module-open');
+  switchTab(module.internalTab);
+  requestAnimationFrame(() => {
+    relayout();
+    _syncScrashHudVisibility();
+    _syncUploadPanelLayout();
+  });
+}
+function _flipOsEnsureShell() {
+  if (!window.FLIP_BETA || _flipOsState.shellReady) return;
+  const existingNodes = Array.from(document.body.children).filter(node =>
+    node.tagName !== 'SCRIPT' &&
+    node.id !== 'flipOsShell' &&
+    node.id !== 'flipOsBoot'
+  );
+  const shell = document.createElement('div');
+  shell.id = 'flipOsShell';
+  shell.innerHTML = `
+    <div id="flipOsMenuBar">
+      <div id="flipOsMenuBrand">▟ FLIP</div>
+      <div id="flipOsClock"></div>
+    </div>
+    <div id="flipOsDesktop">
+      <div id="flipOsDesktopGrid">${_flipOsBuildDesktopIcons()}</div>
+    </div>
+    <div id="flipOsAppStage">
+      <div id="flipOsAppHost"></div>
+    </div>
+  `;
+  document.body.insertBefore(shell, document.body.firstChild);
+  const appHost = shell.querySelector('#flipOsAppHost');
+  existingNodes.forEach(node => appHost.appendChild(node));
+  _flipOsState.shellReady = true;
+  _flipOsState.shell = shell;
+  _flipOsState.desktop = shell.querySelector('#flipOsDesktop');
+  _flipOsState.desktopGrid = shell.querySelector('#flipOsDesktopGrid');
+  _flipOsState.appStage = shell.querySelector('#flipOsAppStage');
+  _flipOsState.appHost = appHost;
+  _flipOsState.clockEl = shell.querySelector('#flipOsClock');
+  shell.querySelectorAll('[data-flip-os-module]').forEach(btn => {
+    btn.addEventListener('click', () => _flipOsOpenModule(btn.dataset.flipOsModule));
+  });
+  _flipOsStartClock();
+}
+function _flipOsAfterBoot() {
+  _flipOsEnsureShell();
+  _flipOsShowDesktop();
+}
 function _flipOsFinishBoot(overlay, immediate) {
   if (!overlay || overlay.dataset.done === '1') return;
   overlay.dataset.done = '1';

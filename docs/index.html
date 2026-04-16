@@ -218,11 +218,96 @@
       position:absolute;
       inset:28px 0 0;
       display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
       background:var(--flip-bg-deep);
       overflow:hidden;
     }
     body.flip-os.flip-os-module-open #flipOsAppStage {
-      display:block;
+      display:flex;
+    }
+    #flipOsWindow {
+      position:absolute;
+      left:0;
+      top:0;
+      width:min(85vw, 1160px);
+      height:min(85vh, 840px);
+      min-width:320px;
+      min-height:400px;
+      display:flex;
+      flex-direction:column;
+      background:var(--flip-bg-surface);
+      border:1px solid var(--flip-border-bright);
+      opacity:0;
+      transform:scale(0.95);
+      transition:opacity 150ms ease, transform 150ms ease;
+      overflow:hidden;
+    }
+    #flipOsWindow.is-open {
+      opacity:1;
+      transform:scale(1);
+    }
+    #flipOsWindow.is-closing {
+      opacity:0;
+      transform:scale(0.98);
+    }
+    #flipOsWindowBar {
+      position:relative;
+      height:32px;
+      flex:0 0 32px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:0 12px;
+      background:var(--flip-bg-elevated);
+      border-bottom:1px solid var(--flip-border);
+      color:var(--flip-text-primary);
+      user-select:none;
+      cursor:grab;
+    }
+    body.flip-os-window-dragging #flipOsWindowBar {
+      cursor:grabbing;
+    }
+    #flipOsWindowDot {
+      width:10px;
+      height:10px;
+      background:var(--flip-accent);
+      flex:0 0 10px;
+    }
+    #flipOsWindowTitle {
+      flex:1;
+      min-width:0;
+      color:var(--flip-text-primary);
+      font-size:13px;
+      font-weight:600;
+      letter-spacing:1px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    #flipOsWindowClose {
+      flex:0 0 auto;
+      min-width:28px;
+      min-height:24px;
+      padding:0 6px;
+      border:none;
+      background:transparent;
+      color:var(--flip-text-primary);
+      font-size:16px;
+      line-height:1;
+      cursor:pointer;
+    }
+    #flipOsWindowClose:hover,
+    #flipOsWindowClose:focus-visible {
+      color:var(--flip-accent-warm);
+    }
+    #flipOsWindowBody {
+      position:relative;
+      flex:1;
+      min-height:0;
+      overflow:hidden;
+      background:var(--flip-bg-deep);
     }
     #flipOsAppHost {
       position:relative;
@@ -231,12 +316,62 @@
       overflow:hidden;
       transform:translateZ(0);
     }
+    body.flip-os #flipOsAppHost .tab-bar {
+      display:none !important;
+    }
+    body.flip-os #flipOsAppHost #display,
+    body.flip-os #flipOsAppHost #asciiArea,
+    body.flip-os #flipOsAppHost #scrashArea,
+    body.flip-os #flipOsAppHost #uploadSection,
+    body.flip-os #flipOsAppHost #sonoArea,
+    body.flip-os #flipOsAppHost #sonoPerm,
+    body.flip-os #flipOsAppHost #wmpArea,
+    body.flip-os #flipOsAppHost #wmpPerm,
+    body.flip-os #flipOsAppHost #sflowArea {
+      top:0 !important;
+    }
+    body.flip-os #flipOsAppHost #display,
+    body.flip-os #flipOsAppHost #asciiArea,
+    body.flip-os #flipOsAppHost #scrashArea,
+    body.flip-os #flipOsAppHost #uploadSection,
+    body.flip-os #flipOsAppHost #sflowArea {
+      bottom:96px !important;
+    }
+    body.flip-os #flipOsAppHost #wmpArea,
+    body.flip-os #flipOsAppHost #wmpPerm {
+      bottom:168px !important;
+    }
+    body.flip-os.wmp-file #flipOsAppHost #wmpArea {
+      bottom:228px !important;
+    }
+    body.flip-os.wmp-file #flipOsAppHost #wmpPerm {
+      bottom:228px !important;
+    }
+    body.flip-os #flipOsAppHost #scrashControls {
+      max-height:calc(100% - 96px) !important;
+    }
     @media (max-width:1024px) {
       #flipOsDesktopGrid {
         grid-template-columns:repeat(3, minmax(0, 1fr));
       }
     }
     @media (max-width:767px) {
+      #flipOsAppStage {
+        padding:0;
+      }
+      #flipOsWindow {
+        inset:0 !important;
+        width:100% !important;
+        height:100% !important;
+        min-width:0;
+        min-height:0;
+        border-left:none;
+        border-right:none;
+        border-bottom:none;
+      }
+      #flipOsWindowBar {
+        cursor:default;
+      }
       #flipOsDesktop {
         padding:20px 14px;
       }
@@ -3209,9 +3344,20 @@ const _flipOsState = {
   desktopGrid: null,
   appStage: null,
   appHost: null,
+  windowEl: null,
+  windowBar: null,
+  windowBody: null,
+  windowTitleEl: null,
   clockEl: null,
   clockTimer: 0,
   activeModule: null,
+  openTimer: 0,
+  closeTimer: 0,
+  windowX: null,
+  windowY: null,
+  dragActive: false,
+  dragOffsetX: 0,
+  dragOffsetY: 0,
 };
 
 let asciiCols     = 100;
@@ -3701,10 +3847,22 @@ function _syncUploadPanelLayout() {
   document.documentElement.style.setProperty('--up-panel-max-h', `${available}px`);
 }
 
+function _getFlipViewportSize() {
+  const host = window.FLIP_BETA && _flipOsState.appHost && _flipOsState.appHost.clientWidth > 0 && _flipOsState.appHost.clientHeight > 0
+    ? _flipOsState.appHost
+    : null;
+  return {
+    width: Math.max(320, Math.round(host ? host.clientWidth : window.innerWidth)),
+    height: Math.max(320, Math.round(host ? host.clientHeight : window.innerHeight)),
+    topInset: host ? 0 : 40,
+  };
+}
+
 function relayout() {
+  const viewport = _getFlipViewportSize();
   const aspect = OUT_W / OUT_H;
-  const avH = window.innerHeight - 40 - 96;
-  const avW = window.innerWidth;
+  const avH = Math.max(160, viewport.height - viewport.topInset - 96);
+  const avW = viewport.width;
 
   let w, h;
   if (avW / avH > aspect) { h = avH; w = h * aspect; }
@@ -3731,7 +3889,7 @@ function relayout() {
 
   _syncSonoLayoutVars();
   const sonoMetrics = _getSonoStackMetrics();
-  const avHS = Math.max(140, window.innerHeight - 40 - sonoMetrics.stackBottom);
+  const avHS = Math.max(140, viewport.height - viewport.topInset - sonoMetrics.stackBottom);
   let sw, sh;
   if (avW / avHS > aspect) { sh = avHS; sw = sh * aspect; }
   else { sw = avW; sh = sw / aspect; }
@@ -3739,7 +3897,7 @@ function relayout() {
   document.getElementById('sonoCanvas').style.height = sh + 'px';
 
   if (!wmpPseudoFull) {
-    const avHW = window.innerHeight - 40 - (document.body.classList.contains('wmp-file') ? 228 : 168);
+    const avHW = Math.max(140, viewport.height - viewport.topInset - (document.body.classList.contains('wmp-file') ? 228 : 168));
     document.getElementById('wmpCanvas').style.width = avW + 'px';
     document.getElementById('wmpCanvas').style.height = avHW + 'px';
   }
@@ -17409,17 +17567,128 @@ function _flipOsBuildDesktopIcons() {
 }
 function _flipOsShowDesktop() {
   if (!window.FLIP_BETA) return;
+  _flipOsStopWindowDrag();
+  clearTimeout(_flipOsState.openTimer);
+  clearTimeout(_flipOsState.closeTimer);
+  if (_flipOsState.windowEl) {
+    _flipOsState.windowEl.classList.remove('is-open', 'is-closing');
+  }
+  _flipOsState.activeModule = null;
   document.body.classList.add('flip-os-desktop');
   document.body.classList.remove('flip-os-module-open');
+  _flipOsState.appStage?.setAttribute('aria-hidden', 'true');
+}
+function _flipOsIsMobileLayout() {
+  return window.innerWidth <= 767;
+}
+function _flipOsGetWindowMetrics() {
+  const stage = _flipOsState.appStage;
+  const stageWidth = stage?.clientWidth || window.innerWidth;
+  const stageHeight = stage?.clientHeight || Math.max(320, window.innerHeight - 28);
+  if (_flipOsIsMobileLayout()) {
+    return { width: stageWidth, height: stageHeight };
+  }
+  return {
+    width: Math.round(Math.max(320, Math.min(stageWidth * 0.85, 1160))),
+    height: Math.round(Math.max(400, Math.min(stageHeight * 0.85, 840))),
+  };
+}
+function _flipOsClampWindowPosition(left, top, width, height) {
+  const stage = _flipOsState.appStage;
+  const stageWidth = stage?.clientWidth || window.innerWidth;
+  const stageHeight = stage?.clientHeight || Math.max(320, window.innerHeight - 28);
+  if (_flipOsIsMobileLayout()) {
+    return { left: 0, top: 0 };
+  }
+  const minLeft = 32 - width;
+  const maxLeft = stageWidth - 32;
+  const minTop = 0;
+  const maxTop = stageHeight - 32;
+  return {
+    left: Math.min(maxLeft, Math.max(minLeft, left)),
+    top: Math.min(maxTop, Math.max(minTop, top)),
+  };
+}
+function _flipOsApplyWindowLayout(center = false) {
+  const win = _flipOsState.windowEl;
+  if (!win) return;
+  const { width, height } = _flipOsGetWindowMetrics();
+  let left = _flipOsState.windowX;
+  let top = _flipOsState.windowY;
+  if (center || left == null || top == null || _flipOsIsMobileLayout()) {
+    left = Math.round(((_flipOsState.appStage?.clientWidth || window.innerWidth) - width) / 2);
+    top = Math.round(((_flipOsState.appStage?.clientHeight || Math.max(320, window.innerHeight - 28)) - height) / 2);
+  }
+  const clamped = _flipOsClampWindowPosition(left, top, width, height);
+  _flipOsState.windowX = clamped.left;
+  _flipOsState.windowY = clamped.top;
+  win.style.width = `${width}px`;
+  win.style.height = `${height}px`;
+  win.style.left = `${clamped.left}px`;
+  win.style.top = `${clamped.top}px`;
+}
+function _flipOsCloseModule() {
+  if (!window.FLIP_BETA || !document.body.classList.contains('flip-os-module-open')) return;
+  clearTimeout(_flipOsState.openTimer);
+  clearTimeout(_flipOsState.closeTimer);
+  if (_flipOsState.windowEl) {
+    _flipOsState.windowEl.classList.remove('is-open');
+    _flipOsState.windowEl.classList.add('is-closing');
+  }
+  _flipOsState.closeTimer = setTimeout(() => {
+    _flipOsShowDesktop();
+    relayout();
+  }, 100);
+}
+function _flipOsOnWindowMove(event) {
+  if (!_flipOsState.dragActive || !_flipOsState.windowEl || _flipOsIsMobileLayout()) return;
+  const stageRect = _flipOsState.appStage?.getBoundingClientRect();
+  if (!stageRect) return;
+  const width = _flipOsState.windowEl.offsetWidth;
+  const height = _flipOsState.windowEl.offsetHeight;
+  const left = event.clientX - stageRect.left - _flipOsState.dragOffsetX;
+  const top = event.clientY - stageRect.top - _flipOsState.dragOffsetY;
+  const clamped = _flipOsClampWindowPosition(left, top, width, height);
+  _flipOsState.windowX = clamped.left;
+  _flipOsState.windowY = clamped.top;
+  _flipOsState.windowEl.style.left = `${clamped.left}px`;
+  _flipOsState.windowEl.style.top = `${clamped.top}px`;
+}
+function _flipOsStopWindowDrag() {
+  if (!_flipOsState.dragActive) return;
+  _flipOsState.dragActive = false;
+  document.body.classList.remove('flip-os-window-dragging');
+  window.removeEventListener('mousemove', _flipOsOnWindowMove);
+  window.removeEventListener('mouseup', _flipOsStopWindowDrag);
+}
+function _flipOsStartWindowDrag(event) {
+  if (_flipOsIsMobileLayout() || event.button !== 0 || !_flipOsState.windowEl) return;
+  if (event.target.closest('#flipOsWindowClose')) return;
+  const rect = _flipOsState.windowEl.getBoundingClientRect();
+  _flipOsState.dragActive = true;
+  _flipOsState.dragOffsetX = event.clientX - rect.left;
+  _flipOsState.dragOffsetY = event.clientY - rect.top;
+  document.body.classList.add('flip-os-window-dragging');
+  window.addEventListener('mousemove', _flipOsOnWindowMove);
+  window.addEventListener('mouseup', _flipOsStopWindowDrag);
 }
 function _flipOsOpenModule(key) {
   const module = FLIP_OS_MODULES.find(item => item.key === key);
   if (!module) return;
+  clearTimeout(_flipOsState.closeTimer);
   _flipOsState.activeModule = module;
+  if (_flipOsState.windowTitleEl) _flipOsState.windowTitleEl.textContent = module.title;
   document.body.classList.remove('flip-os-desktop');
   document.body.classList.add('flip-os-module-open');
+  _flipOsState.appStage?.setAttribute('aria-hidden', 'false');
+  _flipOsApplyWindowLayout(!_flipOsState.windowEl?.classList.contains('is-open'));
   switchTab(module.internalTab);
+  if (_flipOsState.windowEl) {
+    _flipOsState.windowEl.classList.remove('is-closing', 'is-open');
+    _flipOsState.openTimer = setTimeout(() => _flipOsState.windowEl?.classList.add('is-open'), 0);
+  }
   requestAnimationFrame(() => {
+    _flipOsApplyWindowLayout(false);
     relayout();
     _syncScrashHudVisibility();
     _syncUploadPanelLayout();
@@ -17442,8 +17711,17 @@ function _flipOsEnsureShell() {
     <div id="flipOsDesktop">
       <div id="flipOsDesktopGrid">${_flipOsBuildDesktopIcons()}</div>
     </div>
-    <div id="flipOsAppStage">
-      <div id="flipOsAppHost"></div>
+    <div id="flipOsAppStage" aria-hidden="true">
+      <div id="flipOsWindow">
+        <div id="flipOsWindowBar">
+          <div id="flipOsWindowDot" aria-hidden="true"></div>
+          <div id="flipOsWindowTitle">FLIP</div>
+          <button id="flipOsWindowClose" type="button" aria-label="Close window">✕</button>
+        </div>
+        <div id="flipOsWindowBody">
+          <div id="flipOsAppHost"></div>
+        </div>
+      </div>
     </div>
   `;
   document.body.insertBefore(shell, document.body.firstChild);
@@ -17455,11 +17733,27 @@ function _flipOsEnsureShell() {
   _flipOsState.desktopGrid = shell.querySelector('#flipOsDesktopGrid');
   _flipOsState.appStage = shell.querySelector('#flipOsAppStage');
   _flipOsState.appHost = appHost;
+  _flipOsState.windowEl = shell.querySelector('#flipOsWindow');
+  _flipOsState.windowBar = shell.querySelector('#flipOsWindowBar');
+  _flipOsState.windowBody = shell.querySelector('#flipOsWindowBody');
+  _flipOsState.windowTitleEl = shell.querySelector('#flipOsWindowTitle');
   _flipOsState.clockEl = shell.querySelector('#flipOsClock');
   shell.querySelectorAll('[data-flip-os-module]').forEach(btn => {
     btn.addEventListener('click', () => _flipOsOpenModule(btn.dataset.flipOsModule));
   });
+  shell.querySelector('#flipOsWindowClose')?.addEventListener('click', _flipOsCloseModule);
+  _flipOsState.windowBar?.addEventListener('mousedown', _flipOsStartWindowDrag);
   _flipOsStartClock();
+  window.addEventListener('resize', () => {
+    _flipOsApplyWindowLayout(false);
+    if (document.body.classList.contains('flip-os-module-open')) relayout();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.body.classList.contains('flip-os-module-open')) {
+      event.preventDefault();
+      _flipOsCloseModule();
+    }
+  });
 }
 function _flipOsAfterBoot() {
   _flipOsEnsureShell();

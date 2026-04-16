@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
   <title>FLIP</title>
   <style>
     @font-face { font-family:'Bloom';      src:local('Bloom'),      url('./fonts/Bloom-Regular.otf')   format('opentype'); }
@@ -48,6 +48,224 @@
       display:block;
       align-items:stretch;
       background:var(--flip-bg-deep);
+    }
+    body.flip-os,
+    body.flip-os.ascii-mode,
+    body.flip-os.sono-mode {
+      --ink:var(--flip-bg-deep);
+      --dark:var(--flip-border);
+      --mid:var(--flip-text-dim);
+      --paper:var(--flip-text-primary);
+    }
+    body.flip-os,
+    body.flip-os #flipOsBoot,
+    body.flip-os #flipOsShell,
+    body.flip-os #flipOsAppHost,
+    body.flip-os #flipOsAppHost button,
+    body.flip-os #flipOsAppHost label,
+    body.flip-os #flipOsAppHost select,
+    body.flip-os #flipOsAppHost input,
+    body.flip-os #flipOsAppHost textarea {
+      font-family:'IBM Plex Mono', 'Courier New', monospace;
+    }
+    body.flip-os #flipOsBoot,
+    body.flip-os #flipOsMenuBar,
+    body.flip-os #flipOsDesktop,
+    body.flip-os #flipOsWindowBar {
+      text-shadow:0 0 8px var(--flip-glow);
+    }
+    body.flip-os #flipOsShell * {
+      border-radius:0 !important;
+    }
+    body.flip-os #flipOsBoot::after,
+    body.flip-os #flipOsMenuBar::after,
+    body.flip-os #flipOsDesktop::after,
+    body.flip-os #flipOsWindowBar::after {
+      content:'';
+      position:absolute;
+      inset:0;
+      background:repeating-linear-gradient(
+        to bottom,
+        transparent 0 2px,
+        var(--flip-scanline) 2px 4px
+      );
+      opacity:0.3;
+      pointer-events:none;
+    }
+    body.flip-os #flipOsWindow,
+    body.flip-os #flipOsDesktop,
+    body.flip-os #flipOsMenuBar,
+    body.flip-os #flipOsWindowBar {
+      box-shadow:0 0 18px var(--flip-glow);
+    }
+    body.flip-os #flipOsAppHost,
+    body.flip-os #flipOsAppHost .flip-settings-panel,
+    body.flip-os #flipOsAppHost .flip-settings-trigger,
+    body.flip-os #flipOsAppHost .flip-toast {
+      color:var(--flip-text-primary);
+    }
+    body.flip-os #flipOsAppHost button,
+    body.flip-os #flipOsWindowClose,
+    body.flip-os #flipOsAppHost .btn-icon,
+    body.flip-os #flipOsAppHost .flip-settings-trigger,
+    body.flip-os #flipOsAppHost .flip-settings-segments button,
+    body.flip-os #flipOsAppHost .flip-settings-pill,
+    body.flip-os #flipOsAppHost .flip-settings-tile,
+    body.flip-os #flipOsAppHost .flip-settings-toggle {
+      background:var(--flip-bg-elevated) !important;
+      border:1px solid var(--flip-border) !important;
+      color:var(--flip-text-primary) !important;
+      border-radius:0 !important;
+      box-shadow:none !important;
+      text-shadow:0 0 8px var(--flip-glow);
+    }
+    body.flip-os #flipOsAppHost button:hover,
+    body.flip-os #flipOsAppHost button:focus-visible,
+    body.flip-os #flipOsWindowClose:hover,
+    body.flip-os #flipOsWindowClose:focus-visible,
+    body.flip-os #flipOsAppHost .btn-icon:hover,
+    body.flip-os #flipOsAppHost .flip-settings-trigger:hover {
+      border-color:var(--flip-border-bright) !important;
+      color:var(--flip-text-bright) !important;
+      box-shadow:0 0 14px var(--flip-glow) !important;
+    }
+    body.flip-os #flipOsAppHost button:active,
+    body.flip-os #flipOsWindowClose:active,
+    body.flip-os #flipOsAppHost .btn-icon:active,
+    body.flip-os #flipOsAppHost .flip-settings-trigger:active {
+      background:var(--flip-border) !important;
+      color:var(--flip-bg-deep) !important;
+    }
+    body.flip-os #flipOsAppHost button.active,
+    body.flip-os #flipOsAppHost button[aria-expanded="true"],
+    body.flip-os #flipOsAppHost .flip-settings-segments button.active,
+    body.flip-os #flipOsAppHost .flip-settings-pill.active,
+    body.flip-os #flipOsAppHost .flip-settings-tile.active,
+    body.flip-os #flipOsAppHost .flip-settings-toggle.active {
+      background:var(--flip-border) !important;
+      border-color:var(--flip-border-bright) !important;
+      color:var(--flip-text-bright) !important;
+      box-shadow:0 0 14px var(--flip-glow) !important;
+    }
+    body.flip-os #flipOsAppHost select,
+    body.flip-os #flipOsAppHost input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    body.flip-os #flipOsAppHost textarea {
+      background:var(--flip-bg-deep) !important;
+      border:1px solid var(--flip-border) !important;
+      color:var(--flip-text-primary) !important;
+      border-radius:0 !important;
+      box-shadow:none !important;
+    }
+    body.flip-os #flipOsAppHost select:focus,
+    body.flip-os #flipOsAppHost input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+    body.flip-os #flipOsAppHost textarea:focus {
+      outline:none;
+      border-color:var(--flip-accent) !important;
+      box-shadow:0 0 10px rgba(61,255,163,.18) !important;
+    }
+    body.flip-os #flipOsAppHost input[type="range"] {
+      -webkit-appearance:none;
+      appearance:none;
+      background:transparent !important;
+      accent-color:var(--flip-accent);
+    }
+    body.flip-os #flipOsAppHost input[type="range"]::-webkit-slider-runnable-track {
+      height:4px;
+      background:var(--flip-bg-elevated);
+      border:1px solid var(--flip-border);
+    }
+    body.flip-os #flipOsAppHost input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance:none;
+      width:12px;
+      height:12px;
+      margin-top:-5px;
+      background:var(--flip-accent);
+      border:1px solid var(--flip-border-bright);
+    }
+    body.flip-os #flipOsAppHost input[type="range"]::-moz-range-track {
+      height:4px;
+      background:var(--flip-bg-elevated);
+      border:1px solid var(--flip-border);
+    }
+    body.flip-os #flipOsAppHost input[type="range"]::-moz-range-thumb {
+      width:12px;
+      height:12px;
+      background:var(--flip-accent);
+      border:1px solid var(--flip-border-bright);
+      border-radius:0;
+    }
+    body.flip-os #flipOsAppHost .drop-zone,
+    body.flip-os #flipOsAppHost #upPanel,
+    body.flip-os #flipOsAppHost #asciiPanel,
+    body.flip-os #flipOsAppHost #scrashControls,
+    body.flip-os #flipOsAppHost #sonoHUD,
+    body.flip-os #flipOsAppHost #wmpHUD,
+    body.flip-os #flipOsAppHost #wmpPerm,
+    body.flip-os #flipOsAppHost #sonoPerm,
+    body.flip-os #flipOsAppHost #vidPlayerBar,
+    body.flip-os #flipOsAppHost #flipBottomNav,
+    body.flip-os #flipOsAppHost #flipExportBar,
+    body.flip-os #flipOsAppHost .flip-advanced-panel,
+    body.flip-os #flipOsAppHost .flip-toast,
+    body.flip-os #flipOsAppHost .flip-settings-panel,
+    body.flip-os #flipOsAppHost .flip-settings-card,
+    body.flip-os #flipOsAppHost .scrash-quick-card,
+    body.flip-os #flipOsAppHost #camControlDock,
+    body.flip-os #flipOsAppHost #camFamilyTray,
+    body.flip-os #flipOsAppHost #camAspect,
+    body.flip-os #flipOsAppHost #camFpsCtrl,
+    body.flip-os #flipOsAppHost #camZoomCtrl,
+    body.flip-os #flipOsAppHost .palettes {
+      background:var(--flip-bg-surface) !important;
+      border:1px solid var(--flip-border) !important;
+      box-shadow:0 0 16px var(--flip-glow) !important;
+    }
+    body.flip-os #flipOsAppHost .flip-toast-container {
+      top:12px;
+    }
+    body.flip-os #flipOsAppHost .btn-label,
+    body.flip-os #flipOsAppHost .ac-title,
+    body.flip-os #flipOsAppHost .ac-lbl,
+    body.flip-os #flipOsAppHost .ac-val,
+    body.flip-os #flipOsAppHost .sono-lbl,
+    body.flip-os #flipOsAppHost .sono-val,
+    body.flip-os #flipOsAppHost .wmp-lbl,
+    body.flip-os #flipOsAppHost .wmp-val,
+    body.flip-os #flipOsAppHost .sc-lbl,
+    body.flip-os #flipOsAppHost .sc-val,
+    body.flip-os #flipOsAppHost .progress-info,
+    body.flip-os #flipOsAppHost .editor-pane-note,
+    body.flip-os #flipOsAppHost .flip-settings-help,
+    body.flip-os #flipOsAppHost .flip-settings-monitor-note,
+    body.flip-os #flipOsAppHost .drop-zone p,
+    body.flip-os #flipOsAppHost .drop-zone strong,
+    body.flip-os #flipOsAppHost .flip-settings-status {
+      color:var(--flip-text-dim) !important;
+    }
+    body.flip-os #flipOsAppHost .ac-row,
+    body.flip-os #flipOsAppHost .sc-row,
+    body.flip-os #flipOsAppHost .sono-row1,
+    body.flip-os #flipOsAppHost .sono-row2,
+    body.flip-os #flipOsAppHost .sono-row3,
+    body.flip-os #flipOsAppHost .sono-row4,
+    body.flip-os #flipOsAppHost .sono-row5,
+    body.flip-os #flipOsAppHost .wmp-ctrl {
+      color:var(--flip-text-primary);
+    }
+    body.flip-os #flipOsShell ::-webkit-scrollbar {
+      width:8px;
+      height:8px;
+    }
+    body.flip-os #flipOsShell ::-webkit-scrollbar-track {
+      background:var(--flip-bg-deep);
+    }
+    body.flip-os #flipOsShell ::-webkit-scrollbar-thumb {
+      background:var(--flip-border-bright);
+      border:1px solid var(--flip-border);
+    }
+    body.flip-os ::selection {
+      background:var(--flip-accent);
+      color:var(--flip-bg-deep);
     }
     #flipOsBoot {
       position:fixed;
@@ -11410,7 +11628,7 @@ function flipToast(message, duration = 3000) {
   if (!container) {
     container = document.createElement('div');
     container.className = 'flip-toast-container';
-    document.body.appendChild(container);
+    (window.FLIP_BETA && _flipOsState.appHost ? _flipOsState.appHost : document.body).appendChild(container);
   }
   const toast = document.createElement('div');
   toast.className = 'flip-toast';
@@ -12780,7 +12998,7 @@ function _updateFlipAudioStatus() {
 function _ensureFlipSettingsUI() {
   if (_flipSettingsDom) return _flipSettingsDom;
   _injectFlipSettingsStyles();
-  document.body.insertAdjacentHTML('beforeend', `
+  (window.FLIP_BETA && _flipOsState.appHost ? _flipOsState.appHost : document.body).insertAdjacentHTML('beforeend', `
     <button id="flipSettingsTrigger" class="flip-settings-trigger" type="button" aria-label="Recording settings">⚙</button>
     <div id="flipSettingsBackdrop" class="flip-settings-backdrop"></div>
     <section id="flipSettingsPanel" class="flip-settings-panel" aria-hidden="true">

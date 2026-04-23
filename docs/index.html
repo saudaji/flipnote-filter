@@ -2327,6 +2327,62 @@
       from { opacity: 1; }
       to   { opacity: 0; transform: translateY(-6px); }
     }
+    .flip-save-prompt {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 108px;
+      z-index: 9998;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      background: rgba(15, 15, 15, 0.94);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .flip-save-prompt.visible { display: flex; }
+    .flip-save-copy {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+      color: rgba(255,255,255,0.88);
+      font-family: monospace;
+    }
+    .flip-save-title {
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+    .flip-save-sub {
+      color: rgba(255,255,255,0.62);
+      font-size: 9px;
+      letter-spacing: 0.5px;
+      word-break: break-word;
+    }
+    .flip-save-btn {
+      flex: 0 0 auto;
+      min-width: 104px;
+      min-height: 40px;
+      padding: 8px 14px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      cursor: pointer;
+    }
+    .flip-save-btn:active { transform: scale(0.98); }
+    @media (min-width: 768px) {
+      .flip-save-prompt {
+        left: 50%;
+        right: auto;
+        width: min(420px, calc(100vw - 24px));
+        transform: translateX(-50%);
+      }
+    }
     /* Restyle thermalToast to match new toast system */
     #thermalToast {
       font-family: monospace !important;
@@ -13560,6 +13616,51 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
 // ════════════════════════════════════════════════════════════════════
 // UTILS
 // ════════════════════════════════════════════════════════════════════
+let _pendingSavePromptState = null;
+function _getFlipUiRoot() {
+  return (window.FLIP_BETA && _flipOsState?.appHost) ? _flipOsState.appHost : document.body;
+}
+function _ensureDeferredSavePrompt() {
+  let prompt = document.getElementById('flipSavePrompt');
+  const root = _getFlipUiRoot();
+  if (prompt && prompt.parentNode !== root) root.appendChild(prompt);
+  if (prompt) return prompt;
+  prompt = document.createElement('div');
+  prompt.id = 'flipSavePrompt';
+  prompt.className = 'flip-save-prompt';
+  prompt.innerHTML = `
+    <div class="flip-save-copy">
+      <div class="flip-save-title">VIDEO READY</div>
+      <div class="flip-save-sub">Tap save to download it</div>
+    </div>
+    <button type="button" class="flip-save-btn" id="flipSavePromptBtn">SAVE VIDEO</button>
+  `;
+  root.appendChild(prompt);
+  prompt.querySelector('#flipSavePromptBtn')?.addEventListener('click', async () => {
+    if (!_pendingSavePromptState) return;
+    const state = _pendingSavePromptState;
+    _pendingSavePromptState = null;
+    prompt.classList.remove('visible');
+    await _performSaveFile(state.blob, state.filename);
+  });
+  return prompt;
+}
+function _showDeferredSavePrompt(blob, filename) {
+  _pendingSavePromptState = { blob, filename };
+  const prompt = _ensureDeferredSavePrompt();
+  const title = prompt.querySelector('.flip-save-title');
+  const sub = prompt.querySelector('.flip-save-sub');
+  if (title) title.textContent = /^video\//i.test(blob?.type || '') ? 'VIDEO READY' : 'FILE READY';
+  if (sub) sub.textContent = filename;
+  prompt.classList.add('visible');
+  flipToast('Video ready — tap SAVE');
+}
+function _shouldDeferSavePrompt(blob) {
+  if (!blob || !/^video\//i.test(blob.type || '')) return false;
+  if (!(_IS_IOS || IS_ANDROID)) return false;
+  const userActivation = navigator.userActivation;
+  return !!userActivation && !userActivation.isActive;
+}
 function _download(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a   = Object.assign(document.createElement('a'), { href:url, download:filename });
@@ -13592,7 +13693,8 @@ async function _saveViaPicker(blob, filename) {
 //   iOS     → share sheet (best browser-native save path there)
 //   Android → save picker / direct download
 //   Other   → direct download (goes to Downloads folder)
-async function _saveFile(blob, filename) {
+//   Recorded mobile videos finishing outside a user gesture show a SAVE CTA first.
+async function _performSaveFile(blob, filename) {
   if (IS_ANDROID) {
     if (await _saveViaPicker(blob, filename)) return;
     _download(blob, filename);
@@ -13604,6 +13706,13 @@ async function _saveFile(blob, filename) {
     catch(e) { if (e.name === 'AbortError') return; }
   }
   _download(blob, filename);
+}
+async function _saveFile(blob, filename) {
+  if (_shouldDeferSavePrompt(blob)) {
+    _showDeferredSavePrompt(blob, filename);
+    return;
+  }
+  await _performSaveFile(blob, filename);
 }
 // _shareFile: explicit share action — always opens share sheet when available.
 async function _shareOrDownload(blob, filename) {

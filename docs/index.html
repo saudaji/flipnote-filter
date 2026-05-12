@@ -12886,9 +12886,13 @@ function _getFlipRecorderMimeCandidates(hasAudio = false) {
     'video/webm; codecs=vp9',
     'video/webm',
   ];
-  const mp4 = ['video/mp4'];
-  if (_IS_IOS) return hasAudio ? [...mp4, ...webmAudio] : [...mp4, ...webmVideo];
-  if (IS_ANDROID) return hasAudio ? [...webmAudio, ...mp4] : [...webmVideo, ...mp4];
+  // MP4 from MediaRecorder includes correct Duration in the moov atom.
+  // WebM from MediaRecorder has Duration=0 in the EBML header, which breaks
+  // Instagram and other apps that parse container metadata before playing.
+  // Android Chrome 94+ supports video/mp4;codecs=avc1 via MediaRecorder.
+  const mp4 = ['video/mp4;codecs=avc1', 'video/mp4'];
+  // iOS and Android: prefer MP4 — avoids WebM duration=0 bug on social media.
+  if (_IS_IOS || IS_ANDROID) return hasAudio ? [...mp4, ...webmAudio] : [...mp4, ...webmVideo];
   return hasAudio ? [...webmAudio, ...mp4] : [...webmVideo, ...mp4];
 }
 function _pickFlipRecorderMime(stream) {
@@ -13619,25 +13623,8 @@ function _canvasToJpeg(canvas, quality) {
   return new Promise(r => flat.toBlob(r, 'image/jpeg', quality));
 }
 
-const VIDEO_MIME_CANDIDATES = [
-  'video/mp4',
-  'video/webm;codecs=vp8',
-  'video/webm;codecs=vp9',
-  'video/webm',
-];
-
-function _pickVideoMime() {
-  if (typeof MediaRecorder === 'undefined') return '';
-  return _getFlipRecorderMimeCandidates(false).find(m => MediaRecorder.isTypeSupported?.(m)) || '';
-}
 function _videoExtFromMime(mime) {
   return /mp4/i.test(mime || '') ? 'mp4' : 'webm';
-}
-function _createCanvasRecorder(stream, videoBitsPerSecond) {
-  const mime = _pickVideoMime();
-  const opts = { videoBitsPerSecond };
-  if (mime) opts.mimeType = mime;
-  return { recorder: new MediaRecorder(stream, opts), mime };
 }
 function _stopRecorderSafely(rec) {
   if (!rec || rec.state === 'inactive') return;

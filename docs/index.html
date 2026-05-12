@@ -1981,6 +1981,8 @@
     #barSono.visible { display:flex; }
     #btnSonoRec.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
     #btnSonoRec.recording .btn-label { color:#ff6666; }
+    #btnWmpRec.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
+    #btnWmpRec.recording .btn-label { color:#ff6666; }
 
     /* ══════════════════════════════════════════════════════
        WMP XP VISUALIZER
@@ -2326,62 +2328,6 @@
     @keyframes flipToastOut {
       from { opacity: 1; }
       to   { opacity: 0; transform: translateY(-6px); }
-    }
-    .flip-save-prompt {
-      position: fixed;
-      left: 12px;
-      right: 12px;
-      bottom: 108px;
-      z-index: 9998;
-      display: none;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 10px 12px;
-      background: rgba(15, 15, 15, 0.94);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.12);
-    }
-    .flip-save-prompt.visible { display: flex; }
-    .flip-save-copy {
-      min-width: 0;
-      display: grid;
-      gap: 2px;
-      color: rgba(255,255,255,0.88);
-      font-family: monospace;
-    }
-    .flip-save-title {
-      font-size: 11px;
-      letter-spacing: 1px;
-    }
-    .flip-save-sub {
-      color: rgba(255,255,255,0.62);
-      font-size: 9px;
-      letter-spacing: 0.5px;
-      word-break: break-word;
-    }
-    .flip-save-btn {
-      flex: 0 0 auto;
-      min-width: 104px;
-      min-height: 40px;
-      padding: 8px 14px;
-      border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(255,255,255,0.08);
-      color: #fff;
-      font-family: monospace;
-      font-size: 11px;
-      letter-spacing: 1px;
-      cursor: pointer;
-    }
-    .flip-save-btn:active { transform: scale(0.98); }
-    @media (min-width: 768px) {
-      .flip-save-prompt {
-        left: 50%;
-        right: auto;
-        width: min(420px, calc(100vw - 24px));
-        transform: translateX(-50%);
-      }
     }
     /* Restyle thermalToast to match new toast system */
     #thermalToast {
@@ -3410,6 +3356,14 @@
     <span class="btn-label">FILE</span>
   </label>
   <input type="file" id="wmpFileInputBar" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.weba" style="display:none;">
+  <button class="btn" id="btnWmpCapture">
+    <div class="btn-icon">📷</div>
+    <span class="btn-label">CAPTURE</span>
+  </button>
+  <button class="btn" id="btnWmpRec">
+    <div class="btn-icon">⏺</div>
+    <span class="btn-label">REC</span>
+  </button>
   <button class="btn" id="btnWmpFull">
     <div class="btn-icon">⛶</div>
     <span class="btn-label">FULL</span>
@@ -11292,6 +11246,7 @@ let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 const _isMobile      = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
 const IS_ANDROID     = /Android/i.test(navigator.userAgent);
+const _IS_IOS        = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 const ASCII_DEV_MAX     = IS_ANDROID ? 120 : (_isMobile ? 900 : 1400);
 // Live preview cap: still lighter than final render, but high enough to recover dense glyph texture.
 const ASCII_PREVIEW_MAX = IS_ANDROID ? 72 : (_isMobile ? 220 : 420);
@@ -11797,10 +11752,12 @@ const FLIP_NAV_CFG = {
     { icon: '↺',  label: 'RESET',  center: false, click: () => _navClick('btnSonoReset')            },
   ],
   wmp: () => [
-    { icon: '🎙', label: 'MIC',  center: false, click: () => _navClick('btnWmpMicBar')             },
-    { icon: '▶',  label: '',     center: true,  click: () => _navClick('btnWmpPlayPause')          },
-    { icon: '📂', label: 'FILE', center: false, click: () => _navClick(null, 'wmpFileInputBar')    },
-    { icon: '⛶',  label: 'FULL', center: false, click: () => _navClick('btnWmpFull')              },
+    { icon: '🎙', label: 'MIC',     center: false, click: () => _navClick('btnWmpMicBar')          },
+    { icon: '📷', label: 'CAPTURE', center: false, click: () => _navClick('btnWmpCapture')         },
+    { icon: '▶',  label: '',        center: true,  click: () => _navClick('btnWmpPlayPause')       },
+    { icon: '⏺', label: 'REC',     center: false, click: () => _navClick('btnWmpRec')             },
+    { icon: '📂', label: 'FILE',    center: false, click: () => _navClick(null, 'wmpFileInputBar') },
+    { icon: '⛶',  label: 'FULL',   center: false, click: () => _navClick('btnWmpFull')            },
   ],
   scrash: () => [
     { icon: _navIcon('btnScrashMode') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnScrashMode')  },
@@ -13616,112 +13573,34 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
 // ════════════════════════════════════════════════════════════════════
 // UTILS
 // ════════════════════════════════════════════════════════════════════
-let _pendingSavePromptState = null;
-function _getFlipUiRoot() {
-  return (window.FLIP_BETA && _flipOsState?.appHost) ? _flipOsState.appHost : document.body;
-}
-function _ensureDeferredSavePrompt() {
-  let prompt = document.getElementById('flipSavePrompt');
-  const root = _getFlipUiRoot();
-  if (prompt && prompt.parentNode !== root) root.appendChild(prompt);
-  if (prompt) return prompt;
-  prompt = document.createElement('div');
-  prompt.id = 'flipSavePrompt';
-  prompt.className = 'flip-save-prompt';
-  prompt.innerHTML = `
-    <div class="flip-save-copy">
-      <div class="flip-save-title">VIDEO READY</div>
-      <div class="flip-save-sub">Tap save to download it</div>
-    </div>
-    <button type="button" class="flip-save-btn" id="flipSavePromptBtn">SAVE VIDEO</button>
-  `;
-  root.appendChild(prompt);
-  prompt.querySelector('#flipSavePromptBtn')?.addEventListener('click', async () => {
-    if (!_pendingSavePromptState) return;
-    const state = _pendingSavePromptState;
-    _pendingSavePromptState = null;
-    prompt.classList.remove('visible');
-    await _performSaveFile(state.blob, state.filename);
-  });
-  return prompt;
-}
-function _showDeferredSavePrompt(blob, filename) {
-  _pendingSavePromptState = { blob, filename };
-  const prompt = _ensureDeferredSavePrompt();
-  const title = prompt.querySelector('.flip-save-title');
-  const sub = prompt.querySelector('.flip-save-sub');
-  if (title) title.textContent = /^video\//i.test(blob?.type || '') ? 'VIDEO READY' : 'FILE READY';
-  if (sub) sub.textContent = filename;
-  prompt.classList.add('visible');
-  flipToast('Video ready — tap SAVE');
-}
-function _shouldDeferSavePrompt(blob) {
-  if (!blob || !/^video\//i.test(blob.type || '')) return false;
-  if (!(_IS_IOS || IS_ANDROID)) return false;
-  const userActivation = navigator.userActivation;
-  return !!userActivation && !userActivation.isActive;
-}
-function _download(blob, filename) {
+// ════════════════════════════════════════════════════════════════════
+// SAVE SYSTEM — single unified helper for all modules
+// saveBlob: always <a download>, no share sheet, no platform branching.
+// _shareOrDownload: explicit share action only (Share buttons).
+// ════════════════════════════════════════════════════════════════════
+function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
-  const a   = Object.assign(document.createElement('a'), { href:url, download:filename });
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-// Platform detection for save strategy
-const _IS_IOS     = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-async function _saveViaPicker(blob, filename) {
-  if (typeof window.showSaveFilePicker !== 'function') return false;
-  try {
-    const ext = (filename.split('.').pop() || '').toLowerCase();
-    const handle = await window.showSaveFilePicker({
-      suggestedName: filename,
-      types: [{
-        description: blob.type || 'Media file',
-        accept: { [blob.type || 'application/octet-stream']: [ext ? `.${ext}` : '.bin'] }
-      }]
-    });
-    const writable = await handle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-    return true;
-  } catch (e) {
-    if (e?.name === 'AbortError') return true;
-    return false;
-  }
+function _flipTs() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
-// _saveFile: default save action.
-//   iOS     → share sheet (best browser-native save path there)
-//   Android → save picker / direct download
-//   Other   → direct download (goes to Downloads folder)
-//   Recorded mobile videos finishing outside a user gesture show a SAVE CTA first.
-async function _performSaveFile(blob, filename) {
-  if (IS_ANDROID) {
-    if (await _saveViaPicker(blob, filename)) return;
-    _download(blob, filename);
-    return;
-  }
-  const file = new File([blob], filename, { type: blob.type });
-  if (_IS_IOS && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'FLIP' }); return; }
-    catch(e) { if (e.name === 'AbortError') return; }
-  }
-  _download(blob, filename);
-}
-async function _saveFile(blob, filename) {
-  if (_shouldDeferSavePrompt(blob)) {
-    _showDeferredSavePrompt(blob, filename);
-    return;
-  }
-  await _performSaveFile(blob, filename);
-}
-// _shareFile: explicit share action — always opens share sheet when available.
+function _flipName(module, ext) { return `flip_${module}_${_flipTs()}.${ext}`; }
+// _shareOrDownload: explicit share action — always opens share sheet when available.
 async function _shareOrDownload(blob, filename) {
   const file = new File([blob], filename, { type: blob.type });
   if (navigator.canShare?.({ files: [file] })) {
     try { await navigator.share({ files: [file], title: 'FLIP' }); return; }
     catch(e) { if (e.name === 'AbortError') return; }
   }
-  _download(blob, filename);
+  saveBlob(blob, filename);
 }
 function canvasToBlob(ctx) {
   return new Promise(r => ctx.canvas.toBlob(r, 'image/png'));
@@ -13914,11 +13793,14 @@ function startRecTimer() {
     s++;
     const mm=String(s/60|0).padStart(2,'0'), ss=String(s%60).padStart(2,'0');
     btnCap.querySelector('.btn-icon').textContent = mm+':'+ss;
+    if (s >= 110) btnCap.style.color = '#ff4444';
     _syncActiveNavButton('cam', 'btnCapture', 1, 'STOP');
+    if (s >= 120) { clearInterval(recTimer); _stopRecorderSafely(recorder); }
   }, 1000);
 }
 function stopRecTimer() {
   clearInterval(recTimer);
+  btnCap.style.color = '';
   _syncCamCaptureVisual(false);
 }
 
@@ -13941,7 +13823,7 @@ btnCap.addEventListener('click', async () => {
   if (camMode === 'foto') {
     // Take photo
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    await _saveFile(await _canvasToJpeg(display), 'flip_' + Date.now() + '.jpg');
+    await saveBlob(await _canvasToJpeg(display), _flipName(camFamily === 'SLHT' ? 'slht' : 'cam', 'jpg'));
   } else {
     // Toggle video recording
     if (!recorder || recorder.state === 'inactive') {
@@ -13971,7 +13853,7 @@ btnCap.addEventListener('click', async () => {
           recMime = _resolveRecordedMime(recMime, recChunks);
           const ext=_videoExtFromMime(recMime);
           lastBlob=new Blob(recChunks,{type:recMime});
-          await _saveFile(lastBlob,'flipnote_'+Date.now()+'.'+ext); // T9: default=save, share=explicit
+          await saveBlob(lastBlob, _flipName(camFamily === 'SLHT' ? 'slht' : 'cam', ext));
         }
       });
       recorder.start(250);
@@ -14047,13 +13929,13 @@ function setProgress(pct,label){progressFill.style.width=pct+'%';progressPct.tex
 function showProgress(show){progressWrap.classList.toggle('visible',show);}
 
 function setUploadResultReady(blob,ext){
-  const fname='flip_'+Date.now()+'.'+ext;
+  const fname=_flipName('upload',ext);
   const btnSave=document.getElementById('btnSaveResult');
   const btnShr =document.getElementById('btnShareResult');
   btnSave.disabled=false;btnSave.style.opacity='1';
   btnShr.disabled=false; btnShr.style.opacity='1';
-  btnSave.onclick=()=>{ _saveFile(blob,fname); };       // save = direct download on Android
-  btnShr.onclick =()=>{ _shareOrDownload(blob,fname); }; // share = explicit share sheet
+  btnSave.onclick=()=>{ saveBlob(blob,fname); };
+  btnShr.onclick =()=>{ _shareOrDownload(blob,fname); };
 }
 
 // File inputs are now inside buttons/dropzone for iOS Safari compatibility
@@ -14365,7 +14247,7 @@ document.getElementById('btnAsciiCapture').addEventListener('click', async () =>
       const { data: _px } = ctxAS.getImageData(0, 0, 512, 384);
       _renderASCIISync(_px, 512, 384, asciiCols);
     }
-    await _saveFile(await _canvasToJpeg(asciiCvs), 'flip_ascii_' + Date.now() + '.jpg');
+    await saveBlob(await _canvasToJpeg(asciiCvs), _flipName('ascii', 'jpg'));
   } else {
     // Toggle video recording
     const asciiCapBtn = document.getElementById('btnAsciiCapture');
@@ -14386,6 +14268,7 @@ document.getElementById('btnAsciiCapture').addEventListener('click', async () =>
         flipToast('⚠ Error: ' + e.message);
         return;
       }
+      let asciiRecTimer = null;
       const releaseAsciiFinalize = _bindRecorderFinalize(asciiRecorder, {
         addChunk: chunk => asciiRecChunks.push(chunk),
         onFinalize: async () => {
@@ -14393,15 +14276,25 @@ document.getElementById('btnAsciiCapture').addEventListener('click', async () =>
           asciiRecordingHighQuality = false;
           if (asciiRecordingJob) { asciiRecordingJob.cleanup(); asciiRecordingJob = null; }
           asciiRecorder = null;
+          clearInterval(asciiRecTimer); asciiCapBtn.style.color = '';
           asciiCapBtn.classList.remove('recording'); _syncAsciiCaptureVisual(false);
           if (!asciiRecChunks.length) { flipToast('⚠ No se pudo guardar el video ASCII.'); return; }
           asciiRecMime = _resolveRecordedMime(asciiRecMime, asciiRecChunks);
           const ext = _videoExtFromMime(asciiRecMime);
           const blob = new Blob(asciiRecChunks, { type: asciiRecMime });
-          await _saveFile(blob, 'flip_ascii_' + Date.now() + '.' + ext);
+          await saveBlob(blob, _flipName('ascii', ext));
         }
       });
       asciiRecorder.start(250);
+      let asciiS = 0;
+      asciiRecTimer = setInterval(() => {
+        asciiS++;
+        const mm=String(asciiS/60|0).padStart(2,'0'), ss=String(asciiS%60).padStart(2,'0');
+        asciiCapBtn.querySelector('.btn-icon').textContent = mm+':'+ss;
+        if (asciiS >= 110) asciiCapBtn.style.color = '#ff4444';
+        _syncActiveNavButton('ascii', 'btnAsciiCapture', 1, 'STOP');
+        if (asciiS >= 120) { clearInterval(asciiRecTimer); asciiRecordingHighQuality = false; _stopRecorderSafely(asciiRecorder); }
+      }, 1000);
       asciiCapBtn.classList.add('recording'); _syncAsciiCaptureVisual(true);
     } else {
       asciiRecordingHighQuality = false;
@@ -14410,7 +14303,7 @@ document.getElementById('btnAsciiCapture').addEventListener('click', async () =>
   }
 });
 document.getElementById('btnAsciiShare').addEventListener('click', async () => {
-  await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_' + Date.now() + '.png');
+  await _shareOrDownload(await canvasToBlob(ctxAscii), _flipName('ascii', 'png'));
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -14561,13 +14454,13 @@ document.getElementById('btnUpEdit').addEventListener('click', () => {
   document.getElementById('upBtnTxt').addEventListener('click', () => {
     if (!lastUploadSrc) return;
     renderASCII(lastUploadSrc, lastUploadSrcW, lastUploadSrcH, false, true);
-    _download(new Blob([lastAsciiText], { type: 'text/plain' }), 'flipnote_ascii_' + Date.now() + '.txt');
+    saveBlob(new Blob([lastAsciiText], { type: 'text/plain' }), _flipName('ascii', 'txt'));
   });
   // PNG button
   document.getElementById('upBtnPng').addEventListener('click', () => {
     if (!lastUploadSrc) return;
     renderUploadPreview();
-    canvasToBlob(ctxUP).then(blob => { _download(blob, 'flipnote_' + Date.now() + '.png'); });
+    canvasToBlob(ctxUP).then(blob => { saveBlob(blob, _flipName('upload', 'png')); });
   });
   // RESET button
 document.getElementById('upBtnReset').addEventListener('click', () => {
@@ -14873,11 +14766,11 @@ document.getElementById('acCopy').addEventListener('click', () => {
 });
 document.getElementById('acTxt').addEventListener('click', () => {
   if (!lastAsciiText) return;
-  _download(new Blob([lastAsciiText],{type:'text/plain'}), 'ascii_'+Date.now()+'.txt');
+  saveBlob(new Blob([lastAsciiText],{type:'text/plain'}), _flipName('ascii', 'txt'));
 });
 document.getElementById('acPng').addEventListener('click', async () => {
   flash.classList.add('on'); setTimeout(()=>flash.classList.remove('on'),120);
-  await _shareOrDownload(await canvasToBlob(ctxAscii), 'ascii_'+Date.now()+'.png');
+  await saveBlob(await canvasToBlob(ctxAscii), _flipName('ascii', 'png'));
 });
 document.getElementById('acReset').addEventListener('click', () => {
   const defs={acChars:100,acSpace:1,acFrame:0,acBright:100,acContrast:100,acSat:100,acHue:0,acGray:0,acSepia:0,acInvert:0,acThresh:128,acSharp:9,acEdge:10};
@@ -15714,13 +15607,12 @@ document.getElementById('btnSonoCapture').addEventListener('click', async () => 
     return;
   }
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  await _saveFile(await _canvasToJpeg(sonoCvs), 'flip_sono_' + Date.now() + '.jpg');
+  await saveBlob(await canvasToBlob(ctxSono), _flipName('sono', 'png'));
 });
 
 document.getElementById('btnSonoShare').addEventListener('click', async () => {
   if (!sonoLastBlob) { flipToast('Record a video first.'); return; }
-  const ext = sonoRecMime.includes('mp4') ? 'mp4' : 'webm';
-  await _shareOrDownload(sonoLastBlob, 'sono_' + Date.now() + '.' + ext);
+  await _shareOrDownload(sonoLastBlob, _flipName('sono', _videoExtFromMime(sonoRecMime)));
 });
 
 document.getElementById('btnSonoReset').addEventListener('click', () => {
@@ -15757,36 +15649,62 @@ btnSonoRec.addEventListener('click', async () => {
       flipToast('⚠ Recording not available. Use Chrome on Android.'); return;
     }
     sonoRecChunks = []; sonoLastBlob = null;
+
+    const sonoCanvasCapture = _createRecordingCanvasStream(sonoCvs, 30, {});
+    let sonoRecStream = sonoCanvasCapture.stream;
+    let sonoAudioDest = null;
+    if (sonoAudioCtx && sonoAudioCtx.state !== 'closed') {
+      sonoAudioDest = sonoAudioCtx.createMediaStreamDestination();
+      if (sonoAudioSrcNode) sonoAudioSrcNode.connect(sonoAudioDest);
+      else if (sonoAnalyser) sonoAnalyser.connect(sonoAudioDest);
+      const audioTracks = sonoAudioDest.stream.getAudioTracks();
+      if (audioTracks.length) sonoRecStream = new MediaStream([...sonoCanvasCapture.stream.getVideoTracks(), ...audioTracks]);
+    }
+    const sonoMime = _pickFlipRecorderMime(sonoRecStream);
+    const sonoRecOpts = { videoBitsPerSecond: 6_000_000 };
+    if (sonoMime) sonoRecOpts.mimeType = sonoMime;
+    if (sonoRecStream.getAudioTracks().length) sonoRecOpts.audioBitsPerSecond = 128_000;
     try {
-      sonoRecordingJob = await _createFlipRecordingJob(sonoCvs, 30, 6_000_000);
-      sonoRecorder = sonoRecordingJob.recorder;
-      sonoRecMime = sonoRecordingJob.mime;
-    } catch(e) { if (sonoRecordingJob) { sonoRecordingJob.cleanup(); sonoRecordingJob = null; } flipToast('⚠ Error: ' + e.message); return; }
+      sonoRecorder = new MediaRecorder(sonoRecStream, sonoRecOpts);
+      sonoRecMime = sonoRecorder.mimeType || sonoMime || '';
+    } catch(e) {
+      sonoCanvasCapture.stop();
+      flipToast('⚠ Error: ' + e.message); return;
+    }
+
     const releaseSonoFinalize = _bindRecorderFinalize(sonoRecorder, {
       addChunk: chunk => sonoRecChunks.push(chunk),
       onFinalize: async () => {
         releaseSonoFinalize();
-        if (sonoRecordingJob) { sonoRecordingJob.cleanup(); sonoRecordingJob = null; }
+        sonoCanvasCapture.stop();
+        if (sonoAudioDest && sonoAudioSrcNode) { try { sonoAudioSrcNode.disconnect(sonoAudioDest); } catch(_){} }
+        if (sonoAudioDest && sonoAnalyser)     { try { sonoAnalyser.disconnect(sonoAudioDest);     } catch(_){} }
         sonoRecorder = null;
+        clearInterval(sonoRecTimer); btnSonoRec.style.color = '';
+        btnSonoRec.querySelector('.btn-label').textContent = 'REC';
+        btnSonoRec.classList.remove('recording');
+        btnSonoRec.querySelector('.btn-icon').textContent = '⏺';
         if (!sonoRecChunks.length) { flipToast('⚠ No se pudo guardar el video SONO.'); return; }
         sonoRecMime = _resolveRecordedMime(sonoRecMime, sonoRecChunks);
         const ext = _videoExtFromMime(sonoRecMime);
         sonoLastBlob = new Blob(sonoRecChunks, { type: sonoRecMime });
-        await _saveFile(sonoLastBlob, 'sono_' + Date.now() + '.' + ext); // T9: default=save, share=btnSonoShare
+        await saveBlob(sonoLastBlob, _flipName('sono', ext));
       }
     });
     sonoRecorder.start(250);
-    let s = 0;
+    let sonoS = 0;
     sonoRecTimer = setInterval(() => {
-      s++;
-      const mm = String(s/60|0).padStart(2,'0'), ss = String(s%60).padStart(2,'0');
+      sonoS++;
+      const mm = String(sonoS/60|0).padStart(2,'0'), ss = String(sonoS%60).padStart(2,'0');
       btnSonoRec.querySelector('.btn-label').textContent = mm + ':' + ss;
+      if (sonoS >= 110) btnSonoRec.style.color = '#ff4444';
+      if (sonoS >= 120) { clearInterval(sonoRecTimer); _stopRecorderSafely(sonoRecorder); }
     }, 1000);
     btnSonoRec.classList.add('recording');
     btnSonoRec.querySelector('.btn-icon').textContent = '⏹';
   } else {
     _stopRecorderSafely(sonoRecorder);
-    clearInterval(sonoRecTimer);
+    clearInterval(sonoRecTimer); btnSonoRec.style.color = '';
     btnSonoRec.querySelector('.btn-label').textContent = 'REC';
     btnSonoRec.classList.remove('recording');
     btnSonoRec.querySelector('.btn-icon').textContent = '⏺';
@@ -16743,6 +16661,86 @@ document.addEventListener('webkitfullscreenchange', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════
+// WMP CAPTURE & REC
+// ════════════════════════════════════════════════════════════════════
+let wmpRecorder = null, wmpRecChunks = [], wmpRecMime = '', wmpRecTimer = null;
+let wmpLastBlob = null;
+
+document.getElementById('btnWmpCapture').addEventListener('click', async () => {
+  flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+  await saveBlob(await canvasToBlob(ctxWmp), _flipName('wmp', 'png'));
+});
+
+const btnWmpRec = document.getElementById('btnWmpRec');
+btnWmpRec.addEventListener('click', async () => {
+  if (!wmpRecorder || wmpRecorder.state === 'inactive') {
+    if (typeof wmpCvs.captureStream !== 'function') {
+      flipToast('⚠ Recording not available. Use Chrome on Android.'); return;
+    }
+    wmpRecChunks = []; wmpLastBlob = null;
+
+    const wmpCanvasCapture = _createRecordingCanvasStream(wmpCvs, 30, {});
+    let wmpRecStream = wmpCanvasCapture.stream;
+    let wmpAudioDest = null;
+    if (wmpAudioCtx && wmpAudioCtx.state !== 'closed') {
+      wmpAudioDest = wmpAudioCtx.createMediaStreamDestination();
+      if (wmpAudioSrc) wmpAudioSrc.connect(wmpAudioDest);
+      else if (wmpAnalyser) wmpAnalyser.connect(wmpAudioDest);
+      const audioTracks = wmpAudioDest.stream.getAudioTracks();
+      if (audioTracks.length) wmpRecStream = new MediaStream([...wmpCanvasCapture.stream.getVideoTracks(), ...audioTracks]);
+    }
+    const wmpMime = _pickFlipRecorderMime(wmpRecStream);
+    const wmpRecOpts = { videoBitsPerSecond: 6_000_000 };
+    if (wmpMime) wmpRecOpts.mimeType = wmpMime;
+    if (wmpRecStream.getAudioTracks().length) wmpRecOpts.audioBitsPerSecond = 128_000;
+    try {
+      wmpRecorder = new MediaRecorder(wmpRecStream, wmpRecOpts);
+      wmpRecMime = wmpRecorder.mimeType || wmpMime || '';
+    } catch(e) {
+      wmpCanvasCapture.stop();
+      flipToast('⚠ Error: ' + e.message); return;
+    }
+
+    const releaseWmpFinalize = _bindRecorderFinalize(wmpRecorder, {
+      addChunk: chunk => wmpRecChunks.push(chunk),
+      onFinalize: async () => {
+        releaseWmpFinalize();
+        wmpCanvasCapture.stop();
+        if (wmpAudioDest && wmpAudioSrc)   { try { wmpAudioSrc.disconnect(wmpAudioDest);   } catch(_){} }
+        if (wmpAudioDest && wmpAnalyser)   { try { wmpAnalyser.disconnect(wmpAudioDest);   } catch(_){} }
+        wmpRecorder = null;
+        clearInterval(wmpRecTimer); btnWmpRec.style.color = '';
+        btnWmpRec.querySelector('.btn-label').textContent = 'REC';
+        btnWmpRec.classList.remove('recording');
+        btnWmpRec.querySelector('.btn-icon').textContent = '⏺';
+        if (!wmpRecChunks.length) { flipToast('⚠ No se pudo guardar el video WMP.'); return; }
+        wmpRecMime = _resolveRecordedMime(wmpRecMime, wmpRecChunks);
+        const ext = _videoExtFromMime(wmpRecMime);
+        wmpLastBlob = new Blob(wmpRecChunks, { type: wmpRecMime });
+        await saveBlob(wmpLastBlob, _flipName('wmp', ext));
+      }
+    });
+    wmpRecorder.start(250);
+    let wmpS = 0;
+    wmpRecTimer = setInterval(() => {
+      wmpS++;
+      const mm = String(wmpS/60|0).padStart(2,'0'), ss = String(wmpS%60).padStart(2,'0');
+      btnWmpRec.querySelector('.btn-label').textContent = mm + ':' + ss;
+      if (wmpS >= 110) btnWmpRec.style.color = '#ff4444';
+      if (wmpS >= 120) { clearInterval(wmpRecTimer); _stopRecorderSafely(wmpRecorder); }
+    }, 1000);
+    btnWmpRec.classList.add('recording');
+    btnWmpRec.querySelector('.btn-icon').textContent = '⏹';
+  } else {
+    _stopRecorderSafely(wmpRecorder);
+    clearInterval(wmpRecTimer); btnWmpRec.style.color = '';
+    btnWmpRec.querySelector('.btn-label').textContent = 'REC';
+    btnWmpRec.classList.remove('recording');
+    btnWmpRec.querySelector('.btn-icon').textContent = '⏺';
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════
 // EXTERNAL AUDIO I/O (desktop only)
 // ════════════════════════════════════════════════════════════════════
 
@@ -17047,10 +17045,10 @@ let _ctxScrTmp;
     const snapBtn = document.getElementById('btnScrashSnap');
     if (scrashCamMode === 'foto') {
       flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-      await _saveFile(await _canvasToJpeg(scrashCvs), 'flip_glitch_' + Date.now() + '.jpg');
+      await saveBlob(await _canvasToJpeg(scrashCvs), _flipName('glitch', 'jpg'));
     } else {
       if (!scrashRecorder || scrashRecorder.state === 'inactive') {
-        const _chunks = []; scrashRecChunks = _chunks; // local ref: safe even if global is reassigned
+        const _chunks = []; scrashRecChunks = _chunks;
         let scrashRecordingJob = null;
         try {
           scrashRecordingJob = await _createFlipRecordingJob(scrashCvs, 30, 6_000_000);
@@ -17061,22 +17059,33 @@ let _ctxScrTmp;
           flipToast('⚠ Error: ' + e.message);
           return;
         }
+        let scrashRecTimer = null;
         const releaseScrashFinalize = _bindRecorderFinalize(scrashRecorder, {
           addChunk: chunk => _chunks.push(chunk),
           onFinalize: async () => {
             releaseScrashFinalize();
             if (scrashRecordingJob) { scrashRecordingJob.cleanup(); scrashRecordingJob = null; }
             scrashRecorder = null;
+            clearInterval(scrashRecTimer); snapBtn.style.color = '';
             snapBtn.classList.remove('recording');
             _syncScrashCaptureVisual(false);
             if (!_chunks.length) { flipToast('⚠ No se pudo guardar el video GLITCH.'); return; }
             scrashRecMime = _resolveRecordedMime(scrashRecMime, _chunks);
             const ext = _videoExtFromMime(scrashRecMime);
             const blob = new Blob(_chunks, { type: scrashRecMime });
-            await _saveFile(blob, 'flip_glitch_' + Date.now() + '.' + ext);
+            await saveBlob(blob, _flipName('glitch', ext));
           }
         });
         scrashRecorder.start(250);
+        let scrashS = 0;
+        scrashRecTimer = setInterval(() => {
+          scrashS++;
+          const mm=String(scrashS/60|0).padStart(2,'0'), ss=String(scrashS%60).padStart(2,'0');
+          snapBtn.querySelector('.btn-icon').textContent = mm+':'+ss;
+          if (scrashS >= 110) snapBtn.style.color = '#ff4444';
+          _syncActiveNavButton('scrash', 'btnScrashSnap', 1, 'STOP');
+          if (scrashS >= 120) { clearInterval(scrashRecTimer); _stopRecorderSafely(scrashRecorder); }
+        }, 1000);
         snapBtn.classList.add('recording');
         _syncScrashCaptureVisual(true);
       } else {
@@ -17100,7 +17109,7 @@ let _ctxScrTmp;
 
   // Share
   document.getElementById('btnScrashShare').addEventListener('click', async () => {
-    await _shareOrDownload(await _canvasToJpeg(scrashCvs), 'flip_glitch_' + Date.now() + '.jpg');
+    await _shareOrDownload(await _canvasToJpeg(scrashCvs), _flipName('glitch', 'jpg'));
   });
 
   // Reset
@@ -17244,7 +17253,7 @@ document.getElementById('btnAsciiGlitch').addEventListener('click', async () => 
   gctx.drawImage(asciiCvs, 0, 0);
   _applyScrash(gctx, gctx, gc.width, gc.height, 0);
   flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-  await _shareOrDownload(await new Promise(r => gc.toBlob(r, 'image/png')), 'ascii_glitch_' + Date.now() + '.png');
+  await _shareOrDownload(await new Promise(r => gc.toBlob(r, 'image/png')), _flipName('glitch', 'png'));
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -17504,7 +17513,7 @@ if (screen.width > 768) {
     else if (activeTab === 'wmp')  cvs = document.getElementById('wmpCanvas');
     else cvs = display;
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    await _shareOrDownload(await canvasToBlob(cvs.getContext('2d')), 'capture_' + Date.now() + '.png');
+    await saveBlob(await canvasToBlob(cvs.getContext('2d')), _flipName(activeTab || 'flip', 'png'));
   });
 }
 

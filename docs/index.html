@@ -1468,12 +1468,13 @@
     #scrashCanvas { image-rendering:pixelated; image-rendering:crisp-edges; background:#000; display:block; }
     #scrashControls {
       display:none; position:fixed; bottom:96px; left:0; right:0;
-      max-height:calc(100vh - 160px); min-height:80px;
+      max-height:calc(55vh - 136px); min-height:80px;
       background:linear-gradient(180deg,#090013,#050010 22%); border-top:1px solid #cc00ff; padding:8px 10px 10px;
       flex-direction:column; gap:6px; z-index:9; overflow-y:auto;
       box-shadow:0 -14px 40px rgba(0,0,0,.32);
       pointer-events:none;
       visibility:hidden;
+      padding-bottom:max(10px, env(safe-area-inset-bottom));
     }
     #scrashControls.visible { display:flex; pointer-events:auto; visibility:visible; }
     body:not(.scrash-hud-open) #scrashControls { display:none !important; }
@@ -1533,6 +1534,26 @@
       align-items:center; justify-content:space-around; padding:0 20px; z-index:10;
     }
     #barScrash.visible { display:flex; }
+
+    /* ── GLITCH desktop sidebar layout ── */
+    @media (min-width:769px) {
+      /* Canvas always fills the main area; controls become a right sidebar */
+      body.scrash-hud-open #scrashArea {
+        right:300px;
+        bottom:96px; /* override --scrash-stack-bottom; sidebar doesn't need vertical offset */
+      }
+      body.scrash-hud-open #scrashControls {
+        top:40px;
+        bottom:96px;
+        left:auto;
+        right:0;
+        width:300px;
+        max-height:none;   /* height is fully determined by top/bottom */
+        border-top:none;
+        border-left:1px solid #cc00ff;
+        box-shadow:-14px 0 40px rgba(0,0,0,.32);
+      }
+    }
 
     /* ── Upload section ── */
     #uploadSection {
@@ -1611,6 +1632,9 @@
       #scrashControlsGrid { grid-template-columns:1fr; }
       .scrash-quick-row { grid-template-columns:1fr; }
       .ascii-panel-sticky-actions .ac-btn { min-height:34px; }
+      /* GLITCH sliders: 44px touch targets on mobile */
+      .sc-row { min-height:44px; }
+      .sc-row input[type="range"] { height:44px; }
     }
 
     /* ── ASCII panel controls ── */

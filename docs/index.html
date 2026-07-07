@@ -1477,6 +1477,8 @@
       padding-bottom:max(10px, env(safe-area-inset-bottom));
     }
     #scrashControls.visible { display:flex; pointer-events:auto; visibility:visible; }
+    /* flex children must not squish — let the panel scroll instead */
+    #scrashControls > * { flex-shrink:0; }
     body:not(.scrash-hud-open) #scrashControls { display:none !important; }
     body.cam-ui-active #scrashControls,
     body.ascii-mode #scrashControls,
@@ -1969,7 +1971,7 @@
 
     /* ── SONO HUD (above bar) — 124px, clear rows ── */
     #sonoHUD {
-      display:none; position:fixed; bottom:var(--sono-hud-bottom, 96px); left:0; right:0; height:150px;
+      display:none; position:fixed; bottom:var(--sono-hud-bottom, 96px); left:0; right:0; height:auto; min-height:150px;
       background:var(--ink); border-top:1px solid var(--dark);
       flex-direction:column; justify-content:space-evenly;
       padding:4px 14px; gap:2px; z-index:9;
@@ -2007,6 +2009,8 @@
     #btnSonoRec.recording .btn-label { color:#ff6666; }
     #btnWmpRec.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
     #btnWmpRec.recording .btn-label { color:#ff6666; }
+    #btnSflowRec.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
+    #btnSflowRec.recording .btn-label { color:#ff6666; }
 
     /* ══════════════════════════════════════════════════════
        WMP XP VISUALIZER
@@ -2038,7 +2042,7 @@
 
     /* ── WMP HUD (72px, two rows) ── */
     #wmpHUD {
-      display:none; position:fixed; bottom:96px; left:0; right:0; height:72px;
+      display:none; position:fixed; bottom:96px; left:0; right:0; height:auto; min-height:72px;
       background:#0d0d0d; border-top:1px solid #1e1e1e;
       flex-direction:column; justify-content:space-around;
       padding:6px 14px; gap:4px; z-index:9;
@@ -2456,7 +2460,8 @@
 
 <div class="tab-bar">
   <button class="tab active" id="tabCam">📷 CAM</button>
-  <button class="tab"        id="tabUp" >📂 UPLOAD</button>
+  <!-- UPLOAD retirado del nav (la tubería sigue viva para el futuro STUDIO); oculto, no removido, porque switchTab le togglea clases -->
+  <button class="tab"        id="tabUp" style="display:none">📂 UPLOAD</button>
   <button class="tab"        id="tabAscii">🔤 ASCII</button>
   <button class="tab"        id="tabSono" >🔊 SONO</button>
   <button class="tab"        id="tabWmp"  >📺 WMP</button>
@@ -3444,6 +3449,16 @@
     <button class="sflow-btn active" data-sflow-aura="m">M</button>
     <button class="sflow-btn" data-sflow-aura="l">L</button>
   </div>
+  <!-- Photo snap -->
+  <button class="btn" id="btnSflowSnap">
+    <div class="btn-icon">●</div>
+    <span class="btn-label">SNAP</span>
+  </button>
+  <!-- Video record -->
+  <button class="btn" id="btnSflowRec">
+    <div class="btn-icon">⏺</div>
+    <span class="btn-label">REC</span>
+  </button>
   <!-- Flip camera -->
   <button class="btn" id="btnSflowFlip">
     <div class="btn-icon">🔄</div>
@@ -3622,7 +3637,8 @@ const FLIP_OS_BOOT_LINES = [
 ];
 const FLIP_OS_MODULES = [
   { key: 'cam', internalTab: 'cam', title: 'CAM', short: 'CAM' },
-  { key: 'up', internalTab: 'up', title: 'UPLOAD', short: 'UP' },
+  // UPLOAD retirado del nav — su tubería (file load, video export) queda viva
+  // para el futuro módulo STUDIO de edición combinada.
   { key: 'ascii', internalTab: 'ascii', title: 'ASCII', short: 'ASC' },
   { key: 'sono', internalTab: 'sono', title: 'SONO', short: 'SON' },
   { key: 'wmp', internalTab: 'wmp', title: 'WMP', short: 'WMP' },
@@ -9327,6 +9343,7 @@ function asciiPixelLum(r, g, b) {
 // ════════════════════════════════════════════════════════════════════
 const TYPO_PREVIEW_MAX = EARLY_IS_ANDROID ? 96 : (EARLY_IS_MOBILE ? 128 : 168);
 const TYPO_PRETEXT_URLS = [
+  './pretext.js', // vendored copy — TYPO must work offline / with flaky CDN
   'https://cdn.jsdelivr.net/npm/@chenglou/pretext/+esm',
   'https://esm.sh/@chenglou/pretext',
 ];
@@ -9687,6 +9704,7 @@ function _placeTypoSticker(shape, pos) {
   if (_isTypoMotionEnabled()) _ensureStickerPhysics(sticker);
   stickerState.stickers.push(sticker);
   stickerState.selectedSticker = sticker;
+  _syncTypoCamUI(); // enable DEL and refresh tray state right away
   return sticker;
 }
 
@@ -10830,7 +10848,7 @@ function _asciiWorkerBody() {
     ctx.fillStyle=s.pyMode!=='off'?PYPAL[s.pyPal].bg:`rgb(${s.palPaper})`;
     ctx.fillRect(0,0,s.outW,s.outH);
     const fontSize=Math.max(4,Math.floor(cH*0.92));
-    ctx.font=`bold ${fontSize}px monospace`; ctx.textBaseline='top';
+    ctx.font=`bold ${fontSize}px ${s.font||'monospace'}`; ctx.textBaseline='top';
     const chaosN=s.chaos/100;
     const lines=[];
     for (let r=0;r<rows;r++) {
@@ -10907,7 +10925,10 @@ function _initAsciiWorker() {
 function _dispatchAsciiWorker(imgData, sw, sh, forUpload) {
   const pal = _getPal(forUpload || false);
   const s = {
-    cols: Math.min(asciiCols, ASCII_PREVIEW_MAX), bright: acBrightVal, contrast: acContrastVal, sat: acSatVal, hue: acHueVal,
+    // Recording bypasses the preview cap so exported video keeps the chosen density
+    cols: asciiRecordingHighQuality ? asciiCols : Math.min(asciiCols, ASCII_PREVIEW_MAX),
+    font: asciiFont,
+    bright: acBrightVal, contrast: acContrastVal, sat: acSatVal, hue: acHueVal,
     gray: acGrayVal, sepia: acSepiaVal, invert: acInvertVal,
     threshOn: acThreshOn, thresh: acThreshVal,
     sharpOn: acSharpOn, sharp: acSharpVal,
@@ -11606,6 +11627,9 @@ function switchTab(tab) {
   document.getElementById('wmpHUD'   ).classList.toggle('visible', isWmp);
   document.getElementById('barScrash').classList.toggle('visible', isScrash);
   document.getElementById('barSflow' ).classList.toggle('visible', isSflow);
+  // Permission overlays live outside their areas — hide them on tab exit
+  if (!isSono) document.getElementById('sonoPerm').classList.remove('visible');
+  if (!isWmp)  document.getElementById('wmpPerm' ).classList.remove('visible');
   document.getElementById('btnFlip'  ).style.display = isCam  ? '' : 'none';
   document.getElementById('camFpsCtrl').style.display = isCam ? 'flex' : 'none';
   document.getElementById('camAspect').style.display  = (isCam || isAscii) ? 'flex' : 'none';
@@ -11661,7 +11685,13 @@ document.body.addEventListener('click', (e) => {
   if (!panel) return;
   const isOpen = panel.classList.toggle('open');
   toggle.setAttribute('aria-expanded', isOpen);
-  toggle.textContent = isOpen ? '⚙ Menos' : '⚙ Avanzado';
+  const isScrash = toggle.dataset.target === 'advanced-scrash';
+  toggle.textContent = isOpen ? '⚙ Menos' : (isScrash ? '⚙ Fine Tune' : '⚙ Avanzado');
+  // Panel height changes → re-fit canvas/stack (again after the 0.35s max-height transition)
+  if (isScrash) {
+    _syncScrashHudVisibility();
+    setTimeout(_syncScrashHudVisibility, 400);
+  }
 });
 
 // V50: Export CTA bar
@@ -11679,7 +11709,13 @@ function _updateExportBar(mode) {
   const bar  = document.getElementById('flipExportBar');
   const cfg  = _EXPORT_CFG[mode];
   if (!cfg) { bar.classList.remove('visible'); return; }
-  bar.style.bottom = cfg.bottom + 'px';
+  let bottom = cfg.bottom;
+  if (mode === 'sono') {
+    // sonoHUD is auto-height — keep the bar just above it
+    const hud = document.getElementById('sonoHUD');
+    if (hud && hud.offsetHeight) bottom = 96 + hud.offsetHeight;
+  }
+  bar.style.bottom = bottom + 'px';
   // Primary
   const pri = document.getElementById('flipExportPrimary');
   pri.textContent = cfg.label;
@@ -11867,6 +11903,7 @@ function renderFlipNav(mode) {
   const _origSwitch = switchTab;
   switchTab = function(tab) {
     _origSwitch(tab);
+    relayout(); // stack vars depend on auto-height HUDs — resync on every tab change
     renderFlipNav(tab);
     _updateExportBar(tab);
     // Re-sync CAM family/variant state when returning to cam tab.
@@ -14229,8 +14266,10 @@ async function _bootFromSplash() {
     cameraRunning = true;
     requestAnimationFrame(cameraLoop);
   } catch (err) {
-    splash.classList.remove('hidden');
-    flipToast('⚠ ' + (err?.message || 'Camera failed'));
+    // Camera failed (denied / unavailable) — enter the app anyway so
+    // non-camera modules (UPLOAD, WMP, GLITCH…) stay usable. switchTab
+    // retries startCamera when a camera tab is opened again.
+    flipToast('⚠ ' + (err?.message || 'Camera failed') + ' — usa UPLOAD u otro modo');
   } finally {
     _splashBooting = false;
   }
@@ -15365,14 +15404,16 @@ function enterSono() {
     requestAnimationFrame(sonoLoop);
   } else {
     // Check if permission was already granted this session → auto-start
+    // (async: only show the overlay if the user is still on the SONO tab)
+    const _showSonoPerm = () => { if (activeTab === 'sono') document.getElementById('sonoPerm').classList.add('visible'); };
     const _tryAutoSono = () => {
       if (navigator.permissions) {
         navigator.permissions.query({name:'microphone'}).then(r => {
-          if (r.state === 'granted') { startSonoMic(); }
-          else { document.getElementById('sonoPerm').classList.add('visible'); }
-        }).catch(() => document.getElementById('sonoPerm').classList.add('visible'));
+          if (r.state === 'granted') { if (activeTab === 'sono') startSonoMic(); }
+          else { _showSonoPerm(); }
+        }).catch(_showSonoPerm);
       } else {
-        document.getElementById('sonoPerm').classList.add('visible');
+        _showSonoPerm();
       }
     };
     _tryAutoSono();
@@ -15866,14 +15907,16 @@ function enterWmp() {
   }
   if (!wmpAnalyser) {
     // Check if mic permission was already granted → auto-start mic
+    // (async: only show the overlay if the user is still on the WMP tab)
+    const _showWmpPerm = () => { if (activeTab === 'wmp') document.getElementById('wmpPerm').classList.add('visible'); };
     const _tryAutoWmp = () => {
       if (navigator.permissions) {
         navigator.permissions.query({name:'microphone'}).then(r => {
-          if (r.state === 'granted' && !wmpMicStream) { wmpStartMic(); }
-          else if (r.state !== 'granted') { document.getElementById('wmpPerm').classList.add('visible'); }
-        }).catch(() => document.getElementById('wmpPerm').classList.add('visible'));
+          if (r.state === 'granted' && !wmpMicStream) { if (activeTab === 'wmp') wmpStartMic(); }
+          else if (r.state !== 'granted') { _showWmpPerm(); }
+        }).catch(_showWmpPerm);
       } else {
-        document.getElementById('wmpPerm').classList.add('visible');
+        _showWmpPerm();
       }
     };
     if (!wmpMicStream) _tryAutoWmp();
@@ -17927,6 +17970,67 @@ if (screen.width > 768) {
         b.classList.toggle('active', b === btn));
     });
   });
+
+  // ── Photo snap ──────────────────────────────────────────────────────
+  document.getElementById('btnSflowSnap').addEventListener('click', async () => {
+    if (!_sfActive) { flipToast('⚠ Enciende la cámara primero (CAM)'); return; }
+    flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
+    await saveBlob(await _canvasToJpeg(sfCanvas), _flipName('flow', 'jpg'));
+  });
+
+  // ── Video record ────────────────────────────────────────────────────
+  let _sfRecorder = null, _sfRecChunks = [], _sfRecMime = '', _sfRecTimer = null, _sfRecJob = null;
+  const btnSflowRec = document.getElementById('btnSflowRec');
+  const _sfRecResetUI = () => {
+    clearInterval(_sfRecTimer); btnSflowRec.style.color = '';
+    btnSflowRec.classList.remove('recording');
+    btnSflowRec.querySelector('.btn-icon').textContent = '⏺';
+    btnSflowRec.querySelector('.btn-label').textContent = 'REC';
+  };
+  btnSflowRec.addEventListener('click', async () => {
+    if (_sfRecorder && _sfRecorder.state !== 'inactive') { _stopRecorderSafely(_sfRecorder); return; }
+    if (!_sfActive) { flipToast('⚠ Enciende la cámara primero (CAM)'); return; }
+    _sfRecChunks = [];
+    try {
+      _sfRecJob = await _createFlipRecordingJob(sfCanvas, 30, 6_000_000, {});
+      _sfRecorder = _sfRecJob.recorder;
+      _sfRecMime = _sfRecJob.mime;
+    } catch (e) {
+      if (_sfRecJob) { _sfRecJob.cleanup(); _sfRecJob = null; }
+      flipToast('⚠ Error: ' + e.message); return;
+    }
+    const releaseSfFinalize = _bindRecorderFinalize(_sfRecorder, {
+      addChunk: chunk => _sfRecChunks.push(chunk),
+      onFinalize: async () => {
+        releaseSfFinalize();
+        if (_sfRecJob) { _sfRecJob.cleanup(); _sfRecJob = null; }
+        _sfRecorder = null;
+        _sfRecResetUI();
+        if (!_sfRecChunks.length) { flipToast('⚠ No se pudo guardar el video FLOW.'); return; }
+        _sfRecMime = _resolveRecordedMime(_sfRecMime, _sfRecChunks);
+        const blob = new Blob(_sfRecChunks, { type: _sfRecMime });
+        await saveBlob(blob, _flipName('flow', _videoExtFromMime(_sfRecMime)));
+      }
+    });
+    _sfRecorder.start(250);
+    let sfS = 0;
+    _sfRecTimer = setInterval(() => {
+      sfS++;
+      const mm = String(sfS/60|0).padStart(2,'0'), ss = String(sfS%60).padStart(2,'0');
+      btnSflowRec.querySelector('.btn-label').textContent = mm + ':' + ss;
+      if (sfS >= 110) btnSflowRec.style.color = '#ff4444';
+      if (sfS >= 120) { clearInterval(_sfRecTimer); _stopRecorderSafely(_sfRecorder); }
+    }, 1000);
+    btnSflowRec.classList.add('recording');
+    btnSflowRec.querySelector('.btn-icon').textContent = '⏹';
+  });
+
+  // Stop an in-flight recording if the user leaves FLOW / camera stops
+  const _sfPrevStop = window._sflowStop;
+  window._sflowStop = function() {
+    if (_sfRecorder && _sfRecorder.state !== 'inactive') _stopRecorderSafely(_sfRecorder);
+    _sfPrevStop();
+  };
 
   // ── Resize observer ─────────────────────────────────────────────────
   new ResizeObserver(() => {

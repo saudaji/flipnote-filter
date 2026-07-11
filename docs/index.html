@@ -3539,6 +3539,14 @@
     </div>
     <div class="audio-io-label" id="extLevelVal" style="margin-top:2px;">0 dB</div>
   </div>
+  <!-- Input gain / sensitivity -->
+  <div id="extGainWrap" style="margin-top:6px;">
+    <div class="audio-io-label">SENSIBILIDAD</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+      <input type="range" id="extGainSlider" min="0.5" max="10" step="0.5" value="3" style="flex:1;accent-color:var(--paper);">
+      <div class="audio-io-label" id="extGainVal" style="margin-top:0;min-width:32px;text-align:right;">3.0x</div>
+    </div>
+  </div>
   <!-- Error display -->
   <div id="extAudioErr" style="color:#ff4444;font-size:9px;font-family:monospace;margin-top:4px;display:none;"></div>
   <!-- Monitor output -->
@@ -9244,6 +9252,134 @@ display.addEventListener('click', () => {
   _slhtInitSeg();
 });
 
+// ════════════════════════════════════════════════════════════════════
+// AUDIO SOURCE FRAME — a color image driven by the live audio, used as
+// the "source" fed into the real render engines (cam families, ASCII)
+// so audio-reactive output textures exactly like camera/video input.
+// ════════════════════════════════════════════════════════════════════
+let _extAFCanvas = null, _extAFCtx = null;
+function _getExtAudioSourceFrame(w, h) {
+  const _an = extAnalyser || sonoAnalyser || wmpAnalyser;
+  if (!_extAFCanvas || _extAFCanvas.width !== w || _extAFCanvas.height !== h) {
+    _extAFCanvas = document.createElement('canvas');
+    _extAFCanvas.width = w; _extAFCanvas.height = h;
+    _extAFCtx = _extAFCanvas.getContext('2d');
+  }
+  const ctx = _extAFCtx;
+  if (!_an) {
+    ctx.fillStyle = '#202020';
+    ctx.fillRect(0, 0, w, h);
+    return _extAFCanvas;
+  }
+
+  const freqN = _an.frequencyBinCount;
+  const freqData = new Uint8Array(freqN);
+  const timeData = new Uint8Array(_an.fftSize);
+  _an.getByteFrequencyData(freqData);
+  _an.getByteTimeDomainData(timeData);
+
+  const bassEnd = Math.max(1, Math.floor(freqN * 0.08));
+  const midEnd  = Math.max(bassEnd + 1, Math.floor(freqN * 0.35));
+  let bassE = 0, midE = 0, trebE = 0;
+  for (let i = 0;       i < bassEnd; i++) bassE += freqData[i];
+  for (let i = bassEnd; i < midEnd;  i++) midE  += freqData[i];
+  for (let i = midEnd;  i < freqN;   i++) trebE += freqData[i];
+  bassE = Math.min(1, (bassE / (bassEnd * 255)) * 3);
+  midE  = Math.min(1, (midE  / ((midEnd - bassEnd) * 255)) * 3);
+  trebE = Math.min(1, (trebE / ((freqN - midEnd) * 255)) * 3);
+
+  // RMS of the time-domain waveform (0..~1)
+  let rmsSum = 0;
+  for (let i = 0; i < timeData.length; i++) { const v = (timeData[i] - 128) / 128; rmsSum += v * v; }
+  const rms = Math.sqrt(rmsSum / timeData.length);
+
+  const T = performance.now() * 0.001;
+  const energy = Math.min(1, (bassE + midE + trebE) / 3 + rms * 0.5);
+  const hueBase = (T * 8 + bassE * 120) % 360;
+  const cx = w / 2, cy = h / 2;
+
+  // Rotating background gradient, hue shifted by bass energy
+  const gAngle = T * 0.15;
+  const gx1 = cx + Math.cos(gAngle) * w * 0.6, gy1 = cy + Math.sin(gAngle) * h * 0.6;
+  const gx2 = cx - Math.cos(gAngle) * w * 0.6, gy2 = cy - Math.sin(gAngle) * h * 0.6;
+  const bgGrad = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
+  bgGrad.addColorStop(0,   `hsl(${hueBase},70%,${18 + energy * 20}%)`);
+  bgGrad.addColorStop(0.5, `hsl(${(hueBase + 60) % 360},65%,${10 + energy * 10}%)`);
+  bgGrad.addColorStop(1,   `hsl(${(hueBase + 200) % 360},70%,${15 + energy * 18}%)`);
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Bass layer: big slow sinusoidal waves
+  ctx.save();
+  ctx.globalAlpha = 0.5 + bassE * 0.4;
+  ctx.lineWidth = 3 + bassE * 10;
+  for (let k = 0; k < 3; k++) {
+    ctx.beginPath();
+    const amp = h * 0.15 * (0.4 + bassE);
+    const freq = 2 + k + bassE * 4;
+    const phase = T * (0.4 + bassE * 0.6) + k * 1.7;
+    for (let x = 0; x <= w; x += 8) {
+      const nx = x / w;
+      const y = cy + Math.sin(nx * Math.PI * freq + phase) * amp + (k - 1) * h * 0.18;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = `hsl(${(hueBase + k * 40) % 360},85%,60%)`;
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Mid layer: medium grid-like retícula
+  ctx.save();
+  ctx.globalAlpha = 0.3 + midE * 0.4;
+  ctx.strokeStyle = `hsl(${(hueBase + 150) % 360},80%,65%)`;
+  ctx.lineWidth = 1 + midE * 2;
+  const gridN = 6 + Math.floor(midE * 10);
+  for (let i = 1; i < gridN; i++) {
+    const gx = (i / gridN) * w + Math.sin(T * 1.3 + i) * midE * 20;
+    ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
+    const gy = (i / gridN) * h + Math.cos(T * 1.1 + i) * midE * 20;
+    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+  }
+  ctx.restore();
+
+  // Treble layer: fine color grain
+  const grainCount = Math.floor(200 + trebE * 1200);
+  ctx.save();
+  ctx.globalAlpha = 0.4 + trebE * 0.5;
+  for (let i = 0; i < grainCount; i++) {
+    const gx = Math.random() * w, gy = Math.random() * h;
+    const s = 1 + Math.random() * 2 * trebE;
+    ctx.fillStyle = `hsl(${(hueBase + Math.random() * 80) % 360},90%,${60 + Math.random() * 30}%)`;
+    ctx.fillRect(gx, gy, s, s);
+  }
+  ctx.restore();
+
+  // Central shape pulsing with RMS — gives render engines a figure to texturize
+  const baseR = Math.min(w, h) * 0.12;
+  const pulseR = baseR * (1 + rms * 2.2 + energy * 0.6);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(T * 0.2);
+  ctx.beginPath();
+  const sides = 6;
+  for (let i = 0; i <= sides; i++) {
+    const ang = (i / sides) * Math.PI * 2;
+    const r = pulseR * (1 + Math.sin(ang * 3 + T * 2) * 0.08 * energy);
+    const px = Math.cos(ang) * r, py = Math.sin(ang) * r;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = `hsl(${(hueBase + 300) % 360},90%,${55 + energy * 20}%)`;
+  ctx.globalAlpha = 0.85;
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = `hsl(${hueBase},100%,80%)`;
+  ctx.stroke();
+  ctx.restore();
+
+  return _extAFCanvas;
+}
+
 // AUDIO-REACTIVE FLIPNOTE ABSTRACT
 // Renders a dithered abstract pattern driven by extAnalyser or any
 // active analyser. Called by cameraLoop when no camera is available.
@@ -11350,6 +11486,11 @@ let extAudioCtx  = null;
 let extAnalyser  = null;
 let extMicStream = null;
 let extAudioMode = false;
+let extInGainNode = null;
+let extInGainVal = (function(){
+  const saved = parseFloat(localStorage.getItem('flip_ext_gain'));
+  return (isFinite(saved) && saved > 0) ? saved : 3;
+})();
 
 // Draw one CAM sticker shape onto ctx at canvas coords (cx,cy) with pixel radius r
 function _drawCamStickerShape(ctx, type, cx, cy, r, selected) {
@@ -11495,7 +11636,10 @@ function cameraLoop(t) {
         path:'preview',
         now:t,
       });
-    } else if (extAudioMode && extAnalyser) renderAudioAbstract();
+    } else if (extAudioMode && extAnalyser) {
+      const af = _getExtAudioSourceFrame(640, 480);
+      _renderCamEngineFrame(af, 640, 480, ctxD, false, { path: 'preview', now: t });
+    }
     _renderCamStickerLayer(ctxD);
     camLastFrameMs = t;
     frames++;
@@ -11568,7 +11712,8 @@ function asciiLoop(ts) {
   if (!asciiStaticSrc && vid.videoWidth)
     renderASCII(vid, vid.videoWidth, vid.videoHeight, facingMode==='user');
   if (!asciiStaticSrc && !vid.videoWidth && extAudioMode && extAnalyser) {
-    renderASCIIAudio();
+    const af = _getExtAudioSourceFrame(640, 480);
+    renderASCII(af, 640, 480, false);
     requestAnimationFrame(asciiLoop);
     return;
   }
@@ -14722,7 +14867,8 @@ function _getAsciiRecordingOptions() {
       if (captureSource) {
         _renderASCIICaptureSync(captureSource.source, captureSource.srcW, captureSource.srcH, captureSource.mirror);
       } else if (extAudioMode && extAnalyser) {
-        renderASCIIAudio();
+        const af = _getExtAudioSourceFrame(640, 480);
+        renderASCII(af, 640, 480, false);
       }
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(asciiCvs, 0, 0, width, height);
@@ -17049,7 +17195,10 @@ async function startExtAudio(deviceId) {
   extAnalyser.smoothingTimeConstant = 0.80;
 
   const src = extAudioCtx.createMediaStreamSource(extMicStream);
-  src.connect(extAnalyser);
+  extInGainNode = extAudioCtx.createGain();
+  extInGainNode.gain.value = extInGainVal;
+  src.connect(extInGainNode);
+  extInGainNode.connect(extAnalyser);
 
   extAudioMode = true;
   document.body.classList.add('ext-audio');
@@ -17800,6 +17949,21 @@ if (screen.width > 768) {
   document.getElementById('monitorVol').addEventListener('input', e => {
     _setMonitorGain(e.target.value);
   });
+
+  // Input sensitivity (gain) — restore saved value, wire live updates
+  (function _initExtGainUI() {
+    const slider = document.getElementById('extGainSlider');
+    const label  = document.getElementById('extGainVal');
+    if (!slider) return;
+    slider.value = extInGainVal;
+    if (label) label.textContent = extInGainVal.toFixed(1) + 'x';
+    slider.addEventListener('input', e => {
+      extInGainVal = parseFloat(e.target.value) || 1;
+      if (label) label.textContent = extInGainVal.toFixed(1) + 'x';
+      if (extInGainNode) extInGainNode.gain.value = extInGainVal;
+      try { localStorage.setItem('flip_ext_gain', String(extInGainVal)); } catch(_) {}
+    });
+  })();
 
   // Hide panel and stop ext audio if window resizes to mobile
   window.addEventListener('resize', () => {

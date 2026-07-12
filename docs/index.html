@@ -11632,7 +11632,31 @@ function cameraLoop(t) {
   }
   const minInterval = camFpsEnabled ? 1000 / camFpsTarget : 0;
   if (t - camLastFrameMs >= minInterval) {
-    if (vid.videoWidth) {
+    if (_pipeTestOn) {
+      // PIPELINE KEYSTONE test path — CAM→GLITCH chained render. Resolves the same
+      // sources the normal path uses (video frame or ext-audio frame) into a canvas,
+      // then runs it through runPipeline(). Flag-off path below is untouched.
+      let srcCanvas = null;
+      if (vid.videoWidth) {
+        if (!_pipeCamSrc) _pipeCamSrc = document.createElement('canvas');
+        if (_pipeCamSrc.width !== vid.videoWidth || _pipeCamSrc.height !== vid.videoHeight) {
+          _pipeCamSrc.width = vid.videoWidth; _pipeCamSrc.height = vid.videoHeight;
+        }
+        _pipeCamSrc.getContext('2d').drawImage(vid, 0, 0, vid.videoWidth, vid.videoHeight);
+        srcCanvas = _pipeCamSrc;
+      } else if (extAudioMode && extAnalyser) {
+        srcCanvas = _getExtAudioSourceFrame(640, 480);
+      }
+      if (srcCanvas) {
+        runPipeline(
+          [{ engine: 'cam' }, { engine: 'glitch' }],
+          srcCanvas,
+          ctxD,
+          extAudioMode ? FlipAudioReact.read() : null,
+          t
+        );
+      }
+    } else if (vid.videoWidth) {
       _renderCamEngineFrame(vid, vid.videoWidth, vid.videoHeight, ctxD, facingMode==='user', {
         path:'preview',
         now:t,
@@ -11732,6 +11756,90 @@ function clearAsciiStatic() {
 function asciiSettingsChanged() {
   if (asciiStaticSrc) renderASCII(asciiStaticSrc, asciiStaticW, asciiStaticH, false);
 }
+
+// ════════════════════════════════════════════════════════════════════
+// PIPELINE KEYSTONE — chainable engine steps (CAM, GLITCH) run through
+// ping-pong offscreen buffers. Contract per engine: renderStep(srcCanvas,
+// targetCtx, params, audio, t). No UI yet — internal test flag only, see
+// window._flipPipeTest below. Verified: every preview-path CAM renderer
+// (renderAuto03/Dolphin/Caskia/VFD/Oscam/dithered-DSI, and _renderCamEngineFrame's
+// dispatch of them) sizes itself from `targetCtx.canvas.width/height`, falling
+// back to OUT_W/OUT_H only when the ctx has no canvas — so pipeline buffers just
+// need canvas.width/height set to the desired output size and CAM's interior is
+// untouched. _applyScrash (GLITCH) reads a 2D CONTEXT (not a canvas) and requires
+// srcCtx/dstCtx to share the same w/h it's given, which ping-pong buffers of equal
+// size satisfy.
+// ════════════════════════════════════════════════════════════════════
+const FLIP_STEP_ENGINES = {
+  cam: {
+    label: 'CAM',
+    renderStep(srcCanvas, targetCtx, params, audio, t) {
+      // params.family: only the currently ACTIVE camFamily is supported this phase.
+      // _applyCamState mutates a lot of derived globals/body classes per family switch,
+      // so swapping family per pipeline frame is out of scope for this keystone —
+      // documented here rather than reached for silently.
+      if (params && params.family && params.family !== camFamily && !FLIP_STEP_ENGINES.cam._familyWarned) {
+        FLIP_STEP_ENGINES.cam._familyWarned = true;
+        console.warn('[pipeline] cam step: per-frame family override not supported yet, using active camFamily (' + camFamily + ')');
+      }
+      _renderCamEngineFrame(srcCanvas, srcCanvas.width, srcCanvas.height, targetCtx, false, { path: 'preview', now: t });
+    },
+  },
+  glitch: {
+    label: 'GLITCH',
+    renderStep(srcCanvas, targetCtx, params, audio, t) {
+      const srcCtx = srcCanvas.getContext('2d');
+      const audioMod = audio ? { bassE: audio.bass, midE: audio.mid, trebE: audio.treble, rms: audio.rms } : null;
+      _applyScrash(srcCtx, targetCtx, srcCanvas.width, srcCanvas.height, t, audioMod);
+    },
+  },
+};
+
+let _pipeA = null, _pipeB = null;
+function _ensurePipeBuffers(w, h) {
+  if (!_pipeA) _pipeA = document.createElement('canvas');
+  if (!_pipeB) _pipeB = document.createElement('canvas');
+  if (_pipeA.width !== w || _pipeA.height !== h) { _pipeA.width = w; _pipeA.height = h; }
+  if (_pipeB.width !== w || _pipeB.height !== h) { _pipeB.width = w; _pipeB.height = h; }
+}
+let _pipeUnknownWarned = false;
+// steps: [{engine:'cam'|'glitch', params:{}}, ...]. sourceCanvas is the pipeline's
+// starting frame (caller resolves video/audio → canvas beforehand). Runs the chain
+// through reused ping-pong buffers (never reads and writes the same canvas in one
+// step) and blits the final result into outCtx, scaled to outCtx.canvas's size.
+function runPipeline(steps, sourceCanvas, outCtx, audio, t) {
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  if (!w || !h) return;
+  _ensurePipeBuffers(w, h);
+
+  const ctxA = _pipeA.getContext('2d');
+  ctxA.clearRect(0, 0, w, h);
+  ctxA.drawImage(sourceCanvas, 0, 0, w, h);
+
+  let curSrc = _pipeA, curDst = _pipeB, wrote = false;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const engine = FLIP_STEP_ENGINES[step.engine];
+    if (!engine) {
+      if (!_pipeUnknownWarned) { _pipeUnknownWarned = true; console.warn('[pipeline] unknown engine: ' + step.engine); }
+      continue;
+    }
+    engine.renderStep(curSrc, curDst.getContext('2d'), step.params || {}, audio, t);
+    wrote = true;
+    const tmp = curSrc; curSrc = curDst; curDst = tmp;
+  }
+  const finalCanvas = wrote ? curSrc : _pipeA;
+  const outW = outCtx.canvas.width, outH = outCtx.canvas.height;
+  outCtx.clearRect(0, 0, outW, outH);
+  outCtx.drawImage(finalCanvas, 0, 0, finalCanvas.width, finalCanvas.height, 0, 0, outW, outH);
+}
+
+// Internal test switch (no UI): window._flipPipeTest(true/false) from the console.
+// When on and the CAM tab is active, cameraLoop runs a 2-step CAM→GLITCH pipeline
+// instead of the normal single-engine render. When off, the normal path is untouched.
+let _pipeTestOn = false;
+let _pipeCamSrc = null;
+window._flipPipeTest = (on) => { _pipeTestOn = !!on; };
 
 // ════════════════════════════════════════════════════════════════════
 // TABS

@@ -18330,6 +18330,8 @@ if (screen.width > 768) {
   let _sfMode          = 'cam';  // 'cam' | 'audio'
   let _sfAudioStartT   = 0;
   let _sfFreqData      = null;
+  let _sfBloomCanvas   = null;   // reused offscreen buffer for the cheap bloom pass
+  let _sfBloomCtx      = null;
 
   const SF_AURA_DEPTH  = { s: 6, m: 12, l: 22 };
   const SF_COLOR_MAP   = {
@@ -18339,8 +18341,38 @@ if (screen.width > 768) {
     orange : '#ff6d00',
   };
   const SF_CHARS       = '01アイウエオカキクケコ★◆●○';
-  const SF_FONT_SIZE   = 10;
+  const SF_FONT_SIZE   = 8;
   const SF_FONT        = `bold ${SF_FONT_SIZE}px monospace`;
+
+  // rgb(...)/#hex → rgba(...) string helper for the glow gradient
+  function _sfRGBA(color, a) {
+    if (color.startsWith('rgb(')) return color.replace('rgb(', 'rgba(').replace(')', `,${a})`);
+    const h = color.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16) || 0;
+    const g = parseInt(h.substring(2, 4), 16) || 0;
+    const b = parseInt(h.substring(4, 6), 16) || 0;
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  // Cheap additive "bloom": snapshot the canvas to an offscreen buffer, then
+  // blit it back slightly oversized in 'lighter' mode for a soft halo.
+  function _sfApplyBloom(CW, CH) {
+    if (!_sfBloomCanvas) {
+      _sfBloomCanvas = document.createElement('canvas');
+      _sfBloomCtx    = _sfBloomCanvas.getContext('2d');
+    }
+    if (_sfBloomCanvas.width !== CW || _sfBloomCanvas.height !== CH) {
+      _sfBloomCanvas.width  = CW;
+      _sfBloomCanvas.height = CH;
+    }
+    _sfBloomCtx.clearRect(0, 0, CW, CH);
+    _sfBloomCtx.drawImage(sfCanvas, 0, 0);
+    sfCtx.save();
+    sfCtx.globalAlpha = 0.35;
+    sfCtx.globalCompositeOperation = 'lighter';
+    sfCtx.drawImage(_sfBloomCanvas, -1.5, -1.5, CW + 3, CH + 3);
+    sfCtx.restore();
+  }
   const MEDIAPIPE_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm';
   const MEDIAPIPE_MODEL= 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
 
@@ -18573,9 +18605,16 @@ if (screen.width > 768) {
       inkHex = SF_COLOR_MAP[_sfColorKey] || '#ffffff';
     }
 
-    // ── Clear (no video to draw in audio mode) ───────────────────────
+    const _sfRms = FlipAudioReact.read().rms;
+
+    // ── Clear: subtle radial glow tinted with ink colour instead of flat
+    // black, breathing with rms — keeps the frame from reading as dead.
     sfCtx.save();
-    sfCtx.fillStyle = '#000';
+    const _sfGlowA = 0.08 + _sfRms * 0.04;
+    const _sfGrad  = sfCtx.createRadialGradient(CW / 2, CH / 2, 0, CW / 2, CH / 2, Math.max(CW, CH) * 0.7);
+    _sfGrad.addColorStop(0, _sfRGBA(inkHex, _sfGlowA));
+    _sfGrad.addColorStop(1, 'rgba(0,0,0,1)');
+    sfCtx.fillStyle = _sfGrad;
     sfCtx.fillRect(0, 0, CW, CH);
 
     // ── Build/use Pretext grid ───────────────────────────────────────
@@ -18589,6 +18628,11 @@ if (screen.width > 768) {
     sfCtx.textAlign = 'center';
     sfCtx.textBaseline = 'middle';
 
+    // Flare: shadow glow set once for the whole glyph pass (cheap — not
+    // re-set per glyph), intensity breathing with rms.
+    sfCtx.shadowColor = inkHex;
+    sfCtx.shadowBlur  = 6 + 10 * _sfRms;
+
     for (const g of grid.chars) {
       // Map canvas coord → mask coord (1:1 proportional, no video scale)
       const mx = Math.round((g.x / CW) * maskW) | 0;
@@ -18597,25 +18641,37 @@ if (screen.width > 768) {
 
       const mi = my * maskW + mx;
       const d  = dist[mi];
-      if (d <= 0 || d > auraDepth) continue;   // only aura band
+      if (d <= 0) continue;   // outside / exactly on boundary → skip
 
-      const alpha   = 1 - (d / auraDepth) * 0.6;
-      const push    = (auraDepth - d) * 0.8;
-      const normX   = nx[mi];
-      const normY   = ny[mi];
-      const tx      = g.x + normX * push;
-      const ty      = g.y + normY * push;
-      const angle   = Math.atan2(normY, normX) + Math.PI / 2;
+      if (d <= auraDepth) {
+        // Aura band: bright rim glyphs, pushed outward, tangent-rotated
+        const alpha   = 1 - (d / auraDepth) * 0.35;
+        const push    = (auraDepth - d) * 0.8;
+        const normX   = nx[mi];
+        const normY   = ny[mi];
+        const tx      = g.x + normX * push;
+        const ty      = g.y + normY * push;
+        const angle   = Math.atan2(normY, normX) + Math.PI / 2;
 
-      sfCtx.save();
-      sfCtx.globalAlpha = alpha;
-      sfCtx.fillStyle   = inkHex;
-      sfCtx.translate(tx, ty);
-      sfCtx.rotate(angle);
-      sfCtx.fillText(g.ch, 0, 0);
-      sfCtx.restore();
+        sfCtx.save();
+        sfCtx.globalAlpha = alpha;
+        sfCtx.fillStyle   = inkHex;
+        sfCtx.translate(tx, ty);
+        sfCtx.rotate(angle);
+        sfCtx.fillText(g.ch, 0, 0);
+        sfCtx.restore();
+      } else if (maskArr[mi] >= 0.5) {
+        // Deep interior: tenue static fill glyphs (no push, no rotation)
+        sfCtx.save();
+        sfCtx.globalAlpha = 0.15 + 0.07 * _sfRms;
+        sfCtx.fillStyle   = inkHex;
+        sfCtx.fillText(g.ch, g.x, g.y);
+        sfCtx.restore();
+      }
     }
 
+    sfCtx.shadowBlur = 0;
+    _sfApplyBloom(CW, CH);
     sfCtx.restore();
   }
 
@@ -18687,7 +18743,7 @@ if (screen.width > 768) {
     } else {
       dw = CW; dh = CW / vAspect; dx = 0; dy = (CH - dh) / 2;
     }
-    sfCtx.globalAlpha = 0.35;
+    sfCtx.globalAlpha = 0.6;
     sfCtx.drawImage(sfVid, dx, dy, dw, dh);
     sfCtx.globalAlpha = 1;
     sfCtx.restore();
@@ -18703,6 +18759,12 @@ if (screen.width > 768) {
     sfCtx.textAlign = 'center';
     sfCtx.textBaseline = 'middle';
 
+    // Flare: shadow glow set once for the whole glyph pass (cheap — not
+    // re-set per glyph), intensity breathing with rms when audio is live.
+    const _sfRms = FlipAudioReact.read().rms;
+    sfCtx.shadowColor = inkHex;
+    sfCtx.shadowBlur  = 6 + 10 * _sfRms;
+
     for (const g of grid.chars) {
       // Map canvas coord → mask coord
       const mx = Math.round((g.x / CW) * maskW * scaleX) | 0;
@@ -18711,28 +18773,38 @@ if (screen.width > 768) {
 
       const mi = my * maskW + mx;
       const d  = dist[mi];
-      if (d <= 0 || d > auraDepth) continue;   // only aura band
+      if (d <= 0) continue;   // outside / exactly on boundary → skip
 
-      // Density: more opaque near boundary (d ≈ 0)
-      const alpha   = 1 - (d / auraDepth) * 0.6;
-      // Push outward
-      const push    = (auraDepth - d) * 0.8;
-      const normX   = nx[mi];
-      const normY   = ny[mi];
-      const tx      = g.x + normX * push;
-      const ty      = g.y + normY * push;
-      // Tangent angle for rotation
-      const angle   = Math.atan2(normY, normX) + Math.PI / 2;
+      if (d <= auraDepth) {
+        // Aura band: bright rim glyphs — density near boundary (d ≈ 0),
+        // pushed outward, tangent-rotated
+        const alpha   = 1 - (d / auraDepth) * 0.35;
+        const push    = (auraDepth - d) * 0.8;
+        const normX   = nx[mi];
+        const normY   = ny[mi];
+        const tx      = g.x + normX * push;
+        const ty      = g.y + normY * push;
+        const angle   = Math.atan2(normY, normX) + Math.PI / 2;
 
-      sfCtx.save();
-      sfCtx.globalAlpha = alpha;
-      sfCtx.fillStyle   = inkHex;
-      sfCtx.translate(tx, ty);
-      sfCtx.rotate(angle);
-      sfCtx.fillText(g.ch, 0, 0);
-      sfCtx.restore();
+        sfCtx.save();
+        sfCtx.globalAlpha = alpha;
+        sfCtx.fillStyle   = inkHex;
+        sfCtx.translate(tx, ty);
+        sfCtx.rotate(angle);
+        sfCtx.fillText(g.ch, 0, 0);
+        sfCtx.restore();
+      } else if (maskArr[mi] >= 0.5) {
+        // Deep interior: tenue static fill glyphs (no push, no rotation)
+        sfCtx.save();
+        sfCtx.globalAlpha = 0.15 + 0.07 * _sfRms;
+        sfCtx.fillStyle   = inkHex;
+        sfCtx.fillText(g.ch, g.x, g.y);
+        sfCtx.restore();
+      }
     }
 
+    sfCtx.shadowBlur = 0;
+    _sfApplyBloom(CW, CH);
     sfCtx.restore();
   }
 

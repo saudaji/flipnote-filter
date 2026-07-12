@@ -2205,6 +2205,33 @@
       }
       body.ext-audio #btnExtCapture { display:block; }
     }
+
+    /* ── F4: MIC móvil — botón flotante, visible SOLO en móvil (opuesto de .desktop-only arriba) ── */
+    #btnMicMobile {
+      position: fixed;
+      right: 64px; /* al lado del gear #flipSettingsTrigger (right:14px, 40px de ancho) sin encimarse */
+      top: calc(52px + env(safe-area-inset-top, 0px));
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(26,26,30,0.92);
+      color: #F0EDE6;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      font-size: 18px;
+      z-index: 120;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    #btnMicMobile.active { border-color:var(--paper); background:rgba(155,188,15,.18); box-shadow:0 8px 24px rgba(155,188,15,.25); }
+    /* Pending: micEnabled was true on load but iOS needs a fresh tap gesture to resume the AudioContext */
+    #btnMicMobile.pending { animation: micPendingPulse 1.6s ease-in-out infinite; }
+    @keyframes micPendingPulse {
+      0%, 100% { box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+      50% { box-shadow: 0 0 0 6px rgba(155,188,15,.22), 0 8px 24px rgba(0,0,0,.35); }
+    }
+    @media (min-width:769px) {
+      #btnMicMobile { display:none; }
+    }
     /* ── Global loading overlay ── */
     #loadOverlay {
       display:none; pointer-events:none; position:fixed; inset:0; background:rgba(0,0,0,.88);
@@ -3626,6 +3653,10 @@
   </div>
 </div>
 <button id="btnExtCapture" class="desktop-only">⬛ CAPTURAR</button>
+
+<!-- F4: MIC móvil — toggle flotante, alimenta el mismo extAnalyser/FlipAudioReact que EXT AUDIO
+     de desktop, pero sin apagar la cámara (ver startMicOnly/stopMicOnly). -->
+<button id="btnMicMobile" type="button" aria-label="Toggle microphone">🎙</button>
 
 <script>
 // ════════════════════════════════════════════════════════════════════
@@ -11558,6 +11589,9 @@ let extAudioCtx  = null;
 let extAnalyser  = null;
 let extMicStream = null;
 let extAudioMode = false;
+// F4 — MIC móvil: analyser vivo pero SIN reemplazar la cámara (mic + cam a la vez, p.ej. FUSION).
+// Distinto de extAudioMode (desktop, reemplaza la cámara / "audio genera imagen").
+let extMicOnlyMode = false;
 let extInGainNode = null;
 let extInGainVal = (function(){
   const saved = parseFloat(localStorage.getItem('flip_ext_gain'));
@@ -12313,7 +12347,10 @@ const FLIP_AUDIO_DEFAULT_SETTINGS = {
     plateReverb: { enabled: false, mix: 24, size: 2.2, decay: 1.7 },
     echo: { enabled: false, mix: 28, time: 280, reps: 32, color: 2600 }
   },
-  monitoring: false
+  monitoring: false,
+  // F4 — MIC móvil: intención persistida de tener el mic activo (no auto-arranca al cargar,
+  // iOS exige gesto — ver _initMicMobileButton).
+  micEnabled: false
 };
 const FLIP_FORMAT_OPTIONS = [
   { id:'9:16', shape:'portrait' },
@@ -15453,7 +15490,7 @@ function hslToRgb(h, s, l) {
 
 // ── Audio analysis ───────────────────────────────────────────────────
 function analyzeAudio() {
-  const _sonoAn = (extAudioMode && extAnalyser) ? extAnalyser : sonoAnalyser;
+  const _sonoAn = ((extAudioMode || extMicOnlyMode) && extAnalyser) ? extAnalyser : sonoAnalyser;
   if (!_sonoAn) return { amp:0, pitchNorm:0.1, blowStr:0, bassE:0, midE:0, trebE:0, timeData:new Uint8Array(2048) };
   const N = _sonoAn.frequencyBinCount;
   const freqData = new Uint8Array(N);
@@ -15926,8 +15963,8 @@ function stopSono() {
 }
 
 function enterSono() {
-  if (extAudioMode && extAnalyser) {
-    // Ext audio active — use extAnalyser, no mic permission needed
+  if ((extAudioMode || extMicOnlyMode) && extAnalyser) {
+    // Ext audio (desktop) or mic-only (mobile) active — use shared extAnalyser, no mic permission needed
     document.getElementById('sonoPerm').classList.remove('visible');
     if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; requestAnimationFrame(sonoLoop); }
     return;
@@ -16434,8 +16471,8 @@ function stopWmp() {
   wmpStopAudio(); // full teardown (called only on explicit user action)
 }
 function enterWmp() {
-  if (extAudioMode && extAnalyser) {
-    // Ext audio active — use extAnalyser, no mic permission needed
+  if ((extAudioMode || extMicOnlyMode) && extAnalyser) {
+    // Ext audio (desktop) or mic-only (mobile) active — use shared extAnalyser, no mic permission needed
     document.getElementById('wmpPerm').classList.remove('visible');
     if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
     return;
@@ -17024,7 +17061,7 @@ function wmpLoop() {
     }
   }
   _wmpLastFrameT = _wmpNow;
-  const _wmpAn = (extAudioMode && extAnalyser) ? extAnalyser : wmpAnalyser;
+  const _wmpAn = ((extAudioMode || extMicOnlyMode) && extAnalyser) ? extAnalyser : wmpAnalyser;
   if (!_wmpAn) { requestAnimationFrame(wmpLoop); return; }
   const N = _wmpAn.frequencyBinCount;
   const freqData = new Uint8Array(N);
@@ -17408,8 +17445,11 @@ function _extStartLevelMeter() {
   }, 100);
 }
 
-async function startExtAudio(deviceId) {
-  _extShowErr('');
+// F4 — Cadena de audio compartida: getUserMedia(audio) → AudioContext → gain (sensibilidad) →
+// analyser → FlipAudioReact.attach(). Usada por startExtAudio() (desktop, reemplaza cámara) y
+// startMicOnly() (móvil, mic + cámara simultáneos). No toca extAudioMode/extMicOnlyMode ni la cámara —
+// eso lo decide cada caller.
+async function _buildExtAudioChain(deviceId) {
   if (extMicStream) { extMicStream.getTracks().forEach(t => t.stop()); extMicStream = null; }
   if (extAudioCtx)  { await extAudioCtx.close().catch(()=>{}); extAudioCtx = null; }
   extAnalyser = null;
@@ -17435,7 +17475,7 @@ async function startExtAudio(deviceId) {
   }
 
   extAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  // Resume immediately — context can start suspended
+  // Resume immediately — context can start suspended (iOS requires this inside the tap gesture)
   if (extAudioCtx.state === 'suspended') await extAudioCtx.resume();
 
   extAnalyser = extAudioCtx.createAnalyser();
@@ -17448,6 +17488,11 @@ async function startExtAudio(deviceId) {
   src.connect(extInGainNode);
   extInGainNode.connect(extAnalyser);
   FlipAudioReact.attach(extAnalyser);
+}
+
+async function startExtAudio(deviceId) {
+  _extShowErr('');
+  await _buildExtAudioChain(deviceId);
 
   extAudioMode = true;
   document.body.classList.add('ext-audio');
@@ -17530,6 +17575,23 @@ async function stopExtAudio() {
     // Don't force camera — FLOW starts via its own CAM button as usual.
     if (typeof window._sflowStop === 'function') window._sflowStop();
   }
+}
+
+// F4 — MIC móvil: analyser vivo compartido por FUSION/GLITCH/SONO/WMP como MODULADOR,
+// pero SIN apagar la cámara ni entrar en extAudioMode (a diferencia de startExtAudio, que en
+// desktop reemplaza la cámara). Debe llamarse dentro del gesto del tap (iOS exige resume() ahí).
+async function startMicOnly() {
+  await _buildExtAudioChain();
+  extMicOnlyMode = true;
+  console.log('[MicOnly] started. Stream tracks:', extMicStream.getTracks().map(t => t.label));
+}
+
+async function stopMicOnly() {
+  if (extMicStream) { extMicStream.getTracks().forEach(t => t.stop()); extMicStream = null; }
+  if (extAudioCtx)  { await extAudioCtx.close().catch(()=>{}); extAudioCtx = null; }
+  extAnalyser = null;
+  FlipAudioReact.attach(null);
+  extMicOnlyMode = false;
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -17992,7 +18054,8 @@ function _scrashLoop(t) {
     _ctxScrTmp.fillStyle='#000'; _ctxScrTmp.fillRect(0,0,SW,SH);
     _ctxScrTmp.drawImage(vid, dx, dy, dw, dh);
     // Camera + ext audio simultaneously: also feed audioMod so the live feed reacts to the music.
-    const camAudioMod = (extAudioMode && extAnalyser) ? _scrashReadAudioBands(extAnalyser) : undefined;
+    // F4: incluye extMicOnlyMode — mic móvil modula GLITCH sin apagar la cámara.
+    const camAudioMod = ((extAudioMode || extMicOnlyMode) && extAnalyser) ? _scrashReadAudioBands(extAnalyser) : undefined;
     _applyScrash(_ctxScrTmp, ctxScrash, SW, SH, elapsed, camAudioMod);
   } else if (extAudioMode && extAnalyser) {
     const audioMod = _renderScrashAudioSource(SW, SH, elapsed);
@@ -18310,6 +18373,49 @@ if (screen.width > 768) {
     await saveBlob(await canvasToBlob(cvs.getContext('2d')), _flipName(activeTab || 'flip', 'png'));
   });
 }
+
+// F4 — MIC móvil: botón flotante #btnMicMobile (visible solo en viewport móvil vía CSS).
+// Tap enciende/apaga startMicOnly()/stopMicOnly() SIN tocar la cámara — a diferencia del
+// EXT AUDIO de desktop. La intención (flipAudioSettings.micEnabled) se persiste, pero
+// NUNCA se auto-arranca al cargar: iOS exige que resume() del AudioContext ocurra dentro
+// de un gesto del usuario. Si micEnabled=true al cargar, el botón solo muestra un pulso
+// ".pending" invitando al tap — no arranca solo.
+(function _initMicMobileButton() {
+  const btn = document.getElementById('btnMicMobile');
+  if (!btn) return;
+
+  function _setBtnState(active) {
+    btn.classList.toggle('active', !!active);
+    btn.classList.remove('pending');
+  }
+
+  if (flipAudioSettings && flipAudioSettings.micEnabled) {
+    // Intención previa de tener el mic activo, pero esperamos el tap (ver comentario arriba).
+    btn.classList.add('pending');
+  }
+
+  btn.addEventListener('click', async () => {
+    if (extMicOnlyMode) {
+      await stopMicOnly();
+      _setBtnState(false);
+      flipAudioSettings.micEnabled = false;
+      saveFlipAudioSettings();
+      flipToast('🎙 MIC apagado');
+      return;
+    }
+    try {
+      await startMicOnly(); // getUserMedia + AudioContext.resume() — debe ir dentro del gesto del tap
+      _setBtnState(true);
+      flipAudioSettings.micEnabled = true;
+      saveFlipAudioSettings();
+      flipToast('🎙 MIC activo — los modos reaccionan al sonido');
+    } catch (err) {
+      _setBtnState(false);
+      console.error('[MicOnly] error:', err);
+      flipToast('⚠ Permiso de mic denegado: ' + (err?.message || err));
+    }
+  });
+})();
 
 // ════════════════════════════════════════════════════════════════════
 // SILHOUETTE FLOW  —  isolated standalone component
@@ -19041,7 +19147,8 @@ function _fusionLoop(ts) {
         [{ engine: 'cam' }, { engine: 'glitch' }],
         srcCanvas,
         ctxFusion,
-        (extAudioMode && extAnalyser) ? FlipAudioReact.read() : null,
+        // F4: en móvil el MIC modula FUSION sin reemplazar la cámara (extMicOnlyMode).
+        ((extAudioMode || extMicOnlyMode) && extAnalyser) ? FlipAudioReact.read() : null,
         ts
       );
     }

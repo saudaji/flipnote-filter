@@ -2031,6 +2031,68 @@
       .edit-mini-row input[type="range"] { height:40px; }
     }
 
+    /* ══════════════════════════════════════════════════
+       STAGE — F6: performance shell. Fullscreen, distraction-free,
+       instant scene switching over the same PIPELINE KEYSTONE as EDIT.
+       Entered from #barEdit's ▶ STAGE button (EDIT is the workshop,
+       STAGE is the stage). Own chrome (exit/rec/pads) fades out after
+       3s of inactivity and reappears on hover/tap.
+    ══════════════════════════════════════════════════ */
+    body.stage-mode .tab-bar   { display:none !important; }
+    body.stage-mode #palettes  { display:none !important; }
+    body.stage-mode #flipExportBar { display:none !important; }
+    body.stage-mode #btnMicMobile,
+    body.stage-mode #flipSettingsTrigger,
+    body.stage-mode #btnAudioIO,
+    body.stage-mode #fps { display:none !important; }
+    #stageArea {
+      display:none; position:fixed; inset:0; z-index:40; background:#000;
+      align-items:center; justify-content:center;
+    }
+    #stageArea.visible { display:flex; }
+    #stageCanvas {
+      display:block; width:100%; height:100%; max-width:100%; max-height:100%;
+      object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; background:#000;
+    }
+    #stageChrome {
+      display:none; position:fixed; inset:0; z-index:41; pointer-events:none;
+      opacity:0; transition:opacity .4s ease;
+    }
+    body.stage-mode #stageChrome { display:block; }
+    #stageChrome.visible { opacity:1; }
+    #stageChrome.visible #stageExit,
+    #stageChrome.visible #stageRec,
+    #stageChrome.visible #stagePads { pointer-events:auto; }
+    #stageExit {
+      position:fixed; top:14px; left:14px; width:40px; height:40px;
+      background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.3); color:#fff;
+      font-family:monospace; font-size:16px; border-radius:50%; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; pointer-events:none;
+    }
+    #stageRec {
+      position:fixed; top:14px; right:14px; width:40px; height:40px;
+      background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.3); color:#fff;
+      font-family:monospace; font-size:14px; border-radius:50%; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; pointer-events:none;
+    }
+    #stageRec.recording { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
+    #stageRecTime {
+      position:fixed; top:18px; right:60px; color:#ff6666; font-family:monospace; font-size:11px;
+      letter-spacing:1px; display:none;
+    }
+    #stagePads {
+      position:fixed; bottom:14px; left:14px; right:14px;
+      display:flex; gap:6px; flex-wrap:wrap; justify-content:center; pointer-events:none;
+    }
+    .stage-pad {
+      min-width:44px; min-height:44px; flex:1 1 auto; max-width:64px;
+      background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.3); color:#fff;
+      font-family:monospace; font-size:14px; font-weight:bold; cursor:pointer; border-radius:4px;
+      pointer-events:auto;
+    }
+    .stage-pad.active { background:rgba(255,255,255,.9); color:#000; border-color:#fff; }
+    .stage-pad.empty { opacity:.35; }
+
     /* ── Pythonization ── */
     #pythonSection { padding:6px 12px 8px; border-top:1px solid var(--dark); }
     .py-header { color:var(--mid); font-size:9px; letter-spacing:2px; text-transform:uppercase; margin-bottom:6px; }
@@ -2288,7 +2350,8 @@
     .up-mode-btn { background:none; border:2px solid var(--dark); color:var(--dark); font-family:monospace; font-size:10px; letter-spacing:2px; padding:4px 10px; cursor:pointer; }
     .up-mode-btn.active { border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.1); }
 
-    /* Hide audio I/O on mobile by default */
+    /* Hide audio I/O on mobile by default — #btnAudioIO/#audioIOPanel get their own mobile
+       rules below (F5, paridad móvil); #btnExtCapture stays desktop-only. */
     #btnAudioIO, #audioIOPanel, #btnExtCapture { display:none; }
 
     @media (min-width:769px) {
@@ -2321,6 +2384,54 @@
         padding:8px 12px; cursor:pointer; display:none;
       }
       body.ext-audio #btnExtCapture { display:block; }
+    }
+
+    /* ── F5 — paridad móvil: panel de AUDIO (#btnAudioIO / #audioIOPanel) también visible en
+       móvil, mismo breakpoint que #btnMicMobile (max-width:768px). Las reglas base de
+       .audio-io-label / .audio-io-select / #btnExtAudioToggle viven DENTRO del @media
+       (min-width:769px) de arriba, así que no aplican acá abajo — se redeclaran completas
+       (no solo overrides) con layout/tamaños pensados para touch. ── */
+    @media (max-width:768px) {
+      #btnAudioIO {
+        display:block;
+        position:fixed; top:52px; right:12px; z-index:121;
+        background:rgba(26,26,30,0.92); border:1px solid rgba(255,255,255,0.14);
+        color:#F0EDE6; font-family:monospace; font-size:9px; letter-spacing:1px;
+        padding:6px 8px; min-height:40px; cursor:pointer;
+        backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+      }
+      body.ext-audio #btnAudioIO, #btnAudioIO.active { color:var(--paper); border-color:var(--paper); }
+      #audioIOPanel {
+        position:fixed; top:calc(52px + 44px + env(safe-area-inset-top, 0px)); right:8px;
+        width:auto; max-width:90vw; max-height:70vh; overflow-y:auto; box-sizing:border-box;
+        background:var(--ink); border:2px solid var(--dark);
+        padding:12px; z-index:122; display:none; flex-direction:column; gap:10px;
+        font-size:12px;
+      }
+      #audioIOPanel.open { display:flex; }
+      #audioIOPanel .audio-io-label {
+        color:var(--mid); font-size:11px; font-family:monospace; letter-spacing:1px; margin-top:4px;
+      }
+      #audioIOPanel .audio-io-select {
+        width:100%; box-sizing:border-box; background:var(--ink); color:var(--paper);
+        border:1px solid var(--dark); font-family:monospace; font-size:13px;
+        padding:8px; min-height:40px;
+      }
+      #audioIOPanel #btnExtAudioToggle {
+        background:none; border:1px solid var(--dark); color:var(--dark);
+        font-family:monospace; font-size:12px; letter-spacing:1px; cursor:pointer;
+        padding:10px 8px; min-height:40px; margin-top:4px;
+      }
+      #audioIOPanel #btnExtAudioToggle.active {
+        border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.1);
+      }
+      #audioIOPanel #btnMonitor {
+        background:var(--ink); color:var(--mid); border:1px solid var(--dark);
+        font-family:monospace; font-size:11px; letter-spacing:1px; cursor:pointer;
+        min-height:40px; padding:8px 10px;
+      }
+      #audioIOPanel input[type="range"] { min-height:40px; }
+      #audioIOPanel #extGainSlider, #audioIOPanel #monitorVol { height:40px; }
     }
 
     /* ── F4: MIC móvil — botón flotante, visible SOLO en móvil (opuesto de .desktop-only arriba) ── */
@@ -3755,10 +3866,28 @@
     <div class="btn-icon">⏺</div>
     <span class="btn-label">REC</span>
   </button>
+  <button class="btn" id="btnEditStage">
+    <div class="btn-icon">▶</div>
+    <span class="btn-label">STAGE</span>
+  </button>
 </div>
 
 <input type="file" id="editFileInput" accept="image/*,video/*" style="display:none;">
 <video id="editVideoEl" playsinline muted loop autoplay class="media-probe"></video>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     STAGE — F6: performance shell. Fullscreen scene-switcher over
+     runPipeline. See _stageLoop / stageScenes near the EDIT block.
+════════════════════════════════════════════════════════════════ -->
+<div id="stageArea">
+  <canvas id="stageCanvas" width="1024" height="768"></canvas>
+</div>
+<div id="stageChrome">
+  <button id="stageExit" title="salir (Esc)">✕</button>
+  <button id="stageRec" title="grabar (R)">⏺</button>
+  <span id="stageRecTime">00:00</span>
+  <div id="stagePads"></div>
+</div>
 
 <!-- SONO audio progress bar -->
 <div id="sonoProgress">
@@ -11908,8 +12037,16 @@ function _renderZoomSticker(ctx, cx, cy, r, selected) {
   ctx.restore();
 }
 
+// F5 — liveness flags so external "kick" call sites (startMicOnly, in particular) can tell
+// whether a loop's rAF chain is actually pumping right now vs. merely having its xRunning
+// flag set true (e.g. cameraRunning is forced true by switchTab even when the initial kick
+// was skipped because no camera/audio source existed yet at that moment). Set true on every
+// live iteration, false on the single exit path (the !xRunning early return).
+let _camLoopAlive = false, _asciiLoopAlive = false, _fusionLoopAlive = false;
+
 function cameraLoop(t) {
-  if (!cameraRunning) return;
+  if (!cameraRunning) { _camLoopAlive = false; return; }
+  _camLoopAlive = true;
   if (stream && (!vid.videoWidth || vid.paused || vid.readyState < 2)) {
     if (t - _camVideoReviveT > 900) {
       _camVideoReviveT = t;
@@ -11949,7 +12086,9 @@ function cameraLoop(t) {
         path:'preview',
         now:t,
       });
-    } else if (extAudioMode && extAnalyser) {
+    } else if ((extAudioMode || extMicOnlyMode) && extAnalyser) {
+      // F5 — paridad móvil: sin cámara, el mic (extMicOnlyMode) también pinta el patrón
+      // de audio en CAM, igual que EXT AUDIO clásico de desktop (extAudioMode).
       const af = _getExtAudioSourceFrame(640, 480);
       _renderCamEngineFrame(af, 640, 480, ctxD, false, { path: 'preview', now: t });
     }
@@ -11962,7 +12101,8 @@ function cameraLoop(t) {
 }
 
 function asciiLoop(ts) {
-  if (!asciiRunning) return;
+  if (!asciiRunning) { _asciiLoopAlive = false; return; }
+  _asciiLoopAlive = true;
   if (asciiUploading) { requestAnimationFrame(asciiLoop); return; }
   if (_isTypoCamInteractive()) {
     updateTouchReflow();
@@ -12024,7 +12164,8 @@ function asciiLoop(ts) {
   }
   if (!asciiStaticSrc && vid.videoWidth)
     renderASCII(vid, vid.videoWidth, vid.videoHeight, facingMode==='user');
-  if (!asciiStaticSrc && !vid.videoWidth && extAudioMode && extAnalyser) {
+  if (!asciiStaticSrc && !vid.videoWidth && (extAudioMode || extMicOnlyMode) && extAnalyser) {
+    // F5 — paridad móvil: sin cámara, el mic (extMicOnlyMode) también pinta ASCII desde audio.
     const af = _getExtAudioSourceFrame(640, 480);
     renderASCII(af, 640, 480, false);
     requestAnimationFrame(asciiLoop);
@@ -12184,6 +12325,7 @@ function switchTab(tab) {
   const isFusion = tab==='fusion';
   const isSflow = tab==='sflow';
   const isEdit = tab==='edit';
+  const isStage = tab==='stage';
   if (!isAscii) _resetTypoTransient(false);
   if (!isAscii) asciiRecordingHighQuality = false;
   display.style.display = isCam ? 'block' : 'none';
@@ -12194,6 +12336,7 @@ function switchTab(tab) {
   document.getElementById('fusionArea' ).classList.toggle('visible', isFusion);
   document.getElementById('sflowArea'  ).classList.toggle('visible', isSflow);
   document.getElementById('editArea'   ).classList.toggle('visible', isEdit);
+  document.getElementById('stageArea'  ).classList.toggle('visible', isStage);
   document.getElementById('uploadSection').classList.toggle('visible', isUp);
   const _scrashCtrlsOn = isScrash || (isUp && uploadMode === 'scrash');
   if (_scrashCtrlsOn) _closeCamPanels();
@@ -12222,7 +12365,7 @@ function switchTab(tab) {
   document.getElementById('camFpsCtrl').style.display = isCam ? 'flex' : 'none';
   document.getElementById('camAspect').style.display  = (isCam || isAscii) ? 'flex' : 'none';
   _syncCamZoomUI();
-  document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp || isScrash || isAscii || isSflow || isFusion || isEdit) ? 'none' : '';
+  document.getElementById('palettes' ).style.display = (isUp || isSono || isWmp || isScrash || isAscii || isSflow || isFusion || isEdit || isStage) ? 'none' : '';
   fpsEl.style.display = isCam ? '' : 'none';
   // Stop SF cam when leaving the tab
   if (!isSflow) _sflowStop();
@@ -12259,13 +12402,22 @@ function switchTab(tab) {
   if (!isEdit && typeof window._editStopRecording === 'function') window._editStopRecording();
   if (isEdit && typeof window._editOnEnter === 'function') window._editOnEnter();
 
+  // STAGE: own rAF loop + fullscreen shell, stop the recorder if leaving mid-take
+  document.body.classList.toggle('stage-mode', isStage);
+  stageRunning = isStage;
+  if (!isStage && typeof window._stageStopRecording === 'function') window._stageStopRecording();
+  if (!isStage && typeof window._stageOnExit === 'function') window._stageOnExit();
+  if (isStage && typeof window._stageOnEnter === 'function') window._stageOnEnter();
+
   cameraRunning = isCam; asciiRunning = isAscii;
   // Restart camera if it was stopped by a file upload
   if (isCam || isAscii || isScrash || isFusion) inputMode = 'camera';
   if ((isCam || isAscii || isScrash || isFusion) && !stream && !extAudioMode) startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
-  if (isCam   && (stream || (extAudioMode && extAnalyser))) requestAnimationFrame(cameraLoop);
-  if (isAscii && (stream || (extAudioMode && extAnalyser) || asciiStaticSrc)) requestAnimationFrame(asciiLoop);
-  if (isFusion && (stream || (extAudioMode && extAnalyser))) requestAnimationFrame(_fusionLoop);
+  // F5 — paridad móvil: extMicOnlyMode también cuenta como fuente para arrancar estos loops
+  // (además de la cámara real o EXT AUDIO clásico de desktop).
+  if (isCam   && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) requestAnimationFrame(cameraLoop);
+  if (isAscii && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser) || asciiStaticSrc)) requestAnimationFrame(asciiLoop);
+  if (isFusion && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) requestAnimationFrame(_fusionLoop);
 }
 
 document.getElementById('tabCam'  ).addEventListener('click', () => switchTab('cam'));
@@ -12305,6 +12457,7 @@ const _EXPORT_CFG = {
   scrash: null, // ● del nav es el único trigger de captura
   fusion: null, // ● del nav es el único trigger de captura
   edit:   null, // barEdit (SNAP/REC) es el único trigger de captura
+  stage:  null, // chrome propio (⏺) es el único trigger de captura
   sono:   { bottom: 246, label: '📷 SNAP',        primary: 'btnSonoCapture',secs: ['btnSonoShare'],              reset: null           },
   wmp:    null
 };
@@ -15356,7 +15509,7 @@ function _getAsciiRecordingOptions() {
       const captureSource = _getAsciiCaptureSource();
       if (captureSource) {
         _renderASCIICaptureSync(captureSource.source, captureSource.srcW, captureSource.srcH, captureSource.mirror);
-      } else if (extAudioMode && extAnalyser) {
+      } else if ((extAudioMode || extMicOnlyMode) && extAnalyser) {
         const af = _getExtAudioSourceFrame(640, 480);
         renderASCII(af, 640, 480, false);
       }
@@ -17854,6 +18007,16 @@ async function startMicOnly() {
   if (camWasActive) _micReacquireCameraIfDead();
   else if (typeof window._sflowRestartCam === 'function') window._sflowRestartCam();
 
+  // F5 — kick-start the visual loop for whichever tab the user is already parked on,
+  // mirroring startExtAudio()'s kick (see above), so CAM/ASCII/FUSION start reacting to
+  // the mic immediately instead of requiring a tab switch. Gated on the loop's *alive*
+  // flag (not just its xRunning flag — cameraRunning/asciiRunning/fusionRunning get forced
+  // true by switchTab even when no camera/audio was available to actually kick the rAF
+  // chain at that moment) so we never spawn a duplicate chain on top of one already ticking.
+  if (activeTab === 'cam' && !_camLoopAlive) { cameraRunning = true; requestAnimationFrame(cameraLoop); }
+  else if (activeTab === 'ascii' && !_asciiLoopAlive) { asciiRunning = true; requestAnimationFrame(asciiLoop); }
+  else if (activeTab === 'fusion' && !_fusionLoopAlive) { fusionRunning = true; requestAnimationFrame(_fusionLoop); }
+
   _startMicLevelFeedback();
 }
 
@@ -18454,6 +18617,14 @@ window._sfParams = { flare: 50, density: 8, fill: 35, thresh: 50, dim: 60 };
 // 'cam' happens on restore if no file is present (see _initEdit).
 window._editPipeline = { source: { type: 'cam' }, steps: [{ engine: 'glitch', on: true }] };
 
+// ── STAGE (F6) scenes ────────────────────────────────────────────────────
+// Same source/steps shape as window._editPipeline, one per slot (1-9).
+// Declared globally for the same reason as _editPipeline above: saveSettings/
+// loadSettings run before the STAGE block (near the bottom of the script)
+// is parsed, and photo/video source types never persist an actual file —
+// the STAGE block falls back to 'cam' with a toast on restore.
+window._stageScenes = new Array(9).fill(null);
+
 function saveSettings() {
   try {
     localStorage.setItem('flipSettings', JSON.stringify({
@@ -18474,6 +18645,7 @@ function saveSettings() {
       scrAudioReactVal,
       _sfParams: window._sfParams,
       editPipeline: window._editPipeline,
+      stageScenes: window._stageScenes,
     }));
   } catch(_) {}
 }
@@ -18697,6 +18869,28 @@ function loadSettings() {
       if (!steps.length) steps = [{ engine: 'glitch', on: true }];
       window._editPipeline = { source: { type: srcType }, steps };
     }
+    // STAGE scenes (window._stageScenes — see declaration near saveSettings;
+    // the STAGE block reads this once on init, since stageScenes is declared
+    // later via `let`). Same validation as editPipeline, per slot; a slot
+    // that fails validation is dropped to null rather than the whole array.
+    if (Array.isArray(s.stageScenes)) {
+      const validSrc = ['cam','photo','video','audio'];
+      window._stageScenes = new Array(9).fill(null).map((_, i) => {
+        const scene = s.stageScenes[i];
+        if (!scene || typeof scene !== 'object') return null;
+        const srcType = validSrc.includes(scene.source?.type) ? scene.source.type : 'cam';
+        let steps = Array.isArray(scene.steps) ? scene.steps : [];
+        steps = steps
+          .filter(st => st && (st.engine === 'cam' || st.engine === 'glitch'))
+          .slice(0, 3)
+          .map(st => ({
+            engine: st.engine, on: st.on !== false,
+            ...(st.engine === 'cam' ? { family: (st.family && CAM_FAMILIES[st.family]) ? st.family : undefined } : {}),
+          }));
+        if (!steps.length) return null;
+        return { source: { type: srcType }, steps };
+      });
+    }
   } catch(_) {}
 }
 
@@ -18717,24 +18911,80 @@ loadSettings();
 _syncTypoCamUI();
 _primeTypoCamSoon();
 
-if (screen.width > 768) {
+// F5 — paridad móvil: el panel de AUDIO (#btnAudioIO/#audioIOPanel) ahora es visible y
+// funcional en ambos breakpoints (ver CSS @media max-width:768px arriba). El selector de
+// dispositivo, medidor de NIVEL y slider de SENSIBILIDAD son universales — solo el botón
+// ACTIVAR cambia de flujo según el viewport: desktop dispara startExtAudio/stopExtAudio
+// (clásico, apaga cámara); móvil delega a startMicOnly/stopMicOnly (mic conviviendo con
+// cámara, mismo flujo que el botón flotante #btnMicMobile).
+function _isMobileAudioUI() { return window.innerWidth <= 768; }
+
+function _syncExtAudioToggleUI() {
+  const btn = document.getElementById('btnExtAudioToggle');
+  if (!btn) return;
+  if (_isMobileAudioUI()) {
+    btn.textContent = extMicOnlyMode ? '■ DESACTIVAR' : '▶ ACTIVAR AUDIO EXTERNO';
+    btn.classList.toggle('active', extMicOnlyMode);
+  } else {
+    btn.textContent = extAudioMode ? '■ DESACTIVAR' : '▶ ACTIVAR AUDIO EXTERNO';
+    btn.classList.toggle('active', extAudioMode);
+  }
+  // Keep the floating mic button (#btnMicMobile) in sync when the panel drives the mic.
+  const mb = document.getElementById('btnMicMobile');
+  if (mb) { mb.classList.toggle('active', extMicOnlyMode); mb.classList.remove('pending'); }
+}
+window._syncExtAudioToggleUI = _syncExtAudioToggleUI;
+
+(function _initAudioIOPanel() {
   const btnAudioIO = document.getElementById('btnAudioIO');
+  if (!btnAudioIO) return;
   btnAudioIO.addEventListener('click', () => {
     const panel = document.getElementById('audioIOPanel');
     panel.classList.toggle('open');
-    if (panel.classList.contains('open')) enumerateAudioDevices();
+    if (panel.classList.contains('open')) {
+      enumerateAudioDevices();
+      // Catch the case where the mic was toggled elsewhere (e.g. the floating
+      // #btnMicMobile button) before the panel was opened.
+      _syncExtAudioToggleUI();
+    }
   });
 
   document.getElementById('btnExtAudioToggle').addEventListener('click', async () => {
-    if (extAudioMode) {
-      await stopExtAudio();
+    if (_isMobileAudioUI()) {
+      if (extMicOnlyMode) {
+        await stopMicOnly();
+        if (_extLevelTimer) { clearInterval(_extLevelTimer); _extLevelTimer = null; }
+        const wrap = document.getElementById('extLevelWrap');
+        if (wrap) wrap.style.display = 'none';
+        const bar = document.getElementById('extLevelBar');
+        if (bar) bar.style.width = '0%';
+        flipAudioSettings.micEnabled = false;
+        saveFlipAudioSettings();
+        flipToast('🎙 MIC apagado');
+      } else {
+        try {
+          await startMicOnly();
+          _extStartLevelMeter(); // panel's NIVEL DE SEÑAL meter — generic, reads extAnalyser
+          flipAudioSettings.micEnabled = true;
+          saveFlipAudioSettings();
+          flipToast('🎙 MIC activo — los modos reaccionan al sonido');
+        } catch (err) {
+          _extShowErr(err?.message || String(err));
+          console.error('[MicOnly] error:', err);
+        }
+      }
     } else {
-      const deviceId = document.getElementById('audioInSelect').value;
-      await startExtAudio(deviceId).catch(err => {
-        _extShowErr(err.message);
-        console.error('[ExtAudio] error:', err);
-      });
+      if (extAudioMode) {
+        await stopExtAudio();
+      } else {
+        const deviceId = document.getElementById('audioInSelect').value;
+        await startExtAudio(deviceId).catch(err => {
+          _extShowErr(err.message);
+          console.error('[ExtAudio] error:', err);
+        });
+      }
     }
+    _syncExtAudioToggleUI();
   });
 
   document.getElementById('btnMonitor').addEventListener('click', () => {
@@ -18759,14 +19009,20 @@ if (screen.width > 768) {
     });
   })();
 
-  // Hide panel and stop ext audio if window resizes to mobile
+  // Hide panel and stop desktop-classic ext audio if window resizes to mobile
+  // (extMicOnlyMode is left alone — mic mode is meant to survive across breakpoints).
   window.addEventListener('resize', () => {
     if (window.innerWidth <= 768) {
       document.getElementById('audioIOPanel').classList.remove('open');
       if (extAudioMode) stopExtAudio();
     }
+    _syncExtAudioToggleUI();
   });
 
+  _syncExtAudioToggleUI();
+})();
+
+if (screen.width > 768) {
   document.getElementById('btnExtCapture').addEventListener('click', async () => {
     let cvs;
     if (activeTab === 'cam') cvs = display;
@@ -18834,14 +19090,21 @@ if (screen.width > 768) {
     if (_micLPFired) { _micLPFired = false; e.preventDefault(); return; } // consumed by long-press
     if (extMicOnlyMode) {
       await stopMicOnly();
+      if (_extLevelTimer) { clearInterval(_extLevelTimer); _extLevelTimer = null; }
+      const wrap = document.getElementById('extLevelWrap');
+      if (wrap) wrap.style.display = 'none';
+      const bar = document.getElementById('extLevelBar');
+      if (bar) bar.style.width = '0%';
       _setBtnState(false);
       flipAudioSettings.micEnabled = false;
       saveFlipAudioSettings();
       flipToast('🎙 MIC apagado');
+      if (typeof window._syncExtAudioToggleUI === 'function') window._syncExtAudioToggleUI();
       return;
     }
     try {
       await startMicOnly(); // getUserMedia + AudioContext.resume() — debe ir dentro del gesto del tap
+      _extStartLevelMeter(); // feeds the panel's NIVEL DE SEÑAL meter too, in case it's open
       _setBtnState(true);
       flipAudioSettings.micEnabled = true;
       saveFlipAudioSettings();
@@ -18851,6 +19114,7 @@ if (screen.width > 768) {
       console.error('[MicOnly] error:', err);
       flipToast('⚠ Permiso de mic denegado: ' + (err?.message || err));
     }
+    if (typeof window._syncExtAudioToggleUI === 'function') window._syncExtAudioToggleUI();
   });
 })();
 
@@ -19456,6 +19720,11 @@ if (screen.width > 768) {
       await sfVid.play();
     } catch (e) {
       console.warn('SF cam error', e);
+      // F5 — móvil: el mic convive con la cámara, no la reemplaza (a diferencia de EXT
+      // AUDIO clásico de desktop). Por eso la prioridad se invierte respecto a desktop:
+      // acá SIEMPRE se intenta cámara primero (arriba); solo si falla/no está disponible
+      // caemos al blob de audio del mic como fallback.
+      if (extMicOnlyMode && extAnalyser) { _sfStartAudioMode(); return; }
       _sfBadge('FLOW — camera denied');
       return;
     }
@@ -19696,12 +19965,14 @@ function _fusionGetSrcCanvas() {
     fctx.restore();
     return _fusionSrc;
   }
-  if (extAudioMode && extAnalyser) return _getExtAudioSourceFrame(w, h);
+  // F5 — paridad móvil: sin cámara, el mic (extMicOnlyMode) también alimenta FUSION.
+  if ((extAudioMode || extMicOnlyMode) && extAnalyser) return _getExtAudioSourceFrame(w, h);
   return null;
 }
 
 function _fusionLoop(ts) {
-  if (!fusionRunning) return;
+  if (!fusionRunning) { _fusionLoopAlive = false; return; }
+  _fusionLoopAlive = true;
   const minInterval = 1000 / 30;
   if (ts - _fusionLastFrameMs >= minInterval) {
     const srcCanvas = _fusionGetSrcCanvas();
@@ -20247,6 +20518,354 @@ function _editLoop(ts) {
       startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
     }
     requestAnimationFrame(_editLoop);
+  };
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// STAGE — F6: performance shell over the PIPELINE KEYSTONE (runPipeline,
+// see FLIP_STEP_ENGINES above). A scene is exactly the pipeline shape
+// EDIT uses: { source:{type}, steps:[{engine,on,family?}] }. Fullscreen,
+// dark, distraction-free; up to 9 scenes switchable instantly via keys
+// 1-9 (desktop) or touch pads (mobile). Own rAF loop with a hard frame
+// budget: rather than ever freezing, it downscales the working
+// resolution (640→512→384) when frames run heavy, and scales back up
+// once things are comfortably fast again. Entered from #barEdit's
+// ▶ STAGE button; EDIT is the workshop, STAGE is the stage — no editing
+// UI here, only live switching + the global GLITCH/CAM params EDIT
+// already exposes (still live and shared, since scenes just reference
+// engines/params, not frozen snapshots of them).
+// ════════════════════════════════════════════════════════════════════
+let stageRunning = false;
+let stageScenes = window._stageScenes || new Array(9).fill(null);
+let stageActiveScene = 0;
+let _stageSrcCanvas = null;
+let _stageLastFrameMs = 0;
+let _stageChromeTimer = null;
+const STAGE_RES_STEPS = [640, 512, 384];
+let _stageWorkRes = STAGE_RES_STEPS[0];
+let _stageFrameWindow = [];
+let _stageUpStreak = 0;
+let _stageFastToastShown = false;
+let _stageLongPressTimer = null, _stageLongPressFired = false;
+
+const stageCanvas = document.getElementById('stageCanvas');
+const ctxStage = stageCanvas.getContext('2d');
+
+(function _initStage() {
+  // ── Restore persisted scenes (window._stageScenes — see saveSettings/
+  // loadSettings). photo/video scene sources never persist an actual
+  // file (same rule as EDIT's _editPipeline) — fall back to 'cam' with a
+  // soft toast once STAGE is actually entered.
+  let _stageRestoredNoFile = false;
+  stageScenes = (window._stageScenes || new Array(9).fill(null)).map(scene => {
+    if (!scene) return null;
+    if (scene.source.type === 'photo' || scene.source.type === 'video') {
+      _stageRestoredNoFile = true;
+      return { source: { type: 'cam' }, steps: scene.steps };
+    }
+    return scene;
+  });
+  window._stageScenes = stageScenes;
+
+  function _stageSyncPersisted() {
+    window._stageScenes = stageScenes;
+    saveSettings();
+  }
+
+  // ── Source-frame resolution — mirrors _editGetSrcCanvas, sized to the
+  // current work resolution (_stageWorkRes) so the frame-budget step-down
+  // actually shrinks the per-frame cost. Fallback per spec: cam available
+  // → cam; otherwise → generative audio frame (no repeated toast; the only
+  // toast is on explicit scene-switch to an audio source with no signal).
+  function _stageGetSrcCanvas() {
+    const w = _stageWorkRes, h = Math.round(w * 0.75);
+    if (!_stageSrcCanvas) _stageSrcCanvas = document.createElement('canvas');
+    if (_stageSrcCanvas.width !== w || _stageSrcCanvas.height !== h) { _stageSrcCanvas.width = w; _stageSrcCanvas.height = h; }
+    const ctx = _stageSrcCanvas.getContext('2d');
+    const scene = stageScenes[stageActiveScene];
+    const srcType = scene ? scene.source.type : 'cam';
+    if (srcType === 'photo' && _editPhotoImg) {
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+      const iw = _editPhotoImg.width || _editPhotoImg.naturalWidth;
+      const ih = _editPhotoImg.height || _editPhotoImg.naturalHeight;
+      _editDrawCover(ctx, _editPhotoImg, iw, ih, w, h);
+      return _stageSrcCanvas;
+    }
+    if (srcType === 'video' && editVideoEl.videoWidth) {
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+      _editDrawCover(ctx, editVideoEl, editVideoEl.videoWidth, editVideoEl.videoHeight, w, h);
+      return _stageSrcCanvas;
+    }
+    if (srcType === 'audio' || !vid.videoWidth) {
+      // explicit audio scene, or camera unavailable → run fully generative
+      return _getExtAudioSourceFrame(w, h);
+    }
+    ctx.save();
+    if (facingMode === 'user') { ctx.translate(w, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(vid, 0, 0, w, h);
+    ctx.restore();
+    return _stageSrcCanvas;
+  }
+
+  // ── Hard frame budget. Rolling 10-frame average > 24ms → step the
+  // working resolution down one notch (min 384) + a one-time toast.
+  // 60 consecutive frames under 12ms → step back up one notch.
+  function _stageTrackBudget(dt) {
+    _stageFrameWindow.push(dt);
+    if (_stageFrameWindow.length > 10) _stageFrameWindow.shift();
+    if (_stageFrameWindow.length < 10) return;
+    const avg = _stageFrameWindow.reduce((a, b) => a + b, 0) / _stageFrameWindow.length;
+    const idx = STAGE_RES_STEPS.indexOf(_stageWorkRes);
+    if (avg > 24 && idx < STAGE_RES_STEPS.length - 1) {
+      _stageWorkRes = STAGE_RES_STEPS[idx + 1];
+      _stageFrameWindow = [];
+      _stageUpStreak = 0;
+      console.log('[stage] frame budget exceeded (' + avg.toFixed(1) + 'ms avg) → resolución ' + _stageWorkRes);
+      if (!_stageFastToastShown) { _stageFastToastShown = true; flipToast('⚡ modo rápido'); }
+    } else if (avg < 12 && idx > 0) {
+      _stageUpStreak++;
+      if (_stageUpStreak >= 60) {
+        _stageWorkRes = STAGE_RES_STEPS[idx - 1];
+        _stageUpStreak = 0;
+        _stageFrameWindow = [];
+        console.log('[stage] frame budget recovered → resolución ' + _stageWorkRes);
+      }
+    } else {
+      _stageUpStreak = 0;
+    }
+  }
+  // Exposed for verification (console.eval), not a UI control.
+  window._stageGetWorkRes = () => _stageWorkRes;
+
+  // ── Own rAF loop. The rAF call is re-armed FIRST so a heavy frame never
+  // queues extra work — the browser's own scheduling provides the skip.
+  function _stageLoop(ts) {
+    if (!stageRunning) return;
+    requestAnimationFrame(_stageLoop);
+    const minInterval = 1000 / 30;
+    if (ts - _stageLastFrameMs < minInterval) return;
+    _stageLastFrameMs = ts;
+    const t0 = performance.now();
+    const scene = stageScenes[stageActiveScene];
+    const srcCanvas = _stageGetSrcCanvas();
+    if (srcCanvas) {
+      const steps = (scene ? scene.steps : []).filter(s => s.on).map(s => ({ engine: s.engine, params: s.engine === 'cam' ? { family: s.family } : {} }));
+      const audio = ((extAudioMode || extMicOnlyMode) && extAnalyser) ? FlipAudioReact.read() : null;
+      runPipeline(steps, srcCanvas, ctxStage, audio, ts);
+    }
+    _stageTrackBudget(performance.now() - t0);
+  }
+  window._stageLoopStart = () => requestAnimationFrame(_stageLoop);
+
+  // ── Scenes ─────────────────────────────────────────────────────────
+  function _stageCloneScene(scene) {
+    scene = scene || { source: { type: 'cam' }, steps: [{ engine: 'glitch', on: true }] };
+    return {
+      source: { type: scene.source.type },
+      steps: scene.steps.map(s => ({ engine: s.engine, on: s.on !== false, ...(s.engine === 'cam' ? { family: s.family } : {}) })),
+    };
+  }
+  function _stageSyncPads() {
+    const wrap = document.getElementById('stagePads');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    for (let i = 0; i < 9; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'stage-pad' + (i === stageActiveScene ? ' active' : '') + (!stageScenes[i] ? ' empty' : '');
+      btn.type = 'button';
+      btn.textContent = String(i + 1);
+      btn.dataset.i = i;
+      wrap.appendChild(btn);
+    }
+  }
+  function _stageActivate(idx) {
+    if (idx < 0 || idx > 8) return;
+    if (!stageScenes[idx]) {
+      stageScenes[idx] = _stageCloneScene(stageScenes[stageActiveScene]);
+      stageActiveScene = idx;
+      flipToast('escena ' + (idx + 1) + ' guardada');
+    } else {
+      stageActiveScene = idx;
+      const scene = stageScenes[idx];
+      if (scene.source.type === 'audio' && !((extAudioMode || extMicOnlyMode) && extAnalyser)) {
+        flipToast('🎙 Activá EXT AUDIO o el mic para reaccionar al sonido');
+      }
+    }
+    _stageSyncPads();
+    _stageSyncPersisted();
+  }
+  function _stageOverwrite(idx) {
+    if (idx < 0 || idx > 8 || !stageScenes[idx]) return;
+    stageScenes[idx] = _stageCloneScene(stageScenes[stageActiveScene]);
+    flipToast('escena ' + (idx + 1) + ' sobrescrita');
+    _stageSyncPads();
+    _stageSyncPersisted();
+  }
+
+  document.getElementById('stagePads').addEventListener('pointerdown', e => {
+    const btn = e.target.closest('.stage-pad');
+    if (!btn) return;
+    const i = +btn.dataset.i;
+    _stageLongPressFired = false;
+    clearTimeout(_stageLongPressTimer);
+    if (stageScenes[i]) {
+      _stageLongPressTimer = setTimeout(() => {
+        _stageLongPressFired = true;
+        _stageOverwrite(i);
+      }, 600);
+    }
+    _stageShowChrome();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(evt => {
+    document.getElementById('stagePads').addEventListener(evt, e => {
+      const btn = e.target.closest('.stage-pad');
+      clearTimeout(_stageLongPressTimer);
+      if (evt !== 'pointerup' || !btn) return;
+      if (_stageLongPressFired) { _stageLongPressFired = false; return; }
+      _stageActivate(+btn.dataset.i);
+    });
+  });
+
+  // ── Chrome (exit / rec / pads) — fades out after 3s of inactivity ────
+  function _stageShowChrome() {
+    const chrome = document.getElementById('stageChrome');
+    if (!chrome) return;
+    chrome.classList.add('visible');
+    clearTimeout(_stageChromeTimer);
+    _stageChromeTimer = setTimeout(() => chrome.classList.remove('visible'), 3000);
+  }
+  window._stageShowChrome = _stageShowChrome;
+  ['pointermove', 'pointerdown', 'touchstart'].forEach(evt => {
+    document.getElementById('stageArea').addEventListener(evt, _stageShowChrome, { passive: true });
+  });
+
+  document.getElementById('stageExit').addEventListener('click', () => {
+    switchTab('edit');
+  });
+
+  // ── Fullscreen — iOS PWA standalone is already fullscreen, don't force it ──
+  function _stageIsStandalone() {
+    try { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+    catch (_) { return false; }
+  }
+  function _stageEnterFullscreen() {
+    if (_stageIsStandalone()) return;
+    const el = document.documentElement;
+    const reqFull = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!reqFull) return;
+    try { const p = reqFull.call(el); if (p && p.catch) p.catch(() => {}); } catch (_) {}
+  }
+  function _stageExitFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+    }
+  }
+
+  // ── Recording — pattern copied from EDIT's REC button ────────────────
+  let _stgRecorder = null, _stgRecChunks = [], _stgRecMime = '', _stgRecTimer = null, _stgRecJob = null;
+  const btnStageRec = document.getElementById('stageRec');
+  const timeEl = document.getElementById('stageRecTime');
+  const _stgRecResetUI = () => {
+    clearInterval(_stgRecTimer);
+    btnStageRec.classList.remove('recording');
+    btnStageRec.textContent = '⏺';
+    if (timeEl) { timeEl.style.display = 'none'; timeEl.textContent = '00:00'; }
+  };
+  function _stageToggleRecording() {
+    if (_stgRecorder && _stgRecorder.state !== 'inactive') { _stopRecorderSafely(_stgRecorder); return; }
+    _stgRecChunks = [];
+    (async () => {
+      try {
+        _stgRecJob = await _createFlipRecordingJob(stageCanvas, 30, 6_000_000, {});
+        _stgRecorder = _stgRecJob.recorder;
+        _stgRecMime = _stgRecJob.mime;
+      } catch (e) {
+        if (_stgRecJob) { _stgRecJob.cleanup(); _stgRecJob = null; }
+        flipToast('⚠ Error: ' + e.message); return;
+      }
+      const releaseStgFinalize = _bindRecorderFinalize(_stgRecorder, {
+        addChunk: chunk => _stgRecChunks.push(chunk),
+        onFinalize: async () => {
+          releaseStgFinalize();
+          if (_stgRecJob) { _stgRecJob.cleanup(); _stgRecJob = null; }
+          _stgRecorder = null;
+          _stgRecResetUI();
+          if (!_stgRecChunks.length) { flipToast('⚠ No se pudo guardar el video STAGE.'); return; }
+          _stgRecMime = _resolveRecordedMime(_stgRecMime, _stgRecChunks);
+          const blob = new Blob(_stgRecChunks, { type: _stgRecMime });
+          await saveBlob(blob, _flipName('stage', _videoExtFromMime(_stgRecMime)));
+        }
+      });
+      _stgRecorder.start(250);
+      let stgS = 0;
+      if (timeEl) timeEl.style.display = '';
+      _stgRecTimer = setInterval(() => {
+        stgS++;
+        const mm = String(stgS / 60 | 0).padStart(2, '0'), ss = String(stgS % 60).padStart(2, '0');
+        if (timeEl) timeEl.textContent = mm + ':' + ss;
+        if (stgS >= 120) { clearInterval(_stgRecTimer); _stopRecorderSafely(_stgRecorder); }
+      }, 1000);
+      btnStageRec.classList.add('recording');
+      btnStageRec.textContent = '⏹';
+    })();
+  }
+  btnStageRec.addEventListener('click', () => { _stageToggleRecording(); _stageShowChrome(); });
+  window._stageStopRecording = function () {
+    if (_stgRecorder && _stgRecorder.state !== 'inactive') _stopRecorderSafely(_stgRecorder);
+  };
+
+  // ── Keyboard: 1-9 switch scenes, R toggles recording, Escape exits ───
+  document.addEventListener('keydown', event => {
+    if (!document.body.classList.contains('stage-mode')) return;
+    if (event.key >= '1' && event.key <= '9') {
+      event.preventDefault();
+      _stageActivate(+event.key - 1);
+      _stageShowChrome();
+    } else if (event.key === 'r' || event.key === 'R') {
+      event.preventDefault();
+      _stageToggleRecording();
+      _stageShowChrome();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      switchTab('edit');
+    }
+  });
+
+  // ── Entry point — from #barEdit's ▶ STAGE button ─────────────────────
+  document.getElementById('btnEditStage').addEventListener('click', () => {
+    if (!stageScenes.some(s => s)) {
+      stageScenes[0] = _stageCloneScene({ source: editSource, steps: editSteps });
+      stageActiveScene = 0;
+      _stageSyncPersisted();
+    } else if (!stageScenes[stageActiveScene]) {
+      stageActiveScene = stageScenes.findIndex(s => s);
+      if (stageActiveScene < 0) stageActiveScene = 0;
+    }
+    switchTab('stage');
+  });
+
+  // ── Tab entry/exit hooks — called from switchTab() ────────────────────
+  window._stageOnEnter = function () {
+    _stageWorkRes = STAGE_RES_STEPS[0];
+    _stageFrameWindow = [];
+    _stageUpStreak = 0;
+    _stageFastToastShown = false;
+    _stageSyncPads();
+    _stageShowChrome();
+    if (_stageRestoredNoFile) {
+      _stageRestoredNoFile = false;
+      flipToast('STAGE: alguna escena guardada (foto/video) no persiste el archivo — volviendo a CAM');
+    }
+    if (!stream && !extAudioMode) {
+      startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+    }
+    _stageEnterFullscreen();
+    window._stageLoopStart();
+  };
+  window._stageOnExit = function () {
+    clearTimeout(_stageChromeTimer);
+    document.getElementById('stageChrome').classList.remove('visible');
+    _stageExitFullscreen();
   };
 })();
 

@@ -2946,6 +2946,31 @@
           <span class="ac-val" id="vFrame">0px</span>
           <input type="range" id="acFrame" min="0" max="50" value="0">
         </div>
+        <div class="typo-row">
+          <span class="typo-row-label">INK</span>
+          <div class="typo-pill-strip" id="asciiInkStrip">
+            <button class="typo-pill active" data-ascii-ink="auto" type="button">AUTO</button>
+            <button class="typo-pill" data-ascii-ink="orange" type="button"><span style="color:#FF6B35">●</span></button>
+            <button class="typo-pill" data-ascii-ink="white" type="button"><span style="color:#F4F1E8">●</span></button>
+            <button class="typo-pill" data-ascii-ink="pink" type="button"><span style="color:#FF5FA2">●</span></button>
+            <button class="typo-pill" data-ascii-ink="cyan" type="button"><span style="color:#00E5FF">●</span></button>
+            <button class="typo-pill" data-ascii-ink="yellow" type="button"><span style="color:#FFD43B">●</span></button>
+            <button class="typo-pill" data-ascii-ink="red" type="button"><span style="color:#FF3B30">●</span></button>
+            <button class="typo-pill" data-ascii-ink="violet" type="button"><span style="color:#B388FF">●</span></button>
+            <button class="typo-pill" data-ascii-ink="black" type="button"><span style="color:#111111">●</span></button>
+          </div>
+        </div>
+        <div class="typo-row">
+          <span class="typo-row-label">PAPER</span>
+          <div class="typo-pill-strip" id="asciiPaperStrip">
+            <button class="typo-pill active" data-ascii-paper="auto" type="button">AUTO</button>
+            <button class="typo-pill" data-ascii-paper="black" type="button"><span style="color:#0A0A0A">●</span></button>
+            <button class="typo-pill" data-ascii-paper="white" type="button"><span style="color:#F4F1E8">●</span></button>
+            <button class="typo-pill" data-ascii-paper="navy" type="button"><span style="color:#0D1B2A">●</span></button>
+            <button class="typo-pill" data-ascii-paper="cream" type="button"><span style="color:#EFE6D5">●</span></button>
+            <button class="typo-pill" data-ascii-paper="wine" type="button"><span style="color:#2A0E1C">●</span></button>
+          </div>
+        </div>
       </div>
 
       <div class="ac-section classic-ascii-only ascii-pane" data-ascii-pane="image">
@@ -4044,6 +4069,10 @@ const TYPO_FONTS = {
 const TYPO_COLOR_MODES = ['mono', 'tint', 'source'];
 const TYPO_INKS = { auto:null, orange:'#FF6B35', white:'#F4F1E8', pink:'#FF5FA2', cyan:'#00E5FF', yellow:'#FFD43B', red:'#FF3B30', violet:'#B388FF', black:'#111111' };
 const TYPO_PAPERS = { auto:null, black:'#0A0A0A', white:'#F4F1E8', navy:'#0D1B2A', cream:'#EFE6D5', wine:'#2A0E1C' };
+function _hexToRgbStr(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
 const EARLY_IS_ANDROID = /Android/i.test(navigator.userAgent);
 const EARLY_IS_MOBILE = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
 const _flipUrlParams = new URLSearchParams(window.location.search);
@@ -4135,6 +4164,8 @@ let typoPaletteKey = 'classic';
 let typoColorMode = 'tint';
 let typoInkKey = 'auto';
 let typoPaperKey = 'auto';
+let asciiInkKey = 'auto';
+let asciiPaperKey = 'auto';
 let typoFieldVal = 60;
 let typoPhotoThreshold = 128;
 let typoGyroStrength = 60;
@@ -4348,6 +4379,8 @@ function _syncTypoCamUI() {
   document.querySelectorAll('[data-typo-color]').forEach(btn => btn.classList.toggle('active', btn.dataset.typoColor === typoColorMode));
   document.querySelectorAll('[data-typo-ink]').forEach(btn => btn.classList.toggle('active', btn.dataset.typoInk === typoInkKey));
   document.querySelectorAll('[data-typo-paper]').forEach(btn => btn.classList.toggle('active', btn.dataset.typoPaper === typoPaperKey));
+  document.querySelectorAll('[data-ascii-ink]').forEach(btn => btn.classList.toggle('active', btn.dataset.asciiInk === asciiInkKey));
+  document.querySelectorAll('[data-ascii-paper]').forEach(btn => btn.classList.toggle('active', btn.dataset.asciiPaper === asciiPaperKey));
   const photoThreshRow = document.getElementById('typoPhotoThreshRow');
   const photoThreshEl = document.getElementById('typoPhotoThresh');
   const photoThreshVal = document.getElementById('vTypoPhotoThresh');
@@ -5113,6 +5146,13 @@ function _getPal(forUpload) {
     return vfdCustomPal || VFD_PALETTES[vfdActivePal];
   }
   return camCustomPal || PALETTES[activePal];
+}
+
+function _getAsciiClassicColors(forUpload) {
+  const pal = _getPal(forUpload || false);
+  const ink = asciiInkKey !== 'auto' ? _hexToRgbStr(TYPO_INKS[asciiInkKey]) : pal.ink.join(',');
+  const paper = asciiPaperKey !== 'auto' ? _hexToRgbStr(TYPO_PAPERS[asciiPaperKey]) : pal.paper.join(',');
+  return { ink, paper };
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -11277,10 +11317,10 @@ function _renderASCIISync(px, SW, SH, colsOverride, forUpload) {
   const sCW    = SW / _cols;
   const sCH    = SH / rows;
 
-  const pal = _getPal(forUpload || false);
+  const acColors = _getAsciiClassicColors(forUpload || false);
 
   // Background
-  ctxAscii.fillStyle = pySubMode !== 'off' ? PY_PALETTES[pyPalIdx].bg : `rgb(${pal.paper})`;
+  ctxAscii.fillStyle = pySubMode !== 'off' ? PY_PALETTES[pyPalIdx].bg : `rgb(${acColors.paper})`;
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
 
   const fontSize = Math.max(4, Math.floor(cH * 0.92));
@@ -11338,7 +11378,7 @@ function _renderASCIISync(px, SW, SH, colsOverride, forUpload) {
           ctxAscii.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
           ctxAscii.fillText(ch, acFrameVal + c * cW, acFrameVal + r * cH);
         } else {
-          ctxAscii.fillStyle = `rgb(${pal.ink})`;
+          ctxAscii.fillStyle = `rgb(${acColors.ink})`;
           ctxAscii.fillText(ch, acFrameVal + c * cW, acFrameVal + r * cH);
         }
       }
@@ -11496,7 +11536,7 @@ function _initAsciiWorker() {
 }
 
 function _dispatchAsciiWorker(imgData, sw, sh, forUpload) {
-  const pal = _getPal(forUpload || false);
+  const acColors = _getAsciiClassicColors(forUpload || false);
   const s = {
     // Recording bypasses the preview cap so exported video keeps the chosen density
     cols: asciiRecordingHighQuality ? asciiCols : Math.min(asciiCols, ASCII_PREVIEW_MAX),
@@ -11509,7 +11549,7 @@ function _dispatchAsciiWorker(imgData, sw, sh, forUpload) {
     gradient: acGradientVal, space: acSpaceVal, frame: acFrameVal,
     pyMode: pySubMode, pyPal: pyPalIdx, chaos: chaosVal,
     outW: OUT_W, outH: OUT_H,
-    palInk: pal.ink.join(','), palPaper: pal.paper.join(','),
+    palInk: acColors.ink, palPaper: acColors.paper,
   };
   if (_asciiWorkerBusy) { _asciiWorkerPend = {imgData, sw, sh}; return; }
   _asciiWorkerBusy = true;
@@ -11521,8 +11561,8 @@ function _dispatchAsciiWorker(imgData, sw, sh, forUpload) {
 // ════════════════════════════════════════════════════════════════════
 function renderASCIIAudio() {
   const _an = extAnalyser || sonoAnalyser || wmpAnalyser;
-  const pal  = _getPal(false);
-  ctxAscii.fillStyle = `rgb(${pal.paper})`;
+  const acColors = _getAsciiClassicColors(false);
+  ctxAscii.fillStyle = `rgb(${acColors.paper})`;
   ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
   if (!_an) return;
 
@@ -11542,7 +11582,7 @@ function renderASCIIAudio() {
   const fontSize = Math.max(4, Math.floor(cH * 0.92));
   ctxAscii.font = `bold ${fontSize}px monospace`;
   ctxAscii.textBaseline = 'top';
-  ctxAscii.fillStyle = `rgb(${pal.ink})`;
+  ctxAscii.fillStyle = `rgb(${acColors.ink})`;
 
   // Overall RMS — used to determine global density
   let rmsSum = 0;
@@ -15436,7 +15476,7 @@ document.getElementById('upBtnReset').addEventListener('click', () => {
   acSepiaVal=0;acInvertVal=0;acThreshOn=false;acThreshVal=128;
   acSharpOn=false;acSharpVal=9;acEdgeOn=false;acEdgeVal=10;
   acGradientVal='normal';acSpaceVal=1;acFrameVal=0;acQualityVal='none';asciiClassicCols=100;asciiTypoCols=_getAsciiDefaultCols('typo');asciiSubMode='classic';asciiCols=asciiClassicCols;
-  typoFontPreset='sans';typoPaletteKey='classic';typoColorMode='tint';typoInkKey='auto';typoPaperKey='auto';_resetTypoState({ clearStickers:true, closeTray:true, clearSelection:true });
+  typoFontPreset='sans';typoPaletteKey='classic';typoColorMode='tint';typoInkKey='auto';typoPaperKey='auto';asciiInkKey='auto';asciiPaperKey='auto';_resetTypoState({ clearStickers:true, closeTray:true, clearSelection:true });
   upExposureVal=0;upShadowsVal=0;upHighlightsVal=0;upDitherIntVal=100;upGrainVal=0;upVignetteVal=0;
   upPalHueVal=0;upMixVal=100;
     // Reset MIX and Palette HUE
@@ -15627,6 +15667,18 @@ document.querySelectorAll('[data-typo-paper]').forEach(btn => btn.addEventListen
   asciiSettingsChanged();
   saveSettings();
 }));
+document.querySelectorAll('[data-ascii-ink]').forEach(btn => btn.addEventListener('click', () => {
+  asciiInkKey = btn.dataset.asciiInk;
+  _syncTypoCamUI();
+  asciiSettingsChanged();
+  saveSettings();
+}));
+document.querySelectorAll('[data-ascii-paper]').forEach(btn => btn.addEventListener('click', () => {
+  asciiPaperKey = btn.dataset.asciiPaper;
+  _syncTypoCamUI();
+  asciiSettingsChanged();
+  saveSettings();
+}));
 bindSlider('typoField', 'vTypoField', 'px', v=>parseInt(v), v=>{
   typoFieldVal = v;
   _syncTypoFieldValue();
@@ -15772,7 +15824,7 @@ document.getElementById('acReset').addEventListener('click', () => {
   document.getElementById('cbEdge'  ).checked=false;document.getElementById('acEdge'  ).disabled=true;
   document.getElementById('acGradient').value='normal';
   document.getElementById('acQuality' ).value='none';
-  typoFontPreset='sans'; typoPaletteKey='classic'; typoColorMode='tint'; typoInkKey='auto'; typoPaperKey='auto'; _resetTypoState({ clearStickers:true, closeTray:true, clearSelection:true }); _syncTypoCamUI();
+  typoFontPreset='sans'; typoPaletteKey='classic'; typoColorMode='tint'; typoInkKey='auto'; typoPaperKey='auto'; asciiInkKey='auto'; asciiPaperKey='auto'; _resetTypoState({ clearStickers:true, closeTray:true, clearSelection:true }); _syncTypoCamUI();
   // Reset Smooth Mode
   _asciiSmoothMode=false; document.getElementById('btnSmoothMode').classList.remove('active');
   // Reset pythonization
@@ -18635,7 +18687,7 @@ function saveSettings() {
       sonoPreset, sonoMixVal, sonoChaosVal,
       wmpPreset: wmpPreset, wmpSensVal, wmpTrailsVal,
       uploadMode,
-      asciiCols, asciiClassicCols, asciiTypoCols, asciiSubMode, typoFontPreset, typoPaletteKey, typoColorMode, typoInkKey, typoPaperKey, typoFieldVal, typoPhotoThreshold, typoGyroStrength,
+      asciiCols, asciiClassicCols, asciiTypoCols, asciiSubMode, typoFontPreset, typoPaletteKey, typoColorMode, typoInkKey, typoPaperKey, asciiInkKey, asciiPaperKey, typoFieldVal, typoPhotoThreshold, typoGyroStrength,
       acGradientVal, acSpaceVal, acQualityVal, acFrameVal,
       acBrightVal, acContrastVal, acSatVal, acHueVal, acGrayVal,
       acSepiaVal, acInvertVal, acThreshOn, acThreshVal,
@@ -18797,6 +18849,8 @@ function loadSettings() {
     if (s.typoColorMode && TYPO_COLOR_MODES.includes(s.typoColorMode)) typoColorMode = s.typoColorMode;
     if (s.typoInkKey && s.typoInkKey in TYPO_INKS) typoInkKey = s.typoInkKey;
     if (s.typoPaperKey && s.typoPaperKey in TYPO_PAPERS) typoPaperKey = s.typoPaperKey;
+    if (s.asciiInkKey && s.asciiInkKey in TYPO_INKS) asciiInkKey = s.asciiInkKey;
+    if (s.asciiPaperKey && s.asciiPaperKey in TYPO_PAPERS) asciiPaperKey = s.asciiPaperKey;
     if (s.typoFieldVal !== undefined) typoFieldVal = Math.max(30, Math.min(150, Math.round(s.typoFieldVal)));
     if (s.typoPhotoThreshold !== undefined) typoPhotoThreshold = Math.max(40, Math.min(220, Math.round(s.typoPhotoThreshold)));
     if (s.typoGyroStrength !== undefined) typoGyroStrength = Math.max(10, Math.min(150, Math.round(s.typoGyroStrength)));

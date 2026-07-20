@@ -3842,6 +3842,7 @@
   <div class="sflow-hud-row"><span class="sfh-lbl">FILL</span><input type="range" id="sflowFill" min="0" max="100" step="5" value="35"><span class="sfh-val" id="vSflowFill">35%</span></div>
   <div class="sflow-hud-row"><span class="sfh-lbl">THRESH</span><input type="range" id="sflowThresh" min="10" max="90" step="5" value="50"><span class="sfh-val" id="vSflowThresh">50%</span></div>
   <div class="sflow-hud-row"><span class="sfh-lbl">DIM</span><input type="range" id="sflowDim" min="0" max="100" step="5" value="60"><span class="sfh-val" id="vSflowDim">60%</span></div>
+  <div class="sflow-hud-row"><span class="sfh-lbl">TRAIL</span><input type="range" id="sflowTrail" min="0" max="100" step="5" value="45"><span class="sfh-val" id="vSflowTrail">45%</span></div>
   <button id="btnSflowReset">RESET</button>
 </div>
 
@@ -19074,7 +19075,7 @@ document.getElementById('btnAsciiGlitch').addEventListener('click', async () => 
 // plain `{...}` block that runs *after* loadSettings() executes) so
 // saveSettings/loadSettings can read & restore them; the FLOW block reads
 // this same object live every frame via a local `SFP` alias.
-window._sfParams = { density: 8, fill: 35, thresh: 50, dim: 60 };
+window._sfParams = { density: 8, fill: 35, thresh: 50, dim: 60, trail: 45 };
 
 // ── EDIT (layered pipeline) state ───────────────────────────────────────
 // Declared globally (not inside the EDIT block further down, which runs
@@ -19312,6 +19313,7 @@ function loadSettings() {
       window._sfParams.fill    = _sfClamp(s._sfParams.fill,    0,  100, 35);
       window._sfParams.thresh  = _sfClamp(s._sfParams.thresh,  10, 90,  50);
       window._sfParams.dim     = _sfClamp(s._sfParams.dim,     0,  100, 60);
+      window._sfParams.trail   = _sfClamp(s._sfParams.trail,   0,  100, 45);
       const _sfSyncSliderEl = (id, vid, val, suffix) => {
         const e = document.getElementById(id);
         if (e) e.value = val;
@@ -19322,6 +19324,7 @@ function loadSettings() {
       _sfSyncSliderEl('sflowFill',    'vSflowFill',    window._sfParams.fill,    '%');
       _sfSyncSliderEl('sflowThresh',  'vSflowThresh',  window._sfParams.thresh,  '%');
       _sfSyncSliderEl('sflowDim',     'vSflowDim',     window._sfParams.dim,     '%');
+      _sfSyncSliderEl('sflowTrail',   'vSflowTrail',   window._sfParams.trail,   '%');
     }
     // EDIT layered pipeline (window._editPipeline — see declaration near
     // saveSettings; the EDIT block below reads this object once on init,
@@ -19602,7 +19605,7 @@ if (screen.width > 768) {
   let _sfAudioStartT   = 0;
   let _sfFreqData      = null;
   let _sfMaskSmooth    = null;   // persistent Float32Array — temporal smoothing of the raw mask (anti-snapping)
-  const _sfEff = { density: window._sfParams.density, fill: window._sfParams.fill, thresh: window._sfParams.thresh, dim: window._sfParams.dim }; // eased param values (lerp target = SFP)
+  const _sfEff = { density: window._sfParams.density, fill: window._sfParams.fill, thresh: window._sfParams.thresh, dim: window._sfParams.dim, trail: window._sfParams.trail }; // eased param values (lerp target = SFP)
 
   const SF_AURA_DEPTH  = { s: 6, m: 12, l: 22 };
   const SF_COLOR_MAP   = {
@@ -19629,6 +19632,7 @@ if (screen.width > 768) {
     _sfEff.fill     += (SFP.fill    - _sfEff.fill)    * a;
     _sfEff.thresh   += (SFP.thresh  - _sfEff.thresh)  * a;
     _sfEff.dim      += (SFP.dim     - _sfEff.dim)     * a;
+    _sfEff.trail    += (SFP.trail   - _sfEff.trail)   * a;
   }
 
   // Temporal smoothing of the raw confidence/binary mask — reallocates on
@@ -19693,6 +19697,47 @@ if (screen.width > 768) {
   const sfCanvas  = document.getElementById('sflowCanvas');
   const sfBadge   = document.getElementById('sflowStatusBadge');
   const sfCtx     = sfCanvas.getContext('2d', { willReadFrequently: true });
+
+  // ── TRAIL: persistent offscreen canvas the aura glyphs are stamped onto
+  // so they leave a fading estela instead of vanishing frame-to-frame.
+  // Transparent (not black) so fading via destination-out erases toward
+  // nothing instead of muddying grey. Reallocated on resize.
+  let _sfTrailCanvas = null;
+  let _sfTrailCtx    = null;
+  let _sfTrailFrame  = 0; // parity counter — throttles the micro-blur to every other frame
+  function _sfEnsureTrailCanvas(W, H) {
+    if (!_sfTrailCanvas) {
+      _sfTrailCanvas = document.createElement('canvas');
+      _sfTrailCtx    = _sfTrailCanvas.getContext('2d');
+    }
+    if (_sfTrailCanvas.width !== W || _sfTrailCanvas.height !== H) {
+      _sfTrailCanvas.width  = W;
+      _sfTrailCanvas.height = H;
+    }
+  }
+  // Fades + softens the trail canvas in place, once per frame, BEFORE the
+  // current frame's aura glyphs are stamped on top. `fade` (0..1] controls
+  // how much erases per frame — higher = shorter-lived trail.
+  function _sfTrailStep(fade) {
+    const W = _sfTrailCanvas.width, H = _sfTrailCanvas.height;
+    const tctx = _sfTrailCtx;
+    tctx.save();
+    tctx.globalCompositeOperation = 'destination-out';
+    tctx.fillStyle = `rgba(0,0,0,${fade})`;
+    tctx.fillRect(0, 0, W, H);
+    tctx.restore();
+    // "smooth smooth": cheap diffusion of the OLD trail (no filter:blur
+    // cost) — re-stamp it over itself at a sub-pixel offset + partial
+    // alpha every other frame, alternating offset sign.
+    _sfTrailFrame++;
+    if (_sfTrailFrame % 2 === 0) {
+      const off = (_sfTrailFrame % 4 === 0) ? 0.5 : -0.5;
+      tctx.save();
+      tctx.globalAlpha = 0.5;
+      tctx.drawImage(_sfTrailCanvas, off, off);
+      tctx.restore();
+    }
+  }
 
   // ── MediaPipe init (lazy) ───────────────────────────────────────────
   async function _sfInitSegmenter() {
@@ -19959,12 +20004,31 @@ if (screen.width > 768) {
     const _sfThresh   = _sfEff.thresh / 100;
     const _sfFillMul  = _sfEff.fill / 40;
 
+    // TRAIL: aura/halo glyphs are stamped onto a persistent offscreen
+    // canvas (source-over) so old frames linger and fade instead of the
+    // aura simply replacing itself; the fill glyphs below stay direct.
+    // TRAIL=0 bypasses the trail canvas entirely (auraCtx === sfCtx, same
+    // as before this feature — zero extra cost).
+    const _sfTrailOn = SFP.trail > 0;
+    let _sfAuraCtx = sfCtx;
+
     sfCtx.save();
     sfCtx.globalCompositeOperation = 'lighter'; // emission — sums luminance instead of painting over
 
+    if (_sfTrailOn) {
+      _sfEnsureTrailCanvas(CW, CH);
+      const _sfFade = 0.25 - 0.23 * (_sfEff.trail / 100); // lerp(0.25, 0.02, trail/100)
+      _sfTrailStep(_sfFade);
+      _sfAuraCtx = _sfTrailCtx;
+      _sfAuraCtx.save();
+      _sfAuraCtx.textAlign = 'center';
+      _sfAuraCtx.textBaseline = 'middle';
+      _sfAuraCtx.globalCompositeOperation = 'source-over';
+    }
+
     // Halo base pass: same aura glyphs, oversized + very faint — cheap glow
     // footprint with no shadowBlur.
-    sfCtx.font = `bold ${Math.round(_sfFontSize() * 1.4)}px monospace`;
+    _sfAuraCtx.font = `bold ${Math.round(_sfFontSize() * 1.4)}px monospace`;
     for (let gi = 0; gi < grid.chars.length; gi++) {
       const g = grid.chars[gi];
       const mx = Math.round((g.x / CW) * maskW) | 0;
@@ -19975,16 +20039,17 @@ if (screen.width > 768) {
       if (d <= 0 || d > auraDepth) continue;
       const push  = (auraDepth - d) * 0.8;
       const angle = Math.atan2(ny[mi], nx[mi]) + Math.PI / 2;
-      sfCtx.save();
-      sfCtx.globalAlpha = 0.06;
-      sfCtx.fillStyle   = inkHex;
-      sfCtx.translate(g.x + nx[mi] * push, g.y + ny[mi] * push);
-      sfCtx.rotate(angle);
-      sfCtx.fillText(g.ch, 0, 0);
-      sfCtx.restore();
+      _sfAuraCtx.save();
+      _sfAuraCtx.globalAlpha = 0.06;
+      _sfAuraCtx.fillStyle   = inkHex;
+      _sfAuraCtx.translate(g.x + nx[mi] * push, g.y + ny[mi] * push);
+      _sfAuraCtx.rotate(angle);
+      _sfAuraCtx.fillText(g.ch, 0, 0);
+      _sfAuraCtx.restore();
     }
 
     sfCtx.font = _sfFont();
+    if (_sfTrailOn) _sfAuraCtx.font = sfCtx.font;
     for (let gi = 0; gi < grid.chars.length; gi++) {
       const g = grid.chars[gi];
       // Map canvas coord → mask coord (1:1 proportional, no video scale)
@@ -19999,7 +20064,8 @@ if (screen.width > 768) {
       if (d <= auraDepth) {
         // Aura band: bright rim glyphs, pushed outward, tangent-rotated.
         // Eased falloff (gradient, not a hard cut) + incandescent shift
-        // toward white near the boundary.
+        // toward white near the boundary. Goes to the trail canvas (or
+        // sfCtx directly when TRAIL=0) so it's what leaves the estela.
         const depthFrac = d / auraDepth;
         const alpha     = Math.pow(1 - depthFrac, 1.6);
         const push      = (auraDepth - d) * 0.8;
@@ -20010,18 +20076,19 @@ if (screen.width > 768) {
         const angle     = Math.atan2(normY, normX) + Math.PI / 2;
         const col       = _sfMixWhite(inkHex, Math.max(0, 1 - depthFrac * 1.6));
 
-        sfCtx.save();
-        sfCtx.globalAlpha = alpha;
-        sfCtx.fillStyle   = col;
-        sfCtx.translate(tx, ty);
-        sfCtx.rotate(angle);
-        sfCtx.fillText(g.ch, 0, 0);
-        sfCtx.restore();
+        _sfAuraCtx.save();
+        _sfAuraCtx.globalAlpha = alpha;
+        _sfAuraCtx.fillStyle   = col;
+        _sfAuraCtx.translate(tx, ty);
+        _sfAuraCtx.rotate(angle);
+        _sfAuraCtx.fillText(g.ch, 0, 0);
+        _sfAuraCtx.restore();
       } else if (maskArr[mi] >= _sfThresh && _sfFillInclude(gi, _sfEff.fill)) {
         // Deep interior: tenue static fill glyphs (no push, no rotation).
         // Stable per-glyph hash decides participation (see _sfFillInclude)
         // so FILL sweeps contour→sparse→full without flicker; alpha
-        // clamped so 100% doesn't blow out to solid.
+        // clamped so 100% doesn't blow out to solid. Always direct to
+        // sfCtx — the interior fill never joins the trail/estela.
         const fillAlpha = Math.min(0.35, (0.15 + 0.07 * _sfRms) * _sfFillMul);
         if (fillAlpha > 0.001) {
           sfCtx.save();
@@ -20033,6 +20100,15 @@ if (screen.width > 768) {
       }
     }
     sfCtx.restore(); // composite op
+
+    if (_sfTrailOn) {
+      _sfAuraCtx.restore(); // close trail canvas save
+      sfCtx.save();
+      sfCtx.globalCompositeOperation = 'lighter';
+      sfCtx.globalAlpha = 0.85;
+      sfCtx.drawImage(_sfTrailCanvas, 0, 0);
+      sfCtx.restore();
+    }
 
     sfCtx.restore();
   }
@@ -20123,12 +20199,27 @@ if (screen.width > 768) {
     const _sfThresh   = _sfEff.thresh / 100;
     const _sfFillMul  = _sfEff.fill / 40;
 
+    // TRAIL: see _sfLoopAudio for full explanation — same mechanism here.
+    const _sfTrailOn = SFP.trail > 0;
+    let _sfAuraCtx = sfCtx;
+
     sfCtx.save();
     sfCtx.globalCompositeOperation = 'lighter'; // emission — sums luminance instead of painting over
 
+    if (_sfTrailOn) {
+      _sfEnsureTrailCanvas(CW, CH);
+      const _sfFade = 0.25 - 0.23 * (_sfEff.trail / 100); // lerp(0.25, 0.02, trail/100)
+      _sfTrailStep(_sfFade);
+      _sfAuraCtx = _sfTrailCtx;
+      _sfAuraCtx.save();
+      _sfAuraCtx.textAlign = 'center';
+      _sfAuraCtx.textBaseline = 'middle';
+      _sfAuraCtx.globalCompositeOperation = 'source-over';
+    }
+
     // Halo base pass: same aura glyphs, oversized + very faint — cheap glow
     // footprint with no shadowBlur.
-    sfCtx.font = `bold ${Math.round(_sfFontSize() * 1.4)}px monospace`;
+    _sfAuraCtx.font = `bold ${Math.round(_sfFontSize() * 1.4)}px monospace`;
     for (let gi = 0; gi < grid.chars.length; gi++) {
       const g = grid.chars[gi];
       const mx = Math.round((g.x / CW) * maskW * scaleX) | 0;
@@ -20139,16 +20230,17 @@ if (screen.width > 768) {
       if (d <= 0 || d > auraDepth) continue;
       const push  = (auraDepth - d) * 0.8;
       const angle = Math.atan2(ny[mi], nx[mi]) + Math.PI / 2;
-      sfCtx.save();
-      sfCtx.globalAlpha = 0.06;
-      sfCtx.fillStyle   = inkHex;
-      sfCtx.translate(g.x + nx[mi] * push, g.y + ny[mi] * push);
-      sfCtx.rotate(angle);
-      sfCtx.fillText(g.ch, 0, 0);
-      sfCtx.restore();
+      _sfAuraCtx.save();
+      _sfAuraCtx.globalAlpha = 0.06;
+      _sfAuraCtx.fillStyle   = inkHex;
+      _sfAuraCtx.translate(g.x + nx[mi] * push, g.y + ny[mi] * push);
+      _sfAuraCtx.rotate(angle);
+      _sfAuraCtx.fillText(g.ch, 0, 0);
+      _sfAuraCtx.restore();
     }
 
     sfCtx.font = _sfFont();
+    if (_sfTrailOn) _sfAuraCtx.font = sfCtx.font;
     for (let gi = 0; gi < grid.chars.length; gi++) {
       const g = grid.chars[gi];
       // Map canvas coord → mask coord
@@ -20164,6 +20256,7 @@ if (screen.width > 768) {
         // Aura band: bright rim glyphs — density near boundary (d ≈ 0),
         // pushed outward, tangent-rotated. Eased falloff (gradient, not a
         // hard cut) + incandescent shift toward white near the boundary.
+        // Goes to the trail canvas (or sfCtx directly when TRAIL=0).
         const depthFrac = d / auraDepth;
         const alpha     = Math.pow(1 - depthFrac, 1.6);
         const push      = (auraDepth - d) * 0.8;
@@ -20174,18 +20267,19 @@ if (screen.width > 768) {
         const angle     = Math.atan2(normY, normX) + Math.PI / 2;
         const col       = _sfMixWhite(inkHex, Math.max(0, 1 - depthFrac * 1.6));
 
-        sfCtx.save();
-        sfCtx.globalAlpha = alpha;
-        sfCtx.fillStyle   = col;
-        sfCtx.translate(tx, ty);
-        sfCtx.rotate(angle);
-        sfCtx.fillText(g.ch, 0, 0);
-        sfCtx.restore();
+        _sfAuraCtx.save();
+        _sfAuraCtx.globalAlpha = alpha;
+        _sfAuraCtx.fillStyle   = col;
+        _sfAuraCtx.translate(tx, ty);
+        _sfAuraCtx.rotate(angle);
+        _sfAuraCtx.fillText(g.ch, 0, 0);
+        _sfAuraCtx.restore();
       } else if (maskArr[mi] >= _sfThresh && _sfFillInclude(gi, _sfEff.fill)) {
         // Deep interior: tenue static fill glyphs (no push, no rotation).
         // Which glyphs participate is decided by a stable per-glyph hash
         // (see _sfFillInclude) so FILL sweeps contour→sparse→full without
         // flicker; alpha is clamped so 100% doesn't blow out to solid.
+        // Always direct to sfCtx — never joins the trail/estela.
         const fillAlpha = Math.min(0.35, (0.15 + 0.07 * _sfRms) * _sfFillMul);
         if (fillAlpha > 0.001) {
           sfCtx.save();
@@ -20197,6 +20291,15 @@ if (screen.width > 768) {
       }
     }
     sfCtx.restore(); // composite op
+
+    if (_sfTrailOn) {
+      _sfAuraCtx.restore(); // close trail canvas save
+      sfCtx.save();
+      sfCtx.globalCompositeOperation = 'lighter';
+      sfCtx.globalAlpha = 0.85;
+      sfCtx.drawImage(_sfTrailCanvas, 0, 0);
+      sfCtx.restore();
+    }
 
     sfCtx.restore();
   }
@@ -20291,6 +20394,7 @@ if (screen.width > 768) {
     sfVid.srcObject = null;
     // Clear canvas
     sfCtx.clearRect(0, 0, sfCanvas.width, sfCanvas.height);
+    if (_sfTrailCanvas) _sfTrailCtx.clearRect(0, 0, _sfTrailCanvas.width, _sfTrailCanvas.height);
     _sfBadge('FLOW — press CAM to start');
   }
 
@@ -20334,7 +20438,7 @@ if (screen.width > 768) {
   // ── Playground sliders: DENSITY / FILL / THRESH / DIM ────────────────
   // Reads/writes SFP (== window._sfParams) live — the render loops above
   // ease toward these targets (_sfUpdateEff) each frame, no re-kick needed.
-  const SF_DEFAULTS = { density: 8, fill: 40, thresh: 50, dim: 60 };
+  const SF_DEFAULTS = { density: 8, fill: 40, thresh: 50, dim: 60, trail: 45 };
   let _sfSaveTimer = 0;
   function _sfSyncSliderUI(id, vid, val, suffix) {
     const e = document.getElementById(id);
@@ -20367,12 +20471,18 @@ if (screen.width > 768) {
     document.getElementById('vSflowDim').textContent = SFP.dim + '%';
     _sfQueueSave();
   });
+  document.getElementById('sflowTrail').addEventListener('input', e => {
+    SFP.trail = +e.target.value;
+    document.getElementById('vSflowTrail').textContent = SFP.trail + '%';
+    _sfQueueSave();
+  });
   document.getElementById('btnSflowReset').addEventListener('click', () => {
     Object.assign(SFP, SF_DEFAULTS);
     _sfSyncSliderUI('sflowDensity', 'vSflowDensity', SFP.density, 'px');
     _sfSyncSliderUI('sflowFill',    'vSflowFill',    SFP.fill,    '%');
     _sfSyncSliderUI('sflowThresh',  'vSflowThresh',  SFP.thresh,  '%');
     _sfSyncSliderUI('sflowDim',     'vSflowDim',     SFP.dim,     '%');
+    _sfSyncSliderUI('sflowTrail',   'vSflowTrail',   SFP.trail,   '%');
     _sfPretextCache = null;
     saveSettings();
     flipToast('FLOW reset');

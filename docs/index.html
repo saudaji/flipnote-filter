@@ -800,9 +800,14 @@
     #flipBottomNav .btn.recording .btn-label { color:#ff6666; }
     @keyframes pulse { 50%{opacity:.55;} }
 
-    /* ── Palettes ── */
+    /* ── Palettes ──
+       C: empujado debajo del riel superior derecho (slot1 settings + slot2 mic/audio +
+       slot3 audio/capturar, que en CAM tab pueden llegar hasta top:192) para no
+       encimarse con el engrane/mic/audio. Ver #camFpsCtrl/#camZoomCtrl más abajo,
+       que se apilan debajo de esto en desktop (en móvil ambos se docken inline vía
+       .cam-mobile-inline, así que no compiten por el riel). */
     .palettes {
-      position:fixed; top:48px; right:12px;
+      position:fixed; top:206px; right:12px;
       display:flex; flex-direction:column; gap:7px; z-index:25;
       min-width:58px;
     }
@@ -1354,9 +1359,11 @@
     }
     #btnFlip .btn-icon { width:36px; height:36px; font-size:16px; }
 
-    /* ── Cam FPS control ── */
+    /* ── Cam FPS control ── C: debajo de .palettes Y del posible #audioIOPanel abierto con
+       CAPTURAR visible (top:196, max-height:300 → bottom 496) en desktop; en móvil se docken
+       inline (.cam-mobile-inline) así que esta posición fixed no aplica ahí. */
     #camFpsCtrl {
-      position:fixed; top:118px; right:12px; z-index:10;
+      position:fixed; top:510px; right:12px; z-index:10;
       display:flex; flex-direction:column; align-items:flex-end; gap:4px;
     }
     #camFpsCtrl label { color:var(--dark); font-size:9px; font-family:monospace; letter-spacing:.5px; cursor:pointer; }
@@ -1368,7 +1375,7 @@
       display:flex; align-items:center; gap:4px;
     }
     #camZoomCtrl {
-      position:fixed; top:172px; right:12px; z-index:10;
+      position:fixed; top:564px; right:12px; z-index:10;
       display:none; flex-direction:column; align-items:flex-end; gap:4px;
       padding:6px 8px;
       border:1px solid rgba(255,255,255,.08);
@@ -2342,19 +2349,31 @@
        rules below (F5, paridad móvil); #btnExtCapture stays desktop-only. */
     #btnAudioIO, #audioIOPanel, #btnExtCapture { display:none; }
 
+    /* ── C — Riel superior derecho unificado (desktop) ──
+       slot1 (top:52,  flipSettingsTrigger) · slot2 (top:100, btnAudioIO) ·
+       slot3 (top:148, btnExtCapture — solo si body.ext-audio). Mismo tamaño 44×44,
+       mismo right:18 que .flip-settings-trigger. El panel de audio abre DEBAJO del
+       slot ocupado más profundo (148 normal, 196 con CAPTURAR visible) para no
+       taparlo nunca. z: rail=120/121 (a la par de flipSettingsTrigger), panel=122. */
     @media (min-width:769px) {
-      #btnAudioIO { display:block; }
+      #btnAudioIO { display:flex; }
       #audioIOPanel {
-        position:fixed; top:48px; right:0; width:260px; height:auto;
-        background:var(--ink); border-left:2px solid var(--dark); border-bottom:2px solid var(--dark);
-        padding:12px; z-index:50; display:none; flex-direction:column; gap:8px;
+        position:fixed; top:148px; right:18px; width:260px; height:auto;
+        max-height:300px; overflow-y:auto; box-sizing:border-box;
+        background:var(--ink); border:1px solid rgba(255,255,255,0.14); border-radius:10px;
+        padding:12px; z-index:122; display:none; flex-direction:column; gap:8px;
+        box-shadow:0 8px 24px rgba(0,0,0,0.35);
       }
+      body.ext-audio #audioIOPanel { top:196px; }
       #audioIOPanel.open { display:flex; }
       #btnAudioIO {
-        position:fixed; top:48px; right:0; z-index:51;
-        background:var(--ink); border:none; border-left:2px solid var(--dark); border-bottom:2px solid var(--dark);
-        color:var(--dark); font-family:monospace; font-size:9px; letter-spacing:1px;
-        padding:4px 8px; cursor:pointer;
+        position:fixed; top:100px; right:18px; z-index:121;
+        width:44px; height:44px; border-radius:50%;
+        background:rgba(26,26,30,0.92); border:1px solid rgba(255,255,255,0.14);
+        color:#F0EDE6; font-family:monospace; font-size:8px; letter-spacing:0.5px;
+        line-height:1.15; padding:2px; cursor:pointer; text-align:center;
+        align-items:center; justify-content:center;
+        backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
       }
       body.ext-audio #btnAudioIO { color:var(--paper); border-color:var(--paper); }
       .audio-io-label { color:var(--mid); font-size:9px; font-family:monospace; letter-spacing:1px; margin-top:4px; }
@@ -2365,33 +2384,39 @@
       }
       #btnExtAudioToggle.active { border-color:var(--paper); color:var(--paper); background:rgba(155,188,15,.1); }
       #btnExtCapture {
-        /* media altura del borde derecho — libre de bottom bars, HUDs (FLOW/FUSION) y del panel de audio */
-        position:fixed; top:50%; transform:translateY(-50%); right:12px; z-index:50;
+        /* slot3 del riel — solo visible con ext-audio activo; el panel de audio se
+           corre a top:196 (ver arriba) para no taparlo cuando ambos coexisten */
+        position:fixed; top:148px; right:18px; z-index:121;
+        width:44px; height:44px; border-radius:50%;
         background:var(--paper); color:var(--ink); border:none;
-        font-family:monospace; font-size:11px; font-weight:bold; letter-spacing:1px;
-        padding:8px 12px; cursor:pointer; display:none;
+        font-family:monospace; font-size:8px; font-weight:bold; letter-spacing:0.5px;
+        line-height:1.15; padding:2px; cursor:pointer; display:none;
+        align-items:center; justify-content:center; text-align:center;
       }
-      body.ext-audio #btnExtCapture { display:block; }
+      body.ext-audio #btnExtCapture { display:flex; }
     }
 
-    /* ── F5 — paridad móvil: panel de AUDIO (#btnAudioIO / #audioIOPanel) también visible en
-       móvil, mismo breakpoint que #btnMicMobile (max-width:768px). Las reglas base de
+    /* ── C / F5 — riel superior derecho unificado (móvil): slot1 (top:52) = engrane
+       settings, slot2 (top:100) = #btnMicMobile, slot3 (top:148) = #btnAudioIO.
+       El panel de audio abre debajo de TODO el riel (top:196) para no tapar ningún
+       botón. Mismo right:12 y 44×44 que el resto del riel. Las reglas base de
        .audio-io-label / .audio-io-select / #btnExtAudioToggle viven DENTRO del @media
        (min-width:769px) de arriba, así que no aplican acá abajo — se redeclaran completas
        (no solo overrides) con layout/tamaños pensados para touch. ── */
     @media (max-width:768px) {
       #btnAudioIO {
-        display:block;
-        position:fixed; top:52px; right:12px; z-index:121;
+        display:flex; align-items:center; justify-content:center; text-align:center;
+        position:fixed; top:calc(148px + env(safe-area-inset-top, 0px)); right:12px; z-index:121;
+        width:44px; height:44px; border-radius:50%;
         background:rgba(26,26,30,0.92); border:1px solid rgba(255,255,255,0.14);
-        color:#F0EDE6; font-family:monospace; font-size:9px; letter-spacing:1px;
-        padding:6px 8px; min-height:40px; cursor:pointer;
+        color:#F0EDE6; font-family:monospace; font-size:8px; letter-spacing:0.5px; line-height:1.15;
+        padding:2px; cursor:pointer;
         backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
       }
       body.ext-audio #btnAudioIO, #btnAudioIO.active { color:var(--paper); border-color:var(--paper); }
       #audioIOPanel {
-        position:fixed; top:calc(52px + 44px + env(safe-area-inset-top, 0px)); right:8px;
-        width:auto; max-width:90vw; max-height:70vh; overflow-y:auto; box-sizing:border-box;
+        position:fixed; top:calc(196px + env(safe-area-inset-top, 0px)); right:8px;
+        width:auto; max-width:90vw; max-height:60vh; overflow-y:auto; box-sizing:border-box;
         background:var(--ink); border:2px solid var(--dark);
         padding:12px; z-index:122; display:none; flex-direction:column; gap:10px;
         font-size:12px;
@@ -2422,12 +2447,14 @@
       #audioIOPanel #extGainSlider, #audioIOPanel #monitorVol { height:40px; }
     }
 
-    /* ── F4: MIC móvil — botón flotante, visible SOLO en móvil (opuesto de .desktop-only arriba) ── */
+    /* ── F4: MIC móvil — botón flotante, visible SOLO en móvil (opuesto de .desktop-only arriba) ──
+       C: slot2 del riel superior derecho — debajo del engrane #flipSettingsTrigger (slot1) y
+       arriba de #btnAudioIO (slot3), mismo right:12/44px que el resto del riel. */
     #btnMicMobile {
       position: fixed;
-      right: 64px; /* al lado del gear #flipSettingsTrigger (right:14px, 40px de ancho) sin encimarse */
-      top: calc(52px + env(safe-area-inset-top, 0px));
-      width: 40px; height: 40px; border-radius: 50%;
+      right: 12px;
+      top: calc(100px + env(safe-area-inset-top, 0px));
+      width: 44px; height: 44px; border-radius: 50%;
       border: 1px solid rgba(255,255,255,0.14);
       background: rgba(26,26,30,0.92);
       color: #F0EDE6;
@@ -13196,12 +13223,14 @@ function _injectFlipSettingsStyles() {
   style.id = 'flipSettingsStyle';
   style.textContent = `
     .flip-settings-trigger {
+      /* C: slot1 del riel superior derecho (top:52, right:12/18, 44x44) — ver #btnMicMobile,
+         #btnAudioIO, #btnExtCapture, que se apilan debajo en slot2/slot3. */
       position: fixed;
-      right: 14px;
+      right: 12px;
       top: calc(52px + env(safe-area-inset-top, 0px));
       bottom: auto;
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
       border: 1px solid rgba(255,255,255,0.14);
       background: rgba(26,26,30,0.92);

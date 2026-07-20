@@ -2018,6 +2018,10 @@
     @media (max-width:767px) {
       .edit-glitch-panel { grid-template-columns:1fr; }
     }
+    /* ── ASCII / FLOW per-layer expandable panels ───────────────────── */
+    .edit-ascii-panel, .edit-flow-panel {
+      padding:6px; margin:-4px 0 4px; border:1px solid var(--dark); border-top:none; background:rgba(255,255,255,.02);
+    }
     #barEdit {
       display:none; position:fixed; bottom:0; left:0; right:0; height:96px;
       background:var(--ink); border-top:2px solid var(--dark);
@@ -3868,6 +3872,8 @@
     <button class="edit-src-pill"        id="editSrcPhoto" data-edit-src="photo">🖼 FOTO</button>
     <button class="edit-src-pill"        id="editSrcVideo" data-edit-src="video">🎞 VIDEO</button>
     <button class="edit-src-pill"        id="editSrcAudio" data-edit-src="audio">🎵 AUDIO</button>
+    <button class="edit-src-pill"        id="editSrcSono"  data-edit-src="sono">🔊 SONO</button>
+    <button class="edit-src-pill"        id="editSrcWmp"   data-edit-src="wmp">📺 WMP</button>
   </div>
   <div class="edit-audio-sens" id="editAudioSens" style="display:none;">
     <span class="emr-lbl">SENSIBILIDAD</span>
@@ -3878,6 +3884,8 @@
   <div class="edit-add-row">
     <button class="edit-add-btn" id="btnEditAddCam">+ CAPA CAM</button>
     <button class="edit-add-btn" id="btnEditAddGlitch">+ CAPA GLITCH</button>
+    <button class="edit-add-btn" id="btnEditAddAscii">+ CAPA ASCII</button>
+    <button class="edit-add-btn" id="btnEditAddFlow">+ CAPA FLOW</button>
   </div>
 </div>
 
@@ -12238,6 +12246,113 @@ function asciiSettingsChanged() {
 // srcCtx/dstCtx to share the same w/h it's given, which ping-pong buffers of equal
 // size satisfy.
 // ════════════════════════════════════════════════════════════════════
+// ── ASCII classic as a self-contained pipeline step (BLOQUE 5) ──────────
+// Unlike _renderASCIISync (paints the global ctxAscii, samples ctxAS globals,
+// runs the whole TYPO/pythonization/sharpen/edge machinery), this is a
+// simplified, self-contained grid renderer: samples srcCanvas directly,
+// paints straight to targetCtx, no shared state touched.
+function _renderAsciiStep(srcCanvas, targetCtx, params, t) {
+  const p = params || {};
+  const cols = Math.max(20, Math.min(160, p.cols || 80));
+  const W = targetCtx.canvas.width, H = targetCtx.canvas.height;
+  if (!W || !H) return;
+
+  // Sample source at a modest internal resolution for perf.
+  const SW = 256, SH = 192;
+  const tmp = document.createElement('canvas');
+  tmp.width = SW; tmp.height = SH;
+  const tctx = tmp.getContext('2d', { willReadFrequently: true });
+  tctx.drawImage(srcCanvas, 0, 0, SW, SH);
+  const { data: px } = tctx.getImageData(0, 0, SW, SH);
+
+  const grad = ASCII_GRADIENTS[p.gradient] || ASCII_GRADIENTS.normal;
+  const nChars = grad.length;
+  const rows = Math.max(1, Math.round(cols * H / W));
+  const cW = W / cols, cH = H / rows;
+  const sCW = SW / cols, sCH = SH / rows;
+
+  const inkKey = p.ink || 'auto';
+  const paperKey = p.paper || 'auto';
+  const ink = (inkKey !== 'auto' && TYPO_INKS[inkKey]) ? _hexToRgbStr(TYPO_INKS[inkKey]) : _getAsciiClassicColors(false).ink;
+  const paper = (paperKey !== 'auto' && TYPO_PAPERS[paperKey]) ? _hexToRgbStr(TYPO_PAPERS[paperKey]) : _getAsciiClassicColors(false).paper;
+
+  targetCtx.fillStyle = `rgb(${paper})`;
+  targetCtx.fillRect(0, 0, W, H);
+
+  const fontSize = Math.max(4, Math.floor(cH * 0.92));
+  targetCtx.font = `bold ${fontSize}px monospace`;
+  targetCtx.textBaseline = 'top';
+  targetCtx.fillStyle = `rgb(${ink})`;
+  targetCtx.imageSmoothingEnabled = false;
+
+  for (let r = 0; r < rows; r++) {
+    let line = '';
+    const x0s = [], gs = [];
+    for (let c = 0; c < cols; c++) {
+      let gSum = 0, cnt = 0;
+      const x0 = Math.floor(c * sCW), x1 = Math.min(Math.ceil((c + 1) * sCW), SW);
+      const y0 = Math.floor(r * sCH), y1 = Math.min(Math.ceil((r + 1) * sCH), SH);
+      for (let py = y0; py < y1; py++)
+        for (let sx = x0; sx < x1; sx++) {
+          const i = (py * SW + sx) * 4;
+          gSum += (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114);
+          cnt++;
+        }
+      const lum = cnt ? gSum / cnt : 128;
+      const ci = Math.min(Math.floor((1 - lum / 255) * nChars), nChars - 1);
+      const ch = grad[ci];
+      if (ch !== ' ') targetCtx.fillText(ch, c * cW, r * cH);
+    }
+  }
+}
+
+// ── FLOW-blob as a self-contained pipeline step (BLOQUE 5) ──────────────
+// Draws the source frame as-is, then overlays the procedural audio blob aura
+// (reusing the pure _sfAudioMask/_sfBuildVectors data functions exposed via
+// window._sfStepHelpers) with a simplified glyph loop, composite 'lighter'.
+function _renderFlowblobStep(srcCanvas, targetCtx, params, audio, t) {
+  const p = params || {};
+  const W = targetCtx.canvas.width, H = targetCtx.canvas.height;
+  targetCtx.clearRect(0, 0, W, H);
+  targetCtx.drawImage(srcCanvas, 0, 0, W, H);
+
+  const helpers = window._sfStepHelpers;
+  if (!helpers || typeof extAnalyser === 'undefined' || !extAnalyser) return;
+
+  const auraKey = p.aura || 'm';
+  const auraDepth = helpers.auraDepth[auraKey] || helpers.auraDepth.m;
+  const inkKey = p.ink || 'white';
+  const ink = TYPO_INKS[inkKey] || '#ffffff';
+
+  const maskW = 96, maskH = 54;
+  const maskRaw = helpers.audioMask(maskW, maskH, t * 0.001);
+  const { dist, nx, ny } = helpers.buildVectors(maskRaw, maskW, maskH, auraDepth, 0.5);
+
+  const chars = helpers.chars;
+  const sx = W / maskW, sy = H / maskH;
+  const fontSize = Math.max(6, Math.round(Math.min(sx, sy) * 1.4));
+  targetCtx.font = `bold ${fontSize}px monospace`;
+  targetCtx.textBaseline = 'middle';
+  targetCtx.textAlign = 'center';
+  const prevComposite = targetCtx.globalCompositeOperation;
+  targetCtx.globalCompositeOperation = 'lighter';
+  for (let y = 0; y < maskH; y++) {
+    for (let x = 0; x < maskW; x++) {
+      const i = y * maskW + x;
+      if (maskRaw[i] < 0.5 || dist[i] > auraDepth) continue;
+      const depth = 1 - dist[i] / auraDepth;
+      const px_ = x * sx + nx[i] * dist[i] * sx * 0.6;
+      const py_ = y * sy + ny[i] * dist[i] * sy * 0.6;
+      const ch = chars[(x * 7 + y * 13 + ((t * 0.005) | 0)) % chars.length];
+      targetCtx.globalAlpha = Math.max(0.15, depth);
+      targetCtx.fillStyle = ink;
+      targetCtx.fillText(ch, px_, py_);
+    }
+  }
+  targetCtx.globalAlpha = 1;
+  targetCtx.globalCompositeOperation = prevComposite;
+}
+
 const FLIP_STEP_ENGINES = {
   cam: {
     label: 'CAM',
@@ -12260,7 +12375,20 @@ const FLIP_STEP_ENGINES = {
     renderStep(srcCanvas, targetCtx, params, audio, t) {
       const srcCtx = srcCanvas.getContext('2d');
       const audioMod = audio ? { bassE: audio.bass, midE: audio.mid, trebE: audio.treble, rms: audio.rms } : null;
-      _applyScrash(srcCtx, targetCtx, srcCanvas.width, srcCanvas.height, t, audioMod);
+      const p = (params && params.glitch) ? params.glitch : null;
+      _applyScrash(srcCtx, targetCtx, srcCanvas.width, srcCanvas.height, t, audioMod, p);
+    },
+  },
+  ascii: {
+    label: 'ASCII',
+    renderStep(srcCanvas, targetCtx, params, audio, t) {
+      _renderAsciiStep(srcCanvas, targetCtx, params || {}, t);
+    },
+  },
+  flowblob: {
+    label: 'FLOW',
+    renderStep(srcCanvas, targetCtx, params, audio, t) {
+      _renderFlowblobStep(srcCanvas, targetCtx, params || {}, audio, t);
     },
   },
 };
@@ -18359,42 +18487,51 @@ let _ctxScrAudioBuf;
 // Core pixel effect — applies SCRASH effects from srcCtx to dstCtx
 // srcCtx must have pixels already drawn; dstCtx receives result
 // t = elapsed seconds (used for animation)
-function _applyScrash(srcCtx, dstCtx, w, h, t, audioMod) {
+function _applyScrash(srcCtx, dstCtx, w, h, t, audioMod, p) {
   const { data: px } = srcCtx.getImageData(0, 0, w, h);
   const out = new Uint8ClampedArray(w * h * 4);
 
-  // EXT AUDIO: additive modulation of a few params on top of the slider base values —
-  // sliders are never overwritten, only nudged so the music is visibly felt. AUDIO REACT
-  // (scrAudioReactVal, 0-300%) is the master intensity I on top of that. A is null when
+  // Per-call param base: defaults to the global GLITCH tab sliders (`scr*Val`) unchanged, or
+  // an explicit params object `p` (used by EDIT layers so each GLITCH layer is independent —
+  // see FLIP_STEP_ENGINES.glitch.renderStep). Without `p`, behavior is byte-identical to before.
+  const P = p || {
+    chroma: scrChromaVal, drip: scrDripVal, neon: scrNeonVal, wave: scrWaveVal,
+    crush: scrCrushVal, hue: scrHueVal, grain: scrGrainVal, chaos: scrChaosVal,
+    audioReact: scrAudioReactVal, animate: scrAnimateOn, speed: scrSpeedVal
+  };
+
+  // EXT AUDIO: additive modulation of a few params on top of the base values —
+  // base is never overwritten, only nudged so the music is visibly felt. AUDIO REACT
+  // (P.audioReact, 0-300%) is the master intensity I on top of that. A is null when
   // there's no audioMod (no ext audio) so every audio term below is exactly 0 — no regression.
-  let chromaEff = scrChromaVal, waveEff = scrWaveVal, grainEff = scrGrainVal;
-  let dripEff = scrDripVal, chaosEff = scrChaosVal, hueSpeedExtra = 0;
+  let chromaEff = P.chroma, waveEff = P.wave, grainEff = P.grain;
+  let dripEff = P.drip, chaosEff = P.chaos, hueSpeedExtra = 0;
   let A = null;
   if (audioMod) {
     A = FlipAudioReact.read();
-    const I = scrAudioReactVal / 100;
+    const I = P.audioReact / 100;
     // K's: bass→wave 22, (mid+transient)→chroma 28, treble→hue-spin 90 deg/s, treble→grain 45.
-    waveEff   = Math.min(40,  scrWaveVal   + A.bass * 22 * I);               // cap raised 30→40 for audio-driven boost only
-    chromaEff = Math.min(50,  scrChromaVal + (A.mid + A.transient) * 28 * I);
-    grainEff  = Math.min(100, scrGrainVal  + A.treble * 45 * I);
+    waveEff   = Math.min(40,  P.wave   + A.bass * 22 * I);               // cap raised 30→40 for audio-driven boost only
+    chromaEff = Math.min(50,  P.chroma + (A.mid + A.transient) * 28 * I);
+    grainEff  = Math.min(100, P.grain  + A.treble * 45 * I);
     hueSpeedExtra = A.treble * 90 * I;
     // Transient burst envelope: retrigger to full on a hit, exponential decay (~200ms @30fps).
     if (A.transient > 0.45) _scrBurst = 1;
-    dripEff  = Math.min(100, scrDripVal  + _scrBurst * 35 * I);
-    chaosEff = Math.min(100, scrChaosVal + _scrBurst * 30 * I);
+    dripEff  = Math.min(100, P.drip  + _scrBurst * 35 * I);
+    chaosEff = Math.min(100, P.chaos + _scrBurst * 30 * I);
     _scrBurst *= 0.82;
   }
 
-  const animT    = t * scrSpeedVal * 0.02;
-  const cOff     = scrAnimateOn ? ((Math.sin(animT * 1.3) * 0.5 + 0.5) * chromaEff) | 0 : chromaEff | 0;
-  const waveAmp  = scrAnimateOn ? (Math.sin(animT * 0.8)  * 0.5 + 0.5) * waveEff   : waveEff;
-  const crushT   = (scrCrushVal / 100) * 255;
-  const neonT    = scrNeonVal / 100;
+  const animT    = t * P.speed * 0.02;
+  const cOff     = P.animate ? ((Math.sin(animT * 1.3) * 0.5 + 0.5) * chromaEff) | 0 : chromaEff | 0;
+  const waveAmp  = P.animate ? (Math.sin(animT * 0.8)  * 0.5 + 0.5) * waveEff   : waveEff;
+  const crushT   = (P.crush / 100) * 255;
+  const neonT    = P.neon / 100;
   const dripT    = dripEff / 100;
   // Multi-layer waves: on a strong bass hit (A.bass > 0.6), stack up to 2 extra desynced
   // waves on top of the primary one (hard cap 3 layers total) — "more waves", not just bigger.
   const extraWaves = !!(A && A.bass > 0.6);
-  const hueEff = scrHueVal + hueSpeedExtra * t;
+  const hueEff = P.hue + hueSpeedExtra * t;
 
   for (let y = 0; y < h; y++) {
     let waveX = 0;
@@ -18908,17 +19045,22 @@ function loadSettings() {
     // engines/max-3/source type; photo/video never restore an actual file
     // — _initEdit falls back to 'cam' with a toast when it finds those.
     if (s.editPipeline && typeof s.editPipeline === 'object') {
-      const validSrc = ['cam','photo','video','audio'];
+      const validSrc = ['cam','photo','video','audio','sono','wmp'];
       const srcType = validSrc.includes(s.editPipeline.source?.type) ? s.editPipeline.source.type : 'cam';
       let steps = Array.isArray(s.editPipeline.steps) ? s.editPipeline.steps : [];
       steps = steps
-        .filter(st => st && (st.engine === 'cam' || st.engine === 'glitch'))
-        .slice(0, 3)
-        .map(st => ({
-          engine: st.engine, on: st.on !== false,
-          ...(st.engine === 'cam' ? { family: (st.family && CAM_FAMILIES[st.family]) ? st.family : undefined } : {}),
-        }));
-      if (!steps.length) steps = [{ engine: 'glitch', on: true }];
+        .filter(st => st && (st.engine === 'cam' || st.engine === 'glitch' || st.engine === 'ascii' || st.engine === 'flowblob'))
+        .slice(0, 4) // EDIT_MAX_LAYERS — literal here: loadSettings() runs (line ~19103) before that
+                     // const's declaration point (~line 20390s), so referencing the const would TDZ-throw
+        .map(st => {
+          const out = { engine: st.engine, on: st.on !== false };
+          if (st.engine === 'cam') out.family = (st.family && CAM_FAMILIES[st.family]) ? st.family : undefined;
+          else if (st.engine === 'glitch') out.params = _editClampGlitchParams(st.params);
+          else if (st.engine === 'ascii') out.params = _editClampAsciiParams(st.params);
+          else if (st.engine === 'flowblob') out.params = _editClampFlowParams(st.params);
+          return out;
+        });
+      if (!steps.length) steps = [{ engine: 'glitch', on: true, params: _editDefaultGlitchParams() }];
       window._editPipeline = { source: { type: srcType }, steps };
     }
     // STAGE scenes (window._stageScenes — see declaration near saveSettings;
@@ -19489,6 +19631,11 @@ if (screen.width > 768) {
     }
     return mask;
   }
+
+  // Expose the two pure data functions (no closure state, no DOM writes) so
+  // FLIP_STEP_ENGINES.flowblob (EDIT pipeline) can reuse the same blob math
+  // without duplicating it — see BLOQUE 5 spec.
+  window._sfStepHelpers = { audioMask: _sfAudioMask, buildVectors: _sfBuildVectors, chars: SF_CHARS, auraDepth: SF_AURA_DEPTH };
 
   // ── RAF sub-loop: audio-driven render (no camera / no segmenter) ────
   async function _sfLoopAudio() {
@@ -20210,31 +20357,73 @@ function _fusionLoop(ts) {
 // and FLOW. Non-destructive: the source media is only ever read into a
 // working canvas per frame, never mutated.
 //
-// GLITCH params in EDIT: rather than reopening #scrashControls (gated by
-// body.scrash-hud-open + activeTab==='scrash', not trivial to surface from
-// another tab cleanly), each GLITCH layer row has a ⚙ button that expands
-// a full 9-slider panel (CHROMA/DRIP/NEON/WAVE/CRUSH/HUE/GRAIN/CHAOS/AUDIO
-// REACT + ANIMATE/SPEED) writing straight into the same globals _applyScrash
-// reads, and mirrors the GLITCH tab's own sliders/spans both ways where
-// present. v1: all GLITCH layers share these globals (no per-layer state
-// yet — that lands with STAGE). CAM family IS re-pickable per layer: each
-// CAM row has a FAM button that expands the family strip and writes
-// step.family, which FLIP_STEP_ENGINES.cam.renderStep passes through as
-// options.family to _renderCamEngineFrame — isolated from the CAM tab's
-// active camFamily/camVariant globals (see that function for why this is
-// safe: profile resolution never calls _applyCamState or touches globals).
+// GLITCH params in EDIT (BLOQUE 5): each GLITCH layer row has a ⚙ button
+// that expands a full 9-slider panel (CHROMA/DRIP/NEON/WAVE/CRUSH/HUE/GRAIN/
+// CHAOS/AUDIO REACT + ANIMATE/SPEED) writing into step.params — per-layer,
+// fully independent of the GLITCH tab's own #scr* sliders/globals and of
+// other GLITCH layers (see _applyScrash's optional 7th param `p`). CAM
+// family IS re-pickable per layer: each CAM row has a FAM button that
+// expands the family strip and writes step.family, which
+// FLIP_STEP_ENGINES.cam.renderStep passes through as options.family to
+// _renderCamEngineFrame — isolated from the CAM tab's active
+// camFamily/camVariant globals. ASCII layers get a COLS/INK/PAPER/GRADIENT
+// panel; FLOW layers get an AURA/INK panel. Up to 4 layers, any engine mix.
 // ════════════════════════════════════════════════════════════════════
 let editRunning = false;
 let editSource = { type: 'cam' };
-let editSteps = [{ engine: 'glitch', on: true }];
+let editSteps = [{ engine: 'glitch', on: true, params: _editDefaultGlitchParams() }];
 let _editSrcCanvas = null;
 let _editPhotoImg = null;   // HTMLImageElement | ImageBitmap, source type:'photo'
 let _editLastFrameMs = 0;
-let _editExpandedPanel = null; // { i, kind: 'fam'|'glitch' } | null — only one panel open at a time
+let _editExpandedPanel = null; // { i, kind: 'fam'|'glitch'|'ascii'|'flow' } | null — only one panel open at a time
+const EDIT_MAX_LAYERS = 4;
 const EDIT_CAM_FAMILIES = [
   ['DSI', 'DSI'], ['AUTO03', 'AUTO 03'], ['DLPHN', 'DLPHN'], ['CASKIA', 'CASKIA'],
   ['VFD', 'VFD'], ['OSCAM', 'OSCAM'], ['SLHT', 'SLHT'],
 ];
+// Defaults mirror the GLITCH tab's own slider defaults (see `let scrChromaVal = 0, ...`
+// near _applyScrash) but are a fresh object per layer — never shared.
+function _editDefaultGlitchParams() {
+  return { chroma: 0, drip: 0, neon: 0, wave: 0, crush: 0, hue: 0, grain: 0, chaos: 0, audioReact: 100, animate: false, speed: 5 };
+}
+function _editDefaultAsciiParams() {
+  return { cols: 80, ink: 'auto', paper: 'auto', gradient: 'normal' };
+}
+function _editDefaultFlowParams() {
+  return { aura: 'm', ink: 'white' };
+}
+function _editClampGlitchParams(p) {
+  const d = _editDefaultGlitchParams();
+  if (!p || typeof p !== 'object') return d;
+  const num = (v, lo, hi, fb) => (typeof v === 'number' && isFinite(v)) ? Math.max(lo, Math.min(hi, v)) : fb;
+  return {
+    chroma: num(p.chroma, 0, 50, d.chroma), drip: num(p.drip, 0, 100, d.drip),
+    neon: num(p.neon, 0, 100, d.neon), wave: num(p.wave, 0, 40, d.wave),
+    crush: num(p.crush, 0, 100, d.crush), hue: num(p.hue, 0, 360, d.hue),
+    grain: num(p.grain, 0, 100, d.grain), chaos: num(p.chaos, 0, 100, d.chaos),
+    audioReact: num(p.audioReact, 0, 300, d.audioReact),
+    animate: !!p.animate, speed: num(p.speed, 1, 20, d.speed),
+  };
+}
+function _editClampAsciiParams(p) {
+  const d = _editDefaultAsciiParams();
+  if (!p || typeof p !== 'object') return d;
+  const cols = (typeof p.cols === 'number' && isFinite(p.cols)) ? Math.max(20, Math.min(160, p.cols)) : d.cols;
+  return {
+    cols,
+    ink: (p.ink && p.ink in TYPO_INKS) ? p.ink : d.ink,
+    paper: (p.paper && p.paper in TYPO_PAPERS) ? p.paper : d.paper,
+    gradient: (p.gradient && p.gradient in ASCII_GRADIENTS) ? p.gradient : d.gradient,
+  };
+}
+function _editClampFlowParams(p) {
+  const d = _editDefaultFlowParams();
+  if (!p || typeof p !== 'object') return d;
+  return {
+    aura: ['s', 'm', 'l'].includes(p.aura) ? p.aura : d.aura,
+    ink: (p.ink && p.ink in TYPO_INKS) ? p.ink : d.ink,
+  };
+}
 
 const editCanvas = document.getElementById('editCanvas');
 const ctxEdit = editCanvas.getContext('2d');
@@ -20277,7 +20466,78 @@ function _editGetSrcCanvas() {
   if (editSource.type === 'audio') {
     return _getExtAudioSourceFrame(w, h);
   }
+  if (editSource.type === 'sono') {
+    _editRenderSonoSource(ctx, w, h, performance.now());
+    return _editSrcCanvas;
+  }
+  if (editSource.type === 'wmp') {
+    _editRenderWmpSource(ctx, w, h, performance.now());
+    return _editSrcCanvas;
+  }
   return null;
+}
+
+// ── Generative SOURCE renders (BLOQUE 5) — self-contained, inspired by
+// sonoLoop/wmpLoop but NOT reusing them (those paint their own canvases via
+// a lot of tab-local state). Both read FlipAudioReact.read() (bass/mid/
+// treble/rms) and extAnalyser.getByteFrequencyData when available, so they
+// animate with no camera at all.
+function _editRenderSonoSource(ctx, w, h, t) {
+  ctx.fillStyle = '#050506';
+  ctx.fillRect(0, 0, w, h);
+  const A = ((extAudioMode || extMicOnlyMode) && extAnalyser) ? FlipAudioReact.read() : { bass: 0, mid: 0, treble: 0, rms: 0 };
+  const cx = w / 2, cy = h / 2;
+  const baseR = Math.min(w, h) * 0.18;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalCompositeOperation = 'lighter';
+  const rings = 3;
+  for (let i = 0; i < rings; i++) {
+    const bandE = [A.bass, A.mid, A.treble][i];
+    const hue = (t * 0.02 + i * 120) % 360;
+    ctx.strokeStyle = `hsl(${hue}, 90%, ${50 + bandE * 20}%)`;
+    ctx.lineWidth = 2 + bandE * 6;
+    ctx.beginPath();
+    const pts = 64;
+    for (let k = 0; k <= pts; k++) {
+      const ang = (k / pts) * Math.PI * 2;
+      // Lissajous-ish radial modulation driven by band energy
+      const r = baseR * (1 + i * 0.6) * (1 + bandE * 0.5 * Math.sin(ang * (3 + i) + t * 0.001 * (i + 1)));
+      const x = Math.cos(ang) * r, y = Math.sin(ang) * r;
+      if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function _editRenderWmpSource(ctx, w, h, t) {
+  // Fade trail instead of clear, for a scope-with-trails look.
+  ctx.fillStyle = 'rgba(3,3,6,0.25)';
+  ctx.fillRect(0, 0, w, h);
+  if (!((extAudioMode || extMicOnlyMode) && extAnalyser)) return;
+  const bins = 48;
+  const freq = new Uint8Array(extAnalyser.frequencyBinCount);
+  extAnalyser.getByteFrequencyData(freq);
+  const step = Math.floor(freq.length / bins) || 1;
+  const barW = w / bins;
+  for (let i = 0; i < bins; i++) {
+    let sum = 0, n = 0;
+    for (let j = i * step; j < (i + 1) * step && j < freq.length; j++) { sum += freq[j]; n++; }
+    const v = n ? sum / n / 255 : 0;
+    const barH = v * h * 0.85;
+    const hue = 200 - v * 160;
+    ctx.fillStyle = `hsl(${hue}, 95%, ${45 + v * 25}%)`;
+    ctx.fillRect(i * barW + 1, h - barH, barW - 2, barH);
+  }
+}
+
+function _editStepParams(step) {
+  if (step.engine === 'cam') return { family: step.family };
+  if (step.engine === 'glitch') return { glitch: step.params || _editDefaultGlitchParams() };
+  if (step.engine === 'ascii') return step.params || _editDefaultAsciiParams();
+  if (step.engine === 'flowblob') return step.params || _editDefaultFlowParams();
+  return {};
 }
 
 function _editLoop(ts) {
@@ -20286,7 +20546,7 @@ function _editLoop(ts) {
   if (ts - _editLastFrameMs >= minInterval) {
     const srcCanvas = _editGetSrcCanvas();
     if (srcCanvas) {
-      const steps = editSteps.filter(s => s.on).map(s => ({ engine: s.engine, params: s.engine === 'cam' ? { family: s.family } : {} }));
+      const steps = editSteps.filter(s => s.on).map(s => ({ engine: s.engine, params: _editStepParams(s) }));
       const audio = ((extAudioMode || extMicOnlyMode) && extAnalyser) ? FlipAudioReact.read() : null;
       runPipeline(steps, srcCanvas, ctxEdit, audio, ts);
     }
@@ -20302,16 +20562,28 @@ function _editLoop(ts) {
   // once the DOM/tab is actually visited.
   let _editRestoredNoFile = false;
   const persisted = window._editPipeline;
-  if (persisted) {
-    editSteps = persisted.steps.map(s => ({
-      engine: s.engine, on: s.on !== false,
-      ...(s.engine === 'cam' ? { family: (s.family && CAM_FAMILIES[s.family]) ? s.family : camFamily } : {}),
-    }));
-    if (persisted.source.type === 'photo' || persisted.source.type === 'video') {
+  const _validEngines = { cam: 1, glitch: 1, ascii: 1, flowblob: 1 };
+  if (persisted && Array.isArray(persisted.steps)) {
+    editSteps = persisted.steps
+      .filter(s => s && _validEngines[s.engine])
+      .slice(0, EDIT_MAX_LAYERS)
+      .map(s => {
+        const step = { engine: s.engine, on: s.on !== false };
+        if (s.engine === 'cam') step.family = (s.family && CAM_FAMILIES[s.family]) ? s.family : camFamily;
+        else if (s.engine === 'glitch') step.params = _editClampGlitchParams(s.params);
+        else if (s.engine === 'ascii') step.params = _editClampAsciiParams(s.params);
+        else if (s.engine === 'flowblob') step.params = _editClampFlowParams(s.params);
+        return step;
+      });
+    if (!editSteps.length) editSteps = [{ engine: 'glitch', on: true, params: _editDefaultGlitchParams() }];
+    const srcType = persisted.source && persisted.source.type;
+    if (srcType === 'photo' || srcType === 'video') {
       editSource = { type: 'cam' };
       _editRestoredNoFile = true;
+    } else if (['cam', 'audio', 'sono', 'wmp'].includes(srcType)) {
+      editSource = { type: srcType };
     } else {
-      editSource = { type: persisted.source.type };
+      editSource = { type: 'cam' };
     }
   }
   _editSyncPersistedState();
@@ -20319,7 +20591,14 @@ function _editLoop(ts) {
   function _editSyncPersistedState() {
     window._editPipeline = {
       source: { type: editSource.type },
-      steps: editSteps.map(s => ({ engine: s.engine, on: s.on, ...(s.engine === 'cam' ? { family: s.family } : {}) })),
+      steps: editSteps.map(s => {
+        const out = { engine: s.engine, on: s.on };
+        if (s.engine === 'cam') out.family = s.family;
+        else if (s.engine === 'glitch') out.params = s.params;
+        else if (s.engine === 'ascii') out.params = s.params;
+        else if (s.engine === 'flowblob') out.params = s.params;
+        return out;
+      }),
     };
   }
   function _editSyncPersisted() {
@@ -20331,6 +20610,8 @@ function _editLoop(ts) {
   function _editLayerLabel(step) {
     if (step.engine === 'cam') return 'CAM · ' + (step.family || camFamily);
     if (step.engine === 'glitch') return 'GLITCH';
+    if (step.engine === 'ascii') return 'ASCII';
+    if (step.engine === 'flowblob') return 'FLOW';
     return step.engine;
   }
   function _editFamPanelHtml(i, step) {
@@ -20341,28 +20622,56 @@ function _editLoop(ts) {
       ).join('') +
       `</div>`;
   }
-  function _editGlitchPanelHtml(i) {
-    const row = (lbl, id, min, max, step, val) =>
+  function _editGlitchPanelHtml(i, step) {
+    const p = step.params || _editDefaultGlitchParams();
+    const row = (lbl, id, min, max, stp, val) =>
       `<div class="edit-mini-row"><span class="emr-lbl">${lbl}</span>` +
-      `<input type="range" data-glitch-param="${id}" min="${min}" max="${max}" step="${step}" value="${val}">` +
+      `<input type="range" data-glitch-param="${id}" min="${min}" max="${max}" step="${stp}" value="${val}">` +
       `<span class="emr-val" data-glitch-val="${id}">${val}</span></div>`;
     return `<div class="edit-glitch-panel" data-i="${i}">` +
-      row('CHROMA', 'chroma', 0, 50, 1, scrChromaVal) +
-      row('DRIP', 'drip', 0, 100, 1, scrDripVal) +
-      row('NEON', 'neon', 0, 100, 1, scrNeonVal) +
-      row('WAVE', 'wave', 0, 30, 1, scrWaveVal) +
-      row('CRUSH', 'crush', 0, 100, 1, scrCrushVal) +
-      row('HUE', 'hue', 0, 360, 1, scrHueVal) +
-      row('GRAIN', 'grain', 0, 100, 1, scrGrainVal) +
-      row('CHAOS', 'chaos', 0, 100, 1, scrChaosVal) +
+      row('CHROMA', 'chroma', 0, 50, 1, p.chroma) +
+      row('DRIP', 'drip', 0, 100, 1, p.drip) +
+      row('NEON', 'neon', 0, 100, 1, p.neon) +
+      row('WAVE', 'wave', 0, 40, 1, p.wave) +
+      row('CRUSH', 'crush', 0, 100, 1, p.crush) +
+      row('HUE', 'hue', 0, 360, 1, p.hue) +
+      row('GRAIN', 'grain', 0, 100, 1, p.grain) +
+      row('CHAOS', 'chaos', 0, 100, 1, p.chaos) +
       `<div class="edit-mini-row full"><span class="emr-lbl">AUDIO REACT</span>` +
-      `<input type="range" data-glitch-param="audioreact" min="0" max="300" step="10" value="${scrAudioReactVal}">` +
-      `<span class="emr-val" data-glitch-val="audioreact">${scrAudioReactVal}%</span></div>` +
+      `<input type="range" data-glitch-param="audioReact" min="0" max="300" step="10" value="${p.audioReact}">` +
+      `<span class="emr-val" data-glitch-val="audioReact">${p.audioReact}%</span></div>` +
       `<div class="edit-mini-row full">` +
-      `<button class="edit-layer-cfg${scrAnimateOn ? ' active' : ''}" data-i="${i}" data-act="glitchanimate">ANIMATE</button>` +
+      `<button class="edit-layer-cfg${p.animate ? ' active' : ''}" data-i="${i}" data-act="glitchanimate">ANIMATE</button>` +
       `<span class="emr-lbl">SPEED</span>` +
-      `<input type="range" data-glitch-param="speed" min="1" max="20" step="1" value="${scrSpeedVal}">` +
-      `<span class="emr-val" data-glitch-val="speed">${scrSpeedVal}</span></div>` +
+      `<input type="range" data-glitch-param="speed" min="1" max="20" step="1" value="${p.speed}">` +
+      `<span class="emr-val" data-glitch-val="speed">${p.speed}</span></div>` +
+      `</div>`;
+  }
+  function _editAsciiPanelHtml(i, step) {
+    const p = step.params || _editDefaultAsciiParams();
+    const pill = (group, key, label, val) =>
+      `<button class="edit-fam-pill${p[key] === val ? ' active' : ''}" data-i="${i}" data-act="set${group}" data-val="${val}">${label}</button>`;
+    return `<div class="edit-ascii-panel" data-i="${i}">` +
+      `<div class="edit-mini-row full"><span class="emr-lbl">COLS</span>` +
+      `<input type="range" data-ascii-param="cols" min="20" max="160" step="1" value="${p.cols}">` +
+      `<span class="emr-val" data-ascii-val="cols">${p.cols}</span></div>` +
+      `<div class="edit-mini-row full"><span class="emr-lbl">INK</span></div>` +
+      `<div class="edit-fam-panel" style="margin-bottom:6px">${Object.keys(TYPO_INKS).map(k => pill('ink', 'ink', k.toUpperCase(), k)).join('')}</div>` +
+      `<div class="edit-mini-row full"><span class="emr-lbl">PAPER</span></div>` +
+      `<div class="edit-fam-panel" style="margin-bottom:6px">${Object.keys(TYPO_PAPERS).map(k => pill('paper', 'paper', k.toUpperCase(), k)).join('')}</div>` +
+      `<div class="edit-mini-row full"><span class="emr-lbl">GRADIENT</span></div>` +
+      `<div class="edit-fam-panel">${Object.keys(ASCII_GRADIENTS).map(k => pill('gradient', 'gradient', k.toUpperCase(), k)).join('')}</div>` +
+      `</div>`;
+  }
+  function _editFlowPanelHtml(i, step) {
+    const p = step.params || _editDefaultFlowParams();
+    const pill = (group, key, label, val) =>
+      `<button class="edit-fam-pill${p[key] === val ? ' active' : ''}" data-i="${i}" data-act="set${group}" data-val="${val}">${label}</button>`;
+    return `<div class="edit-flow-panel" data-i="${i}">` +
+      `<div class="edit-mini-row full"><span class="emr-lbl">AURA</span></div>` +
+      `<div class="edit-fam-panel" style="margin-bottom:6px">${['s', 'm', 'l'].map(v => pill('aura', 'aura', v.toUpperCase(), v)).join('')}</div>` +
+      `<div class="edit-mini-row full"><span class="emr-lbl">INK</span></div>` +
+      `<div class="edit-fam-panel">${Object.keys(TYPO_INKS).filter(k => k !== 'auto').map(k => pill('flowink', 'ink', k.toUpperCase(), k)).join('')}</div>` +
       `</div>`;
   }
   function _editRenderLayers() {
@@ -20373,59 +20682,59 @@ function _editLoop(ts) {
       row.className = 'edit-layer-row' + (step.on ? '' : ' bypassed');
       const famOpen = _editExpandedPanel && _editExpandedPanel.kind === 'fam' && _editExpandedPanel.i === i;
       const glitchOpen = _editExpandedPanel && _editExpandedPanel.kind === 'glitch' && _editExpandedPanel.i === i;
+      const asciiOpen = _editExpandedPanel && _editExpandedPanel.kind === 'ascii' && _editExpandedPanel.i === i;
+      const flowOpen = _editExpandedPanel && _editExpandedPanel.kind === 'flow' && _editExpandedPanel.i === i;
       row.innerHTML = `
         <button class="edit-layer-bypass${step.on ? ' on' : ''}" data-i="${i}" data-act="bypass" title="bypass">◉</button>
         <span class="edit-layer-name">${_editLayerLabel(step)}</span>
         ${step.engine === 'cam' ? `<button class="edit-layer-cfg${famOpen ? ' active' : ''}" data-i="${i}" data-act="famtoggle" title="familia">FAM</button>` : ''}
         ${step.engine === 'glitch' ? `<button class="edit-layer-cfg${glitchOpen ? ' active' : ''}" data-i="${i}" data-act="glitchtoggle" title="parámetros">⚙</button>` : ''}
+        ${step.engine === 'ascii' ? `<button class="edit-layer-cfg${asciiOpen ? ' active' : ''}" data-i="${i}" data-act="asciitoggle" title="parámetros">⚙</button>` : ''}
+        ${step.engine === 'flowblob' ? `<button class="edit-layer-cfg${flowOpen ? ' active' : ''}" data-i="${i}" data-act="flowtoggle" title="parámetros">⚙</button>` : ''}
         <button class="edit-layer-btn" data-i="${i}" data-act="up" ${i === 0 ? 'disabled' : ''}>▲</button>
         <button class="edit-layer-btn" data-i="${i}" data-act="down" ${i === editSteps.length - 1 ? 'disabled' : ''}>▼</button>
         <button class="edit-layer-btn remove" data-i="${i}" data-act="remove">✕</button>
       `;
       list.appendChild(row);
       if (famOpen) list.insertAdjacentHTML('beforeend', _editFamPanelHtml(i, step));
-      if (glitchOpen) list.insertAdjacentHTML('beforeend', _editGlitchPanelHtml(i));
+      if (glitchOpen) list.insertAdjacentHTML('beforeend', _editGlitchPanelHtml(i, step));
+      if (asciiOpen) list.insertAdjacentHTML('beforeend', _editAsciiPanelHtml(i, step));
+      if (flowOpen) list.insertAdjacentHTML('beforeend', _editFlowPanelHtml(i, step));
     });
-    const full = editSteps.length >= 3;
+    const full = editSteps.length >= EDIT_MAX_LAYERS;
     document.getElementById('btnEditAddCam').disabled = full;
     document.getElementById('btnEditAddGlitch').disabled = full;
+    document.getElementById('btnEditAddAscii').disabled = full;
+    document.getElementById('btnEditAddFlow').disabled = full;
     if (window._editSyncHudLayout) window._editSyncHudLayout();
   }
 
-  const _EDIT_GLITCH_SETTERS = {
-    chroma:     v => { scrChromaVal = v; },
-    drip:       v => { scrDripVal = v; },
-    neon:       v => { scrNeonVal = v; },
-    wave:       v => { scrWaveVal = v; },
-    crush:      v => { scrCrushVal = v; },
-    hue:        v => { scrHueVal = v; },
-    grain:      v => { scrGrainVal = v; },
-    chaos:      v => { scrChaosVal = v; },
-    audioreact: v => { scrAudioReactVal = v; },
-    speed:      v => { scrSpeedVal = v; },
-  };
-  const _EDIT_GLITCH_MIRROR = {
-    chroma: ['scrChroma', 'vScrChroma'], drip: ['scrDrip', 'vScrDrip'], neon: ['scrNeon', 'vScrNeon'],
-    wave: ['scrWave', 'vScrWave'], crush: ['scrCrush', 'vScrCrush'], hue: ['scrHue', 'vScrHue'],
-    grain: ['scrGrain', 'vScrGrain'], chaos: ['scrChaos', 'vScrChaos'],
-    audioreact: ['scrAudioReact', 'vScrAudioReact'], speed: ['scrSpeed', 'vScrSpeed'],
-  };
   document.getElementById('editLayersList').addEventListener('input', e => {
-    const el = e.target.closest('input[data-glitch-param]');
-    if (!el) return;
-    const param = el.dataset.glitchParam;
-    const v = +el.value;
-    (_EDIT_GLITCH_SETTERS[param] || (() => {}))(v);
-    const valEl = document.querySelector(`[data-glitch-val="${param}"]`);
-    if (valEl) valEl.textContent = param === 'audioreact' ? v + '%' : v;
-    const mirror = _EDIT_GLITCH_MIRROR[param];
-    if (mirror) {
-      const mEl = document.getElementById(mirror[0]), mVEl = document.getElementById(mirror[1]);
-      if (mEl) mEl.value = v;
-      if (mVEl) mVEl.textContent = param === 'audioreact' ? v + '%' : v;
+    const glitchEl = e.target.closest('input[data-glitch-param]');
+    const asciiEl = e.target.closest('input[data-ascii-param]');
+    if (glitchEl) {
+      const i = _editExpandedPanel ? _editExpandedPanel.i : null;
+      if (i == null || !editSteps[i] || editSteps[i].engine !== 'glitch') return;
+      const param = glitchEl.dataset.glitchParam;
+      const v = +glitchEl.value;
+      if (!editSteps[i].params) editSteps[i].params = _editDefaultGlitchParams();
+      editSteps[i].params[param] = v;
+      const valEl = document.querySelector(`[data-glitch-val="${param}"]`);
+      if (valEl) valEl.textContent = param === 'audioReact' ? v + '%' : v;
+      saveSettings();
+      return;
     }
-    saveSettings();
-    if (uploadMode === 'scrash' && lastUploadSrc) renderUploadPreview();
+    if (asciiEl) {
+      const i = _editExpandedPanel ? _editExpandedPanel.i : null;
+      if (i == null || !editSteps[i] || editSteps[i].engine !== 'ascii') return;
+      const param = asciiEl.dataset.asciiParam;
+      const v = +asciiEl.value;
+      if (!editSteps[i].params) editSteps[i].params = _editDefaultAsciiParams();
+      editSteps[i].params[param] = v;
+      const valEl = document.querySelector(`[data-ascii-val="${param}"]`);
+      if (valEl) valEl.textContent = v;
+      saveSettings();
+    }
   });
 
   document.getElementById('editLayersList').addEventListener('click', e => {
@@ -20435,31 +20744,58 @@ function _editLoop(ts) {
     if (act === 'bypass') { editSteps[i].on = !editSteps[i].on; }
     else if (act === 'up' && i > 0) { const t = editSteps[i - 1]; editSteps[i - 1] = editSteps[i]; editSteps[i] = t; if (_editExpandedPanel) _editExpandedPanel = null; }
     else if (act === 'down' && i < editSteps.length - 1) { const t = editSteps[i + 1]; editSteps[i + 1] = editSteps[i]; editSteps[i] = t; if (_editExpandedPanel) _editExpandedPanel = null; }
-    else if (act === 'remove') { editSteps.splice(i, 1); if (!editSteps.length) editSteps.push({ engine: 'glitch', on: true }); _editExpandedPanel = null; }
+    else if (act === 'remove') { editSteps.splice(i, 1); if (!editSteps.length) editSteps.push({ engine: 'glitch', on: true, params: _editDefaultGlitchParams() }); _editExpandedPanel = null; }
     else if (act === 'famtoggle') {
       _editExpandedPanel = (_editExpandedPanel && _editExpandedPanel.kind === 'fam' && _editExpandedPanel.i === i) ? null : { i, kind: 'fam' };
     } else if (act === 'glitchtoggle') {
       _editExpandedPanel = (_editExpandedPanel && _editExpandedPanel.kind === 'glitch' && _editExpandedPanel.i === i) ? null : { i, kind: 'glitch' };
+    } else if (act === 'asciitoggle') {
+      _editExpandedPanel = (_editExpandedPanel && _editExpandedPanel.kind === 'ascii' && _editExpandedPanel.i === i) ? null : { i, kind: 'ascii' };
+    } else if (act === 'flowtoggle') {
+      _editExpandedPanel = (_editExpandedPanel && _editExpandedPanel.kind === 'flow' && _editExpandedPanel.i === i) ? null : { i, kind: 'flow' };
     } else if (act === 'setfam') {
       editSteps[i].family = btn.dataset.fam;
+    } else if (act === 'setink') {
+      if (!editSteps[i].params) editSteps[i].params = _editDefaultAsciiParams();
+      editSteps[i].params.ink = btn.dataset.val;
+    } else if (act === 'setpaper') {
+      if (!editSteps[i].params) editSteps[i].params = _editDefaultAsciiParams();
+      editSteps[i].params.paper = btn.dataset.val;
+    } else if (act === 'setgradient') {
+      if (!editSteps[i].params) editSteps[i].params = _editDefaultAsciiParams();
+      editSteps[i].params.gradient = btn.dataset.val;
+    } else if (act === 'setaura') {
+      if (!editSteps[i].params) editSteps[i].params = _editDefaultFlowParams();
+      editSteps[i].params.aura = btn.dataset.val;
+    } else if (act === 'setflowink') {
+      if (!editSteps[i].params) editSteps[i].params = _editDefaultFlowParams();
+      editSteps[i].params.ink = btn.dataset.val;
     } else if (act === 'glitchanimate') {
-      scrAnimateOn = !scrAnimateOn;
-      const mBtn = document.getElementById('btnScrashAnimate');
-      if (mBtn) mBtn.classList.toggle('active', scrAnimateOn);
-      if (typeof _syncScrashEditorPane === 'function') _syncScrashEditorPane();
+      if (!editSteps[i].params) editSteps[i].params = _editDefaultGlitchParams();
+      editSteps[i].params.animate = !editSteps[i].params.animate;
     }
     _editRenderLayers();
     _editSyncPersisted();
   });
 
   document.getElementById('btnEditAddCam').addEventListener('click', () => {
-    if (editSteps.length >= 3) return;
+    if (editSteps.length >= EDIT_MAX_LAYERS) return;
     editSteps.push({ engine: 'cam', on: true, family: camFamily });
     _editRenderLayers(); _editSyncPersisted();
   });
   document.getElementById('btnEditAddGlitch').addEventListener('click', () => {
-    if (editSteps.length >= 3) return;
-    editSteps.push({ engine: 'glitch', on: true });
+    if (editSteps.length >= EDIT_MAX_LAYERS) return;
+    editSteps.push({ engine: 'glitch', on: true, params: _editDefaultGlitchParams() });
+    _editRenderLayers(); _editSyncPersisted();
+  });
+  document.getElementById('btnEditAddAscii').addEventListener('click', () => {
+    if (editSteps.length >= EDIT_MAX_LAYERS) return;
+    editSteps.push({ engine: 'ascii', on: true, params: _editDefaultAsciiParams() });
+    _editRenderLayers(); _editSyncPersisted();
+  });
+  document.getElementById('btnEditAddFlow').addEventListener('click', () => {
+    if (editSteps.length >= EDIT_MAX_LAYERS) return;
+    editSteps.push({ engine: 'flowblob', on: true, params: _editDefaultFlowParams() });
     _editRenderLayers(); _editSyncPersisted();
   });
 
@@ -20467,8 +20803,20 @@ function _editLoop(ts) {
   function _editSetSourcePill(type) {
     document.querySelectorAll('.edit-src-pill').forEach(b => b.classList.toggle('active', b.dataset.editSrc === type));
     const sens = document.getElementById('editAudioSens');
-    if (sens) sens.style.display = (type === 'audio') ? 'flex' : 'none';
+    if (sens) sens.style.display = (type === 'audio' || type === 'sono' || type === 'wmp') ? 'flex' : 'none';
   }
+  document.getElementById('editSrcSono').addEventListener('click', () => {
+    editSource = { type: 'sono' };
+    _editSetSourcePill('sono');
+    if (!((extAudioMode || extMicOnlyMode) && extAnalyser)) flipToast('🎙 Activá EXT AUDIO o el mic para reaccionar al sonido');
+    _editSyncPersisted();
+  });
+  document.getElementById('editSrcWmp').addEventListener('click', () => {
+    editSource = { type: 'wmp' };
+    _editSetSourcePill('wmp');
+    if (!((extAudioMode || extMicOnlyMode) && extAnalyser)) flipToast('🎙 Activá EXT AUDIO o el mic para reaccionar al sonido');
+    _editSyncPersisted();
+  });
   document.getElementById('editSrcCam').addEventListener('click', () => {
     editSource = { type: 'cam' };
     _editSetSourcePill('cam');

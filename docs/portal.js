@@ -1,175 +1,376 @@
-// PORTAL · una ventana que se abre con las manos.
+// PORTAL · ventanas que se abren con las manos.
 //
-// La cámara se ve tal cual. Al hacer el marco con las dos manos (pulgar e índice en «L») y
-// separarlas, entre las cuatro yemas se abre una ventana y dentro la imagen sale con la cámara
-// elegida: DSi, DLPHN, STAMP (solo su trama), ASCII, las que reaccionan al sonido… Con una sola
-// mano (la otra sujeta el teléfono) la ventana es una lente entre el pulgar y el índice.
+// La cámara se ve tal cual. Con las dos manos en «L» (pulgar e índice) se dibuja un marco: sus
+// lados siguen a los dedos y dentro la imagen sale con la cámara elegida (DSi, DLPHN, STAMP —solo
+// su trama—, ASCII, las que siguen al sonido…). Con una mano, la ventana es la esquina que
+// dibujan su pulgar y su índice.
 //
-// Vive sobre CAM: usa su visor, su bandeja de cámaras, su disparador y su grabación, así que
-// la foto y el vídeo son exactamente lo que se ve.
+// Las ventanas se pueden FIJAR: tocando el pulgar con el anular (un clic, con el índice aún
+// abierto), con la tecla FIJAR o tocando el visor. Cada portal fijado conserva su figura, su sitio
+// y su estilo; se elige otro estilo y se fija otro, y así se compone un vitral. Un portal fijado
+// se mueve arrastrándolo (con dos dedos se escala y se gira), cambia de estilo al tocar otra
+// cámara y se borra con su aspa o con BORRAR.
+//
+// Para que vaya pegado a los dedos:
+//   · el dibujo es WebGL a la cadencia de la pantalla; en Android la cámara entra por sus planos
+//     nativos (sensor.js) y el sombreador la pasa a color;
+//   · cada mano tiene un estimador (filtro 1€ + velocidad) que adelanta su posición lo que tardó
+//     la inferencia, y entre dos detecciones el movimiento se interpola a cada cuadro;
+//   · el rastreador arranca con el delegado de CPU (igual en todos los dispositivos) y prueba el
+//     de GPU en paralelo: si coincide con el de CPU y es más rápido, se queda con él.
+// Vive sobre CAM: usa su visor, su bandeja, su disparador y su grabación; foto y vídeo son lo que se ve.
 const flipPortal = (() => {
   'use strict';
   const LIB = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/+esm';
   const WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm';
   const MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
-  const INPUT = 320;          // lado largo de la imagen que ve el rastreador
-  const LOST_MS = 380;        // sin manos este tiempo, la ventana se cierra
-  const MIN_AREA = 0.0035;    // fracción del cuadro a partir de la cual la ventana existe
-  const THUMB = 4, INDEX = 8;
+  const INPUT = 256;          // lado largo de la imagen que ve el rastreador
+  const BASE_LONG = 480;      // lado largo del lienzo pequeño del que beben el rastreador y los estilos
+  const FX_LONG = 960;        // lado largo de cada estilo dentro de su ventana
+  const LOST_MS = 300;        // sin detección este tiempo, una mano deja de existir
+  const MIN_AREA = 0.004;     // fracción del cuadro a partir de la cual la ventana existe
+  const MAX_PANES = 8;
+  const WRIST = 0, THUMB_MCP = 2, THUMB = 4, INDEX_MCP = 5, INDEX = 8, MIDDLE_MCP = 9, RING = 16;
+  const TAU = Math.PI * 2;
+  const ANDROID = /Android/i.test(navigator.userAgent);
+  const clamp = (v, lo = 0, hi = 1) => (v < lo ? lo : v > hi ? hi : v);
+  const feel = (kind, phase, x) => { if (window.flipFeel) flipFeel.tap(kind, phase, x); };
 
   const state = {
-    active: false, phase: 'idle', message: '', worker: null, loading: null, provider: null,
-    busy: false, sentAt: 0, timer: 0, strikes: 0, ms: 0, seq: 0,
-    input: null, ictx: null,
-    targets: [],            // manos de la última detección: Float32Array(42) en 0…1
-    seenAt: -Infinity,
-    hands: [],              // manos suavizadas, en píxeles del lienzo
-    shape: null,            // { kind:'quad'|'lens', points:[x,y…] | cx,cy,r }
-    amount: 0, opened: -Infinity, locked: false, lastT: 0,
-    base: null, bctx: null, fx: null, fctx: null, fxAt: -Infinity, fxKey: '',
-    look: '',               // '' = cámara de CAM; 'ASCII' | 'SONO' | 'WMP'
-    audioReady: false, hinted: false,
+    active: false, lastT: 0,
+    base: null, bctx: null, baseAt: -Infinity,
+    hands: [],                    // manos vivas en píxeles, adelantadas al instante del dibujo
+    shape: null, amount: 0, opened: -Infinity,
+    mode: '', slots: null, lensAfter: 0,
+    trail: [],                    // figuras recientes: al fijar se toma la de justo antes del clic
+    wait: false,                  // tras fijar, la ventana viva espera a que se suelte el clic
+    lockedAt: -Infinity, pinched: false,
+    look: '', audioReady: false, shown: null, fxError: '', hintLock: 0,
   };
 
   // ── Rastreador de manos ───────────────────────────────────────────────────
-  function stopWorker() {
-    if (!state.worker) return;
-    try { state.worker.postMessage({ type: 'close' }); } catch (_) {}
-    const worker = state.worker;
-    state.worker = null;
-    setTimeout(() => { try { worker.terminate(); } catch (_) {} }, 300);
-  }
-  function settle() { clearTimeout(state.timer); state.busy = false; }
-  function accept(hands, ms) {
-    state.targets = hands.map(hand => hand.points);
-    if (hands.length) state.seenAt = performance.now();
-    state.ms = ms; state.seq++; state.strikes = 0;
-  }
-  function strike(reason) {
-    state.error = String(reason || '');
-    if (++state.strikes < 3) return;
-    stopWorker();
-    state.phase = 'failed';
-    state.message = 'El seguimiento de manos dejó de responder. Toca el visor para reintentar.';
-  }
-  function start() {
-    if (state.phase === 'ready' || state.loading) return state.loading || Promise.resolve(true);
-    if (state.provider) { state.phase = 'ready'; return Promise.resolve(true); }
-    state.phase = 'loading';
-    state.message = 'Cargando el seguimiento de manos…';
-    state.loading = new Promise(resolve => {
+  const trk = { phase: 'idle', message: '', error: '', loading: null, provider: null, main: null, cand: null, strikes: 0, ms: 0, frames: 0,
+    input: null, ictx: null, cal: null, score: null, delegate: '', raw: [], rawAt: -Infinity };
+  const CHOICE = 'flip.hands.delegate';
+  const chrome = (navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1] || '';
+  function remembered() { try { const v = JSON.parse(localStorage.getItem(CHOICE) || 'null'); return v && v.v === chrome ? v.d : ''; } catch (_) { return ''; } }
+  function remember(d) { try { localStorage.setItem(CHOICE, JSON.stringify({ d, v: chrome })); } catch (_) {} }
+  function spawn(delegate) {
+    return new Promise(resolve => {
       let worker;
-      const fail = message => {
-        state.phase = 'failed';
-        state.error = message;
-        state.message = navigator.onLine === false ? 'El seguimiento de manos necesita conexión la primera vez.' : 'No se pudo cargar el seguimiento de manos. Toca el visor para reintentar.';
-        resolve(false);
-      };
-      try { worker = new Worker('./hands-worker.js'); } catch (error) { fail(String(error)); return; }
-      const timer = setTimeout(() => { worker.terminate(); fail('tiempo de carga agotado'); }, 40000);
+      try { worker = new Worker('./hands-worker.js'); } catch (error) { resolve({ error: String(error) }); return; }
+      const rec = { worker, delegate, busy: false, sentAt: 0, timer: 0, ms: 0, dead: false };
       let ready = false;
+      const give = message => { clearTimeout(boot); rec.dead = true; try { worker.terminate(); } catch (_) {} resolve({ error: message }); };
+      const boot = setTimeout(() => give('tiempo de carga agotado'), 45000);
       worker.onmessage = event => {
         const msg = event.data || {};
-        if (msg.type === 'ready') {
-          ready = true; clearTimeout(timer);
-          state.worker = worker; state.phase = 'ready'; state.message = ''; state.strikes = 0;
-          resolve(true);
-        } else if (msg.type === 'hands') {
-          if (worker !== state.worker) return;
-          settle(); accept(msg.hands, msg.ms);
-        } else if (msg.type === 'error') {
-          if (!ready) { clearTimeout(timer); worker.terminate(); fail(msg.message); return; }
-          if (worker === state.worker) { settle(); strike(msg.message); }
-        }
+        if (msg.type === 'ready') { ready = true; clearTimeout(boot); resolve(rec); }
+        else if (msg.type === 'hands') onHands(rec, msg);
+        else if (msg.type === 'error') { if (ready) onFault(rec, msg.message); else give(msg.message); }
       };
-      worker.onerror = event => {
-        if (!ready) { clearTimeout(timer); worker.terminate(); fail(event.message || 'error del worker'); return; }
-        if (worker === state.worker) { settle(); strike(event.message); }
-      };
-      worker.postMessage({ type: 'init', lib: LIB, wasm: WASM, model: MODEL });
+      worker.onerror = event => { if (ready) onFault(rec, event.message); else give(event.message || 'error del worker'); };
+      worker.postMessage({ type: 'init', lib: LIB, wasm: WASM, model: MODEL, delegate });
     });
-    state.loading.finally(() => { state.loading = null; });
-    return state.loading;
   }
-  function push(canvas) {
-    if (state.phase !== 'ready' || state.busy) return;
+  function kill(rec) {
+    if (!rec || rec.dead) return;
+    rec.dead = true; rec.busy = false;
+    clearTimeout(rec.timer);
+    try { rec.worker.postMessage({ type: 'close' }); } catch (_) {}
+    setTimeout(() => { try { rec.worker.terminate(); } catch (_) {} }, 300);
+  }
+  function stop(keepHands) {
+    kill(trk.main); kill(trk.cand);
+    trk.main = trk.cand = null; trk.cal = null; trk.score = null;
+    if (trk.phase !== 'failed') trk.phase = 'idle';
+    if (!keepHands) { tracks.length = 0; trk.raw = []; }
+  }
+  function start() {
+    if (trk.phase === 'ready' || trk.loading) return trk.loading || Promise.resolve(true);
+    if (trk.provider) { trk.phase = 'ready'; return Promise.resolve(true); }
+    trk.phase = 'loading';
+    trk.message = 'Cargando el seguimiento de manos…';
+    const known = remembered(), first = known === 'GPU' ? 'GPU' : 'CPU';
+    trk.loading = (async () => {
+      let rec = await spawn(first);
+      if (rec.error && first === 'GPU') { remember('CPU'); rec = await spawn('CPU'); }      // la GPU dejó de servir
+      if (rec.error) {
+        trk.phase = 'failed'; trk.error = rec.error;
+        trk.message = navigator.onLine === false ? 'El seguimiento de manos necesita conexión la primera vez.' : 'No se pudo cargar el seguimiento de manos. Toca el visor para reintentar.';
+        return false;
+      }
+      if (trk.phase !== 'loading') { kill(rec); return false; }                              // se salió mientras cargaba
+      trk.main = rec; trk.delegate = rec.delegate; trk.phase = 'ready'; trk.message = ''; trk.strikes = 0;
+      // Sin veredicto para este dispositivo: el delegado de GPU se prueba en paralelo, sin estorbar.
+      if (!known && rec.delegate === 'CPU') spawn('GPU').then(cand => {
+        if (cand.error) { remember('CPU'); return; }
+        if (trk.main !== rec || trk.phase !== 'ready') { kill(cand); return; }
+        trk.cand = cand; trk.score = { ok: 0, bad: 0, ms: [] }; trk.cal = null;
+      });
+      return true;
+    })();
+    trk.loading.finally(() => { trk.loading = null; });
+    return trk.loading;
+  }
+  function send(rec, canvas, id) {
     const scale = INPUT / Math.max(canvas.width, canvas.height);
     const w = Math.max(16, Math.round(canvas.width * scale)), h = Math.max(16, Math.round(canvas.height * scale));
-    if (state.provider) {
-      const hands = state.provider(performance.now()) || [];
-      accept(hands.map(points => ({ points })), 0);
-      return;
+    if (!trk.input) { trk.input = new OffscreenCanvas(w, h); trk.ictx = trk.input.getContext('2d'); }
+    if (trk.input.width !== w || trk.input.height !== h) { trk.input.width = w; trk.input.height = h; }
+    trk.ictx.drawImage(canvas, 0, 0, w, h);
+    const bitmap = trk.input.transferToImageBitmap();
+    rec.busy = true; rec.sentAt = performance.now(); rec.id = id;
+    clearTimeout(rec.timer);
+    rec.timer = setTimeout(() => { rec.busy = false; onFault(rec, 'sin respuesta'); }, 4000);
+    rec.worker.postMessage({ type: 'frame', id, bitmap }, [bitmap]);
+  }
+  let frameId = 0;
+  function push(canvas) {
+    if (trk.phase !== 'ready' || !canvas || !canvas.width) return;
+    if (trk.provider) { accept(dedupe(trk.provider(performance.now()) || []), 0, performance.now()); return; }
+    const main = trk.main;
+    if (!main || main.busy) return;
+    const id = ++frameId;
+    send(main, canvas, id);
+    // Calibración: el mismo cuadro va también al candidato, para comparar sus manos con las de referencia.
+    if (trk.cand && !trk.cand.busy && !trk.cal) { trk.cal = { id, main: null, cand: null, ms: 0 }; send(trk.cand, canvas, id); }
+  }
+  // El modelo a veces da la misma mano dos veces.
+  function dedupe(hands) {
+    const out = [];
+    for (const hand of hands) if (!out.some(o => Math.hypot(o[0] - hand[0], o[1] - hand[1]) + Math.hypot(o[18] - hand[18], o[19] - hand[19]) < 0.08)) out.push(hand);
+    return out.slice(0, 2);
+  }
+  function onHands(rec, msg) {
+    if (rec.dead) return;
+    clearTimeout(rec.timer);
+    rec.busy = false; rec.ms = msg.ms;
+    const hands = dedupe(msg.hands.map(hand => { hand.points.meta = hand.meta || null; return hand.points; }));
+    if (rec === trk.main) {
+      accept(hands, msg.ms, rec.sentAt);
+      if (trk.cal && trk.cal.id === msg.id) { trk.cal.main = hands; judge(); }
+      // El cuadro siguiente sale ya, sin esperar al próximo dibujo: la inferencia nunca está parada.
+      if (state.active && state.base && performance.now() - state.baseAt < 50) push(state.base);
+    } else if (rec === trk.cand) {
+      if (trk.cal && trk.cal.id === msg.id) { trk.cal.cand = hands; trk.cal.ms = msg.ms; judge(); } else trk.cal = null;
     }
-    if (!state.input) { state.input = new OffscreenCanvas(w, h); state.ictx = state.input.getContext('2d'); }
-    if (state.input.width !== w || state.input.height !== h) { state.input.width = w; state.input.height = h; }
-    state.ictx.drawImage(canvas, 0, 0, w, h);
-    const bitmap = state.input.transferToImageBitmap();
-    state.busy = true;
-    state.sentAt = performance.now();
-    const worker = state.worker;
-    state.timer = setTimeout(() => { if (worker === state.worker) { settle(); strike('sin respuesta'); } }, 4000);
-    worker.postMessage({ type: 'frame', id: state.seq, bitmap }, [bitmap]);
+  }
+  // ¿El delegado de GPU ve lo mismo que el de CPU? Solo cuentan los cuadros en que hay manos.
+  function judge() {
+    const cal = trk.cal, score = trk.score;
+    if (!cal || !cal.main || !cal.cand || !score) return;
+    trk.cal = null;
+    if (!cal.main.length) return;
+    let same = cal.cand.length === cal.main.length;
+    if (same) for (const hand of cal.main) {
+      let best = Infinity;
+      for (const other of cal.cand) { let d = 0; for (let i = 0; i < 42; i += 2) d += Math.hypot(hand[i] - other[i], hand[i + 1] - other[i + 1]); best = Math.min(best, d / 21); }
+      if (best > 0.04) same = false;
+    }
+    if (same) { score.ok++; score.ms.push(cal.ms); } else score.bad++;
+    if (score.bad >= 4) { kill(trk.cand); trk.cand = null; trk.score = null; remember('CPU'); return; }
+    if (score.ok < 6) return;
+    const typical = score.ms.slice().sort((a, b) => a - b)[score.ms.length >> 1];
+    if (typical < (trk.main.ms || 40) * 0.75) { const old = trk.main; trk.main = trk.cand; trk.delegate = 'GPU'; kill(old); remember('GPU'); }
+    else { kill(trk.cand); remember('CPU'); }
+    trk.cand = null; trk.score = null;
+  }
+  function onFault(rec, reason) {
+    if (rec.dead) return;
+    trk.error = String(reason || '');
+    if (rec === trk.cand) { kill(rec); trk.cand = null; trk.score = null; trk.cal = null; remember('CPU'); return; }
+    if (rec !== trk.main || ++trk.strikes < 3) return;
+    kill(rec); trk.main = null;
+    if (rec.delegate === 'GPU') { remember('CPU'); trk.phase = 'idle'; trk.strikes = 0; start(); return; }   // la GPU falló en uso
+    trk.phase = 'failed';
+    trk.message = 'El seguimiento de manos dejó de responder. Toca el visor para reintentar.';
   }
 
-  // ── Manos suavizadas y forma de la ventana ────────────────────────────────
-  // Cada mano detectada se empareja con la suavizada más cercana para que no salten de una a otra.
-  function follow(w, h, dt) {
-    const fresh = performance.now() - state.seenAt < LOST_MS;
-    const targets = fresh ? state.targets : [];
-    const next = [];
-    const free = state.hands.slice();
-    for (const target of targets) {
-      const tx = target[0] * w, ty = target[1] * h;
-      let best = -1, bestD = Infinity;
-      free.forEach((hand, index) => { const d = (hand[0] - tx) ** 2 + (hand[1] - ty) ** 2; if (d < bestD) { bestD = d; best = index; } });
-      const hand = best >= 0 && bestD < (w * 0.4) ** 2 ? free.splice(best, 1)[0] : null;
-      const out = hand || new Float32Array(42);
+  // ── Estimador de cada mano ────────────────────────────────────────────────
+  // Filtro 1€ por coordenada (suave cuando la mano está quieta, rápido cuando se mueve) y su
+  // velocidad. Al dibujar, la posición se adelanta lo que hace que se tomó el cuadro analizado.
+  const MIN_CUTOFF = 1.6, BETA = 10, D_CUTOFF = 5;
+  const tracks = [];
+  const alpha = (dt, cutoff) => 1 / (1 + 1 / (TAU * cutoff * dt));
+  function accept(hands, ms, capturedAt) {
+    const now = performance.now(), t = capturedAt / 1000;
+    trk.raw = hands; trk.rawAt = hands.length ? now : trk.rawAt;
+    trk.ms = ms; trk.frames++; trk.strikes = 0;
+    const free = tracks.slice(), next = [];
+    const gap = (track, points) => Math.hypot(track.raw[0] - points[0], track.raw[1] - points[1]) + Math.hypot(track.raw[18] - points[18], track.raw[19] - points[19]);
+    // Dos manos y dos pistas: el emparejamiento que menos las mueve (no se cruzan aunque se acerquen).
+    let plan = null;
+    if (hands.length === 2 && free.length === 2) plan = gap(free[0], hands[0]) + gap(free[1], hands[1]) <= gap(free[0], hands[1]) + gap(free[1], hands[0]) ? [free[0], free[1]] : [free[1], free[0]];
+    for (let index = 0; index < hands.length; index++) {
+      const points = hands[index];
+      let best = plan ? plan[index] : null, bestD = 1.2;                    // una mano no aparece de la nada si otra acaba de irse: es la misma, que se movió
+      if (!plan) for (const track of free) { const d = gap(track, points); if (d < bestD) { bestD = d; best = track; } }
+      if (best) {
+        free.splice(free.indexOf(best), 1);
+        const dt = t - best.at;
+        if (dt <= 0 || dt > 0.35) { best.x.set(points); best.v.fill(0); }
+        else for (let i = 0; i < 42; i++) {
+          best.v[i] += alpha(dt, D_CUTOFF) * ((points[i] - best.raw[i]) / dt - best.v[i]);
+          best.x[i] += alpha(dt, MIN_CUTOFF + BETA * Math.abs(best.v[i])) * (points[i] - best.x[i]);
+        }
+        best.raw.set(points); best.at = t; best.seen = now;
+        touch(best, points, now);
+        next.push(best);
+      } else next.push({ x: Float32Array.from(points), raw: Float32Array.from(points), v: new Float32Array(42), px: new Float32Array(42), at: t, seen: now, born: now, pinch: false, hits: 0, openAt: 0 });
+    }
+    // Una mano que falta en una detección sigue un momento donde iba, frenando.
+    for (const track of free) if (now - track.seen < LOST_MS && next.length < 2) { for (let i = 0; i < 42; i++) track.v[i] *= 0.6; track.pinch = false; track.hits = 0; next.push(track); }
+    tracks.length = 0;
+    for (const track of next) tracks.push(track);
+  }
+  function pose(now, w, h) {
+    const out = [];
+    for (const track of tracks) {
+      if (now - track.seen > LOST_MS) continue;
+      const lead = clamp(now / 1000 - track.at, 0, 0.11);
+      let speed = 0;
+      for (const i of [WRIST, THUMB, INDEX, MIDDLE_MCP]) speed += Math.hypot(track.v[2 * i], track.v[2 * i + 1]);
+      const gain = clamp((speed / 4 - 0.05) / 0.3) * 0.9;          // quieta no se adelanta (no tiembla); en movimiento, sí
       for (let i = 0; i < 21; i++) {
-        const x = target[2 * i] * w, y = target[2 * i + 1] * h;
-        if (!hand) { out[2 * i] = x; out[2 * i + 1] = y; continue; }
-        // Más rápido cuanto más lejos está el punto: quieto no tiembla, en movimiento no se arrastra.
-        const d = Math.hypot(x - out[2 * i], y - out[2 * i + 1]);
-        const tau = d > w * 0.05 ? 18 : d > w * 0.012 ? 40 : 85;
-        const k = 1 - Math.exp(-dt / tau);
-        out[2 * i] += (x - out[2 * i]) * k; out[2 * i + 1] += (y - out[2 * i + 1]) * k;
+        track.px[2 * i] = (track.x[2 * i] + track.v[2 * i] * lead * gain) * w;
+        track.px[2 * i + 1] = (track.x[2 * i + 1] + track.v[2 * i + 1] * lead * gain) * h;
       }
-      next.push(out);
+      out.push(track.px);
     }
-    state.hands = next;
+    return out;
   }
-  function shapeFrom(hands, w, h) {
-    if (hands.length >= 2) {
-      const pair = hands.slice(0, 2).sort((a, b) => (a[2 * THUMB] + a[2 * INDEX]) - (b[2 * THUMB] + b[2 * INDEX]));
-      const corner = hand => {
-        const a = [hand[2 * THUMB], hand[2 * THUMB + 1]], b = [hand[2 * INDEX], hand[2 * INDEX + 1]];
-        return a[1] < b[1] ? [a, b] : [b, a];   // [arriba, abajo]
-      };
-      const [lu, ld] = corner(pair[0]), [ru, rd] = corner(pair[1]);
-      const points = [lu[0], lu[1], ru[0], ru[1], rd[0], rd[1], ld[0], ld[1]];
-      let area = 0;
-      for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; area += points[2 * i] * points[2 * j + 1] - points[2 * j] * points[2 * i + 1]; }
-      return { kind: 'quad', points, area: Math.abs(area) / 2 / (w * h), cx: (lu[0] + ru[0] + rd[0] + ld[0]) / 4, cy: (lu[1] + ru[1] + rd[1] + ld[1]) / 4 };
+  // El clic: la yema del anular toca la del pulgar con el índice todavía abierto. Se mide en 3D
+  // (metros, del modelo de la mano): en 2D dos yemas coinciden por perspectiva sin tocarse. Tiene
+  // que venir de abierto y durar dos detecciones: una pose que ya llega cerrada no cuenta.
+  function touch(track, points, now) {
+    let ring, open;
+    if (points.meta) { ring = points.meta[0] / 0.03; open = points.meta[1] > 0.055 && points.meta[2] > 0.125; }
+    else {                                                                   // sin 3D (pruebas): en píxeles, relativo al tamaño de la mano
+      const W = state.w || 1, H = state.h || 1, far = (a, b) => Math.hypot((points[2 * a] - points[2 * b]) * W, (points[2 * a + 1] - points[2 * b + 1]) * H);
+      const size = far(WRIST, MIDDLE_MCP) || 1;
+      ring = far(RING, THUMB) / size / 0.27; open = far(INDEX, THUMB) / size > 0.5;
     }
-    if (hands.length === 1) {
-      const hand = hands[0];
-      const ax = hand[2 * THUMB], ay = hand[2 * THUMB + 1], bx = hand[2 * INDEX], by = hand[2 * INDEX + 1];
-      const r = Math.hypot(bx - ax, by - ay) * 0.56;
-      return { kind: 'lens', cx: (ax + bx) / 2, cy: (ay + by) / 2, r, area: (Math.PI * r * r) / (w * h) };
-    }
-    return null;
-  }
-  function trace(ctx, shape, grow) {
-    ctx.beginPath();
-    if (shape.kind === 'lens') { ctx.arc(shape.cx, shape.cy, Math.max(0.5, shape.r * grow), 0, 6.2832); return; }
-    const p = shape.points;
-    for (let i = 0; i < 4; i++) {
-      const x = shape.cx + (p[2 * i] - shape.cx) * grow, y = shape.cy + (p[2 * i + 1] - shape.cy) * grow;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
+    if (ring > 2) track.openAt = now;
+    if (track.pinch ? ring > 1.6 : !(ring < 1 && open)) { track.pinch = false; track.hits = 0; return; }
+    track.hits = (track.hits || 0) + 1;
+    if (track.pinch || track.hits < 2) return;
+    track.pinch = true;
+    if (now - (track.openAt || -Infinity) < 1500 && now - track.born > 300) trk.clickAt = now;
   }
 
-  // ── Efecto dentro de la ventana ───────────────────────────────────────────
+  // ── El marco recuerda a sus dos manos ─────────────────────────────────────
+  // Al abrir mucho el marco, una mano se sale del cuadro o el rastreador la pierde un instante.
+  // El marco no se convierte entonces en la ventana de una sola mano: la que falta se queda donde
+  // estaba y, si se fue por un lado, su borde llega hasta ese lado y espera a que vuelva.
+  const EDGE = 0.2, HOLD_FLICKER = 1100, HOLD_EDGE = 9000, HOLD_BOTH = 2500, HOLD_GONE = 160, DRIFT = 0.26;
+  const centerX = hand => (hand[2 * THUMB] + hand[2 * INDEX]) / 2;
+  const centerY = hand => (hand[2 * THUMB + 1] + hand[2 * INDEX + 1]) / 2;
+  function frameHands(w, h, dt, now) {
+    const live = state.hands;
+    if (live.length >= 2) {
+      const pair = live.slice(0, 2).sort((a, b) => centerX(a) - centerX(b));
+      state.slots = pair.map(hand => ({ pts: Float32Array.from(hand), lostAt: 0, edge: 0 }));
+      state.mode = 'quad';
+      return pair;
+    }
+    if (state.mode !== 'quad' || !state.slots) {
+      if (state.mode === 'closing' && state.amount > 0.04) return [];       // el marco termina de cerrarse antes
+      // Tras un marco, la mano que queda suele estar yéndose: se le da un momento antes de abrirle ventana.
+      if (live.length === 1 && now < state.lensAfter) { state.mode = ''; state.slots = null; return []; }
+      state.mode = live.length === 1 ? 'corner' : '';
+      state.slots = null;
+      return live;
+    }
+    const slots = state.slots;
+    let seen = -1;
+    if (live.length === 1) {
+      const hand = live[0];
+      const far = slot => Math.hypot(centerX(hand) - centerX(slot.pts), centerY(hand) - centerY(slot.pts));
+      seen = far(slots[0]) <= far(slots[1]) ? 0 : 1;
+      slots[seen] = { pts: Float32Array.from(hand), lostAt: 0, edge: 0 };
+    }
+    const ease = 1 - Math.exp(-dt / 110);
+    let holding = true;
+    for (let i = 0; i < 2; i++) {
+      if (i === seen) continue;
+      const slot = slots[i];
+      if (!slot.lostAt) {
+        slot.lostAt = now;
+        slot.refY = seen >= 0 ? centerY(slots[seen].pts) : null;
+        const x = centerX(slot.pts) / w;
+        slot.edge = i === 0 && x < EDGE ? -1 : i === 1 && x > 1 - EDGE ? 1 : 0;   // cada mano solo se va por su lado
+      }
+      if (slot.edge) {                                                       // toda la mano se desliza hasta el borde
+        const tip = slot.edge < 0 ? Math.min(slot.pts[2 * THUMB], slot.pts[2 * INDEX]) : Math.max(slot.pts[2 * THUMB], slot.pts[2 * INDEX]);
+        const shift = ((slot.edge < 0 ? 0 : w) - tip) * ease;
+        for (let k = 0; k < 42; k += 2) slot.pts[k] += shift;
+      }
+      const patience = seen >= 0 ? (slot.edge ? HOLD_EDGE : HOLD_FLICKER) : (slots[0].edge && slots[1].edge ? HOLD_BOTH : HOLD_GONE);
+      if (now - slot.lostAt >= patience) holding = false;
+      // La mano que queda se va (la bajan, la suben): el marco no se estira tras ella, se cierra.
+      if (seen >= 0 && slot.refY != null && Math.abs(centerY(slots[seen].pts) - slot.refY) > h * DRIFT) holding = false;
+    }
+    if (holding) return [slots[0].pts, slots[1].pts];
+    state.lensAfter = now + 1200;
+    state.mode = 'closing';
+    state.slots = null;
+    return [];
+  }
+
+  // ── La figura ─────────────────────────────────────────────────────────────
+  // Cada mano hace una «L»: un dedo apunta hacia dentro (hacia la otra mano) y el otro marca la
+  // altura. El lado de la ventana junto a esa mano va de la yema interior a ese mismo punto
+  // desplazado lo que el otro dedo se separa de él en perpendicular: si la L se cierra (una
+  // pinza), el lado se queda sin altura y la ventana se cierra sola.
+  function side(hand, toward) {
+    const cx = (hand[2 * THUMB_MCP] + hand[2 * INDEX_MCP]) / 2, cy = (hand[2 * THUMB_MCP + 1] + hand[2 * INDEX_MCP + 1]) / 2;
+    let ix = hand[2 * THUMB], iy = hand[2 * THUMB + 1], ox = hand[2 * INDEX], oy = hand[2 * INDEX + 1];
+    if (toward && (ox - cx) * toward[0] + (oy - cy) * toward[1] > (ix - cx) * toward[0] + (iy - cy) * toward[1]) { const sx = ix, sy = iy; ix = ox; iy = oy; ox = sx; oy = sy; }
+    const ux = ix - cx, uy = iy - cy, len2 = ux * ux + uy * uy || 1;
+    const k = ((ox - cx) * ux + (oy - cy) * uy) / len2;
+    const fx = cx + ux * k, fy = cy + uy * k;                                // pie del dedo exterior sobre el interior
+    return { cx, cy, inner: [ix, iy], outer: [ox, oy], foot: [fx, fy], far: [ix + ox - fx, iy + oy - fy] };
+  }
+  const areaOf = pts => { let a = 0; for (let i = 0, n = pts.length / 2; i < n; i++) { const j = (i + 1) % n; a += pts[2 * i] * pts[2 * j + 1] - pts[2 * j] * pts[2 * i + 1]; } return a / 2; };
+  function shapeFrom(hands, w, h) {
+    let pts, kind;
+    if (hands.length >= 2) {
+      const pair = hands.slice(0, 2).sort((a, b) => centerX(a) - centerX(b));
+      const ca = [(pair[0][2 * THUMB_MCP] + pair[0][2 * INDEX_MCP]) / 2, (pair[0][2 * THUMB_MCP + 1] + pair[0][2 * INDEX_MCP + 1]) / 2];
+      const cb = [(pair[1][2 * THUMB_MCP] + pair[1][2 * INDEX_MCP]) / 2, (pair[1][2 * THUMB_MCP + 1] + pair[1][2 * INDEX_MCP + 1]) / 2];
+      const a = side(pair[0], [cb[0] - ca[0], cb[1] - ca[1]]), b = side(pair[1], [ca[0] - cb[0], ca[1] - cb[1]]);
+      const one = [a.far[0], a.far[1], b.far[0], b.far[1], b.inner[0], b.inner[1], a.inner[0], a.inner[1]];
+      const two = [a.far[0], a.far[1], b.inner[0], b.inner[1], b.far[0], b.far[1], a.inner[0], a.inner[1]];   // una mano del revés
+      pts = Math.abs(areaOf(one)) >= Math.abs(areaOf(two)) ? one : two;
+      kind = 'quad';
+    } else if (hands.length === 1) {
+      const s = side(hands[0], null);
+      pts = [s.foot[0], s.foot[1], s.outer[0], s.outer[1], s.far[0], s.far[1], s.inner[0], s.inner[1]];
+      kind = 'corner';
+    } else return null;
+    let cx = 0, cy = 0;
+    for (let i = 0; i < 8; i += 2) { cx += pts[i] / 4; cy += pts[i + 1] / 4; }
+    return { kind, pts, area: Math.abs(areaOf(pts)) / (w * h), cx, cy };
+  }
+  // Polígono con las esquinas redondeadas y crecido desde su centro (la apertura).
+  function outline(pts, grow, radius) {
+    const n = pts.length / 2, out = [];
+    let cx = 0, cy = 0;
+    for (let i = 0; i < n; i++) { cx += pts[2 * i] / n; cy += pts[2 * i + 1] / n; }
+    const at = i => [cx + (pts[2 * ((i + n) % n)] - cx) * grow, cy + (pts[2 * ((i + n) % n) + 1] - cy) * grow];
+    for (let i = 0; i < n; i++) {
+      const p = at(i), a = at(i - 1), b = at(i + 1);
+      const la = Math.hypot(a[0] - p[0], a[1] - p[1]) || 1, lb = Math.hypot(b[0] - p[0], b[1] - p[1]) || 1;
+      const r = Math.min(radius, la * 0.3, lb * 0.3);
+      const p0 = [p[0] + (a[0] - p[0]) / la * r, p[1] + (a[1] - p[1]) / la * r], p1 = [p[0] + (b[0] - p[0]) / lb * r, p[1] + (b[1] - p[1]) / lb * r];
+      for (let s = 0; s <= 5; s++) { const t = s / 5, u = 1 - t; out.push(u * u * p0[0] + 2 * u * t * p[0] + t * t * p1[0], u * u * p0[1] + 2 * u * t * p[1] + t * t * p1[1]); }
+    }
+    return out;
+  }
+  const inside = (pts, x, y) => { let hit = false; for (let i = 0, n = pts.length / 2, j = n - 1; i < n; j = i++) { const xi = pts[2 * i], yi = pts[2 * i + 1], xj = pts[2 * j], yj = pts[2 * j + 1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) hit = !hit; } return hit; };
+
+  // ── Estilos ───────────────────────────────────────────────────────────────
   const EXTRA = {
     ASCII: { label: 'ASCII', hint: 'Dentro de la ventana, la imagen en caracteres.' },
     SONO: { label: 'SONO', hint: 'Dentro de la ventana, anillos que siguen el sonido.', audio: true },
@@ -180,149 +381,516 @@ const flipPortal = (() => {
     state.audioReady = true;
     Promise.resolve(_buildExtAudioChain()).catch(() => { state.audioReady = false; flipToast('Sin micrófono no hay reacción al sonido.'); });
   }
-  function renderFx(now, w, h) {
-    const cadence = state.look ? 30 : (typeof camFpsTarget === 'number' ? Math.max(4, camFpsTarget) : 24);
-    const key = (state.look || camFamily + ':' + camVariant) + ':' + w + 'x' + h;
-    if (key === state.fxKey && now - state.fxAt < 1000 / cadence - 4) return;
-    state.fxKey = key; state.fxAt = now;
-    const ctx = state.fctx, src = state.base;
-    if (state.look === 'ASCII') {
-      FLIP_STEP_ENGINES.ascii.renderStep(src, ctx, { cols: 72 }, null, now);
-    } else if (state.look === 'SONO') {
-      _editRenderSonoSource(ctx, w, h, now);
-    } else if (state.look === 'WMP') {
-      _editRenderWmpSource(ctx, w, h, now);
-    } else {
+  const currentStyle = () => (state.look ? { key: state.look, extra: state.look } : { key: camFamily + ':' + camVariant, family: camFamily, variant: camVariant });
+  const styleName = style => (style.extra ? EXTRA[style.extra].label : ((CAM_FAMILIES[style.family].displayLabel || CAM_FAMILIES[style.family].label) + ''));
+  const cadenceOf = style => (style.extra ? (style.extra === 'ASCII' ? 20 : 30) : ((typeof cameraCadence === 'object' && cameraCadence[style.family]) || 24));
+  // Cada estilo en uso tiene su lienzo y su textura; se pintan por turnos, el que más toca primero.
+  const pool = new Map();
+  function styleEntry(style, w, h) {
+    let entry = pool.get(style.key);
+    if (!entry) {
+      const canvas = document.createElement('canvas');
+      entry = { canvas, ctx: canvas.getContext('2d', { willReadFrequently: true }), tex: null, at: -Infinity, used: 0, dirty: false, drawn: false };
+      pool.set(style.key, entry);
+    }
+    if (entry.canvas.width !== w || entry.canvas.height !== h) { entry.canvas.width = w; entry.canvas.height = h; entry.at = -Infinity; entry.drawn = false; }
+    return entry;
+  }
+  function paintStyle(entry, style, now) {
+    const base = state.base, w = entry.canvas.width, h = entry.canvas.height, ctx = entry.ctx;
+    if (style.extra === 'ASCII') FLIP_STEP_ENGINES.ascii.renderStep(base, ctx, { cols: 72 }, null, now);
+    else if (style.extra === 'SONO') _editRenderSonoSource(ctx, w, h, now);
+    else if (style.extra === 'WMP') _editRenderWmpSource(ctx, w, h, now);
+    else {
       // De STAMP entra la trama, no el marco del sello.
       const frame = typeof stampFrameMode === 'string' ? stampFrameMode : null;
-      if (frame !== null && camFamily === 'STAMP') stampFrameMode = 'OFF';
-      try {
-        _renderCamEngineFrame(src, w, h, ctx, false, { path: 'capture', now, outW: w, outH: h, resolution: 'medium', family: camFamily, variant: camVariant });
-      } finally {
-        if (frame !== null && camFamily === 'STAMP') stampFrameMode = frame;
+      if (frame !== null && style.family === 'STAMP') stampFrameMode = 'OFF';
+      try { _renderCamEngineFrame(base, base.width, base.height, ctx, false, { path: 'capture', now, outW: w, outH: h, resolution: 'medium', family: style.family, variant: style.variant }); }
+      finally { if (frame !== null && style.family === 'STAMP') stampFrameMode = frame; }
+    }
+    entry.at = now; entry.dirty = true; entry.drawn = true;
+  }
+  function feedStyles(needed, now, w, h) {
+    const scale = Math.min(1, FX_LONG / Math.max(w, h));
+    const fw = Math.max(2, Math.round(w * scale)), fh = Math.max(2, Math.round(h * scale));
+    const began = performance.now();
+    for (let round = 0; round < 2; round++) {
+      let pick = null, late = 1;
+      for (const style of needed) {
+        const entry = styleEntry(style, fw, fh);
+        entry.used = now;
+        const due = (now - entry.at) / (1000 / cadenceOf(style));
+        if (due >= late) { late = due; pick = [entry, style]; }
       }
+      if (!pick) break;
+      try { paintStyle(pick[0], pick[1], now); state.fxError = ''; }
+      catch (error) {
+        // Un estilo que falla no puede parar la cámara: su ventana enseña la imagen sin tratar y se avisa una vez.
+        const message = String(error && error.message || error);
+        if (state.fxError !== message) { state.fxError = message; console.warn('[PORTAL] estilo', pick[1].key, message); flipToast('Esta cámara no pudo dibujarse dentro de la ventana.'); }
+        pick[0].ctx.drawImage(state.base, 0, 0, fw, fh); pick[0].at = now; pick[0].dirty = true; pick[0].drawn = true;
+      }
+      if (performance.now() - began > 5) break;                               // el segundo, solo si sobra tiempo
+    }
+    for (const [key, entry] of pool) if (now - entry.used > 4000) { if (entry.tex && gfx.gl) gfx.gl.deleteTexture(entry.tex); pool.delete(key); }
+  }
+
+  // ── Portales fijados ──────────────────────────────────────────────────────
+  // Cada uno: su figura en fracciones del cuadro, su estilo y cuándo nació (para el destello).
+  const panes = [];
+  let selected = -1, paneId = 0;
+  function lockLive(how) {
+    const now = performance.now();
+    if (now - state.lockedAt < 500) return false;
+    // La figura de un instante antes: acercar el anular al pulgar mueve la esquina que marca el pulgar.
+    let shot = null;
+    if (how === 'clic') for (const past of state.trail) if (now - past.at >= 150) shot = past;
+    if (!shot) shot = state.shape && state.amount > 0.5 ? { pts: state.shape.pts.slice(), w: state.w, h: state.h } : null;
+    if (!shot) { hint('Haz primero una figura con las manos', 1800); return false; }
+    if (panes.length >= MAX_PANES) { flipToast('Caben ' + MAX_PANES + ' portales. Borra alguno para fijar otro.'); return false; }
+    const pts = new Float32Array(8);
+    for (let i = 0; i < 8; i += 2) { pts[i] = shot.pts[i] / shot.w; pts[i + 1] = shot.pts[i + 1] / shot.h; }
+    panes.push({ id: ++paneId, pts, style: currentStyle(), at: now });
+    state.lockedAt = now; state.wait = true; state.amount = 0; state.shape = null; state.trail.length = 0;
+    select(-1);
+    feel('switch', 'down');
+    hint(panes.length === 1 ? 'Portal fijado. Elige otra cámara y fija el siguiente.' : 'Portal ' + panes.length + ' fijado', 2200);
+    syncBar();
+    return true;
+  }
+  function removePane(index) {
+    if (index < 0 || index >= panes.length) return;
+    panes.splice(index, 1);
+    select(-1);
+    syncBar();
+  }
+  function select(index) {
+    selected = index >= 0 && index < panes.length ? index : -1;
+    if (selected >= 0) {
+      // Su estilo pasa a ser el elegido: desde ahí, tocar otra cámara lo cambia.
+      const style = panes[selected].style;
+      if (style.extra) setLook(style.extra);
+      else {
+        if (state.look) setLook('');
+        if (camFamily !== style.family) _setCamFamily(style.family);
+        if (camVariant !== style.variant) { camVariant = style.variant; _applyCamState(); }
+      }
+      hint('Arrástralo para moverlo · toca otra cámara para cambiar su estilo', 2600);
+    }
+    syncBar();
+  }
+  function movePane(pane, dx, dy) {
+    let cx = 0, cy = 0;
+    for (let i = 0; i < 8; i += 2) { cx += pane.pts[i] / 4; cy += pane.pts[i + 1] / 4; }
+    dx = clamp(cx + dx, 0.02, 0.98) - cx; dy = clamp(cy + dy, 0.02, 0.98) - cy;
+    for (let i = 0; i < 8; i += 2) { pane.pts[i] += dx; pane.pts[i + 1] += dy; }
+  }
+
+  // ── Dibujo en WebGL ───────────────────────────────────────────────────────
+  const VERT_FULL = `#version 300 es
+out vec2 vUv;
+void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); vUv = p; gl_Position = vec4(p * 2. - 1., 0., 1.); }`;
+  const FRAG_CAM = `#version 300 es
+precision highp float;
+in vec2 vUv; out vec4 o;
+uniform sampler2D uA, uU, uV;
+uniform vec4 uFit; uniform float uMirror; uniform int uKind; uniform mat3 uYuv; uniform vec3 uYuvOff;
+void main() {
+  vec2 c = vec2(vUv.x, 1. - vUv.y);
+  c.x = mix(c.x, 1. - c.x, uMirror);
+  c = c * uFit.xy + uFit.zw;
+  vec3 rgb;
+  if (uKind == 0) rgb = texture(uA, c).rgb;
+  else if (uKind == 3) rgb = texture(uA, c).bgr;
+  else { vec2 ch = uKind == 1 ? vec2(texture(uU, c).r, texture(uV, c).r) : texture(uU, c).rg; rgb = clamp(uYuv * (vec3(texture(uA, c).r, ch) - uYuvOff), 0., 1.); }
+  o = vec4(rgb, 1.);
+}`;
+  const FRAG_FX = `#version 300 es
+precision highp float;
+in vec2 vUv; out vec4 o;
+uniform sampler2D uFx;
+void main() { o = vec4(texture(uFx, vec2(vUv.x, 1. - vUv.y)).rgb, 1.); }`;
+  const VERT_FLAT = `#version 300 es
+layout(location = 0) in vec2 aPos; uniform vec2 uSize;
+void main() { vec2 p = aPos / uSize; gl_Position = vec4(p.x * 2. - 1., 1. - p.y * 2., 0., 1.); }`;
+  const FRAG_FLAT = `#version 300 es
+precision highp float;
+uniform vec4 uColor; out vec4 o;
+void main() { o = uColor; }`;
+  const gfx = { canvas: null, gl: null, ok: false, tried: false, alloc: {}, kind: 0, seq: -1, fit: [1, 1, 0, 0], yuv: null, yuvOff: [0, .5, .5], yuvKey: '', path: '', hasCam: false, dirty: true, hooked: false, direct: false };
+  function program(vert, frag) {
+    const gl = gfx.gl;
+    const make = (type, source) => { const s = gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'sombreador'); return s; };
+    const pr = gl.createProgram();
+    gl.attachShader(pr, make(gl.VERTEX_SHADER, vert)); gl.attachShader(pr, make(gl.FRAGMENT_SHADER, frag)); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr) || 'enlace');
+    const where = {};
+    return { pr, at: name => (name in where ? where[name] : (where[name] = gl.getUniformLocation(pr, name))) };
+  }
+  function texture() {
+    const gl = gfx.gl, t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+    return t;
+  }
+  function initGl() {
+    if (gfx.tried) return gfx.ok;
+    gfx.tried = true;
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl2', { alpha: false, antialias: true, depth: false, stencil: true, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
+      if (!gl) return false;
+      gfx.canvas = canvas; gfx.gl = gl;
+      gfx.cam = program(VERT_FULL, FRAG_CAM); gfx.fx = program(VERT_FULL, FRAG_FX); gfx.flat = program(VERT_FLAT, FRAG_FLAT);
+      gfx.vaoFull = gl.createVertexArray();
+      gfx.vaoFlat = gl.createVertexArray();
+      gl.bindVertexArray(gfx.vaoFlat);
+      gfx.vbo = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, gfx.vbo);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gfx.texA = texture(); gfx.texU = texture(); gfx.texV = texture();
+      gfx.alloc = {};
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.disable(gl.DEPTH_TEST);
+      canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); gfx.ok = false; });
+      canvas.addEventListener('webglcontextrestored', () => { gfx.tried = false; gfx.gl = null; pool.forEach(entry => { entry.tex = null; entry.dirty = true; }); });
+      gfx.ok = true;
+    } catch (error) { gfx.ok = false; gfx.error = String(error && error.message || error); }
+    return gfx.ok;
+  }
+  function plane(name, tex, format, internal, w, h, data, offset, rowLength) {
+    const gl = gfx.gl, key = internal + ':' + w + 'x' + h;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, rowLength);
+    if (gfx.alloc[name] !== key) { gfx.alloc[name] = key; gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, gl.UNSIGNED_BYTE, data, offset); }
+    else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, format, gl.UNSIGNED_BYTE, data, offset);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+  }
+  function cover(sw, sh, w, h) {
+    const sa = sw / sh, oa = w / h, sx = sa > oa ? oa / sa : 1, sy = sa > oa ? 1 : sa / oa;
+    gfx.fit = [sx, sy, .5 - .5 * sx, .5 - .5 * sy];
+  }
+  // La cámara a textura: en Android, sus planos nativos (ni una conversión del navegador); si no, el vídeo directo.
+  function uploadCamera(w, h) {
+    const gl = gfx.gl;
+    if (!vid.videoWidth || vid.readyState < 2) return;
+    if (ANDROID && !gfx.direct && flipSensor.planesUsable(vid)) {
+      flipSensor.planes(vid);
+      const pl = flipSensor.latestPlanes(vid);
+      if (pl) {
+        if (pl.seq !== gfx.seq) {
+          gfx.seq = pl.seq;
+          const L = pl.layout, pw = pl.width, ph = pl.height, cw = (pw + 1) >> 1, ch = (ph + 1) >> 1;
+          if (pl.kind === 'planar') {
+            plane('A', gfx.texA, gl.RED, gl.R8, pw, ph, pl.data, L[0].offset, L[0].stride);
+            plane('U', gfx.texU, gl.RED, gl.R8, cw, ch, pl.data, L[1].offset, L[1].stride);
+            plane('V', gfx.texV, gl.RED, gl.R8, cw, ch, pl.data, L[2].offset, L[2].stride);
+            gfx.kind = 1;
+          } else if (pl.kind === 'biplanar') {
+            plane('A', gfx.texA, gl.RED, gl.R8, pw, ph, pl.data, L[0].offset, L[0].stride);
+            plane('U', gfx.texU, gl.RG, gl.RG8, cw, ch, pl.data, L[1].offset, L[1].stride >> 1);
+            gfx.kind = 2;
+          } else {
+            plane('A', gfx.texA, gl.RGBA, gl.RGBA8, pw, ph, pl.data, L[0].offset, L[0].stride >> 2);
+            gfx.kind = pl.kind === 'bgr' ? 3 : 0;
+          }
+          const key = pl.matrix + ':' + pl.fullRange;
+          if (key !== gfx.yuvKey) {
+            gfx.yuvKey = key;
+            const k = flipSensor.coefficients(pl.matrix, pl.fullRange);
+            gfx.yuv = new Float32Array([k.scale, k.scale, k.scale, 0, k.gu, k.bu, k.rv, k.gv, 0]);
+            gfx.yuvOff = [k.offset, .5, .5];
+          }
+          gfx.src = [pw, ph];
+          gfx.path = 'planos ' + pl.format;
+        }
+        gfx.hasCam = true;
+        cover(gfx.src[0], gfx.src[1], w, h);
+        return;
+      }
+      if (gfx.path.startsWith('planos')) return;                              // el siguiente está en camino
+    }
+    if (!gfx.hooked && vid.requestVideoFrameCallback) {
+      gfx.hooked = true;
+      const loop = () => { gfx.dirty = true; if (state.active) vid.requestVideoFrameCallback(loop); else gfx.hooked = false; };
+      vid.requestVideoFrameCallback(loop);
+    }
+    if (gfx.dirty || !gfx.hooked || gfx.path !== 'directa') {
+      gfx.dirty = false;
+      gl.bindTexture(gl.TEXTURE_2D, gfx.texA);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, vid);
+      gfx.alloc.A = '';
+    }
+    gfx.kind = 0; gfx.path = 'directa'; gfx.hasCam = true;
+    cover(vid.videoWidth, vid.videoHeight, w, h);
+  }
+  function flat(points, mode, color, w, h) {
+    const gl = gfx.gl, pr = gfx.flat;
+    gl.useProgram(pr.pr);
+    gl.bindVertexArray(gfx.vaoFlat);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gfx.vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, points, gl.DYNAMIC_DRAW);
+    gl.uniform2f(pr.at('uSize'), w, h);
+    gl.uniform4f(pr.at('uColor'), color[0], color[1], color[2], color[3]);
+    gl.drawArrays(mode, 0, points.length / 2);
+  }
+  function stripOf(ring, half) {
+    const n = ring.length / 2, out = new Float32Array((n + 1) * 4);
+    for (let i = 0; i <= n; i++) {
+      const p = i % n, a = (p - 1 + n) % n, b = (p + 1) % n;
+      const tx = ring[2 * b] - ring[2 * a], ty = ring[2 * b + 1] - ring[2 * a + 1], len = Math.hypot(tx, ty) || 1;
+      const nx = -ty / len * half, ny = tx / len * half;
+      out[4 * i] = ring[2 * p] + nx; out[4 * i + 1] = ring[2 * p + 1] + ny; out[4 * i + 2] = ring[2 * p] - nx; out[4 * i + 3] = ring[2 * p + 1] - ny;
+    }
+    return out;
+  }
+  // Una ventana: su estilo recortado a la figura (plantilla de paridad: vale para cualquier polígono) y su filo de luz.
+  function drawWindow(ring, entry, w, h, look) {
+    const gl = gfx.gl, n = ring.length / 2;
+    if (entry && entry.drawn) {
+      if (!entry.tex) { entry.tex = texture(); entry.dirty = true; }
+      if (entry.dirty) { entry.dirty = false; gl.bindTexture(gl.TEXTURE_2D, entry.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, entry.canvas); }
+      const fan = new Float32Array((n + 2) * 2);
+      let cx = 0, cy = 0;
+      for (let i = 0; i < n; i++) { cx += ring[2 * i] / n; cy += ring[2 * i + 1] / n; }
+      fan[0] = cx; fan[1] = cy; fan.set(ring, 2); fan[2 * n + 2] = ring[0]; fan[2 * n + 3] = ring[1];
+      gl.enable(gl.STENCIL_TEST);
+      gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
+      gl.colorMask(false, false, false, false);
+      gl.stencilFunc(gl.ALWAYS, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT);
+      flat(fan, gl.TRIANGLE_FAN, [0, 0, 0, 0], w, h);
+      gl.colorMask(true, true, true, true);
+      gl.stencilFunc(gl.NOTEQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+      gl.useProgram(gfx.fx.pr);
+      gl.bindVertexArray(gfx.vaoFull);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, entry.tex);
+      gl.uniform1i(gfx.fx.at('uFx'), 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (look.burst > 0) {
+        gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        flat(new Float32Array([0, 0, w, 0, w, h, 0, h]), gl.TRIANGLE_FAN, [1, 1, 1, look.burst * .35], w, h);
+        gl.disable(gl.BLEND);
+      }
+      gl.disable(gl.STENCIL_TEST);
+    }
+    const unit = Math.min(w, h) / 100, half = unit * look.width * .5, c = look.color;
+    gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    if (look.glow > 0) {
+      flat(stripOf(ring, half * (4 + look.burst * 6)), gl.TRIANGLE_STRIP, [c[0], c[1], c[2], .13 * look.glow], w, h);
+      flat(stripOf(ring, half * 2.2), gl.TRIANGLE_STRIP, [c[0], c[1], c[2], .3 * look.glow], w, h);
+    }
+    flat(stripOf(ring, half * (1 + look.burst)), gl.TRIANGLE_STRIP, [c[0], c[1], c[2], look.alpha], w, h);
+    gl.disable(gl.BLEND);
+  }
+  function windowsFor(now, w, h) {
+    const list = [], unit = Math.min(w, h) / 100;
+    panes.forEach((pane, index) => {
+      const px = new Float32Array(8);
+      for (let i = 0; i < 8; i += 2) { px[i] = pane.pts[i] * w; px[i + 1] = pane.pts[i + 1] * h; }
+      const burst = Math.max(0, 1 - (now - pane.at) / 420), chosen = index === selected;
+      list.push({ ring: new Float32Array(outline(px, 1, unit * 1.6)), style: pane.style,
+        look: chosen ? { color: [.93, .36, .27], alpha: .95, width: .62 + .12 * Math.sin(now / 160), glow: 1, burst } : { color: [1, 1, 1], alpha: .7, width: .3, glow: 0, burst } });
+    });
+    if (state.shape && state.amount > 0.01) {
+      const grow = 1 - Math.pow(1 - state.amount, 3), burst = Math.max(0, 1 - (now - state.opened) / 420);
+      list.push({ ring: new Float32Array(outline(state.shape.pts, grow, unit * 1.6)), style: currentStyle(), look: { color: [1, 1, 1], alpha: .92, width: .44, glow: 1, burst } });
+    }
+    return list;
+  }
+  function drawGl(ctx, now, w, h, list) {
+    const gl = gfx.gl, canvas = gfx.canvas;
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    uploadCamera(w, h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, w, h);
+    gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST);
+    gl.colorMask(true, true, true, true);
+    if (gfx.hasCam) {
+      const pr = gfx.cam;
+      gl.useProgram(pr.pr);
+      gl.bindVertexArray(gfx.vaoFull);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, gfx.texA);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, gfx.texU);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, gfx.texV);
+      gl.uniform1i(pr.at('uA'), 0); gl.uniform1i(pr.at('uU'), 1); gl.uniform1i(pr.at('uV'), 2);
+      gl.uniform4f(pr.at('uFit'), gfx.fit[0], gfx.fit[1], gfx.fit[2], gfx.fit[3]);
+      gl.uniform1f(pr.at('uMirror'), state.mirror ? 1 : 0);
+      gl.uniform1i(pr.at('uKind'), gfx.kind);
+      if (gfx.yuv) { gl.uniformMatrix3fv(pr.at('uYuv'), false, gfx.yuv); gl.uniform3f(pr.at('uYuvOff'), gfx.yuvOff[0], gfx.yuvOff[1], gfx.yuvOff[2]); }
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    } else { gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+    for (const item of list) drawWindow(item.ring, pool.get(item.style.key), w, h, item.look);
+    ctx.drawImage(canvas, 0, 0, w, h);
+  }
+  // Sin WebGL 2: lo mismo en 2D, a la mitad de cadencia.
+  function draw2d(ctx, cam, w, h, list) {
+    const [sx, sy, sw, sh] = cropCoordsForDims(cam.srcW, cam.srcH, w, h);
+    ctx.save();
+    if (state.mirror) { ctx.translate(w, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(cam.source, sx, sy, sw, sh, 0, 0, w, h);
+    ctx.restore();
+    const unit = Math.min(w, h) / 100;
+    for (const item of list) {
+      const trace = () => { ctx.beginPath(); for (let i = 0; i < item.ring.length; i += 2) { if (i) ctx.lineTo(item.ring[i], item.ring[i + 1]); else ctx.moveTo(item.ring[i], item.ring[i + 1]); } ctx.closePath(); };
+      const entry = pool.get(item.style.key);
+      if (entry && entry.drawn) { ctx.save(); trace(); ctx.clip(); ctx.drawImage(entry.canvas, 0, 0, w, h); ctx.restore(); }
+      trace();
+      ctx.strokeStyle = 'rgba(' + item.look.color.map(v => Math.round(v * 255)).join(',') + ',' + item.look.alpha + ')';
+      ctx.lineWidth = unit * item.look.width * (1 + item.look.burst);
+      ctx.stroke();
     }
   }
 
   // ── Cuadro ────────────────────────────────────────────────────────────────
   function ensure(w, h) {
-    if (!state.base) {
-      state.base = document.createElement('canvas'); state.bctx = state.base.getContext('2d', { willReadFrequently: true });
-      state.fx = document.createElement('canvas'); state.fctx = state.fx.getContext('2d', { willReadFrequently: true });
-    }
-    if (state.base.width !== w || state.base.height !== h) {
-      state.base.width = w; state.base.height = h; state.fx.width = w; state.fx.height = h;
-      state.fxKey = '';
+    const scale = BASE_LONG / Math.max(w, h);
+    const bw = Math.max(2, Math.round(w * scale / 2) * 2), bh = Math.max(2, Math.round(h * scale / 2) * 2);
+    if (!state.base) { state.base = document.createElement('canvas'); state.bctx = state.base.getContext('2d', { willReadFrequently: true }); }
+    if (state.base.width !== bw || state.base.height !== bh) {
+      state.base.width = bw; state.base.height = bh; state.baseAt = -Infinity;
       if (typeof _resetCamEngineState === 'function') _resetCamEngineState('capture');
     }
+    state.w = w; state.h = h;
+  }
+  // El lienzo pequeño: la cámara recortada al formato del visor y, si es la frontal, en espejo.
+  function refreshBase(cam, now) {
+    let source = cam.source, sw = cam.srcW, sh = cam.srcH;
+    if (flipSensor.usable(vid)) {
+      if (!flipSensor.pending(vid)) flipSensor.prime(vid);
+      const fast = flipSensor.current(vid, 160);
+      if (fast) { source = fast.canvas; sw = fast.width; sh = fast.height; }
+      else if (ANDROID && state.baseAt > -Infinity) return false;             // aún no llega el cuadro rápido: sigue valiendo el anterior
+    }
+    if (!sw || !sh) return false;
+    const b = state.bctx, bw = state.base.width, bh = state.base.height;
+    const [sx, sy, cw, ch] = cropCoordsForDims(sw, sh, bw, bh);
+    b.setTransform(1, 0, 0, 1, 0, 0);
+    if (state.mirror) { b.translate(bw, 0); b.scale(-1, 1); }
+    b.drawImage(source, sx, sy, cw, ch, 0, 0, bw, bh);
+    b.setTransform(1, 0, 0, 1, 0, 0);
+    state.baseAt = now;
+    return true;
   }
   function render(cam, ctx, now) {
     const w = ctx.canvas.width, h = ctx.canvas.height;
     ensure(w, h);
     const dt = Math.min(100, Math.max(1, now - (state.lastT || now)));
     state.lastT = now;
-    // 1 · La cámara tal cual; la frontal, en espejo, para que las manos vayan hacia donde uno las mueve.
-    const mirror = typeof facingMode === 'string' && facingMode === 'user';
-    const [sx, sy, sw, sh] = cropCoordsForDims(cam.srcW, cam.srcH, w, h);
-    const b = state.bctx;
-    b.setTransform(1, 0, 0, 1, 0, 0);
-    if (mirror) { b.translate(w, 0); b.scale(-1, 1); }
-    b.imageSmoothingEnabled = true;
-    b.drawImage(cam.source, sx, sy, sw, sh, 0, 0, w, h);
-    b.setTransform(1, 0, 0, 1, 0, 0);
-    // 2 · Manos.
-    push(state.base);
-    if (!state.locked) {
-      follow(w, h, dt);
-      const shape = shapeFrom(state.hands, w, h);
+    state.mirror = typeof facingMode === 'string' && facingMode === 'user';
+    const fast = initGl();
+    // 1 · Manos: un cuadro pequeño al rastreador (a 30 por segundo como mucho) y su posición ahora mismo.
+    if (now - state.baseAt >= 30 && refreshBase(cam, now)) push(state.base);
+    state.hands = pose(now, w, h);
+    state.pinched = tracks.some(track => track.pinch);
+    const click = (trk.clickAt || 0) > (state.clickSeen || 0);
+    if (click) state.clickSeen = trk.clickAt;
+    // 2 · La ventana viva.
+    if (state.wait && !state.pinched && now - state.lockedAt > 350) state.wait = false;
+    if (state.wait) { state.shape = null; state.amount = 0; }
+    else {
+      const shape = shapeFrom(frameHands(w, h, dt, now), w, h);
       if (shape && shape.area > MIN_AREA) {
         if (state.amount < 0.02) state.opened = now;
+        // De una mano a dos (o al revés): la ventana se reabre con su destello, no salta.
+        if (state.shape && state.shape.kind !== shape.kind && state.amount > 0.4) { state.amount = 0.4; state.opened = now; }
         state.shape = shape;
-        state.amount += (1 - state.amount) * (1 - Math.exp(-dt / 90));
+        state.amount += (1 - state.amount) * (1 - Math.exp(-dt / 70));
+        state.trail.push({ pts: shape.pts.slice(), w, h, at: now });
+        while (state.trail.length > 24 || (state.trail.length && now - state.trail[0].at > 600)) state.trail.shift();
+        if (click && state.amount > 0.6) lockLive('clic');
       } else {
-        state.amount += (0 - state.amount) * (1 - Math.exp(-dt / 110));
-        if (state.amount < 0.01) { state.amount = 0; if (!shape) state.shape = state.shape && state.amount ? state.shape : null; }
+        state.amount += (0 - state.amount) * (1 - Math.exp(-dt / 90));
+        if (state.amount < 0.01) { state.amount = 0; state.shape = null; state.trail.length = 0; }
       }
     }
+    // El portal elegido sigue al estilo que se toque en la bandeja.
+    if (selected >= 0 && panes[selected] && currentStyle().key !== panes[selected].style.key) panes[selected].style = currentStyle();
+    // 3 · Estilos en uso, por turnos.
+    const list = windowsFor(now, w, h);
+    if (list.length && state.baseAt > -Infinity) feedStyles(list.map(item => item.style).filter((style, i, all) => all.findIndex(o => o.key === style.key) === i), now, w, h);
+    // 4 · A pantalla.
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(state.base, 0, 0);
-    // 3 · La ventana.
-    if (state.shape && state.amount > 0.01) {
-      try {
-        renderFx(now, w, h);
-        state.fxError = '';
-      } catch (error) {
-        // Un efecto que falla no puede parar la cámara: la ventana enseña la imagen sin tratar y se avisa una vez.
-        const message = String(error && error.message || error);
-        if (state.fxError !== message) { state.fxError = message; console.warn('[PORTAL] efecto', state.look || camFamily, message); flipToast('Esta cámara no pudo dibujarse dentro de la ventana.'); }
-        state.fctx.drawImage(state.base, 0, 0);
-      }
-      const shape = state.shape;
-      const grow = 1 - Math.pow(1 - state.amount, 3);
-      ctx.save();
-      trace(ctx, shape, grow);
-      ctx.clip();
-      ctx.drawImage(state.fx, 0, 0);
-      ctx.restore();
-      // El borde: un filo de luz que estalla al abrirse y luego se calma.
-      const burst = Math.max(0, 1 - (now - state.opened) / 420);
-      const unit = Math.min(w, h) / 100;
-      trace(ctx, shape, grow);
-      ctx.lineJoin = 'round';
-      ctx.shadowColor = 'rgba(255,255,255,.95)';
-      ctx.shadowBlur = unit * (1.6 + burst * 5);
-      ctx.strokeStyle = 'rgba(255,255,255,' + (0.82 + burst * 0.18).toFixed(3) + ')';
-      ctx.lineWidth = unit * (0.42 + burst * 0.9);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      if (burst > 0) {
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = 'rgba(255,255,255,' + (burst * 0.35).toFixed(3) + ')';
-        trace(ctx, shape, grow);
-        ctx.fill();
-      }
-    }
+    if (fast) drawGl(ctx, now, w, h, list); else draw2d(ctx, cam, w, h, list);
     ctx.restore();
-    marks(w, h);
+    marks(w, h, now);
   }
 
-  // Marcas sobre las yemas: dicen «te veo» sin salir en la foto (van en la capa de datos, no en el lienzo).
-  let dots = [];
-  function marks(w, h) {
+  // ── Sobre el cristal: yemas, tecla de fijar, aspa del portal elegido ──────
+  let dots = [], bar = null, drop = null;
+  function hint(text, ms) { if (window.flipShell) { state.shown = '·' + text; flipShell.hint(text, ms); state.hintUntil = performance.now() + (ms || 0); } }
+  function buildBar() {
+    const host = document.getElementById('osd');
+    if (!host || bar) return;
+    bar = document.createElement('div');
+    bar.id = 'portalBar';
+    bar.innerHTML = `
+      <button class="hw hw-keycap" data-color="mustard" id="portalLock" type="button" aria-label="Fijar la ventana donde está"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>FIJAR</span></button>
+      <span class="hw-lcd" id="portalCount" aria-live="polite"><b>0</b></span>
+      <button class="hw hw-keycap" id="portalErase" type="button" aria-label="Borrar el portal elegido o el último"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V4.5h4V7M7 7l.8 12.5h8.4L17 7"/></svg><span>BORRAR</span></button>`;
+    host.appendChild(bar);
+    drop = document.createElement('button');
+    drop.id = 'portalDrop'; drop.type = 'button'; drop.className = 'hw'; drop.setAttribute('aria-label', 'Borrar este portal');
+    drop.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>';
+    host.appendChild(drop);
+    bar.querySelector('#portalLock').addEventListener('click', () => lockLive('tecla'));
+    // BORRAR: un toque quita el elegido (o el último); mantenerla los quita todos.
+    const erase = bar.querySelector('#portalErase');
+    let hold = 0, swept = false;
+    erase.addEventListener('pointerdown', () => { swept = false; clearTimeout(hold); hold = setTimeout(() => { if (!panes.length) return; swept = true; panes.length = 0; select(-1); feel('switch', 'down'); hint('Todos los portales borrados', 1800); }, 650); });
+    for (const type of ['pointerup', 'pointercancel', 'pointerleave']) erase.addEventListener(type, () => clearTimeout(hold));
+    erase.addEventListener('click', () => { if (swept) { swept = false; return; } if (!panes.length) { hint('No hay portales fijados', 1500); return; } removePane(selected >= 0 ? selected : panes.length - 1); });
+    drop.addEventListener('click', () => removePane(selected));
+  }
+  function syncBar() {
+    if (!bar) return;
+    bar.querySelector('#portalCount b').textContent = String(panes.length);
+    bar.querySelector('#portalErase').classList.toggle('is-dim', !panes.length);
+    bar.querySelector('#portalLock').classList.toggle('is-dim', panes.length >= MAX_PANES);
+  }
+  function marks(w, h, now) {
     const host = document.getElementById('osd');
     if (!host) return;
     const rect = display.getBoundingClientRect(), glass = host.getBoundingClientRect();
+    const place = (node, x, y) => { node.style.transform = `translate(${(rect.left - glass.left + x * rect.width).toFixed(1)}px, ${(rect.top - glass.top + y * rect.height).toFixed(1)}px)`; };
     const tips = [];
-    if (!state.locked) for (const hand of state.hands) tips.push([hand[2 * THUMB], hand[2 * THUMB + 1]], [hand[2 * INDEX], hand[2 * INDEX + 1]]);
+    for (const hand of state.hands) for (const tip of [THUMB, INDEX]) {
+      const x = hand[2 * tip] / w, y = hand[2 * tip + 1] / h;
+      if (x >= 0 && x <= 1 && y >= 0 && y <= 1) tips.push([x, y]);            // fuera de la imagen no lleva marca
+    }
     while (dots.length < tips.length) { const dot = document.createElement('i'); dot.className = 'portal-tip'; host.appendChild(dot); dots.push(dot); }
-    dots.forEach((dot, index) => {
-      const tip = tips[index];
-      dot.style.display = tip ? 'block' : 'none';
-      if (tip) dot.style.transform = `translate(${(rect.left - glass.left + (tip[0] / w) * rect.width).toFixed(1)}px, ${(rect.top - glass.top + (tip[1] / h) * rect.height).toFixed(1)}px)`;
-    });
+    dots.forEach((dot, index) => { const tip = tips[index]; dot.style.display = tip ? 'block' : 'none'; if (tip) place(dot, tip[0], tip[1]); dot.classList.toggle('is-click', state.pinched); });
+    if (drop) {
+      const pane = selected >= 0 ? panes[selected] : null;
+      drop.style.display = pane ? 'grid' : 'none';
+      if (pane) { let x = 0, y = 1; for (let i = 0; i < 8; i += 2) { if (pane.pts[i] - pane.pts[i + 1] > x - y) { x = pane.pts[i]; y = pane.pts[i + 1]; } } place(drop, clamp(x, .06, .94), clamp(y, .05, .95)); }
+    }
+    if (now < (state.hintUntil || 0)) return;                                 // un aviso puntual sigue en pantalla
     const seen = state.hands.length;
-    const text = state.phase === 'loading' ? 'Cargando el seguimiento de manos…'
-      : state.phase === 'failed' ? state.message
-      : state.locked ? 'Ventana fijada · toca el visor para soltarla'
-      : seen === 0 ? 'Enseña las manos a la cámara'
-      : state.amount < 0.2 ? (seen === 1 ? 'Separa el pulgar y el índice' : 'Haz un marco con las dos manos y sepáralas')
+    const text = trk.phase === 'loading' ? 'Cargando el seguimiento de manos…'
+      : trk.phase === 'failed' ? trk.message
+      : selected >= 0 ? ''
+      : seen === 0 ? (panes.length ? '' : 'Enseña las manos a la cámara')
+      : state.amount < 0.2 ? (seen === 1 ? 'Abre el pulgar y el índice en L' : 'Haz un marco con las dos manos y sepáralas')
+      : panes.length < 2 && state.hintLock < 3 ? 'Toca el pulgar con el anular para fijarlo'
       : '';
-    if (text !== state.shown) { state.shown = text; if (window.flipShell) flipShell.hint(text, 0); }
+    if (text !== state.shown) { state.shown = text; if (text.startsWith('Toca el pulgar')) state.hintLock++; if (window.flipShell) flipShell.hint(text, 0); }
   }
 
   // ── Módulo ────────────────────────────────────────────────────────────────
   function setLook(key) {
     state.look = key || '';
-    state.fxKey = '';
     document.body.dataset.look = state.look;
     if (window.flipShell) { flipShell.lookLabel.text = state.look ? EXTRA[state.look].label : null; flipShell.syncCam(); }
     if (state.look && EXTRA[state.look].audio) ensureAudio();
   }
   function enter() {
-    state.active = true; state.locked = false; state.amount = 0; state.shape = null; state.hands = []; state.shown = null;
+    Object.assign(state, { active: true, amount: 0, shape: null, hands: [], shown: null, mode: '', slots: null, lensAfter: 0, wait: false, hintUntil: 0 });
+    state.trail.length = 0; trk.strikes = 0;
     document.body.classList.add('portal-mode');
     if (typeof camFamily === 'string' && camFamily === 'SLHT') _setCamFamily('DSI');
     const looks = flipShell.looks;
@@ -333,20 +901,25 @@ const flipPortal = (() => {
         looks.appendChild(tile);
       }
     }
+    buildBar(); syncBar();
     setLook('');
     start();
     if (typeof _resetCamEngineState === 'function') _resetCamEngineState('capture');
   }
   function exit() {
-    state.active = false; state.locked = false;
+    state.active = false;
     document.body.classList.remove('portal-mode');
+    select(-1);
     setLook('');
     dots.forEach(dot => { dot.style.display = 'none'; });
+    if (drop) drop.style.display = 'none';
     if (window.flipShell) flipShell.hint('');
-    stopWorker();
-    if (state.phase !== 'failed') state.phase = 'idle';
-    state.targets = []; state.hands = [];
+    stop();
+    state.hands = [];
   }
+  // Dedo sobre el visor: elegir, mover (dos dedos: escalar y girar), o fijar la ventana viva.
+  const grab = { id: -1, pane: -1, moved: false, start: null, last: null, second: null, basePts: null, baseSpan: 0, baseAngle: 0 };
+  const at = event => { const r = display.getBoundingClientRect(); return [(event.clientX - r.left) / r.width, (event.clientY - r.top) / r.height]; };
   function boot() {
     if (!window.flipShell) return;
     flipShell.overlay('portal', { tab: 'cam', enter, exit });
@@ -357,26 +930,86 @@ const flipPortal = (() => {
       if (tile.dataset.family === camFamily) { flipShell.syncCam(); return true; }
       return false;
     });
-    // Tocar el visor fija la ventana donde está (para soltar las manos) o reintenta la carga.
-    display.addEventListener('click', event => {
+    display.addEventListener('pointerdown', event => {
       if (!state.active) return;
-      event.stopImmediatePropagation();
-      if (state.phase === 'failed') { state.phase = 'idle'; start(); return; }
-      if (state.locked) { state.locked = false; return; }
-      if (state.shape && state.amount > 0.5) state.locked = true;
-    }, true);
+      const p = at(event);
+      if (grab.id >= 0 && grab.pane >= 0 && grab.second === null && event.pointerId !== grab.id) {
+        grab.second = { id: event.pointerId, p };
+        grab.basePts = panes[grab.pane].pts.slice();
+        grab.baseSpan = Math.hypot(p[0] - grab.last[0], (p[1] - grab.last[1]) * state.h / state.w) || 0.01;
+        grab.baseAngle = Math.atan2((p[1] - grab.last[1]) * state.h / state.w, p[0] - grab.last[0]);
+        grab.moved = true;
+        return;
+      }
+      let hit = -1;
+      for (let i = panes.length - 1; i >= 0 && hit < 0; i--) if (inside(panes[i].pts, p[0], p[1])) hit = i;
+      Object.assign(grab, { id: event.pointerId, pane: hit, moved: false, start: p, last: p, second: null });
+      if (hit >= 0) { try { display.setPointerCapture(event.pointerId); } catch (_) {} if (selected !== hit) select(hit); }
+    });
+    display.addEventListener('pointermove', event => {
+      if (!state.active || grab.id < 0 || grab.pane < 0 || !panes[grab.pane]) return;
+      const p = at(event), pane = panes[grab.pane];
+      if (grab.second) {
+        if (event.pointerId === grab.second.id) grab.second.p = p; else if (event.pointerId === grab.id) grab.last = p; else return;
+        const a = grab.last, b = grab.second.p, ratio = state.h / state.w;
+        const span = Math.hypot(b[0] - a[0], (b[1] - a[1]) * ratio) || 0.01, angle = Math.atan2((b[1] - a[1]) * ratio, b[0] - a[0]);
+        const scale = clamp(span / grab.baseSpan, 0.3, 4), turn = angle - grab.baseAngle, cos = Math.cos(turn), sin = Math.sin(turn);
+        let cx = 0, cy = 0;
+        for (let i = 0; i < 8; i += 2) { cx += grab.basePts[i] / 4; cy += grab.basePts[i + 1] / 4; }
+        for (let i = 0; i < 8; i += 2) {
+          const x = (grab.basePts[i] - cx) * scale, y = (grab.basePts[i + 1] - cy) * ratio * scale;
+          pane.pts[i] = cx + x * cos - y * sin; pane.pts[i + 1] = cy + (x * sin + y * cos) / ratio;
+        }
+        return;
+      }
+      if (event.pointerId !== grab.id) return;
+      if (!grab.moved && Math.hypot(p[0] - grab.start[0], p[1] - grab.start[1]) < 0.015) return;
+      grab.moved = true;
+      movePane(pane, p[0] - grab.last[0], p[1] - grab.last[1]);
+      grab.last = p;
+    });
+    const release = event => {
+      if (!state.active || grab.id < 0) return;
+      if (grab.second && event.pointerId === grab.second.id) { grab.second = null; return; }
+      if (event.pointerId !== grab.id) return;
+      const tap = !grab.moved && event.type === 'pointerup', hit = grab.pane;
+      grab.id = -1; grab.pane = -1; grab.second = null;
+      if (!tap || hit >= 0) return;
+      if (trk.phase === 'failed') { trk.phase = 'idle'; start(); return; }
+      if (selected >= 0) { select(-1); return; }
+      if (state.shape && state.amount > 0.5) lockLive('toque');
+    };
+    display.addEventListener('pointerup', release);
+    display.addEventListener('pointercancel', release);
+    // El toque sobre el visor es de PORTAL: no llega a los cierres de paneles de CAM.
+    display.addEventListener('click', event => { if (state.active) event.stopImmediatePropagation(); }, true);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
   return {
     render, enter, exit, start,
     get active() { return state.active; },
-    status: () => ({ active: state.active, phase: state.phase, message: state.message, hands: state.hands.length, amount: +state.amount.toFixed(3), shape: state.shape ? state.shape.kind : null, area: state.shape ? +state.shape.area.toFixed(4) : 0, look: state.look, locked: state.locked, ms: state.ms, error: state.error || '', fxError: state.fxError || '' }),
+    // El dibujo acelerado va a la cadencia de la pantalla; sin WebGL 2, a 30 por segundo.
+    get fast() { return state.active && gfx.ok; },
+    status: () => ({ active: state.active, phase: trk.phase, message: trk.message, delegate: trk.delegate, calibrating: !!trk.cand, frames: trk.frames, busy: !!(trk.main && trk.main.busy),
+      mode: state.mode || '', held: state.slots ? state.slots.map(slot => (slot.lostAt ? (slot.edge ? 'lado' : 'espera') : 'viva')) : null, hands: state.hands.length,
+      tips: trk.raw.length ? [+trk.raw[0][8].toFixed(3), +trk.raw[0][9].toFixed(3), +trk.raw[0][16].toFixed(3), +trk.raw[0][17].toFixed(3)] : null,
+      amount: +state.amount.toFixed(3), shape: state.shape ? state.shape.kind : null, area: state.shape ? +state.shape.area.toFixed(4) : 0, look: state.look,
+      panes: panes.length, selected, styles: panes.map(pane => pane.style.key), waiting: state.wait, pinched: state.pinched,
+      ms: trk.ms, error: trk.error || '', fxError: state.fxError || '', gl: gfx.ok, path: gfx.path }),
+    // Portales fijados, para las teclas y para las pruebas.
+    panes: {
+      list: () => panes.map(pane => ({ id: pane.id, style: pane.style.key, pts: Array.from(pane.pts, v => +v.toFixed(4)) })),
+      lock: () => lockLive('tecla'), remove: removePane, select, clear() { panes.length = 0; select(-1); },
+      move(index, dx, dy) { if (panes[index]) movePane(panes[index], dx, dy); },
+    },
     // El mismo rastreador para otros módulos (STAGE): se le ofrece un cuadro y devuelve las manos
     // de la última detección, en 0…1 sobre ese cuadro.
-    track(canvas) { push(canvas); return { hands: state.targets, fresh: performance.now() - state.seenAt < LOST_MS, phase: state.phase, message: state.message }; },
-    release() { if (state.active) return; stopWorker(); if (state.phase !== 'failed') state.phase = 'idle'; state.targets = []; },
+    track(canvas) { push(canvas); return { hands: trk.raw, fresh: performance.now() - trk.rawAt < LOST_MS, phase: trk.phase, message: trk.message }; },
+    release() { if (!state.active) stop(); },
     // Sustituye el rastreador por una función (pruebas): recibe el tiempo y devuelve manos como Float32Array(42).
-    use(provider) { stopWorker(); state.provider = provider; state.phase = provider ? 'ready' : 'idle'; },
+    use(provider) { stop(!!provider); trk.provider = provider; trk.phase = provider ? 'ready' : 'idle'; },
+    // Pruebas: fuerza la subida directa del vídeo en vez de los planos.
+    direct(on) { gfx.direct = !!on; gfx.path = ''; },
   };
 })();

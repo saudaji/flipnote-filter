@@ -114,6 +114,22 @@ async function main() {
     const facing = state.facing.slice(-2);
     assert.notEqual(facing[0], facing[1], 'cambia de cámara');
     step('cambio de cámara', { facing });
+    // Un teléfono que no abre dos cámaras a la vez (visto en un Samsung): el cambio suelta la
+    // actual y reintenta; a partir de ahí la suelta siempre antes y ya no hay intento fallido.
+    await page.evaluate(() => { window.__flipSceneCamera.exclusive = true; });
+    await flip();
+    state = await cam(page);
+    assert.equal(state.live, 1, 'una cámara viva tras el cambio con cámara exclusiva');
+    assert.equal(state.busy, 1, 'un intento fallido, y se recupera');
+    assert.notEqual(state.facing.slice(-2)[0], state.facing.slice(-2)[1], 'cambia de cámara aunque no pueda abrir dos');
+    assert.equal(await page.evaluate(() => localStorage.getItem('flip.cam.serial')), '1', 'el teléfono queda anotado');
+    await flip();
+    state = await cam(page);
+    assert.equal(state.busy, 1, 'el segundo cambio ya no falla ni una vez');
+    assert.equal(state.live, 1);
+    assert.equal(await page.evaluate(() => [...document.querySelectorAll('.flip-toast')].some(t => /video source/i.test(t.textContent))), false, 'sin aviso de error');
+    await page.evaluate(() => { window.__flipSceneCamera.exclusive = false; localStorage.removeItem('flip.cam.serial'); camSerialSwitch = false; });
+    step('cambio de cámara en un teléfono de cámara exclusiva', { busy: state.busy });
 
     // ── 7 · NIGHT y FLASH desde los controles; el LED solo se enciende al disparar en FLASH ──
     if (facing[1] !== 'environment') await flip();

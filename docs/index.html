@@ -12112,11 +12112,55 @@ document.addEventListener('visibilitychange', () => {
   if (!extAudioMode) startCamera(facingMode).catch(error => flipToast('⚠ ' + (error?.message || 'Camera failed')));
 });
 
+// Hay teléfonos que no abren una cámara mientras la otra sigue encendida («Could not start video
+// source»): el Pixel 10 deja, muchos Samsung no. Primero se intenta el cambio sin corte; si falla,
+// se suelta la cámara actual y se reintenta, y el teléfono queda anotado para soltarla siempre
+// antes. Si ni así abre, vuelve la cámara que estaba.
+let camSerialSwitch = false;
+try { camSerialSwitch = localStorage.getItem('flip.cam.serial') === '1'; } catch (_) {}
+function _camConstraints(facing) {
+  return { video:{ facingMode:facing, width:{ideal:1280}, height:{ideal:720} }, audio:false };
+}
+async function _reopenCamera(facing) {
+  try {
+    const back = await navigator.mediaDevices.getUserMedia(_camConstraints(facing));
+    stream = back;
+    flipSensor.reset(vid);
+    vid.srcObject = back;
+    try { await vid.play(); } catch (_) {}
+    _refreshCamZoomSupport(back.getVideoTracks()[0] || null);
+  } catch (_) {
+    stream = null;
+    vid.srcObject = null;
+    _clearCamZoomSupport();
+    _syncCamZoomUI();
+  }
+}
 async function openCamera(facing) {
-  const nextStream = await navigator.mediaDevices.getUserMedia({
-    video:{ facingMode:facing, width:{ideal:1280}, height:{ideal:720} }, audio:false,
-  });
-  const prevStream = stream;
+  const prevStream = stream, prevFacing = facingMode;
+  const hadLive = !!(prevStream && prevStream.getVideoTracks().some(t => t.readyState === 'live'));
+  let released = false;
+  const release = async wait => {
+    released = true;
+    try { prevStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    await new Promise(resolve => setTimeout(resolve, wait));
+  };
+  if (hadLive && camSerialSwitch) await release(220);
+  let nextStream = null;
+  try {
+    nextStream = await navigator.mediaDevices.getUserMedia(_camConstraints(facing));
+  } catch (err) {
+    const busy = hadLive && !/NotAllowed|NotFound|Security|TypeError/i.test((err && err.name) || '');
+    if (!busy) { if (released) await _reopenCamera(prevFacing); throw err; }
+    let last = err;
+    for (const wait of released ? [600] : [220, 600]) {
+      await release(wait);
+      try { nextStream = await navigator.mediaDevices.getUserMedia(_camConstraints(facing)); break; } catch (again) { last = again; }
+    }
+    if (!nextStream) { await _reopenCamera(prevFacing); throw last; }
+    camSerialSwitch = true;
+    try { localStorage.setItem('flip.cam.serial', '1'); } catch (_) {}
+  }
   stream = nextStream;
   flipSensor.reset(vid);
   vid.muted = true;
@@ -12131,11 +12175,13 @@ async function openCamera(facing) {
     await _waitForVideoReady(vid);
   } catch (err) {
     try { nextStream.getTracks().forEach(t => t.stop()); } catch (_) {}
-    if (prevStream) {
+    if (prevStream && !released) {
       stream = prevStream;
       vid.srcObject = prevStream;
       try { await vid.play(); } catch (_) {}
       _refreshCamZoomSupport(prevStream.getVideoTracks()[0] || null);
+    } else if (released) {
+      await _reopenCamera(prevFacing);
     } else {
       stream = null;
       vid.srcObject = null;
@@ -12475,8 +12521,10 @@ function cameraLoop(t) {
   }
   // PORTAL dibuja la cámara fluida y aplica la cadencia de cada emulador solo dentro de la ventana.
   const portalOn = typeof flipPortal !== 'undefined' && flipPortal.active;
-  const minInterval = portalOn ? 1000 / 30 : (camFpsEnabled ? 1000 / camFpsTarget : 0);
-  if (!_pipeTestOn && awaitCamFrame(t - camLastFrameMs, minInterval)) { scheduleFrame(cameraLoop); return; }
+  // Con dibujo acelerado PORTAL va a la cadencia de la pantalla y lee la cámara por su cuenta.
+  const portalFast = portalOn && flipPortal.fast;
+  const minInterval = portalOn ? (portalFast ? 0 : 1000 / 30) : (camFpsEnabled ? 1000 / camFpsTarget : 0);
+  if (!_pipeTestOn && !portalFast && awaitCamFrame(t - camLastFrameMs, minInterval)) { scheduleFrame(cameraLoop); return; }
   if (t - camLastFrameMs >= minInterval) {
     _camSensorPrimed = false;
     if (_pipeTestOn) {

@@ -607,7 +607,28 @@ body.portal-mode .look[data-family="SLHT"] { display: none; }
   background: rgba(255, 255, 255, .92); box-shadow: 0 0 0 3px rgba(236, 91, 69, .9), 0 0 12px rgba(255, 255, 255, .8);
   will-change: transform;
 }
-body.portal-mode #osdHint { bottom: 12px; }
+/* El clic de anular y pulgar se ve en las yemas. */
+.portal-tip.is-click { background: var(--mustard); box-shadow: 0 0 0 4px rgba(255, 255, 255, .95), 0 0 16px rgba(240, 174, 43, .95); }
+body.portal-mode #display { touch-action: none; }
+/* Teclas sobre el cristal: fijar la ventana, cuántos portales hay, borrar. */
+#portalBar {
+  position: absolute; left: 50%; bottom: 9px; transform: translateX(-50%); z-index: 3;
+  display: none; align-items: center; gap: 7px; pointer-events: auto; text-shadow: none;
+}
+body.portal-mode #portalBar { display: flex; }
+#portalBar .hw-keycap { height: 34px; padding: 0 12px 1px 9px; gap: 5px; font-size: 10.5px; }
+#portalBar .hw-keycap svg { width: 14px; height: 14px; }
+#portalBar .hw-keycap.is-dim { opacity: .5; }
+#portalCount { min-width: 36px; height: 32px; display: grid; place-items: center; padding: 1px 9px 0; font-size: 15px; }
+#portalDrop {
+  position: absolute; left: -15px; top: -15px; z-index: 3; width: 30px; height: 30px; border-radius: 50%;
+  display: none; place-items: center; pointer-events: auto; color: #fff; text-shadow: none;
+  background: linear-gradient(180deg, #f2705b, #e24a35); box-shadow: 0 2px 0 #a8372a, 0 3px 8px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .45);
+  will-change: transform;
+}
+#portalDrop svg { width: 13px; height: 13px; }
+#portalDrop:active { box-shadow: 0 0 0 #a8372a, inset 0 1px 0 rgba(255, 255, 255, .45); margin-top: 2px; }
+body.portal-mode #osdHint { bottom: 52px; }
 
 /* ── Lanzador: los módulos como cartuchos ────────────────────────────────── */
 #shellLauncher {

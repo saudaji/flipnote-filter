@@ -1,13 +1,14 @@
 // Cámara simulada para las pruebas: si existe window.__flipSceneCamera, getUserMedia
 // devuelve un canvas.captureStream() que dibuja una escena de tests/scenes.js.
 // Campos: scene, options, w, h, fps, freeze (segundos fijos), torch (LED simulado),
-// deny (número de solicitudes de vídeo que se rechazan antes de conceder).
+// deny (número de solicitudes de vídeo que se rechazan antes de conceder), exclusive (como muchos
+// teléfonos: no abre una cámara mientras otra sigue encendida).
 (function () {
   'use strict';
   const cfg = window.__flipSceneCamera;
   if (!cfg || !navigator.mediaDevices) return;
   const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-  const state = window.__flipSceneCameraState = { opens: 0, live: 0, denied: 0, torch: [], facing: [], audioLive: 0 };
+  const state = window.__flipSceneCameraState = { opens: 0, live: 0, denied: 0, busy: 0, torch: [], facing: [], audioLive: 0 };
   navigator.mediaDevices.getUserMedia = async function (constraints) {
     if (!constraints || !constraints.video) {
       const audio = await real(constraints);
@@ -24,6 +25,10 @@
       live.deny--;
       state.denied++;
       throw new DOMException('Permission denied', 'NotAllowedError');
+    }
+    if (live.exclusive && state.live > 0) {
+      state.busy++;
+      throw new DOMException('Could not start video source', 'NotReadableError');
     }
     const w = live.w || 640, h = live.h || 480;
     const canvas = document.createElement('canvas');

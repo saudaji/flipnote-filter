@@ -4,8 +4,10 @@ const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512
   './fonts/Bloom-Regular.otf', './fonts/BNMonica.otf', './fonts/Fluidic-Regular.otf', './fonts/Canterbury.ttf'];
 const shell = new URL('./index.html', self.registration.scope).href;
 
+// Una alfa nueva sustituye a la anterior en cuanto termina de descargarse: quien llega con
+// la versión vieja instalada no tiene que cerrar todas las pestañas para recibirla.
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {

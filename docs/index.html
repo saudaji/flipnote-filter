@@ -14380,6 +14380,13 @@ class FlipAudioEngine {
       return false;
     }
   }
+  // Entre tomas el micrófono se suelta; solo queda abierto mientras se graba o se monitoriza.
+  releaseMic() {
+    if (!this.micStream || this.monitorConnected || this.state === 'RECORDING') return;
+    if (this.sourceNode) { try { this.sourceNode.disconnect(); } catch (_) {} this.sourceNode = null; }
+    try { this.micStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    this.micStream = null;
+  }
   _scheduleImpulse(effectId, size, decay) {
     clearTimeout(this.irTimers[effectId]);
     this.irTimers[effectId] = setTimeout(() => {
@@ -14508,6 +14515,7 @@ class FlipAudioEngine {
   stopAfterRecording() {
     if (!this.ctx) return;
     this.state = this.isInitialized ? 'READY' : 'IDLE';
+    this.releaseMic();
     if (this.ownsContext && !this.monitorConnected && this.ctx.state === 'running') {
       this.ctx.suspend().catch(() => {});
     }
@@ -22745,7 +22753,17 @@ function _initFlipOsBoot() {
 _initFlipOsBoot();
 
 if ('serviceWorker' in navigator) {
+  const hadWorker = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('./sw.js').catch(() => {});
+  // Actualización desde una alfa anterior: en la portada se recarga sola; con la app en uso
+  // no se interrumpe una toma, solo se avisa.
+  let updated = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadWorker || updated) return;
+    updated = true;
+    if (!IS_STAGE_OUT && !splash.classList.contains('hidden')) location.reload();
+    else flipToast('Hay una versión nueva de FLIP. Vuelve a abrirla para usarla.', 6000);
+  });
 }
 </script>
 </body>

@@ -34,12 +34,24 @@
     const video = constraints.video === true ? {} : constraints.video;
     const wanted = video.facingMode;
     const facing = (wanted && (wanted.exact || wanted.ideal || wanted)) || 'user';
+    const still = document.createElement('canvas');
+    still.width = w; still.height = h;
+    let stillKey = '', pulse = 0;
     const tick = () => {
       if (!alive) return;
       const now = window.__flipSceneCamera;
-      const t = now.freeze != null ? now.freeze : (performance.now() - started) / 1000;
       // El LED simulado ilumina la escena: las pruebas ven la diferencia entre encendido y apagado.
-      FlipScenes.draw(ctx, w, h, now.scene, t, torch ? { ...(now.options || {}), ...(now.torchOptions || {}) } : now.options);
+      const options = torch ? { ...(now.options || {}), ...(now.torchOptions || {}) } : now.options;
+      if (now.freeze != null) {
+        // Escena congelada: se pinta una vez y se reutiliza, para no cargar el coste a la app.
+        const key = [now.scene, now.freeze, torch, JSON.stringify(options || {})].join('|');
+        if (key !== stillKey) { stillKey = key; FlipScenes.draw(still.getContext('2d', { willReadFrequently: true }), w, h, now.scene, now.freeze, options); }
+        ctx.drawImage(still, 0, 0);
+        // Un píxel alterna para que el flujo siga entregando cuadros nuevos.
+        ctx.fillStyle = (pulse ^= 1) ? '#000' : '#010101'; ctx.fillRect(0, 0, 1, 1);
+      } else {
+        FlipScenes.draw(ctx, w, h, now.scene, (performance.now() - started) / 1000, options);
+      }
       requestAnimationFrame(tick);
     };
     tick();

@@ -76,12 +76,12 @@
     ctx.quadraticCurveTo(0, hh * 0.3, hw * 0.14, hh * 0.24); ctx.stroke();
     ctx.restore();
   }
-  function drawHand(ctx, cx, cy, s, rot, color) {
+  function drawHand(ctx, cx, cy, s, rot, color, outline) {
     ctx.save();
     ctx.translate(cx, cy); ctx.rotate(rot || 0);
     ctx.fillStyle = color || '#d9a583';
     ctx.strokeStyle = 'rgba(120,75,55,0.6)'; ctx.lineWidth = Math.max(1, s * 0.012);
-    const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); ctx.stroke(); };
+    const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); if (outline !== false) ctx.stroke(); };
     rr(-s * 0.13, s * 0.22, s * 0.26, s * 0.7, s * 0.08);
     for (const [fx, fl, fa] of [[-0.21, 0.30, -0.16], [-0.07, 0.38, -0.05], [0.07, 0.36, 0.05], [0.20, 0.28, 0.17]]) {
       ctx.save(); ctx.translate(fx * s, -s * 0.16); ctx.rotate(fa);
@@ -278,7 +278,7 @@
       scenes.cup(ctx, w, h);
       sensorNoise(ctx, w, h, Math.floor(t * 30), o.read === undefined ? 0.004 : o.read, o.shot === undefined ? 0.0012 : o.shot);
     },
-    hand(ctx, w, h) { tableBackdrop(ctx, w, h); drawHand(ctx, w * 0.5, h * 0.5, h * 0.6, 0.1); },
+    hand(ctx, w, h) { tableBackdrop(ctx, w, h); drawHand(ctx, w * 0.5, h * 0.5, h * 0.6, 0.1, null, false); },
     cable(ctx, w, h) { tableBackdrop(ctx, w, h); drawCable(ctx, w, h); },
     // Entra por la izquierda en t=0.5 s, cruza y sale; a partir de 2.5 s el cuadro queda vacío.
     enterExit(ctx, w, h, t) {
@@ -289,7 +289,7 @@
     },
     handWave(ctx, w, h, t) {
       tableBackdrop(ctx, w, h);
-      drawHand(ctx, w * (0.5 + 0.22 * Math.sin(TAU * t / 1.2)), h * 0.5, h * 0.55, 0.3 * Math.sin(TAU * t / 1.2));
+      drawHand(ctx, w * (0.5 + 0.22 * Math.sin(TAU * t / 1.2)), h * 0.5, h * 0.55, 0.3 * Math.sin(TAU * t / 1.2), null, false);
     },
     // Material: texto, retrato, degradado y transiciones.
     text(ctx, w, h) {

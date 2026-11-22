@@ -5748,7 +5748,7 @@ function _applyCamState() {
   slhtPanel.style.display = editMode === 'slht' ? 'block' : 'none';
   oscamLegacyRow.classList.toggle('visible', editMode === 'oscam' && camVariant === 'LGCY');
   oscamStaticOnlyRow.classList.toggle('visible', editMode === 'oscam' && camVariant !== 'TIME');
-  oscamStaticOnlyRow.querySelector('.oscam-lbl').textContent = ({ FFT:'FILA', XY:'SEPARACIÓN', STD:'NIVEL' })[camVariant] || 'SCAN';
+  oscamStaticOnlyRow.querySelector('.oscam-lbl').textContent = ({ FFT:'FILA', XY:'SEPARACIÓN', STD:'DETALLE' })[camVariant] || 'SCAN';
   document.getElementById('oscamPresence').closest('.oscam-ctrl-row').querySelector('.oscam-lbl').textContent =
     camVariant === 'LGCY' ? 'LOCK' : 'PERSISTENCIA';
   document.getElementById('caskiaGhost').value = caskiaSeikoGhostVal;

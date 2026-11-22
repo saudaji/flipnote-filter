@@ -31,8 +31,7 @@ async function main() {
     await page.goto(process.env.FLIP_URL || 'http://127.0.0.1:8742');
     await page.locator('#btnSplashOriginal').click();
     await hasImage(page, 'display');
-    await page.locator('.cam-family-trigger').click();
-    await page.locator('#camFamilyTray [data-family="STAMP"]').click();
+    await page.locator('#deckLooks [data-family="STAMP"]').click();
     const geometry = await page.evaluate(async () => {
       flipAudioSettings.resolution = 'high';
       const bitmap = await createImageBitmap(await cameraPhoto());
@@ -49,7 +48,8 @@ async function main() {
       return draws;
     });
     assert.equal(calls, 1);
-    await page.locator('#modulePicker').selectOption('stage');
+    await page.locator('#shellModule').click();
+    await page.locator('#shellLauncher [data-module="stage"]').click();
     const popup = page.waitForEvent('popup');
     await page.locator('#btnStageOpenOut').click();
     const output = await popup;

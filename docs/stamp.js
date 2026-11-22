@@ -13,11 +13,11 @@
 //   INK    estampa cargada: línea gruesa y rugosa, masas de tinta, velo de plancha
 //   ISSUE  el sello emitido: trama fina de ondas paralelas, papel con más tono y dentado
 const STAMP_PALETTES = {
-  POSTAL: { paper:[234,226,204], fiber:[214,201,176], ink:[58,116,74], deep:[26,63,37], accent:[145,164,111] },
-  COBALT: { paper:[238,232,221], fiber:[219,206,190], ink:[56,93,154], deep:[24,44,92], accent:[145,171,212] },
-  SEPIA:  { paper:[229,216,194], fiber:[207,190,163], ink:[91,66,45], deep:[44,28,19], accent:[151,118,84] },
-  OXIDE:  { paper:[238,221,194], fiber:[215,196,169], ink:[154,83,35], deep:[92,44,18], accent:[214,154,86] },
-  NOIR:   { paper:[239,233,223], fiber:[217,208,197], ink:[50,49,45], deep:[16,16,14], accent:[131,126,118] },
+  POSTAL: { paper:[234,226,204], fiber:[214,201,176], ink:[58,116,74], deep:[26,63,37], accent:[145,164,111], second:[176,56,40] },
+  COBALT: { paper:[238,232,221], fiber:[219,206,190], ink:[56,93,154], deep:[24,44,92], accent:[145,171,212], second:[192,126,26] },
+  SEPIA:  { paper:[229,216,194], fiber:[207,190,163], ink:[91,66,45], deep:[44,28,19], accent:[151,118,84], second:[132,38,30] },
+  OXIDE:  { paper:[238,221,194], fiber:[215,196,169], ink:[154,83,35], deep:[92,44,18], accent:[214,154,86], second:[38,76,96] },
+  NOIR:   { paper:[239,233,223], fiber:[217,208,197], ink:[50,49,45], deep:[16,16,14], accent:[131,126,118], second:[166,30,34] },
 };
 // lines: líneas principales por alto de imagen · angle/cross/third: dirección de cada pantalla (rad)
 // crossAt/thirdAt: sombra a partir de la cual aparece cada cruzado · c1: grosor máximo de la línea
@@ -30,7 +30,13 @@ const STAMP_VARIANTS = {
 };
 const STAMP_GRID_W = 256;
 const STAMP_WORK_SCALE = 0.75;
-const STAMP_FRAME_MARGIN = 0.085;
+// Márgenes de la ventana de imagen en unidades de sello (u = lado corto / 100): cada diseño
+// reserva arriba y abajo el sitio de su rótulo y su valor.
+const STAMP_LAYOUT = {
+  ENGR:  { l: 9.2, r: 9.2, t: 14.2, b: 13.2 },
+  INK:   { l: 8.6, r: 8.6, t: 15.0, b: 12.8 },
+  ISSUE: { l: 7.2, r: 7.2, t: 11.6, b: 12.4 },
+};
 
 function _getStampCaptureSampleDims() {
   return { sampleW: DSI_W, sampleH: DSI_H };
@@ -129,51 +135,304 @@ function _stampPaper(paletteKey, palette, workW, workH, amount, variantKey, seed
   return paper;
 }
 
-function _drawStampIssueFrame(targetCtx, outW, outH, palette, imageBounds) {
-  const { x, y, w, h } = imageBounds;
-  const margin = Math.max(10, Math.round(Math.min(outW, outH) * 0.032));
-  const lineOuter = Math.max(1.5, Math.round(Math.min(outW, outH) * 0.0035));
-  const lineInner = Math.max(1, Math.round(Math.min(outW, outH) * 0.002));
-  const accent = `rgb(${palette.accent.join(',')})`;
-  const deep = `rgb(${palette.deep.join(',')})`;
-  const ink = `rgb(${palette.ink.join(',')})`;
-  targetCtx.save();
-  targetCtx.strokeStyle = accent;
-  targetCtx.lineWidth = lineOuter;
-  targetCtx.strokeRect(x - margin, y - margin, w + margin * 2, h + margin * 2);
-  targetCtx.strokeStyle = deep;
-  targetCtx.lineWidth = lineInner;
-  targetCtx.strokeRect(x - margin * 0.55, y - margin * 0.55, w + margin * 1.1, h + margin * 1.1);
-  targetCtx.strokeRect(x - margin * 0.18, y - margin * 0.18, w + margin * 0.36, h + margin * 0.36);
-  targetCtx.fillStyle = deep;
-  targetCtx.font = `${Math.max(12, Math.round(outH * 0.026))}px Georgia, "Times New Roman", serif`;
-  targetCtx.textAlign = 'center';
-  targetCtx.textBaseline = 'middle';
-  targetCtx.fillText('FLIP POST', outW * 0.5, y - margin * 0.66);
-  targetCtx.fillStyle = ink;
-  targetCtx.font = `${Math.max(11, Math.round(outH * 0.022))}px Georgia, "Times New Roman", serif`;
-  targetCtx.textAlign = 'left';
-  targetCtx.fillText(renderVariant(), x - margin * 0.74, y + h + margin * 0.52);
-  targetCtx.textAlign = 'right';
-  targetCtx.fillText('12c', x + w + margin * 0.74, y + h + margin * 0.52);
-  targetCtx.restore();
+// ── El sello como objeto: marco grabado, rótulos, dentado y matasellos ──────────────────
+// Todo lo que no es la imagen se dibuja una vez en una capa y se compone encima en cada cuadro.
+//   ENGR  · definitivo calcográfico: cenefa de guilloché, rosetas, rótulo en reserva sobre fondo rayado
+//   INK   · tipográfico a dos tintas: bloques planos con gótica calada y registro desplazado
+//   ISSUE · conmemorativo dentado con matasellos de primer día
+let _stampFontEpoch = 0;
+const _stampFrameCache = new Map();
+if (typeof document !== 'undefined' && document.fonts && document.fonts.load) {
+  const refresh = () => { _stampFontEpoch++; _stampFrameCache.clear(); };
+  Promise.all([document.fonts.load('700 24px Cinzel'), document.fonts.load('24px Canterbury')]).then(refresh, refresh);
 }
-// Dentado del sello emitido: perforaciones a paso fijo que muerden el borde del papel.
-function _drawStampPerforation(targetCtx, outW, outH) {
-  const radius = outH * 0.0115, inset = outH * 0.004;
-  targetCtx.save();
-  targetCtx.fillStyle = '#16140f';
-  targetCtx.beginPath();
+const _stampRgb = (c, a = 1) => a >= 1 ? `rgb(${c[0]},${c[1]},${c[2]})` : `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const STAMP_ROMAN = 'Cinzel, "Trajan Pro", "Times New Roman", Georgia, serif';
+const STAMP_GOTHIC = 'Canterbury, "Old English Text MT", Georgia, serif';
+
+function _stampText(ctx, text, x, y, size, family, fill, options = {}) {
+  ctx.save();
+  ctx.font = `${options.weight || 700} ${size.toFixed(2)}px ${family}`;
+  ctx.textAlign = options.align || 'center';
+  ctx.textBaseline = 'alphabetic';
+  try { ctx.letterSpacing = ((options.spacing || 0) * size).toFixed(2) + 'px'; } catch (_) {}
+  const cx = options.align && options.align !== 'center' ? x : x + (options.spacing || 0) * size * 0.5;
+  if (options.stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = options.strokeWidth || size * 0.09; ctx.strokeStyle = options.stroke; ctx.strokeText(text, cx, y); }
+  ctx.fillStyle = fill;
+  ctx.fillText(text, cx, y);
+  ctx.restore();
+}
+// Fondo rayado del buril: tinta con líneas finas de papel en reserva.
+function _stampRuled(ctx, x, y, w, h, ink, paper, pitch, vertical = false) {
+  ctx.save();
+  ctx.fillStyle = ink;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = paper;
+  ctx.lineWidth = Math.max(0.6, pitch * 0.3);
+  ctx.beginPath();
+  if (vertical) for (let p = x + pitch * 0.5; p < x + w; p += pitch) { ctx.moveTo(p, y); ctx.lineTo(p, y + h); }
+  else for (let p = y + pitch * 0.5; p < y + h; p += pitch) { ctx.moveTo(x, p); ctx.lineTo(x + w, p); }
+  ctx.stroke();
+  ctx.restore();
+}
+// Cenefa de guilloché: tres ondas entrelazadas, la cadena de un billete.
+function _stampGuilloche(ctx, x0, y0, x1, y1, amplitude, wavelength, color, width) {
+  const length = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / length, uy = (y1 - y0) / length;
+  const waves = Math.max(2, Math.round(length / wavelength)), k = (Math.PI * 2 * waves) / length;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  for (let strand = 0; strand < 3; strand++) {
+    const phase = (strand * Math.PI * 2) / 3;
+    for (let t = 0; t <= length; t += Math.max(1, wavelength / 14)) {
+      const off = amplitude * Math.sin(k * t + phase);
+      const px = x0 + ux * t - uy * off, py = y0 + uy * t + ux * off;
+      if (t === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+// Roseta de torno geométrico para las esquinas.
+function _stampRosette(ctx, cx, cy, radius, ink, paper, width) {
+  ctx.save();
+  ctx.fillStyle = paper;
+  ctx.beginPath(); ctx.arc(cx, cy, radius * 1.08, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  for (const [lobes, depth, scale] of [[8, 0.2, 1], [8, -0.2, 1], [12, 0.16, 0.66], [12, -0.16, 0.66], [6, 0.26, 0.36]]) {
+    for (let i = 0; i <= 120; i++) {
+      const a = (i / 120) * 6.2832, r = radius * scale * (1 - Math.abs(depth) + depth * Math.cos(lobes * a));
+      const px = cx + r * Math.cos(a), py = cy + r * Math.sin(a);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+  }
+  ctx.moveTo(cx + radius * 1.04, cy); ctx.arc(cx, cy, radius * 1.04, 0, 6.2832);
+  ctx.stroke();
+  ctx.fillStyle = ink;
+  ctx.beginPath(); ctx.arc(cx, cy, radius * 0.1, 0, 6.2832); ctx.fill();
+  ctx.restore();
+}
+// Dentado: las perforaciones muerden el borde y dejan ver el fondo oscuro; un filo de sombra da grosor al papel.
+function _stampPerforation(ctx, outW, outH, u) {
+  const radius = u * 1.12, inset = u * 0.36;
+  ctx.save();
   const along = (length, place) => {
-    const count = Math.max(4, Math.round(length / (radius * 3.1)));
+    const count = Math.max(4, Math.round(length / (radius * 3.05)));
     for (let k = 0; k <= count; k++) place((k / count) * length);
   };
-  along(outW, t => { targetCtx.moveTo(t + radius, inset); targetCtx.arc(t, inset, radius, 0, 6.2832); targetCtx.moveTo(t + radius, outH - inset); targetCtx.arc(t, outH - inset, radius, 0, 6.2832); });
-  along(outH, t => { targetCtx.moveTo(inset + radius, t); targetCtx.arc(inset, t, radius, 0, 6.2832); targetCtx.moveTo(outW - inset + radius, t); targetCtx.arc(outW - inset, t, radius, 0, 6.2832); });
-  targetCtx.fill();
-  targetCtx.fillRect(0, 0, outW, inset); targetCtx.fillRect(0, outH - inset, outW, inset);
-  targetCtx.fillRect(0, 0, inset, outH); targetCtx.fillRect(outW - inset, 0, inset, outH);
-  targetCtx.restore();
+  const holes = (draw) => {
+    along(outW, t => { draw(t, inset); draw(t, outH - inset); });
+    along(outH, t => { draw(inset, t); draw(outW - inset, t); });
+  };
+  ctx.fillStyle = 'rgba(40,30,16,.26)';
+  ctx.beginPath(); holes((x, y) => { ctx.moveTo(x + radius * 1.16, y + u * 0.14); ctx.arc(x + u * 0.1, y + u * 0.14, radius * 1.16, 0, 6.2832); }); ctx.fill();
+  ctx.fillStyle = '#131109';
+  ctx.beginPath(); holes((x, y) => { ctx.moveTo(x + radius, y); ctx.arc(x, y, radius, 0, 6.2832); }); ctx.fill();
+  ctx.fillRect(0, 0, outW, inset); ctx.fillRect(0, outH - inset, outW, inset);
+  ctx.fillRect(0, 0, inset, outH); ctx.fillRect(outW - inset, 0, inset, outH);
+  ctx.restore();
+}
+// Matasellos de primer día: doble corona con la fecha y las ondas del rodillo, con la tinta desigual.
+function _stampPostmark(ctx, cx, cy, radius, lines, seed) {
+  const ink = 'rgba(26,24,22,.8)';
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-0.21);
+  ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineCap = 'round';
+  ctx.lineWidth = radius * 0.055;
+  ctx.beginPath(); ctx.arc(0, 0, radius, 0, 6.2832); ctx.stroke();
+  ctx.lineWidth = radius * 0.03;
+  ctx.beginPath(); ctx.arc(0, 0, radius * 0.66, 0, 6.2832); ctx.stroke();
+  // Rótulo en corona.
+  const ringText = (text, start, sign, size) => {
+    ctx.font = `700 ${size.toFixed(2)}px ${STAMP_ROMAN}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const step = (size * 0.86) / (radius * 0.83);
+    let angle = start - (sign * step * (text.length - 1)) / 2;
+    for (const ch of text) {
+      ctx.save();
+      ctx.rotate(angle);
+      ctx.translate(0, -sign * radius * 0.83);
+      if (sign < 0) ctx.rotate(Math.PI);
+      ctx.fillText(ch, 0, 0);
+      ctx.restore();
+      angle += sign * step;
+    }
+  };
+  ringText(lines[0], 0, 1, radius * 0.17);
+  ringText(lines[1], Math.PI, -1, radius * 0.14);
+  ctx.font = `700 ${(radius * 0.25).toFixed(2)}px ${STAMP_ROMAN}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(lines[2], 0, -radius * 0.13);
+  ctx.font = `700 ${(radius * 0.19).toFixed(2)}px ${STAMP_ROMAN}`;
+  ctx.fillText(lines[3], 0, radius * 0.2);
+  // Ondas del rodillo hacia la izquierda.
+  ctx.lineWidth = radius * 0.06;
+  ctx.beginPath();
+  for (let row = -2; row <= 2; row++) {
+    const y = row * radius * 0.3;
+    for (let x = -radius * 1.12; x >= -radius * 3.3; x -= radius * 0.06) {
+      const py = y + Math.sin(x / (radius * 0.2)) * radius * 0.085;
+      if (x === -radius * 1.12) ctx.moveTo(x, py); else ctx.lineTo(x, py);
+    }
+  }
+  ctx.stroke();
+  // Tinta desigual: se le comen motas.
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 260; i++) {
+    const h1 = _stampHash(i, 7, seed), h2 = _stampHash(i, 19, seed), h3 = _stampHash(i, 31, seed);
+    ctx.globalAlpha = 0.35 + h3 * 0.5;
+    ctx.beginPath();
+    ctx.arc((h1 * 4.6 - 3.4) * radius, (h2 * 2.3 - 1.15) * radius, radius * (0.012 + h3 * 0.035), 0, 6.2832);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function _stampFrame(variantKey, paletteKey, palette, outW, outH, seed) {
+  const today = new Date();
+  const day = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const key = [variantKey, paletteKey, outW, outH, _stampFontEpoch, day].join(':');
+  let frame = _stampFrameCache.get(key);
+  if (frame) return frame;
+  if (_stampFrameCache.size > 5) _stampFrameCache.clear();
+  const canvas = document.createElement('canvas');
+  canvas.width = outW; canvas.height = outH;
+  const ctx = canvas.getContext('2d');
+  const u = Math.min(outW, outH) / 100, L = STAMP_LAYOUT[variantKey];
+  const win = { x: L.l * u, y: L.t * u, w: outW - (L.l + L.r) * u, h: outH - (L.t + L.b) * u };
+  const paper = _stampRgb(palette.paper), ink = _stampRgb(palette.ink), deep = _stampRgb(palette.deep);
+  const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+  const roman = n => { let out = ''; for (const [v, r] of [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]) while (n >= v) { out += r; n -= v; } return out; };
+  const rect = (inset, width, color) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.strokeRect(inset, inset, outW - inset * 2, outH - inset * 2); };
+  ctx.lineJoin = 'miter';
+  // Pátina: el papel se tuesta hacia los bordes y junta alguna mota de óxido.
+  for (const [x0, y0, x1, y1] of [[0, 0, 0, 7 * u], [0, outH, 0, outH - 7 * u], [0, 0, 7 * u, 0], [outW, 0, outW - 7 * u, 0]]) {
+    const tone = ctx.createLinearGradient(x0, y0, x1, y1);
+    tone.addColorStop(0, 'rgba(118,82,38,.16)');
+    tone.addColorStop(1, 'rgba(118,82,38,0)');
+    ctx.fillStyle = tone;
+    ctx.fillRect(0, 0, outW, outH);
+  }
+  for (let i = 0; i < 22; i++) {
+    const h1 = _stampHash(i, 41, seed), h2 = _stampHash(i, 53, seed), h3 = _stampHash(i, 67, seed);
+    const spot = ctx.createRadialGradient(h1 * outW, h2 * outH, 0, h1 * outW, h2 * outH, u * (0.5 + h3 * 1.5));
+    spot.addColorStop(0, `rgba(126,84,36,${(0.05 + h3 * 0.07).toFixed(3)})`);
+    spot.addColorStop(1, 'rgba(126,84,36,0)');
+    ctx.fillStyle = spot;
+    ctx.fillRect(0, 0, outW, outH);
+  }
+  ctx.clearRect(win.x, win.y, win.w, win.h);
+
+  if (variantKey === 'ENGR') {
+    const band = 5.2 * u;
+    rect(3.3 * u, 0.44 * u, deep);
+    // Cenefa: fondo de líneas finas y la cadena entrelazada encima.
+    for (const [x0, y0, x1, y1] of [[band, band, outW - band, band], [band, outH - band, outW - band, outH - band], [band, band, band, outH - band], [outW - band, band, outW - band, outH - band]]) {
+      _stampGuilloche(ctx, x0, y0, x1, y1, 1.02 * u, 3.3 * u, ink, Math.max(0.7, 0.17 * u));
+      _stampGuilloche(ctx, x0, y0, x1, y1, 0.5 * u, 1.65 * u, _stampRgb(palette.ink, 0.7), Math.max(0.5, 0.1 * u));
+    }
+    rect(7.0 * u, 0.22 * u, deep);
+    for (const [cx, cy] of [[band, band], [outW - band, band], [band, outH - band], [outW - band, outH - band]]) _stampRosette(ctx, cx, cy, 2.55 * u, deep, paper, Math.max(0.6, 0.13 * u));
+    // Columnas laterales rayadas, pegadas a la ventana.
+    _stampRuled(ctx, 7.4 * u, win.y, win.x - 8.0 * u, win.h, ink, paper, 0.52 * u);
+    _stampRuled(ctx, win.x + win.w + 0.6 * u, win.y, win.x - 8.0 * u, win.h, ink, paper, 0.52 * u);
+    // Rótulo: letras en reserva sobre fondo rayado.
+    const top = { x: 7.4 * u, y: 7.6 * u, w: outW - 14.8 * u, h: win.y - 8.5 * u };
+    _stampRuled(ctx, top.x, top.y, top.w, top.h, deep, _stampRgb(palette.paper, 0.5), 0.46 * u);
+    _stampText(ctx, 'FLIP', outW / 2, top.y + top.h * 0.5 + 1.75 * u, 4.9 * u, STAMP_ROMAN, paper, { spacing: 0.34, stroke: deep, strokeWidth: 0.5 * u });
+    const side = Math.min(1.9 * u, top.w * 0.034);
+    _stampText(ctx, 'CÁMARA', top.x + 1.6 * u, top.y + top.h * 0.5 + side * 0.36, side, STAMP_ROMAN, paper, { align: 'left', spacing: 0.22, stroke: deep, strokeWidth: 0.3 * u });
+    _stampText(ctx, 'POSTAL', top.x + top.w - 1.6 * u, top.y + top.h * 0.5 + side * 0.36, side, STAMP_ROMAN, paper, { align: 'right', spacing: 0.22, stroke: deep, strokeWidth: 0.3 * u });
+    // Pie: valor en dos tablillas y la leyenda entre filetes.
+    const foot = { y: win.y + win.h + 0.9 * u, h: outH - 7.6 * u - (win.y + win.h + 0.9 * u) };
+    for (const fx of [7.4 * u, outW - 7.4 * u - foot.h * 1.5]) {
+      _stampRuled(ctx, fx, foot.y, foot.h * 1.5, foot.h, deep, _stampRgb(palette.paper, 0.5), 0.46 * u);
+      _stampText(ctx, '27', fx + foot.h * 0.75, foot.y + foot.h * 0.5 + foot.h * 0.27, foot.h * 0.76, STAMP_ROMAN, paper, { stroke: deep, strokeWidth: 0.34 * u });
+    }
+    ctx.strokeStyle = deep; ctx.lineWidth = 0.16 * u;
+    ctx.beginPath();
+    for (const fy of [foot.y + 0.3 * u, foot.y + foot.h - 0.3 * u]) { ctx.moveTo(7.4 * u + foot.h * 1.5 + 1.2 * u, fy); ctx.lineTo(outW - 7.4 * u - foot.h * 1.5 - 1.2 * u, fy); }
+    ctx.stroke();
+    _stampText(ctx, 'CORREOS · ' + roman(today.getFullYear()), outW / 2, foot.y + foot.h * 0.5 + 0.62 * u, 1.75 * u, STAMP_ROMAN, deep, { spacing: 0.3 });
+    // Filete de la ventana y cantoneras.
+    ctx.strokeStyle = deep; ctx.lineWidth = 0.3 * u;
+    ctx.strokeRect(win.x - 0.15 * u, win.y - 0.15 * u, win.w + 0.3 * u, win.h + 0.3 * u);
+    ctx.fillStyle = deep;
+    const corner = 2.6 * u;
+    for (const [cx, cy, sx, sy] of [[win.x, win.y, 1, 1], [win.x + win.w, win.y, -1, 1], [win.x, win.y + win.h, 1, -1], [win.x + win.w, win.y + win.h, -1, -1]]) {
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + sx * corner, cy); ctx.quadraticCurveTo(cx, cy, cx, cy + sy * corner); ctx.closePath(); ctx.fill();
+    }
+    _stampPerforation(ctx, outW, outH, u);
+  } else if (variantKey === 'INK') {
+    // Segunda tinta: bloques planos con el registro corrido respecto a la tinta de la imagen.
+    const second = palette.second || palette.accent, flat = _stampRgb(second), dx = 0.34 * u, dy = 0.24 * u;
+    ctx.save();
+    ctx.translate(dx, dy);
+    ctx.fillStyle = flat;
+    ctx.beginPath();
+    ctx.rect(3.0 * u, 3.0 * u, outW - 6.0 * u, outH - 6.0 * u);
+    ctx.rect(win.x - 0.9 * u, win.y - 0.9 * u, win.w + 1.8 * u, win.h + 1.8 * u);
+    ctx.fill('evenodd');
+    // Gótica calada en el bloque superior, valor en discos al pie.
+    const topH = win.y - 0.9 * u - 3.0 * u;
+    _stampText(ctx, 'Flip Post', outW / 2, 3.0 * u + topH * 0.5 + 2.5 * u, 7.4 * u, STAMP_GOTHIC, paper, { weight: 400 });
+    const footY = win.y + win.h + 0.9 * u, footH = outH - 3.0 * u - footY, disc = footH * 0.36;
+    for (const cx of [3.0 * u + footH * 0.62, outW - 3.0 * u - footH * 0.62]) {
+      ctx.fillStyle = paper;
+      ctx.beginPath(); ctx.arc(cx, footY + footH * 0.5, disc, 0, 6.2832); ctx.fill();
+      _stampText(ctx, '27', cx, footY + footH * 0.5 + disc * 0.42, disc * 1.2, STAMP_ROMAN, flat);
+    }
+    _stampText(ctx, 'CORREO ORDINARIO', outW / 2, footY + footH * 0.5 + 0.72 * u, 2.0 * u, STAMP_ROMAN, paper, { spacing: 0.28 });
+    // Tinta tipográfica: motas de papel dentro del plano y el borde algo más cargado.
+    ctx.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < 900; i++) {
+      const h1 = _stampHash(i, 3, seed), h2 = _stampHash(i, 11, seed), h3 = _stampHash(i, 23, seed);
+      ctx.globalAlpha = 0.25 + h3 * 0.6;
+      ctx.beginPath(); ctx.arc(h1 * outW, h2 * outH, u * (0.05 + h3 * 0.16), 0, 6.2832); ctx.fill();
+    }
+    ctx.restore();
+    // Tinta de la llave (la de la imagen): filetes finos, en su sitio.
+    ctx.strokeStyle = deep; ctx.lineWidth = 0.26 * u;
+    ctx.strokeRect(win.x - 0.2 * u, win.y - 0.2 * u, win.w + 0.4 * u, win.h + 0.4 * u);
+    ctx.lineWidth = 0.18 * u;
+    ctx.strokeRect(2.1 * u, 2.1 * u, outW - 4.2 * u, outH - 4.2 * u);
+  } else {
+    rect(4.5 * u, 0.3 * u, deep);
+    rect(5.2 * u, 0.14 * u, deep);
+    const baseTop = win.y - 1.9 * u;
+    _stampText(ctx, 'FLIP', 6.6 * u, baseTop, 4.0 * u, STAMP_ROMAN, deep, { align: 'left', spacing: 0.26 });
+    _stampText(ctx, '27', outW - 6.6 * u - 2.4 * u, baseTop, 4.0 * u, STAMP_ROMAN, deep, { align: 'right' });
+    _stampText(ctx, 'c', outW - 6.6 * u, baseTop, 2.6 * u, STAMP_ROMAN, deep, { align: 'right' });
+    _stampText(ctx, 'EMISIÓN CONMEMORATIVA', outW / 2, baseTop - 0.9 * u, Math.min(1.25 * u, outW * 0.014), STAMP_ROMAN, ink, { spacing: 0.34 });
+    const footY = win.y + win.h;
+    ctx.strokeStyle = deep; ctx.lineWidth = 0.22 * u;
+    ctx.strokeRect(win.x - 0.2 * u, win.y - 0.2 * u, win.w + 0.4 * u, win.h + 0.4 * u);
+    const dated = `${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
+    _stampText(ctx, 'PRIMER DÍA DE EMISIÓN', outW / 2, footY + 3.3 * u, 1.7 * u, STAMP_ROMAN, deep, { spacing: 0.32 });
+    _stampText(ctx, dated + '  ·  CÁMARA FL-27', outW / 2, footY + 5.7 * u, 1.25 * u, STAMP_ROMAN, ink, { spacing: 0.3 });
+    _stampPerforation(ctx, outW, outH, u);
+    _stampPostmark(ctx, outW - 15.5 * u, 17.5 * u, 8.6 * u, ['FLIP · CORREOS', 'PRIMER DÍA', `${today.getDate()} ${months[today.getMonth()]}`, String(today.getFullYear())], seed);
+  }
+  // Solo se componen las franjas que tienen dibujo: los cuatro lados y, si lo hay, el matasellos.
+  const strips = [[0, 0, outW, Math.ceil(win.y)], [0, Math.floor(win.y + win.h), outW, outH - Math.floor(win.y + win.h)],
+    [0, Math.ceil(win.y), Math.ceil(win.x), Math.floor(win.h)], [Math.floor(win.x + win.w), Math.ceil(win.y), outW - Math.floor(win.x + win.w), Math.floor(win.h)]];
+  if (variantKey === 'ISSUE') {
+    const px = Math.max(win.x, outW - 46 * u), py = Math.ceil(win.y), ph = Math.min(win.h, 30 * u - win.y);
+    strips.push([Math.ceil(px), py, Math.floor(win.x + win.w - px), Math.floor(ph)]);
+  }
+  if (variantKey === 'ENGR') {
+    // Las cantoneras entran un poco en la ventana.
+    const c = Math.ceil(2.7 * u);
+    strips.push([Math.ceil(win.x), Math.ceil(win.y), c, c], [Math.floor(win.x + win.w - c), Math.ceil(win.y), c, c],
+      [Math.ceil(win.x), Math.floor(win.y + win.h - c), c, c], [Math.floor(win.x + win.w - c), Math.floor(win.y + win.h - c), c, c]);
+  }
+  frame = { canvas, strips: strips.filter(r => r[2] > 0 && r[3] > 0) };
+  _stampFrameCache.set(key, frame);
+  return frame;
 }
 
 const _stampStates = new WeakMap();
@@ -216,9 +475,10 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const engrave = stampEngraveVal / 100, inkAmount = stampInkVal / 100, detail = stampDetailVal / 100, paperAmount = stampPaperVal / 100;
   const seed = (_camEngineCore.sessionSeed || 0) >>> 0;
   const frameOn = stampFrameMode === 'ON';
-  const margin = frameOn ? STAMP_FRAME_MARGIN : 0;
-  const x0 = Math.round(workW * margin), y0 = Math.round(workH * margin);
-  const x1 = workW - x0, y1 = workH - y0;
+  const layout = frameOn ? STAMP_LAYOUT[variantKey] : { l: 0, r: 0, t: 0, b: 0 };
+  const unit = Math.min(workW, workH) / 100;
+  const x0 = Math.round(layout.l * unit), y0 = Math.round(layout.t * unit);
+  const x1 = workW - Math.round(layout.r * unit), y1 = workH - Math.round(layout.b * unit);
 
   // 1 · Escena → luminancia en la rejilla de tono.
   const pen = state.sample;
@@ -353,9 +613,12 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   targetCtx.drawImage(state.ink.canvas, 0, 0, outW, outH);
   targetCtx.restore();
   if (frameOn) {
-    const mx = Math.round(outW * margin), my = Math.round(outH * margin);
-    _drawStampIssueFrame(targetCtx, outW, outH, palette, { x: mx, y: my, w: outW - mx * 2, h: outH - my * 2 });
-    if (variantKey === 'ISSUE') _drawStampPerforation(targetCtx, outW, outH);
+    const frame = _stampFrame(variantKey, stampPaletteMode, palette, outW, outH, seed);
+    targetCtx.save();
+    targetCtx.globalAlpha = 1;
+    targetCtx.globalCompositeOperation = 'source-over';
+    for (const [sx, sy, sw, sh] of frame.strips) targetCtx.drawImage(frame.canvas, sx, sy, sw, sh, sx, sy, sw, sh);
+    targetCtx.restore();
   }
 }
 function renderStamp(source, srcW, srcH, targetCtx, mirror, options = {}) {

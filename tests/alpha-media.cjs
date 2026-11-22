@@ -11,14 +11,14 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
-const { launch, openFlip, probe, PIXEL } = require('./lib/harness.cjs');
+const { launch, openFlip, probe, PIXEL, openModule } = require('./lib/harness.cjs');
 
 const args = process.argv.slice(2);
 const refAt = args.indexOf('--old-ref');
 const oldRef = refAt >= 0 ? args.splice(refAt, 2)[1] : 'ad2272b';
 const out = path.resolve(args[0] || fs.mkdtempSync(path.join(os.tmpdir(), 'flip-media-')));
 fs.mkdirSync(out, { recursive: true });
-const SNAP = '#flipBottomNav .btn-center', MODE = '#flipBottomNav button >> nth=0';
+const SNAP = '#deckShutter', MODE = '.deck-mode button:not(.is-on)';
 const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JSON.stringify(detail) : ''));
 
 async function download(page, action, name) {
@@ -57,11 +57,10 @@ async function cameraMedia(browser) {
   // freeze: la escena no cambia, así visor y archivo se pueden comparar cuadro a cuadro.
   const { context, page, errors } = await openFlip(browser, { sceneCamera: { scene: 'room', w: 1280, h: 720, freeze: 2 } });
   // 1 · Audio: se activa desde el panel de ajustes, como lo haría el usuario.
-  await page.locator('#flipSettingsTrigger').click();
+  await page.locator('#shellSettings').click();
   await page.locator('[data-audio-mode="on"]').click();
   await page.evaluate(() => _toggleFlipSettings(false));
-  await page.locator('.cam-family-trigger').click();
-  await page.locator('#camFamilyTray [data-family="AUTO03"]').click();
+  await page.locator('#deckLooks [data-family="AUTO03"]').click();
   await page.locator(MODE).click();                       // FOTO → VIDEO
   const withAudio = await record(page, 3000, 'video-con-audio');
   let info = probe(withAudio);
@@ -75,14 +74,14 @@ async function cameraMedia(browser) {
   const meanVolume = Number((heard.match(/mean_volume: (-?[\d.]+) dB/) || [])[1]);
   assert.ok(meanVolume > -60, 'nivel de audio ' + meanVolume + ' dB');
   step('vídeo con audio', { codec: video.codec_name + '+' + audio.codec_name, size: video.width + 'x' + video.height, frames: Number(video.nb_read_frames), duration: +duration.toFixed(2), channels: audio.channels, meanVolume });
-  await page.locator('#flipSettingsTrigger').click();
+  await page.locator('#shellSettings').click();
   await page.locator('[data-audio-mode="off"]').click();
   await page.evaluate(() => _toggleFlipSettings(false));
   const mic = await page.evaluate(() => window.__flipSceneCameraState.audioLive);
   step('micrófono tras grabar', { audioLive: mic });
 
   // 2 · NIGHT: visor frente a vídeo.
-  await page.locator('#camVariantPill [data-variant="NIGHT"]').click();
+  await page.locator('#deckVariants [data-variant="NIGHT"]').click();
   await page.waitForTimeout(1500);
   const nightVisor = await page.evaluate(() => { const s = FlipKit.stats(display, [0.25, 0.25, 0.5, 0.5]); return { luma: Array.from(FlipKit.luma(display, null, [64, 48])), rg: s.r / s.g, bg: s.b / s.g }; });
   const nightVideo = await record(page, 2200, 'video-night');
@@ -100,8 +99,7 @@ async function cameraMedia(browser) {
 
   // 3 · VECTOR: visor frente a vídeo y foto.
   await page.evaluate(() => { window.__flipSceneCamera.scene = 'cup'; window.__flipSceneCamera.freeze = 0; });
-  await page.locator('.cam-family-trigger').click();
-  await page.locator('#camFamilyTray [data-family="OSCAM"]').click();
+  await page.locator('#deckLooks [data-family="OSCAM"]').click();
   await page.waitForTimeout(1200);
   const vectorVisor = await page.evaluate(() => Array.from(FlipKit.luma(display, null, [128, 96])));
   const vectorPhoto = await measure(page, await download(page, () => page.locator(SNAP).click(), 'foto-vector'), [128, 96]);
@@ -116,7 +114,7 @@ async function cameraMedia(browser) {
   step('VECTOR visor ↔ foto y vídeo', { photo: +vectorPhotoMatch.toFixed(3), video: +vectorMatch.toFixed(3) });
 
   // 4 · EDIT: importa la foto y el vídeo de CAM y exporta.
-  await page.locator('#modulePicker').selectOption('edit');
+  await openModule(page, 'edit');
   await page.setInputFiles('#editFileInput', path.join(out, 'foto-night.jpg'));
   await page.waitForTimeout(900);
   const editPhoto = await measure(page, await download(page, () => page.locator('#btnEditSnap').click(), 'edit-desde-foto'), [64, 48]);

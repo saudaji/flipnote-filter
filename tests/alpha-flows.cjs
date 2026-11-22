@@ -8,12 +8,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { launch, openFlip, probe } = require('./lib/harness.cjs');
+const { launch, openFlip, probe, openModule } = require('./lib/harness.cjs');
 
 const out = path.resolve(process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), 'flip-flows-')));
 fs.mkdirSync(out, { recursive: true });
 // Controles visibles de la barra inferior de CAM: modo foto/vídeo y disparador.
-const SNAP = '#flipBottomNav .btn-center', MODE = '#flipBottomNav button >> nth=0';
+const SNAP = '#deckShutter', MODE = '.deck-mode button:not(.is-on)';
 const log = [];
 const step = (name, detail) => { log.push({ name, detail }); console.log('✓ ' + name + (detail ? ' · ' + JSON.stringify(detail) : '')); };
 
@@ -105,7 +105,7 @@ async function main() {
     // ── 6 · Cámara trasera/frontal: una sola cámara viva tras cada cambio ──
     const flip = async () => {
       const before = (await cam(page)).opens;
-      await page.locator('#btnFlip').click();
+      await page.locator('#deckFlip').click();
       await page.waitForFunction(n => window.__flipSceneCameraState.opens > n && !cameraRequest && vid.videoWidth > 0, before);
     };
     await flip();
@@ -117,9 +117,8 @@ async function main() {
 
     // ── 7 · NIGHT y FLASH desde los controles; el LED solo se enciende al disparar en FLASH ──
     if (facing[1] !== 'environment') await flip();
-    await page.locator('.cam-family-trigger').click();
-    await page.locator('#camFamilyTray [data-family="AUTO03"]').click();
-    await page.locator('#camVariantPill [data-variant="NIGHT"]').click();
+    await page.locator('#deckLooks [data-family="AUTO03"]').click();
+    await page.locator('#deckVariants [data-variant="NIGHT"]').click();
     const hint = await page.locator('.flip-toast').last().textContent();
     assert.match(hint, /no usa infrarrojo/);
     await page.waitForTimeout(900);
@@ -132,12 +131,31 @@ async function main() {
       return { rg: s.r / s.g, bg: s.b / s.g, mean: s.mean };
     }, fs.readFileSync(night).toString('base64'));
     assert.ok(tint.rg < 0.85 && tint.bg > 0.85, 'la foto NIGHT conserva el tinte: ' + JSON.stringify(tint));
-    await page.locator('#camVariantPill [data-variant="FLASH"]').click();
+    await page.locator('#deckVariants [data-variant="FLASH"]').click();
     await page.waitForTimeout(300);
     await download(page, () => page.locator(SNAP).click(), 'foto-flash');
     state = await cam(page);
     assert.deepEqual(state.torch, [true, false], 'LED: encender y apagar');
     step('NIGHT y FLASH', { tint: { rg: +tint.rg.toFixed(2), bg: +tint.bg.toFixed(2) }, torch: state.torch });
+
+    // ── 7b · AJUSTES: el botón de la pantalla abre la hoja, la hoja aguanta el uso y LISTO la cierra ──
+    const sheetOpen = () => page.evaluate(() => document.body.classList.contains('cam-edit-open') && getComputedStyle(document.getElementById('palettes')).display !== 'none');
+    const opened = [];
+    for (const family of await page.evaluate(() => Object.keys(CAM_FAMILIES))) {
+      await page.locator('#deckLooks [data-family="' + family + '"]').click();
+      await page.locator('#osdAdjust').click();
+      assert.ok(await sheetOpen(), 'AJUSTES no abre la hoja en ' + family);
+      // Tocar dentro de la hoja (título y primer deslizador a la vista) no la cierra.
+      await page.locator('#camEditTitle').click();
+      const slider = page.locator('#palettes input[type="range"]:visible').first();
+      if (await slider.count()) await slider.click();
+      assert.ok(await sheetOpen(), 'la hoja de ' + family + ' se cierra al usarla');
+      await page.locator('#btnCamEditClose').click();
+      assert.equal(await sheetOpen(), false, 'LISTO no cierra la hoja en ' + family);
+      opened.push(family);
+    }
+    await page.locator('#deckLooks [data-family="AUTO03"]').click();
+    step('ajustes de cada cámara', { abre: opened.length });
 
     // ── 8 · Cambios rápidos de familia, variante y módulo ──
     const families = await page.evaluate(() => Object.keys(CAM_FAMILIES));
@@ -148,18 +166,25 @@ async function main() {
       }
     }
     for (const tab of ['ascii', 'sono', 'wmp', 'scrash', 'fusion', 'sflow', 'edit', 'stage', 'cam']) {
-      await page.locator('#modulePicker').selectOption(tab);
+      await openModule(page, tab);
       await page.waitForTimeout(120);
     }
     // Los módulos de audio sueltan la cámara; FLOW la recupera y arranca solo, sin pulsar nada.
-    await page.locator('#modulePicker').selectOption('sono');
+    await openModule(page, 'sono');
     await page.waitForFunction(() => window.__flipSceneCameraState.live === 0);
-    await page.locator('#modulePicker').selectOption('sflow');
+    await openModule(page, 'sflow');
     await page.waitForFunction(() => window.__flipSceneCameraState.live === 1 && document.getElementById('sflowCanvas').width > 0, null, { timeout: 15000 });
     await page.waitForTimeout(1500);
+    // Los ajustes de FLOW vienen plegados y su botón los abre y los vuelve a plegar.
+    const flowHud = () => page.evaluate(() => getComputedStyle(document.getElementById('sflowHUD')).display !== 'none');
+    assert.equal(await flowHud(), false, 'los ajustes de FLOW empiezan plegados');
+    await page.locator('#sflowAdjust').click();
+    assert.ok(await flowHud(), 'AJUSTES no abre los ajustes de FLOW');
+    await page.locator('#sflowAdjust').click();
+    assert.equal(await flowHud(), false, 'AJUSTES no pliega los ajustes de FLOW');
     const flow = await page.evaluate(() => FlipKit.stats(document.getElementById('sflowCanvas')).std);
     assert.ok(flow > 2, 'FLOW dibuja con la cámara de la app: σ ' + flow);
-    await page.locator('#modulePicker').selectOption('cam');
+    await openModule(page, 'cam');
     await page.evaluate(() => { _setCamFamily('DSI'); });
     await page.waitForFunction(() => _camLoopAlive && vid.videoWidth > 0);
     state = await cam(page);
@@ -194,21 +219,25 @@ async function main() {
       await page.waitForTimeout(500);
       return page.evaluate(() => {
         const box = sel => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, right: r.right, bottom: r.bottom }; };
-        // El módulo se cambia con el selector en vertical y con las pestañas cuando hay ancho.
-        const modules = box('#modulePicker').w > 20 ? box('#modulePicker') : box('#tabEdit');
-        const need = { snap: box('#flipBottomNav .btn-center'), families: box('.cam-family-trigger'), pill: box('#camVariantPill'), visor: box('#display'), flip: box('#btnFlip'), modules };
+        const need = { snap: box('#deckShutter'), looks: box('#deckLooks'), variants: box('#deckVariants'), visor: box('#display'), flip: box('#deckFlip'), modules: box('#shellModule'), ajustes: box('#shellSettings') };
         const inside = Object.fromEntries(Object.entries(need).map(([k, b]) => [k, !!b && b.w > 20 && b.h > 20 && b.x >= -1 && b.y >= -1 && b.right <= innerWidth + 1 && b.bottom <= innerHeight + 1]));
         const overlap = (a, b) => a && b && a.x < b.right - 1 && b.x < a.right - 1 && a.y < b.bottom - 1 && b.y < a.bottom - 1;
-        return { inside, snapOverPill: overlap(need.snap, need.pill), dockOverVisor: overlap(box('#camControlDock'), need.visor), visorArea: Math.round(need.visor.w * need.visor.h), view: [innerWidth, innerHeight] };
+        const controls = ['snap', 'looks', 'variants', 'flip', 'modules', 'ajustes'];
+        const collisions = [];
+        for (let i = 0; i < controls.length; i++) for (let j = i + 1; j < controls.length; j++) if (overlap(need[controls[i]], need[controls[j]])) collisions.push(controls[i] + '×' + controls[j]);
+        const overVisor = controls.filter(name => overlap(need[name], need.visor));
+        return { inside, collisions, overVisor, visorArea: Math.round(need.visor.w * need.visor.h), view: [innerWidth, innerHeight] };
       });
     };
-    const portrait = await layout(412, 915), small = await layout(360, 640), landscape = await layout(915, 412);
+    // Pixel 10 Pro XL con barra de direcciones, teléfono pequeño y horizontal.
+    const portrait = await layout(395, 741), small = await layout(360, 640), landscape = await layout(880, 396);
     for (const [name, l] of [['vertical', portrait], ['pequeña', small], ['horizontal', landscape]]) {
       assert.ok(Object.values(l.inside).every(Boolean), name + ': controles fuera de pantalla ' + JSON.stringify(l.inside));
-      assert.equal(l.snapOverPill, false, name + ': el disparador tapa las variantes');
-      assert.equal(l.dockOverVisor, false, name + ': la barra de variantes tapa el visor');
+      assert.deepEqual(l.collisions, [], name + ': mandos encimados');
+      assert.deepEqual(l.overVisor, [], name + ': mandos sobre el visor');
+      assert.ok(l.visorArea > 30000, name + ': el visor queda demasiado pequeño: ' + l.visorArea);
     }
-    await page.setViewportSize({ width: 412, height: 915 });
+    await page.setViewportSize({ width: 395, height: 741 });
     step('rotación y pantalla pequeña', { small: small.visorArea, landscape: landscape.visorArea });
 
     // ── 11 · Salir: ninguna pista viva al cerrar ──

@@ -2,8 +2,9 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0F380F">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070B0D">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Flipnote">
@@ -12,7 +13,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&family=IBM+Plex+Mono:wght@400;600&family=Michroma&family=Chakra+Petch:wght@400;500;600;700&family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
   <title>FLIP</title>
   <style>
     @font-face { font-family:'Bloom';      src:local('Bloom'),      url('./fonts/Bloom-Regular.otf')   format('opentype'); }
@@ -2890,6 +2891,7 @@
       .module-picker select { flex:1; min-width:0; height:100%; color:inherit; background:var(--ink); border:0; font:600 14px system-ui,sans-serif; }
     }
   </style>
+  <link rel="stylesheet" href="./shell.css">
 </head>
 <body>
 
@@ -3247,12 +3249,12 @@
   <div class="splash-title">FLIP</div>
   <div class="splash-doors">
     <button class="splash-door" id="btnSplashOriginal">
-      <span class="splash-door-label">▶ FLIP ORIGINAL</span>
-      <span class="splash-door-sub">Tomar fotos, grabar y editar</span>
+      <span class="splash-door-label">ENCENDER CÁMARA</span>
+      <span class="splash-door-sub">Fotos, vídeo y edición con cámaras de otra época</span>
     </button>
     <button class="splash-door" id="btnSplashStage">
-      <span class="splash-door-label">🎬 FLIP STAGE</span>
-      <span class="splash-door-sub">Mezclar en vivo y proyectar</span>
+      <span class="splash-door-label">FLIP STAGE</span>
+      <span class="splash-door-sub">Mezclar en vivo y proyectar en otra pantalla</span>
     </button>
   </div>
 </div>
@@ -3312,8 +3314,8 @@
 
 <div class="palettes" id="palettes">
   <div id="camEditHeader">
-    <span id="camEditTitle">DSI EDIT</span>
-    <button id="btnCamEditClose" type="button">CLOSE</button>
+    <span id="camEditTitle">AJUSTES · DSi</span>
+    <button id="btnCamEditClose" type="button">LISTO</button>
   </div>
   <div id="camMobileUtilityDock"></div>
   <div id="dlpEditPanel" style="display:none;">
@@ -4947,15 +4949,15 @@ function relayout() {
   const avH = Math.max(160, viewport.height - viewport.topInset - 96);
   const avW = viewport.width;
 
-  // El visor de CAM deja sitio a la barra de variantes: en horizontal o en 9:16 no queda tapado.
-  const camH = Math.max(140, avH - 74);
+  // El visor de CAM cabe entero en el cristal de la pantalla (shell.js mide el hueco que dejan
+  // la banda superior y la botonera); la hoja de estilos lo centra dentro.
+  const glass = typeof flipShellGlass === 'function' ? flipShellGlass() : null;
+  const camW = glass ? glass.w : avW, camH = glass ? glass.h : Math.max(140, avH - 74);
   let w, h;
-  if (avW / camH > aspect) { h = camH; w = h * aspect; }
-  else { w = avW; h = w / aspect; }
-  display.style.width = w + 'px';
-  display.style.height = h + 'px';
-  // Sin holgura vertical, el visor se centra por encima de la barra en vez de quedar debajo.
-  display.style.bottom = (avH - h) / 2 < 74 ? (96 + 74) + 'px' : '';
+  if (camW / camH > aspect) { h = camH; w = h * aspect; }
+  else { w = camW; h = w / aspect; }
+  display.style.width = Math.floor(w) + 'px';
+  display.style.height = Math.floor(h) + 'px';
 
   let aw, ah;
   if (asciiPanelOpen && avW >= 768) {
@@ -5681,10 +5683,8 @@ function _toggleCamFamilyTray(force) {
 }
 function _toggleCamEdit(force) {
   if (_getSafeActiveTab() !== 'cam') return;
-  if (!_hasCamEditor()) {
-    flipToast('This camera family has no editable controls yet.');
-    return;
-  }
+  // La hoja se abre con cualquier cámara: además de los ajustes propios lleva formato,
+  // cadencia, zoom y pegatinas.
   camEditOpen = typeof force === 'boolean' ? force : !camEditOpen;
   if (camEditOpen) camFamilyTrayOpen = false;
   _syncCamPanels();
@@ -5715,7 +5715,7 @@ function _syncCamPanels() {
     camEditOpen = false;
   }
   document.body.classList.toggle('cam-ui-active', isCam);
-  document.body.classList.toggle('cam-edit-open', isCam && camEditOpen && _hasCamEditor());
+  document.body.classList.toggle('cam-edit-open', isCam && camEditOpen);
   document.getElementById('camControlDock').classList.toggle('visible', isCam);
   document.getElementById('camFamilyTray').classList.toggle('visible', isCam && (camFamilyTrayOpen || (camEditOpen && _hasCamEditor())));
   document.querySelector('.cam-family-trigger')?.setAttribute('aria-expanded', String(document.getElementById('camFamilyTray').classList.contains('visible')));
@@ -5761,7 +5761,7 @@ function _applyCamState() {
   });
   _renderCamVariantPill();
   document.getElementById('camFamilyBadge').textContent = fam.displayLabel || fam.label;
-  document.getElementById('camEditTitle').textContent = (fam.displayLabel || fam.label) + ' EDIT';
+  document.getElementById('camEditTitle').textContent = 'AJUSTES · ' + (fam.displayLabel || fam.label);
   const editMode = _getCamEditMode();
   const dlpPanel = document.getElementById('dlpEditPanel');
   const caskiaPanel = document.getElementById('caskiaEditPanel');
@@ -5871,6 +5871,8 @@ document.addEventListener('click', e => {
   if (_getSafeActiveTab() !== 'cam') return;
   if (e.target.closest('#camFamilyTray') || e.target.closest('#camControlDock')) return;
   if (e.target.closest('.cam-family-trigger') || e.target.closest('#btnCamEditDock')) return;
+  // La hoja de ajustes no se cierra por tocar dentro de ella ni por el toque que la abre.
+  if (e.target.closest('#palettes') || e.target.closest('#osdAdjust')) return;
   if (camFamilyTrayOpen || camEditOpen) _closeCamPanels();
 });
 
@@ -12009,7 +12011,8 @@ function _syncCamMobileUtilityDock() {
   const dock = document.getElementById('camMobileUtilityDock');
   const anchor = document.getElementById('camUtilityAnchor');
   if (!dock || !anchor) return;
-  const useDock = window.innerWidth <= 767 && _getSafeActiveTab() === 'cam';
+  // Formato, cadencia y zoom viven en la hoja de ajustes de la cámara, en cualquier ancho.
+  const useDock = _getSafeActiveTab() === 'cam';
   const controls = ['camAspect', 'camFpsCtrl', 'camZoomCtrl']
     .map(id => document.getElementById(id))
     .filter(Boolean);
@@ -12142,7 +12145,7 @@ function syncCameraGate(error) {
   if (error !== undefined) cameraGateError = error;
   const tab = _getSafeActiveTab();
   const booted = typeof splash === 'undefined' || splash.classList.contains('hidden');
-  const idle = booted && tab === 'cam' && !stream && !cameraRequest && !extAudioMode && !extMicOnlyMode && !cameraParked;
+  const idle = booted && (tab === 'cam' || tab === 'sflow') && !stream && !cameraRequest && !extAudioMode && !extMicOnlyMode && !cameraParked;
   gate.hidden = !idle;
   if (!idle) return;
   const [title, text] = cameraGateMessage(cameraGateError);
@@ -13232,12 +13235,12 @@ document.body.addEventListener('click', (e) => {
 const _EXPORT_CFG = {
   cam:    null, // ● del nav es el único trigger de captura
   ascii:  null, // ● del nav es el único trigger de captura
-  up:     { bottom: 96,  label: '💾 GUARDAR',     primary: 'btnSaveResult', secs: ['btnShareResult'],            reset: 'upBtnReset'    },
+  up:     { bottom: 96,  label: 'GUARDAR',        primary: 'btnSaveResult', secs: ['btnShareResult'],            reset: 'upBtnReset'    },
   scrash: null, // ● del nav es el único trigger de captura
   fusion: null, // ● del nav es el único trigger de captura
   edit:   null, // barEdit (SNAP/REC) es el único trigger de captura
   stage:  null, // chrome propio (⏺) es el único trigger de captura
-  sono:   { bottom: 246, label: '📷 SNAP',        primary: 'btnSonoCapture',secs: ['btnSonoShare'],              reset: null           },
+  sono:   { bottom: 246, label: 'GUARDAR IMAGEN', primary: 'btnSonoCapture',secs: ['btnSonoShare'],              reset: null           },
   wmp:    null
 };
 const _SEC_LABELS = { btnShare:'↑', btnShareResult:'↑', btnSonoShare:'↑', btnScrashShare:'↑', acTxt:'TXT', acCopy:'📋' };
@@ -13501,9 +13504,9 @@ const FLIP_FORMAT_OPTIONS = [
   { id:'16:9', shape:'wide' },
 ];
 const FLIP_RESOLUTION_OPTIONS = [
-  { id:'low', label:'LOW', base:480 },
-  { id:'medium', label:'MEDIUM', base:768 },
-  { id:'high', label:'HIGH', base:1080 },
+  { id:'low', label:'BAJA', base:480 },
+  { id:'medium', label:'MEDIA', base:768 },
+  { id:'high', label:'ALTA', base:1080 },
 ];
 const FLIP_AUDIO_MODE_OPTIONS = [
   { id:'off', label:'OFF' },
@@ -13511,8 +13514,8 @@ const FLIP_AUDIO_MODE_OPTIONS = [
   { id:'lofi', label:'LO-FI' },
 ];
 const FLIP_SAVE_MODE_OPTIONS = [
-  { id:'files', label:'FILES' },
-  { id:'share', label:'CARRETE ↑' },
+  { id:'files', label:'ARCHIVOS' },
+  { id:'share', label:'COMPARTIR' },
 ];
 const FLIP_AUDIO_CARD_DEFS = [
   {
@@ -14751,11 +14754,11 @@ function _ensureFlipSettingsUI() {
     <section id="flipSettingsPanel" class="flip-settings-panel" aria-hidden="true">
       <div class="flip-settings-handle-wrap"><div id="flipSettingsHandle" class="flip-settings-handle"></div></div>
       <div class="flip-settings-topbar">
-        <div class="flip-settings-title">FLIP SETTINGS</div>
+        <div class="flip-settings-title">FORMATO Y AUDIO</div>
         <div id="flipSettingsStatus" class="flip-settings-status">AUDIO OFF</div>
       </div>
       <div class="flip-settings-segments">
-        <button id="flipSegFormat" type="button" class="active">FORMAT</button>
+        <button id="flipSegFormat" type="button" class="active">FORMATO</button>
         <button id="flipSegAudio" type="button">AUDIO</button>
       </div>
       <div class="flip-settings-body">
@@ -14785,22 +14788,22 @@ function _renderFlipSettingsSections() {
   if (!_flipSettingsDom) return;
   _flipSettingsDom.secFormat.innerHTML = `
     <div class="flip-settings-block">
-      <h3>Aspect Ratio</h3>
+      <h3>Proporción</h3>
       <div id="flipFormatTiles" class="flip-settings-tiles"></div>
     </div>
     <div class="flip-settings-block">
-      <h3>Resolution</h3>
+      <h3>Resolución</h3>
       <div id="flipResolutionPills" class="flip-settings-pills"></div>
     </div>
     <div class="flip-settings-block">
       <h3>Audio</h3>
       <div id="flipAudioModePills" class="flip-settings-pills"></div>
-      <p class="flip-settings-help"><strong>OFF</strong> keeps current behavior. <strong>ON</strong> records clean mic. <strong>LO-FI</strong> arms Flip's signature chain.</p>
+      <p class="flip-settings-help"><strong>OFF</strong> graba sin sonido. <strong>ON</strong> graba el micrófono limpio. <strong>LO-FI</strong> le pasa la cadena de efectos de FLIP.</p>
     </div>
     <div class="flip-settings-block">
-      <h3>Save</h3>
+      <h3>Guardar</h3>
       <div id="flipSaveModePills" class="flip-settings-pills"></div>
-      <p class="flip-settings-help"><strong>FILES</strong> downloads directly. <strong>CARRETE ↑</strong> opens the native share sheet to save to Photos or share to Instagram.</p>
+      <p class="flip-settings-help"><strong>ARCHIVOS</strong> descarga directo a tu carpeta de descargas. <strong>COMPARTIR</strong> abre el menú del teléfono para guardar en Fotos o enviar a otra app.</p>
     </div>
   `;
   _flipSettingsDom.secAudio.innerHTML = `
@@ -15502,7 +15505,8 @@ function _getCamRecordingOptions() {
       ctx.drawImage(display, 0, 0, width, height);
       return;
     }
-    _renderCamEngineFrame(vid, vid.videoWidth, vid.videoHeight, ctx, false, {
+    const cam = liveCamFrame();
+    _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctx, false, {
       path:'capture', now, resolution:options.resolution, outW:width, outH:height,
     });
     _renderCamStickerLayer(ctx, false);
@@ -22682,5 +22686,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<script src="./shell.js"></script>
 </body>
 </html>

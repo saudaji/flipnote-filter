@@ -7,7 +7,7 @@ const root = path.resolve(process.argv[3] || path.join(__dirname, '..', 'docs'))
 const mime = {
   '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png',
   '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.css': 'text/css', '.wasm': 'application/wasm',
-  '.ttf': 'font/ttf', '.otf': 'font/otf', '.md': 'text/plain',
+  '.ttf': 'font/ttf', '.otf': 'font/otf', '.md': 'text/plain', '.webp': 'image/webp',
 };
 http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);

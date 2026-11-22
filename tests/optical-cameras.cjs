@@ -105,7 +105,8 @@ async function main() {
       };
     });
     // FLOW arranca solo al entrar en el módulo.
-    await page.locator('#modulePicker').selectOption('sflow');
+    await page.locator('#shellModule').click();
+    await page.locator('#shellLauncher [data-module="sflow"]').click();
     await page.waitForFunction(() => window.flowGlyphs.length >= 5);
     const center = await page.evaluate(
       () => flowGlyphs.reduce((a, b) => a + b, 0) / flowGlyphs.length,

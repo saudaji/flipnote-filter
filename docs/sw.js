@@ -1,7 +1,12 @@
-const CACHE = 'flipnote-filter-v77-alpha-pass3';
+const CACHE = 'flipnote-filter-v78-alpha-pass3';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './frame-runtime.js', './stamp.js', './optical-scope.js', './night-vision.js', './sensor.js',
-  './silhouette.js', './silhouette-worker.js', './pretext.js', './enochian.ttf',
+  './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './pretext.js', './enochian.ttf',
+  './body/body.webp', './body/bezel.webp', './body/frame.webp', './body/key.webp', './body/key-down.webp',
+  './body/pill.webp', './body/pill-down.webp', './body/pill-lit.webp', './body/shutter-photo.webp',
+  './body/shutter-photo-down.webp', './body/shutter-video.webp', './body/shutter-video-down.webp',
+  './body/look-DSI.webp', './body/look-STAMP.webp', './body/look-AUTO03.webp', './body/look-DLPHN.webp',
+  './body/look-CASKIA.webp', './body/look-VFD.webp', './body/look-OSCAM.webp', './body/look-SLHT.webp',
   './fonts/Bloom-Regular.otf', './fonts/BNMonica.otf', './fonts/Fluidic-Regular.otf', './fonts/Canterbury.ttf'];
 const shell = new URL('./index.html', self.registration.scope).href;
 

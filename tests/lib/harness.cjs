@@ -7,13 +7,14 @@ const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright-core');
 
 const URL = process.env.FLIP_URL || 'http://127.0.0.1:8760';
-// Pixel 9 en Chrome para Android: 412 × 915 CSS px, densidad 2,625.
+// Pixel 10 Pro XL en Chrome para Android, medido en el teléfono por depuración USB: con la barra
+// de direcciones a la vista quedan 395 × 741 px CSS a densidad 3,4 (pantalla completa: 396 × 880).
 const PIXEL = {
-  viewport: { width: 412, height: 915 },
-  deviceScaleFactor: 2.625,
+  viewport: { width: 395, height: 741 },
+  deviceScaleFactor: 3.4,
   isMobile: true,
   hasTouch: true,
-  userAgent: 'Mozilla/5.0 (Linux; Android 16; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Mobile Safari/537.36',
+  userAgent: 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Mobile Safari/537.36',
 };
 
 async function launch(options = {}) {
@@ -54,6 +55,12 @@ async function openFlip(browser, options = {}) {
   return { context, page, errors };
 }
 
+// Cambia de módulo como lo hace una persona: tecla de módulo y tarjeta del lanzador.
+async function openModule(page, key) {
+  await page.locator('#shellModule').click();
+  await page.locator('#shellLauncher [data-module="' + key + '"]').click();
+}
+
 function saveDataUrl(file, dataUrl) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64'));
@@ -72,4 +79,4 @@ function probe(file) {
   return JSON.parse(raw);
 }
 
-module.exports = { URL, PIXEL, launch, openFlip, saveDataUrl, encodeClip, probe };
+module.exports = { URL, PIXEL, launch, openFlip, openModule, saveDataUrl, encodeClip, probe };

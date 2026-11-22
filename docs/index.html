@@ -12196,7 +12196,7 @@ function startCamera(facing) {
 // Si CAM se queda sin cámara (permiso denegado, cámara ocupada, vuelta del segundo plano)
 // el visor ofrece un botón para activarla y dice qué pasó.
 const CAMERA_TABS = new Set(['cam', 'ascii', 'scrash', 'fusion']);
-let cameraGateError = null, cameraParked = false;
+let cameraGateError = null, cameraParked = false, cameraIdle = false;
 function cameraGateMessage(error) {
   if (!error) return ['Cámara apagada', 'FLIP necesita la cámara para este módulo.'];
   switch (error.name) {
@@ -13239,6 +13239,14 @@ function switchTab(tab) {
   if (isCam   && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) scheduleFrame(cameraLoop);
   if (isAscii && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser) || asciiStaticSrc)) scheduleFrame(asciiLoop);
   if (isFusion && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) scheduleFrame(_fusionLoop);
+  // SONO, WMP y FLOW no usan la cámara principal (FLOW abre la suya): se suelta al entrar,
+  // así no queda encendida sin motivo ni compite con la de FLOW. EDIT y STAGE la recuperan.
+  if (isSono || isWmp || isSflow) {
+    if (stream && !(typeof recorder !== 'undefined' && recorder && recorder.state !== 'inactive')) { cameraIdle = true; releaseCamera(); }
+  } else if (cameraIdle) {
+    cameraIdle = false;
+    if (!stream && !cameraRequest && !extAudioMode) startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+  }
   syncCameraGate();
 }
 

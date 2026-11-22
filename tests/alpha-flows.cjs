@@ -147,10 +147,20 @@ async function main() {
         await page.waitForTimeout(40);
       }
     }
-    for (const tab of ['ascii', 'sono', 'wmp', 'scrash', 'fusion', 'edit', 'cam']) {
+    for (const tab of ['ascii', 'sono', 'wmp', 'scrash', 'fusion', 'sflow', 'edit', 'stage', 'cam']) {
       await page.locator('#modulePicker').selectOption(tab);
       await page.waitForTimeout(120);
     }
+    // Los módulos de audio sueltan la cámara; FLOW abre solo la suya y la devuelve al salir.
+    await page.locator('#modulePicker').selectOption('sono');
+    await page.waitForFunction(() => window.__flipSceneCameraState.live === 0);
+    await page.locator('#modulePicker').selectOption('sflow');
+    await page.locator('#btnSflowCam').click();
+    await page.waitForFunction(() => window.__flipSceneCameraState.live === 1 && document.getElementById('sflowCanvas').width > 0, null, { timeout: 15000 });
+    await page.waitForTimeout(1500);
+    const flow = await page.evaluate(() => FlipKit.stats(document.getElementById('sflowCanvas')).std);
+    assert.ok(flow > 2, 'FLOW dibuja con su cámara: σ ' + flow);
+    await page.locator('#modulePicker').selectOption('cam');
     await page.evaluate(() => { _setCamFamily('DSI'); });
     await page.waitForFunction(() => _camLoopAlive && vid.videoWidth > 0);
     state = await cam(page);

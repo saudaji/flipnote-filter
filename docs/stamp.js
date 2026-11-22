@@ -188,9 +188,14 @@ function _stampState(targetCtx, gridW, gridH, workW, workH) {
     const ink = canvas(workW, workH, false);
     state = {
       gridW, gridH, workW, workH,
-      sample: canvas(gridW, gridH, true), tone: canvas(gridW, gridH, true), up: canvas(workW, workH, true), ink,
-      toneImage: new ImageData(gridW, gridH), inkImage: new ImageData(workW, workH),
+      sample: canvas(gridW, gridH, true), ink, inkImage: new ImageData(workW, workH),
       lum: new Float32Array(gridW * gridH), blur: new Float32Array(gridW * gridH), dark: new Float32Array(gridW * gridH),
+      edge: new Uint8Array(gridW * gridH), hist: new Uint32Array(256),
+      // Dos filas de la rejilla ya interpoladas en horizontal; el bucle solo mezcla en vertical.
+      rowA: new Uint8Array(workW), rowB: new Uint8Array(workW), edgeA: new Uint8Array(workW), edgeB: new Uint8Array(workW),
+      column: new Uint16Array(workW), weight: new Uint8Array(workW),
+      t1: new Int16Array(256), t2: new Int16Array(256), t3: new Int16Array(256), contour: new Int16Array(256),
+      inkR: new Uint8Array(256), inkG: new Uint8Array(256), inkB: new Uint8Array(256),
       lo: 0, hi: 255, primed: false,
     };
     state.ink32 = new Uint32Array(state.inkImage.data.buffer);
@@ -224,9 +229,9 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   pen.drawImage(source, sx, sy, sw, sh, 0, 0, gridW, gridH);
   pen.restore();
   const src = pen.getImageData(0, 0, gridW, gridH).data;
-  const { lum, blur, dark } = state;
+  const { lum, blur, dark, edge: edges, hist } = state;
   const n = gridW * gridH;
-  const hist = new Uint32Array(256);
+  hist.fill(0);
   for (let p = 0, i = 0; p < n; p++, i += 4) {
     const l = (src[i] * 77 + src[i + 1] * 150 + src[i + 2] * 29) >> 8;
     lum[p] = l; hist[l]++;
@@ -241,7 +246,6 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   else { state.lo += (lo - state.lo) * 0.2; state.hi += (hi - state.hi) * 0.2; }
   const span = Math.max(72, state.hi - state.lo);
   // 3 · Sombra por punto, con memoria donde la escena no se mueve: la línea no tiembla con el ruido.
-  const tone = state.toneImage.data;
   const edgeGain = 1.5 + detail * 1.6;
   for (let y = 0, p = 0; y < gridH; y++) {
     const up = (y > 0 ? y - 1 : y) * gridW, dn = (y < gridH - 1 ? y + 1 : y) * gridW, row = y * gridW;
@@ -261,24 +265,32 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
       d = d <= 0 ? 0 : d >= 1 ? 255 : Math.pow(d, 0.9) * 255;
       if (state.primed) { const delta = d - dark[p]; d = dark[p] + delta * (delta > 26 || delta < -26 ? 1 : 0.5); }
       dark[p] = d;
-      const i = p << 2;
-      tone[i] = d; tone[i + 1] = Math.min(255, edge * edgeGain); tone[i + 2] = 0; tone[i + 3] = 255;
+      edges[p] = Math.min(255, edge * edgeGain);
     }
   }
   state.primed = true;
-  state.tone.putImageData(state.toneImage, 0, 0);
-  // 4 · La sombra se amplía con suavizado a la resolución de trabajo, solo dentro del marco.
-  const up = state.up;
-  up.imageSmoothingEnabled = true;
-  up.imageSmoothingQuality = 'medium';
-  up.drawImage(state.tone.canvas, x0, y0, x1 - x0, y1 - y0);
-  const shade = up.getImageData(0, 0, workW, workH).data;
+  // 4 · La sombra se amplía a la resolución de trabajo por interpolación bilineal, sin canvas
+  //     intermedio ni lecturas: cada columna de trabajo conoce su celda y su peso.
+  const { rowA, rowB, edgeA, edgeB, column, weight } = state;
+  const spanX = x1 - x0, spanY = y1 - y0;
+  for (let x = x0; x < x1; x++) {
+    const g = Math.max(0, Math.min(gridW - 1.001, (x - x0 + 0.5) / spanX * gridW - 0.5));
+    column[x] = g | 0; weight[x] = Math.round((g - (g | 0)) * 255);
+  }
+  const fillRow = (row, shadeOut, edgeOut) => {
+    const base = row * gridW;
+    for (let x = x0; x < x1; x++) {
+      const c = base + column[x], w = weight[x];
+      shadeOut[x] = (dark[c] * (255 - w) + dark[c + 1] * w) / 255;
+      edgeOut[x] = (edges[c] * (255 - w) + edges[c + 1] * w) >> 8;
+    }
+  };
+  let loadedRow = -2;
 
   // 5 · Pantallas, papel y umbrales de la variante.
   const screens = _stampScreens(variantKey, variant, workW, workH, y1 - y0, engrave, seed);
   const paper = _stampPaper(stampPaletteMode, palette, workW, workH, paperAmount, variantKey, seed);
-  const t1 = new Int16Array(256), t2 = new Int16Array(256), t3 = new Int16Array(256);
-  const inkR = new Uint8Array(256), inkG = new Uint8Array(256), inkB = new Uint8Array(256), contour = new Int16Array(256);
+  const { t1, t2, t3, inkR, inkG, inkB, contour } = state;
   const load = 0.82 + inkAmount * 0.42;
   for (let v = 0; v < 256; v++) {
     const d = v / 255;
@@ -301,16 +313,28 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const out = state.ink32;
   out.set(paper);
   const plate = variant.plate;
+  let upper = rowA, lower = rowB, upperEdge = edgeA, lowerEdge = edgeB;
   for (let y = y0; y < y1; y++) {
-    let p = y * workW + x0, i = p << 2;
-    for (let x = x0; x < x1; x++, p++, i += 4) {
-      const d = shade[i];
+    const gy = Math.max(0, Math.min(gridH - 1.001, (y - y0 + 0.5) / spanY * gridH - 0.5));
+    const row = gy | 0, wy = Math.round((gy - row) * 255);
+    if (row !== loadedRow) {
+      // Al bajar una fila, la inferior pasa a ser la superior y solo se interpola la nueva.
+      if (row === loadedRow + 1) {
+        const swapShade = upper; upper = lower; lower = swapShade;
+        const swapEdge = upperEdge; upperEdge = lowerEdge; lowerEdge = swapEdge;
+      } else fillRow(row, upper, upperEdge);
+      fillRow(row + 1, lower, lowerEdge);
+      loadedRow = row;
+    }
+    let p = y * workW + x0;
+    for (let x = x0; x < x1; x++, p++) {
+      const d = (upper[x] * (255 - wy) + lower[x] * wy) >> 8;
       let m = t1[d] - s1[p];
       const m2 = t2[d] - s2[p]; if (m2 > m) m = m2;
       const m3 = t3[d] - s3[p]; if (m3 > m) m = m3;
       let cover = 128 + m * sharp;
       // El perfilado solo carga tinta del lado oscuro del borde: no engorda la forma hacia la luz.
-      const line = (contour[shade[i + 1]] * d) >> 7; if (line > cover) cover = line;
+      const line = (contour[(upperEdge[x] * (255 - wy) + lowerEdge[x] * wy) >> 8] * d) >> 7; if (line > cover) cover = line;
       if (cover < plate) cover = plate;
       if (cover <= 0) continue;
       const a = cover >= 255 ? 255 : cover | 0;

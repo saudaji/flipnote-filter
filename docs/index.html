@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#070B0D">
+  <meta name="theme-color" content="#E7E0CF">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&family=IBM+Plex+Mono:wght@400;600&family=Michroma&family=Chakra+Petch:wght@400;500;600;700&family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&family=IBM+Plex+Mono:wght@400;600&family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Doto:wght@400..900&family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
   <title>FLIP</title>
   <style>
     @font-face { font-family:'Bloom';      src:local('Bloom'),      url('./fonts/Bloom-Regular.otf')   format('opentype'); }
@@ -2145,40 +2145,8 @@
       .edit-mini-row input[type="range"] { height:40px; }
     }
 
-    /* ══════════════════════════════════════════════════
-       STAGE — BLOQUE 7: dual-window live rig. This block styles the
-       CONTROL tab only (a normal tab area like EDIT). The OUTPUT window
-       (#stageout) builds its own minimal CSS/canvas at runtime — see
-       IS_STAGE_OUT near the top of the script.
-    ══════════════════════════════════════════════════ */
-    #stageArea {
-      display:none; position:fixed; inset:40px 0 88px; overflow:auto;
-      padding:16px max(64px, calc((100vw - 820px) / 2)) 24px;
-    }
-    @media (max-width:780px) { #stageArea { padding:12px 62px 18px 12px; } }
-    #stageArea.visible { display:block; }
-    .stage-ctl-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:6px 0; }
-    .stage-ctl-select { width:100%; background:#111; color:#fff; border:1px solid var(--dark); font-family:monospace; font-size:11px; padding:6px; }
-    #stagePreviewCanvas { width:160px; height:120px; background:#000; image-rendering:pixelated; border:1px solid var(--dark); }
-    #stagePreviewLabel { color:var(--mid); font-size:9px; letter-spacing:1px; max-width:140px; }
-    #stageOutStatus { color:var(--mid); font-size:10px; letter-spacing:1px; }
-    #barStage { display:none; }
-    #barStage.visible {
-      display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); align-items:center;
-      position:fixed; inset:auto 0 0; min-height:80px; padding:4px 6px;
-      border-top:2px solid var(--dark); background:var(--ink); z-index:12;
-    }
-    #barStage .btn { min-width:0; }
-    #barStage .btn-label { white-space:normal; text-align:center; }
-    #btnStageRec.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
-    /* ── OUTPUT window (#stageout) — hides all normal chrome, shows only
-       the fullscreen output canvas created dynamically in JS. ── */
-    html.stage-out body > *:not(#stageOutCanvas) { display:none !important; }
-    html.stage-out body { background:#000 !important; margin:0; }
-    #stageOutCanvas {
-      position:fixed; inset:0; width:100vw; height:100vh; background:#000;
-      image-rendering:pixelated; image-rendering:crisp-edges; z-index:99999;
-    }
+    /* STAGE: sus estilos viven en stage.css. */
+    #barStage { display:none !important; }
 
     /* ── Pythonization ── */
     #pythonSection { padding:6px 12px 8px; border-top:1px solid var(--dark); }
@@ -2892,6 +2860,7 @@
     }
   </style>
   <link rel="stylesheet" href="./shell.css">
+<link rel="stylesheet" href="./stage.css">
 </head>
 <body>
 
@@ -4116,55 +4085,9 @@
 <input type="file" id="editFileInput" accept="image/*,video/*" style="display:none;">
 <video id="editVideoEl" playsinline muted loop autoplay class="media-probe"></video>
 
-<!-- ═══════════════════════════════════════════════════════════════
-     STAGE — BLOQUE 7: dual-window live rig, no scenes. This markup is
-     the CONTROL surface only — the OUTPUT window (#stageout hash) builds
-     its own #stageOutCanvas dynamically in JS (see IS_STAGE_OUT near the
-     top of the script) and never shares this DOM. Control talks to
-     output purely over BroadcastChannel('flip_stage').
-════════════════════════════════════════════════════════════════ -->
-<div id="stageArea">
-  <div class="stage-ctl-row">
-    <button class="edit-src-pill" id="stageSrcCam" data-stage-src-cam>📷 CAM</button>
-    <button class="edit-src-pill" id="stageSrcAudioOff" data-stage-audio="off">🔇 AUDIO OFF</button>
-    <button class="edit-src-pill" id="stageSrcAudioMic" data-stage-audio="mic">🎙 MIC</button>
-    <button class="edit-src-pill" id="stageSrcAudioExt" data-stage-audio="ext">🎚 EXT</button>
-  </div>
-  <select id="stageAudioDevice" aria-label="Entrada de audio de STAGE" class="stage-ctl-select" style="display:none;"></select>
-  <div id="stageLayersList"></div>
-  <div class="edit-add-row">
-    <button class="edit-add-btn" id="btnStageAddCam">+ CAPA CAM</button>
-    <button class="edit-add-btn" id="btnStageAddGlitch">+ CAPA GLITCH</button>
-    <button class="edit-add-btn" id="btnStageAddAscii">+ CAPA ASCII</button>
-    <button class="edit-add-btn" id="btnStageAddFlow">+ CAPA FLOW</button>
-  </div>
-  <div class="stage-ctl-row">
-    <button class="edit-layer-cfg" id="btnStageVhsToggle">VHS <span id="stageVhsState">OFF</span></button>
-  </div>
-  <div id="stageVhsPanel" class="edit-glitch-panel" style="display:none;">
-    <div class="edit-mini-row"><span class="emr-lbl">INTENSITY</span><input type="range" id="stageVhsIntensity" min="0" max="100" step="1" value="50"><span class="emr-val" id="vStageVhsIntensity">50</span></div>
-    <div class="edit-mini-row"><span class="emr-lbl">TRACKING</span><input type="range" id="stageVhsTracking" min="0" max="100" step="1" value="30"><span class="emr-val" id="vStageVhsTracking">30</span></div>
-    <div class="edit-mini-row"><span class="emr-lbl">CHROMA</span><input type="range" id="stageVhsChroma" min="0" max="100" step="1" value="40"><span class="emr-val" id="vStageVhsChroma">40</span></div>
-    <div class="edit-mini-row"><span class="emr-lbl">SCANLINES</span><input type="range" id="stageVhsScan" min="0" max="100" step="1" value="50"><span class="emr-val" id="vStageVhsScan">50</span></div>
-    <div class="edit-mini-row"><span class="emr-lbl">JITTER</span><input type="range" id="stageVhsJitter" min="0" max="100" step="1" value="20"><span class="emr-val" id="vStageVhsJitter">20</span></div>
-    <div class="edit-mini-row"><span class="emr-lbl">WARBLE</span><input type="range" id="stageVhsWarble" min="0" max="100" step="1" value="15"><span class="emr-val" id="vStageVhsWarble">15</span></div>
-  </div>
-  <div class="stage-ctl-row">
-    <canvas id="stagePreviewCanvas" width="320" height="240"></canvas>
-    <div id="stagePreviewLabel">Vista previa de las capas</div>
-  </div>
-  <div class="stage-ctl-row">
-    <span id="stageOutStatus">SALIDA: cerrada</span>
-  </div>
-</div>
-<div id="barStage">
-  <button class="btn" id="btnStageBackOriginal"><div class="btn-icon">←</div><span class="btn-label">ORIGINAL</span></button>
-  <button class="btn" id="btnStageOpenOut"><div class="btn-icon">▶</div><span class="btn-label">ABRIR SALIDA</span></button>
-  <button class="btn" id="btnStageCloseOut"><div class="btn-icon">✕</div><span class="btn-label">CERRAR</span></button>
-  <button class="btn" id="btnStageFullscreen"><div class="btn-icon">⛶</div><span class="btn-label">FULLSCREEN</span></button>
-  <button class="btn" id="btnStagePhoto"><div class="btn-icon">●</div><span class="btn-label">FOTO</span></button>
-  <button class="btn" id="btnStageRec"><div class="btn-icon">⏺</div><span class="btn-label">REC</span></button>
-</div>
+<!-- STAGE: el sintetizador de vídeo se construye en stage.js sobre este contenedor. -->
+<div id="stageArea"></div>
+<div id="barStage" hidden></div>
 
 <!-- SONO audio progress bar -->
 <div id="sonoProgress">
@@ -4247,19 +4170,8 @@
 <script src="./frame-runtime.js"></script>
 <script>
 // ════════════════════════════════════════════════════════════════════
-// STAGE OUTPUT — boot fork (BLOQUE 7). Declared FIRST, before splash/
-// camera boot, so the rest of the script can cheaply check it. When the
-// window is opened with #stageout it becomes the OUTPUT half of the
-// STAGE dual-window rig: no splash, no normal camera boot, only a
-// fullscreen canvas driven by BroadcastChannel('flip_stage') messages
-// from a CONTROL tab in another window. See the STAGE block near the
-// bottom of this script (search "STAGE OUTPUT — runtime") for the
-// receiving logic — it needs FLIP_STEP_ENGINES/runPipeline/saveBlob/etc,
-// which are declared later, but this flag + the CSS class must exist
-// immediately so the chrome-hiding rule (html.stage-out …) and the
-// splash/boot guards below take effect before any of that.
-const IS_STAGE_OUT = location.hash === '#stageout';
-if (IS_STAGE_OUT) document.documentElement.classList.add('stage-out');
+// La salida de STAGE es otra página (stage-out.html): esta nunca arranca como ventana de salida.
+const IS_STAGE_OUT = false;
 
 // ════════════════════════════════════════════════════════════════════
 // SPLASH — scattered chars
@@ -5872,7 +5784,7 @@ document.addEventListener('click', e => {
   if (e.target.closest('#camFamilyTray') || e.target.closest('#camControlDock')) return;
   if (e.target.closest('.cam-family-trigger') || e.target.closest('#btnCamEditDock')) return;
   // La hoja de ajustes no se cierra por tocar dentro de ella ni por el toque que la abre.
-  if (e.target.closest('#palettes') || e.target.closest('#osdAdjust')) return;
+  if (e.target.closest('#palettes') || e.target.closest('#deckAdjust')) return;
   if (camFamilyTrayOpen || camEditOpen) _closeCamPanels();
 });
 
@@ -12561,7 +12473,9 @@ function cameraLoop(t) {
     scheduleFrame(cameraLoop);
     return;
   }
-  const minInterval = camFpsEnabled ? 1000 / camFpsTarget : 0;
+  // PORTAL dibuja la cámara fluida y aplica la cadencia de cada emulador solo dentro de la ventana.
+  const portalOn = typeof flipPortal !== 'undefined' && flipPortal.active;
+  const minInterval = portalOn ? 1000 / 30 : (camFpsEnabled ? 1000 / camFpsTarget : 0);
   if (!_pipeTestOn && awaitCamFrame(t - camLastFrameMs, minInterval)) { scheduleFrame(cameraLoop); return; }
   if (t - camLastFrameMs >= minInterval) {
     _camSensorPrimed = false;
@@ -12591,7 +12505,8 @@ function cameraLoop(t) {
       }
     } else if (vid.videoWidth) {
       const cam = liveCamFrame();
-      _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctxD, false, {
+      if (portalOn) flipPortal.render(cam, ctxD, t);
+      else _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctxD, false, {
         path:'preview',
         now:t,
       });
@@ -14805,7 +14720,13 @@ function _renderFlipSettingsSections() {
       <div id="flipSaveModePills" class="flip-settings-pills"></div>
       <p class="flip-settings-help"><strong>ARCHIVOS</strong> descarga directo a tu carpeta de descargas. <strong>COMPARTIR</strong> abre el menú del teléfono para guardar en Fotos o enviar a otra app.</p>
     </div>
+    <div class="flip-settings-block">
+      <h3>Teclas</h3>
+      <div id="flipFeelPills" class="flip-settings-pills"></div>
+      <p class="flip-settings-help">Cada tecla suena y vibra según lo que hace. Mientras grabas, <strong>callan solas</strong> para no colarse en el vídeo.</p>
+    </div>
   `;
+  if (window.flipFeel) flipFeel.mount(_flipSettingsDom.secFormat.querySelector('#flipFeelPills'));
   _flipSettingsDom.secAudio.innerHTML = `
     <div id="flipAudioCards"></div>
   `;
@@ -15499,6 +15420,13 @@ let camRecordingJob = null;
 function _getCamRecordingOptions() {
   const options = { aspectRatio: _getCurrentAspectId(), resolution: flipAudioSettings.resolution };
   if (!vid.videoWidth) return options;
+  // En PORTAL la foto y el vídeo son lo que hay en el visor: la ventana depende de las manos de ese instante.
+  if (typeof flipPortal !== 'undefined' && flipPortal.active) {
+    options.portal = true;
+    options.renderFrame = ({ ctx, width, height }) => { ctx.drawImage(display, 0, 0, width, height); };
+    options.onStop = () => {};
+    return options;
+  }
   options.renderFrame = ({ ctx, width, height, now }) => {
     // These effects accumulate history on the live canvas; sample the exact presented frame.
     if (camFamily === 'SLHT' || (camFamily === 'OSCAM' && camVariant === 'TIME') || (camFamily === 'CASKIA' && camVariant !== 'STD')) {
@@ -15558,7 +15486,7 @@ async function renderCameraPhoto() {
   canvas.width = width;
   canvas.height = height;
   try {
-    if (camFamily === 'AUTO03' && camVariant === 'NIGHT') {
+    if (!options.portal && camFamily === 'AUTO03' && camVariant === 'NIGHT') {
       const burst = document.createElement('canvas');
       burst.width = Math.min(vid.videoWidth, width);
       burst.height = Math.max(1, Math.round(burst.width*vid.videoHeight/vid.videoWidth));
@@ -21811,567 +21739,6 @@ function _editLoop(ts) {
   };
 })();
 
-// ════════════════════════════════════════════════════════════════════
-// STAGE — BLOQUE 7: dual-window live rig over the PIPELINE KEYSTONE
-// (runPipeline, FLIP_STEP_ENGINES above). NO scenes anymore. Two halves:
-//
-//   CONTROL  — this tab (activeTab === 'stage'). Pure remote: builds a
-//              JSON state {source, pipeline, vhs} and throttle-broadcasts
-//              it over BroadcastChannel('flip_stage'). Never touches
-//              getUserMedia for the camera (rule of gold: the two windows
-//              never share a live camera stream, or they fight the
-//              hardware). Runs its own tiny local preview loop with a
-//              generative placeholder — NOT a mirror of the real output.
-//   OUTPUT   — a second window opened at `#stageout` (own getUserMedia,
-//              own runPipeline + VHS pass, own capture/recording). See
-//              "STAGE OUTPUT — runtime" further down, gated by
-//              IS_STAGE_OUT (declared at the very top of this script).
-//
-// Autosave: the CONTROL state is saved silently to
-// flipSettings.stageState on every change and restored when STAGE is
-// reopened (window._stageState — see declaration near saveSettings).
-// ════════════════════════════════════════════════════════════════════
-const STAGE_MAX_LAYERS = 4;
-function _stageDefaultVhs() {
-  return { enabled: false, intensity: 50, tracking: 30, chromaBleed: 40, scanlines: 50, jitter: 20, warble: 15 };
-}
-function _stageDefaultState() {
-  return {
-    source: { cam: true, audioMode: 'off', audioDeviceId: null },
-    pipeline: [{ engine: 'glitch', on: true }],
-    vhs: _stageDefaultVhs(),
-  };
-}
-function _stageClampVhs(v) {
-  const d = _stageDefaultVhs();
-  if (!v || typeof v !== 'object') return d;
-  const num = (x, lo, hi, fb) => (typeof x === 'number' && isFinite(x)) ? Math.max(lo, Math.min(hi, x)) : fb;
-  return {
-    enabled: !!v.enabled,
-    intensity: num(v.intensity, 0, 100, d.intensity),
-    tracking: num(v.tracking, 0, 100, d.tracking),
-    chromaBleed: num(v.chromaBleed, 0, 100, d.chromaBleed),
-    scanlines: num(v.scanlines, 0, 100, d.scanlines),
-    jitter: num(v.jitter, 0, 100, d.jitter),
-    warble: num(v.warble, 0, 100, d.warble),
-  };
-}
-function _stageClampPipeline(steps) {
-  const valid = { cam: 1, glitch: 1, ascii: 1, flowblob: 1 };
-  const out = (Array.isArray(steps) ? steps : [])
-    .filter(s => s && valid[s.engine])
-    .slice(0, STAGE_MAX_LAYERS)
-    .map(s => {
-      const step = { engine: s.engine, on: s.on !== false };
-      if (s.engine === 'cam') step.family = (s.family && CAM_FAMILIES[s.family]) ? s.family : undefined;
-      else if (s.engine === 'glitch') step.params = _editClampGlitchParams(s.params);
-      else if (s.engine === 'ascii') step.params = _editClampAsciiParams(s.params);
-      else if (s.engine === 'flowblob') step.params = _editClampFlowParams(s.params);
-      return step;
-    });
-  return out.length ? out : [{ engine: 'glitch', on: true, params: _editDefaultGlitchParams() }];
-}
-function _stageClampState(s) {
-  const d = _stageDefaultState();
-  if (!s || typeof s !== 'object') return d;
-  const audioMode = ['mic', 'ext', 'off'].includes(s.source?.audioMode) ? s.source.audioMode : d.source.audioMode;
-  return {
-    source: { cam: s.source?.cam !== false, audioMode, audioDeviceId: s.source?.audioDeviceId || null },
-    pipeline: _stageClampPipeline(s.pipeline),
-    vhs: _stageClampVhs(s.vhs),
-  };
-}
-function _stagePipelineStepParams(step) {
-  if (step.engine === 'cam') return { family: step.family };
-  if (step.engine === 'glitch') return { glitch: step.params || _editDefaultGlitchParams() };
-  if (step.engine === 'ascii') return step.params || _editDefaultAsciiParams();
-  if (step.engine === 'flowblob') return step.params || _editDefaultFlowParams();
-  return {};
-}
-// Builds the runPipeline-ready steps array — the VHS pass is appended as
-// a final step by whoever actually renders (OUTPUT only; CONTROL's own
-// preview also appends it so both previews reflect the toggle).
-function _stagePipelineForRender(state) {
-  const steps = state.pipeline.filter(s => s.on).map(s => ({ engine: s.engine, params: _stagePipelineStepParams(s) }));
-  if (state.vhs && state.vhs.enabled) steps.push({ engine: 'vhs', params: state.vhs });
-  return steps;
-}
-
-(function _initStageControl() {
-  if (IS_STAGE_OUT) return; // this IIFE is CONTROL-only; OUTPUT has its own block below
-
-  let _stageCtlState = _stageClampState(window._stageState);
-  let _stageExpandedPanel = null; // { i, kind } | null — same one-at-a-time rule as EDIT
-  let _stageOutHandle = null;
-  let _stageChan = null;
-  try { _stageChan = new BroadcastChannel('flip_stage'); } catch (_) { _stageChan = null; }
-  let _stageBroadcastTimer = null, _stageBroadcastPending = false;
-
-  function _stageSyncPersisted() {
-    window._stageState = _stageCtlState;
-    saveSettings();
-  }
-
-  // ── Throttled broadcast (~30Hz, trailing) ─────────────────────────────
-  function _stageBroadcastNow() {
-    if (!_stageChan) return;
-    try { _stageChan.postMessage({ type: 'state', payload: _stageCtlState }); } catch (_) {}
-  }
-  function _stageBroadcastState() {
-    _stageBroadcastPending = true;
-    if (_stageBroadcastTimer) return;
-    _stageBroadcastTimer = setTimeout(() => {
-      _stageBroadcastTimer = null;
-      if (_stageBroadcastPending) { _stageBroadcastPending = false; _stageBroadcastNow(); }
-    }, 1000 / 30);
-  }
-  function _stageCommit() {
-    _stageSyncPersisted();
-    _stageBroadcastState();
-  }
-
-  // ── Layer list UI (compact duplicate of EDIT's builder — see
-  // _editRenderLayers/_editGlitchPanelHtml near the EDIT block for the
-  // richer reference version; STAGE keeps only bypass/reorder/remove +
-  // CAM family, no deep per-parameter panels, to fit a remote control
-  // surface). ──────────────────────────────────────────────────────────
-  function _stageLayerLabel(step) {
-    if (step.engine === 'cam') return 'CAM · ' + (step.family || camFamily);
-    if (step.engine === 'glitch') return 'GLITCH';
-    if (step.engine === 'ascii') return 'ASCII';
-    if (step.engine === 'flowblob') return 'FLOW';
-    return step.engine;
-  }
-  function _stageFamPanelHtml(i, step) {
-    const active = step.family || camFamily;
-    return `<div class="edit-fam-panel" data-i="${i}">` +
-      layerCameraFamilies.map(([id, label]) =>
-        `<button class="edit-fam-pill${id === active ? ' active' : ''}" data-i="${i}" data-act="setfam" data-fam="${id}">${label}</button>`
-      ).join('') + `</div>`;
-  }
-  function _stageRenderLayers() {
-    const list = document.getElementById('stageLayersList');
-    if (!list) return;
-    list.innerHTML = '';
-    _stageCtlState.pipeline.forEach((step, i) => {
-      const row = document.createElement('div');
-      row.className = 'edit-layer-row' + (step.on ? '' : ' bypassed');
-      const famOpen = _stageExpandedPanel && _stageExpandedPanel.kind === 'fam' && _stageExpandedPanel.i === i;
-      row.innerHTML = `
-        <button class="edit-layer-bypass${step.on ? ' on' : ''}" data-i="${i}" data-act="bypass" title="bypass">◉</button>
-        <span class="edit-layer-name">${_stageLayerLabel(step)}</span>
-        ${step.engine === 'cam' ? `<button class="edit-layer-cfg${famOpen ? ' active' : ''}" data-i="${i}" data-act="famtoggle" title="familia">FAM</button>` : ''}
-        <button class="edit-layer-btn" data-i="${i}" data-act="up" ${i === 0 ? 'disabled' : ''}>▲</button>
-        <button class="edit-layer-btn" data-i="${i}" data-act="down" ${i === _stageCtlState.pipeline.length - 1 ? 'disabled' : ''}>▼</button>
-        <button class="edit-layer-btn remove" data-i="${i}" data-act="remove">✕</button>
-      `;
-      list.appendChild(row);
-      if (famOpen) list.insertAdjacentHTML('beforeend', _stageFamPanelHtml(i, step));
-    });
-    const full = _stageCtlState.pipeline.length >= STAGE_MAX_LAYERS;
-    ['btnStageAddCam', 'btnStageAddGlitch', 'btnStageAddAscii', 'btnStageAddFlow'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = full;
-    });
-  }
-  document.getElementById('stageLayersList').addEventListener('click', e => {
-    const btn = e.target.closest('button[data-act]');
-    if (!btn) return;
-    const i = +btn.dataset.i, act = btn.dataset.act, steps = _stageCtlState.pipeline;
-    if (act === 'bypass') { steps[i].on = !steps[i].on; }
-    else if (act === 'up' && i > 0) { const t = steps[i - 1]; steps[i - 1] = steps[i]; steps[i] = t; _stageExpandedPanel = null; }
-    else if (act === 'down' && i < steps.length - 1) { const t = steps[i + 1]; steps[i + 1] = steps[i]; steps[i] = t; _stageExpandedPanel = null; }
-    else if (act === 'remove') { steps.splice(i, 1); if (!steps.length) steps.push({ engine: 'glitch', on: true, params: _editDefaultGlitchParams() }); _stageExpandedPanel = null; }
-    else if (act === 'famtoggle') { _stageExpandedPanel = (_stageExpandedPanel && _stageExpandedPanel.kind === 'fam' && _stageExpandedPanel.i === i) ? null : { i, kind: 'fam' }; }
-    else if (act === 'setfam') { steps[i].family = btn.dataset.fam; }
-    _stageRenderLayers();
-    _stageCommit();
-  });
-  document.getElementById('btnStageAddCam').addEventListener('click', () => {
-    if (_stageCtlState.pipeline.length >= STAGE_MAX_LAYERS) return;
-    _stageCtlState.pipeline.push({ engine: 'cam', on: true, family: camFamily });
-    _stageRenderLayers(); _stageCommit();
-  });
-  document.getElementById('btnStageAddGlitch').addEventListener('click', () => {
-    if (_stageCtlState.pipeline.length >= STAGE_MAX_LAYERS) return;
-    _stageCtlState.pipeline.push({ engine: 'glitch', on: true, params: _editDefaultGlitchParams() });
-    _stageRenderLayers(); _stageCommit();
-  });
-  document.getElementById('btnStageAddAscii').addEventListener('click', () => {
-    if (_stageCtlState.pipeline.length >= STAGE_MAX_LAYERS) return;
-    _stageCtlState.pipeline.push({ engine: 'ascii', on: true, params: _editDefaultAsciiParams() });
-    _stageRenderLayers(); _stageCommit();
-  });
-  document.getElementById('btnStageAddFlow').addEventListener('click', () => {
-    if (_stageCtlState.pipeline.length >= STAGE_MAX_LAYERS) return;
-    _stageCtlState.pipeline.push({ engine: 'flowblob', on: true, params: _editDefaultFlowParams() });
-    _stageRenderLayers(); _stageCommit();
-  });
-
-  // ── Source pills — CAM on/off + AUDIO off/mic/ext exclusive group ────
-  function _stageSyncSourceUI() {
-    document.getElementById('stageSrcCam').classList.toggle('active', _stageCtlState.source.cam);
-    document.querySelectorAll('[data-stage-audio]').forEach(b =>
-      b.classList.toggle('active', b.dataset.stageAudio === _stageCtlState.source.audioMode));
-    document.getElementById('stageAudioDevice').style.display = _stageCtlState.source.audioMode === 'ext' ? '' : 'none';
-  }
-  document.getElementById('stageSrcCam').addEventListener('click', () => {
-    _stageCtlState.source.cam = !_stageCtlState.source.cam;
-    _stageSyncSourceUI(); _stageCommit();
-  });
-  document.querySelectorAll('[data-stage-audio]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      _stageCtlState.source.audioMode = btn.dataset.stageAudio;
-      _stageSyncSourceUI(); _stageCommit();
-    });
-  });
-  document.getElementById('stageAudioDevice').addEventListener('change', e => {
-    _stageCtlState.source.audioDeviceId = e.target.value || null;
-    _stageCommit();
-  });
-
-  // ── VHS panel ──────────────────────────────────────────────────────────
-  function _stageSyncVhsUI() {
-    const v = _stageCtlState.vhs;
-    document.getElementById('stageVhsState').textContent = v.enabled ? 'ON' : 'OFF';
-    document.getElementById('btnStageVhsToggle').classList.toggle('active', v.enabled);
-    document.getElementById('stageVhsPanel').style.display = v.enabled ? '' : 'none';
-    [['stageVhsIntensity', 'intensity'], ['stageVhsTracking', 'tracking'], ['stageVhsChroma', 'chromaBleed'],
-     ['stageVhsScan', 'scanlines'], ['stageVhsJitter', 'jitter'], ['stageVhsWarble', 'warble']].forEach(([id, key]) => {
-      const el = document.getElementById(id);
-      if (el) el.value = v[key];
-      const val = document.getElementById('v' + id[0].toUpperCase() + id.slice(1));
-      if (val) val.textContent = v[key];
-    });
-  }
-  document.getElementById('btnStageVhsToggle').addEventListener('click', () => {
-    _stageCtlState.vhs.enabled = !_stageCtlState.vhs.enabled;
-    _stageSyncVhsUI(); _stageCommit();
-  });
-  [['stageVhsIntensity', 'intensity'], ['stageVhsTracking', 'tracking'], ['stageVhsChroma', 'chromaBleed'],
-   ['stageVhsScan', 'scanlines'], ['stageVhsJitter', 'jitter'], ['stageVhsWarble', 'warble']].forEach(([id, key]) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('input', () => {
-      _stageCtlState.vhs[key] = +el.value;
-      const val = document.getElementById('v' + id[0].toUpperCase() + id.slice(1));
-      if (val) val.textContent = el.value;
-      _stageCommit();
-    });
-  });
-
-  // ── Local preview — a small canvas running the SAME pipeline+VHS over
-  // a self-contained generative placeholder. This is explicitly NOT a
-  // mirror of the real OUTPUT: the output does its own getUserMedia for
-  // camera per the "streams never cross windows" rule, so the control
-  // never has access to a live camera frame to preview against.
-  const stagePreviewCanvas = document.getElementById('stagePreviewCanvas');
-  const ctxStagePreview = stagePreviewCanvas ? stagePreviewCanvas.getContext('2d') : null;
-  let _stagePreviewSrc = null;
-  function _stagePreviewGetSrc(w, h) {
-    if (!_stagePreviewSrc) _stagePreviewSrc = document.createElement('canvas');
-    if (_stagePreviewSrc.width !== w || _stagePreviewSrc.height !== h) { _stagePreviewSrc.width = w; _stagePreviewSrc.height = h; }
-    const ctx = _stagePreviewSrc.getContext('2d');
-    _editRenderSonoSource(ctx, w, h, performance.now());
-    return _stagePreviewSrc;
-  }
-  let _stagePreviewRunning = false;
-  function _stagePreviewLoop() {
-    if (!_stagePreviewRunning) return;
-    if (ctxStagePreview) {
-      const src = _stagePreviewGetSrc(320, 240);
-      runPipeline(_stagePipelineForRender(_stageCtlState), src, ctxStagePreview, null, performance.now());
-    }
-    scheduleFrame(_stagePreviewLoop);
-  }
-
-  // ── OPEN / CLOSE / FULLSCREEN / PHOTO / REC ───────────────────────────
-  function _stageSetOutStatus(text) {
-    const el = document.getElementById('stageOutStatus');
-    if (el) el.textContent = text;
-  }
-  document.getElementById('btnStageBackOriginal').addEventListener('click', () => {
-    switchTab('edit');
-  });
-  document.getElementById('btnStageOpenOut').addEventListener('click', () => {
-    if (_stageOutHandle && !_stageOutHandle.closed) { _stageOutHandle.focus(); return; }
-    _stageOutHandle = window.open(location.pathname + '#stageout', 'FLIP_STAGE_OUT', 'popup,width=1280,height=720');
-    if (!_stageOutHandle) {
-      _stageSetOutStatus('Permite abrir ventanas para iniciar la salida.');
-      return;
-    }
-    _stageSetOutStatus('SALIDA: abriendo…');
-    _stageBroadcastNow();
-  });
-  document.getElementById('btnStageCloseOut').addEventListener('click', () => {
-    if (_stageOutHandle && !_stageOutHandle.closed) _stageOutHandle.close();
-    else if (_stageChan) _stageChan.postMessage({ type: 'cmd', cmd: 'close' });
-    _stageSetOutStatus('SALIDA: cerrada');
-  });
-  document.getElementById('btnStageFullscreen').addEventListener('click', () => {
-    if (_stageChan) _stageChan.postMessage({ type: 'cmd', cmd: 'fullscreen' });
-  });
-  document.getElementById('btnStagePhoto').addEventListener('click', () => {
-    if (_stageChan) _stageChan.postMessage({ type: 'cmd', cmd: 'photo' });
-  });
-  let _stageRecording = false;
-  document.getElementById('btnStageRec').addEventListener('click', () => {
-    if (_stageChan) _stageChan.postMessage({ type: 'cmd', cmd: _stageRecording ? 'recStop' : 'recStart' });
-  });
-  window.addEventListener('beforeunload', () => {
-    if (_stageOutHandle && !_stageOutHandle.closed) _stageOutHandle.close();
-  });
-
-  // ── Receive from OUTPUT ───────────────────────────────────────────────
-  function _stageOnChanMessage(e) {
-    const msg = e.data;
-    if (!msg || !msg.type) return;
-    if (msg.type === 'ready') {
-      _stageSetOutStatus('SALIDA: conectada');
-      _stageBroadcastNow();
-    } else if (msg.type === 'sourceError') {
-      flipToast(msg.message);
-    } else if (msg.type === 'devices') {
-      const sel = document.getElementById('stageAudioDevice');
-      if (sel) {
-        const cur = _stageCtlState.source.audioDeviceId;
-        sel.replaceChildren(...(msg.list || []).map(device =>
-          new Option(device.label || 'Micrófono', device.deviceId, false, device.deviceId === cur)
-        ));
-      }
-    } else if (msg.type === 'status') {
-      _stageRecording = !!msg.recording;
-      document.getElementById('btnStageRec').classList.toggle('recording', _stageRecording);
-      _stageSetOutStatus('SALIDA: conectada · ' + (msg.fps || 0) + 'fps' + (_stageRecording ? ' · REC' : ''));
-    } else if (msg.type === 'saved') {
-      flipToast('💾 ' + msg.name);
-    }
-  }
-  if (_stageChan) _stageChan.addEventListener('message', _stageOnChanMessage);
-
-  // ── Tab entry/exit hooks — called from switchTab() ────────────────────
-  function releaseControlCamera() {
-    if (activeTab !== 'stage' || !stream) return;
-    stream.getVideoTracks().forEach(track => track.stop());
-    stream = null;
-    vid.srcObject = null;
-    _clearCamZoomSupport();
-  }
-  window._stageOnEnter = function () {
-    releaseControlCamera();
-    cameraRequest?.promise.then(releaseControlCamera, () => {});
-    _stageSyncSourceUI();
-    _stageSyncVhsUI();
-    _stageRenderLayers();
-    _stagePreviewRunning = true;
-    scheduleFrame(_stagePreviewLoop);
-    _stageBroadcastNow();
-  };
-  window._stageOnExit = function () {
-    _stagePreviewRunning = false;
-  };
-  window._stageStopRecording = function () {
-    if (_stageRecording && _stageChan) _stageChan.postMessage({ type: 'cmd', cmd: 'recStop' });
-  };
-})();
-
-// ════════════════════════════════════════════════════════════════════
-// STAGE OUTPUT — runtime (BLOQUE 7). Only active when IS_STAGE_OUT
-// (location.hash === '#stageout', see the very top of this script).
-// This is the PROJECTOR half: its own getUserMedia (camera and/or ext
-// audio), its own runPipeline + VHS pass, its own capture/recording —
-// the CONTROL window (above) never sends it pixels, only JSON state
-// over BroadcastChannel('flip_stage'). Rule of gold: never getUserMedia
-// the same camera from both windows at once.
-// ════════════════════════════════════════════════════════════════════
-if (IS_STAGE_OUT) (function _initStageOutput() {
-  const STAGE_OUT_RES_STEPS = [640, 512, 384];
-  let _outWorkRes = STAGE_OUT_RES_STEPS[0];
-  let _outFrameWindow = [];
-  let _outUpStreak = 0;
-
-  const canvas = document.createElement('canvas');
-  canvas.id = 'stageOutCanvas';
-  canvas.width = 1280; canvas.height = 960;
-  document.body.appendChild(canvas);
-  const ctxOut = canvas.getContext('2d');
-  function fullscreenOutput() {
-    const enter = canvas.requestFullscreen || canvas.webkitRequestFullscreen;
-    if (!enter) return;
-    Promise.resolve(enter.call(canvas)).catch(() => chan?.postMessage({
-      type:'sourceError', message:'Haz doble clic en la salida para activar pantalla completa.',
-    }));
-  }
-  canvas.addEventListener('dblclick', fullscreenOutput);
-
-  let chan = null;
-  try { chan = new BroadcastChannel('flip_stage'); } catch (_) { chan = null; }
-
-  let state = _stageDefaultState();
-  let gotFirstState = false;
-
-  // ── OUTPUT's own camera — a private <video>, never the shared global `vid` ──
-  const outVideo = document.createElement('video');
-  outVideo.playsInline = true; outVideo.muted = true; outVideo.autoplay = true;
-  outVideo.style.display = 'none';
-  document.body.appendChild(outVideo);
-  let _outCamStream = null;
-  async function _outEnsureCam(want) {
-    if (want && !_outCamStream) {
-      try {
-        _outCamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-        outVideo.srcObject = _outCamStream;
-        await outVideo.play().catch(() => {});
-      } catch (err) {
-        chan?.postMessage({type:'sourceError', message:'Cámara de salida: ' + err.message});
-      }
-    } else if (!want && _outCamStream) {
-      _outCamStream.getTracks().forEach(t => t.stop());
-      _outCamStream = null;
-      outVideo.srcObject = null;
-    }
-  }
-  async function _outEnsureAudio(mode, deviceId) {
-    const wantAny = mode === 'mic' || mode === 'ext';
-    if (!wantAny) {
-      if (extAudioCtx || extMicStream) { try { await extAudioCtx?.close(); } catch (_) {} extMicStream?.getTracks().forEach(t => t.stop()); extMicStream = null; extAnalyser = null; }
-      return;
-    }
-    try {
-      await _buildExtAudioChain(deviceId || undefined);
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const list = devices.filter(d => d.kind === 'audioinput').map(d => ({ deviceId: d.deviceId, label: d.label || 'mic' }));
-        chan?.postMessage({ type: 'devices', list });
-      } catch (_) {}
-    } catch (err) {
-      chan?.postMessage({type:'sourceError', message:'Audio de salida: ' + err.message});
-    }
-  }
-
-  let _outSrcCanvas = null;
-  function _outGetSrcCanvas() {
-    const w = _outWorkRes, h = Math.round(w * 0.75);
-    if (!_outSrcCanvas) _outSrcCanvas = document.createElement('canvas');
-    if (_outSrcCanvas.width !== w || _outSrcCanvas.height !== h) { _outSrcCanvas.width = w; _outSrcCanvas.height = h; }
-    const ctx = _outSrcCanvas.getContext('2d');
-    if (state.source.cam && outVideo.videoWidth) {
-      drawCover(ctx, outVideo, outVideo.videoWidth, outVideo.videoHeight, w, h);
-      return _outSrcCanvas;
-    }
-    return _getExtAudioSourceFrame(w, h);
-  }
-
-  function _outTrackBudget(dt) {
-    _outFrameWindow.push(dt);
-    if (_outFrameWindow.length > 10) _outFrameWindow.shift();
-    if (_outFrameWindow.length < 10) return;
-    const avg = _outFrameWindow.reduce((a, b) => a + b, 0) / _outFrameWindow.length;
-    const idx = STAGE_OUT_RES_STEPS.indexOf(_outWorkRes);
-    if (avg > 24 && idx < STAGE_OUT_RES_STEPS.length - 1) {
-      _outWorkRes = STAGE_OUT_RES_STEPS[idx + 1]; _outFrameWindow = []; _outUpStreak = 0;
-    } else if (avg < 12 && idx > 0) {
-      _outUpStreak++;
-      if (_outUpStreak >= 60) { _outWorkRes = STAGE_OUT_RES_STEPS[idx - 1]; _outUpStreak = 0; _outFrameWindow = []; }
-    } else { _outUpStreak = 0; }
-  }
-  window._stageGetWorkRes = () => _outWorkRes; // kept for verification parity with the old spec name
-
-  let _outLastFrameMs = 0, _outFps = 0, _outFpsWindow = [];
-  function _outLoop(ts) {
-    requestAnimationFrame(_outLoop);
-    const minInterval = 1000 / 30;
-    if (ts - _outLastFrameMs < minInterval) return;
-    const dt = ts - _outLastFrameMs;
-    _outFpsWindow.push(dt); if (_outFpsWindow.length > 30) _outFpsWindow.shift();
-    _outFps = Math.round(1000 / (_outFpsWindow.reduce((a, b) => a + b, 0) / _outFpsWindow.length));
-    _outLastFrameMs = ts;
-    const t0 = performance.now();
-    const srcCanvas = _outGetSrcCanvas();
-    if (srcCanvas) {
-      const audio = extAnalyser ? FlipAudioReact.read() : null;
-      runPipeline(_stagePipelineForRender(state), srcCanvas, ctxOut, audio, ts);
-    }
-    _outTrackBudget(performance.now() - t0);
-  }
-  requestAnimationFrame(_outLoop);
-
-  // ── status heartbeat ───────────────────────────────────────────────
-  setInterval(() => { chan?.postMessage({ type: 'status', fps: _outFps, recording: !!_outRecorder }); }, 1000);
-
-  // ── ready handshake — repeats every 2s until first state arrives ────
-  function _outAnnounceReady() {
-    if (gotFirstState) return;
-    chan?.postMessage({ type: 'ready' });
-    setTimeout(_outAnnounceReady, 2000);
-  }
-  _outAnnounceReady();
-
-  // ── capture: photo ───────────────────────────────────────────────────
-  async function _outPhoto() {
-    const blob = await _canvasToJpeg(canvas);
-    await saveBlob(blob, _flipName('stage', 'jpg'));
-    chan?.postMessage({ type: 'saved', name: 'photo' });
-  }
-  // ── capture: recording (≤120s) ────────────────────────────────────────
-  let _outRecorder = null, _outChunks = [], _outMime = '', _outRecTimer = null;
-  function _outStartRec() {
-    if (_outRecorder && _outRecorder.state !== 'inactive') return;
-    _outChunks = [];
-    const stream = canvas.captureStream(30);
-    for (const track of extMicStream?.getAudioTracks() || []) stream.addTrack(track.clone());
-    const { recorder, mime } = _createFlipRecorder(stream, 6_000_000);
-    _outRecorder = recorder; _outMime = mime;
-    recorder.ondataavailable = e => { if (e.data && e.data.size) _outChunks.push(e.data); };
-    recorder.onstop = async () => {
-      stream.getTracks().forEach(track => track.stop());
-      _outMime = _resolveRecordedMime(_outMime, _outChunks);
-      const blob = new Blob(_outChunks, { type: _outMime });
-      await saveBlob(blob, _flipName('stage', _videoExtFromMime(_outMime)));
-      chan?.postMessage({ type: 'saved', name: 'recording' });
-      _outRecorder = null;
-      clearTimeout(_outRecTimer);
-    };
-    recorder.start(250);
-    _outRecTimer = setTimeout(() => _outStopRec(), 120_000);
-  }
-  function _outStopRec() {
-    if (_outRecorder && _outRecorder.state !== 'inactive') _outRecorder.stop();
-  }
-
-  // ── commands from CONTROL ─────────────────────────────────────────────
-  let sourceUpdates = Promise.resolve();
-  async function _outApplyState(payload) {
-    const first = !gotFirstState;
-    gotFirstState = true;
-    const prevCam = state.source.cam, prevAudio = state.source.audioMode, prevDevice = state.source.audioDeviceId;
-    state = _stageClampState(payload);
-    const { cam, audioMode, audioDeviceId } = state.source;
-    if (first || cam !== prevCam || audioMode !== prevAudio || audioDeviceId !== prevDevice) {
-      sourceUpdates = sourceUpdates.then(async () => {
-        if (first || cam !== prevCam) await _outEnsureCam(cam);
-        if (first || audioMode !== prevAudio || audioDeviceId !== prevDevice) await _outEnsureAudio(audioMode, audioDeviceId);
-      }).catch(err => chan?.postMessage({ type: 'sourceError', message: String(err.message || err) }));
-    }
-  }
-  if (chan) chan.addEventListener('message', async e => {
-    const msg = e.data;
-    if (!msg || !msg.type) return;
-    if (msg.type === 'state') {
-      await _outApplyState(msg.payload);
-    } else if (msg.type === 'cmd') {
-      if (msg.cmd === 'photo') _outPhoto();
-      else if (msg.cmd === 'recStart') _outStartRec();
-      else if (msg.cmd === 'recStop') _outStopRec();
-      else if (msg.cmd === 'fullscreen') fullscreenOutput();
-      else if (msg.cmd === 'close') window.close();
-    }
-  });
-
-  window.addEventListener('beforeunload', () => {
-    _outCamStream?.getTracks().forEach(t => t.stop());
-  });
-})();
 
 // ════════════════════════════════════════════════════════════════════
 // SERVICE WORKER
@@ -22686,6 +22053,9 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<script src="./feel.js"></script>
 <script src="./shell.js"></script>
+<script src="./portal.js"></script>
+<script src="./stage.js"></script>
 </body>
 </html>

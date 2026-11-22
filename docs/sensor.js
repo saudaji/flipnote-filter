@@ -179,10 +179,63 @@ const flipSensor = (() => {
     if (!state) return;
     state.fails = 0; state.disabled = false; state.why = '';
     state.at = -Infinity; state.info = null; state.width = 0; state.height = 0;
+    const raw = planeStates.get(video);
+    if (raw) { raw.fails = 0; raw.disabled = false; raw.out = null; raw.why = ''; }
+  }
+
+  // ── Planos nativos para la GPU (STAGE) ────────────────────────────────────
+  // Copia el cuadro tal cual sale de la cámara (Y, U, V…) sin convertirlo: el sombreador lo pasa
+  // a RGB a resolución completa. Dos búferes alternos para no pisar el que se está subiendo.
+  //   flipSensor.planes(video)        pide el cuadro siguiente (no bloquea)
+  //   flipSensor.latestPlanes(video)  { kind, width, height, data, layout, matrix, fullRange, seq } o null
+  const planeStates = new WeakMap();
+  function planes(video) {
+    if (!supported || !video || !video.videoWidth) return;
+    let st = planeStates.get(video);
+    if (!st) planeStates.set(video, st = { bufs: [null, null], turn: 0, busy: false, fails: 0, disabled: false, out: null, seq: 0, why: '' });
+    if (st.disabled || st.busy) return;
+    st.busy = true;
+    let frame = null;
+    (async () => {
+      try {
+        frame = new VideoFrame(video);
+        const kind = KINDS[frame.format], rect = frame.visibleRect;
+        if (!kind || frame.rotation || frame.flip || frame.displayWidth !== rect.width || frame.displayHeight !== rect.height) {
+          st.disabled = true; st.why = 'formato ' + frame.format; st.out = null;
+          return;
+        }
+        const size = frame.allocationSize();
+        const slot = st.turn ^= 1;
+        if (!st.bufs[slot] || st.bufs[slot].length < size) st.bufs[slot] = new Uint8Array(size);
+        const layout = await frame.copyTo(st.bufs[slot]);
+        const space = frame.colorSpace || {};
+        st.out = { kind, format: frame.format, width: rect.width, height: rect.height, data: st.bufs[slot], layout, matrix: space.matrix || null, fullRange: space.fullRange === true, seq: ++st.seq, at: performance.now() };
+        st.fails = 0;
+      } catch (error) {
+        st.why = String(error && error.message || error);
+        if (++st.fails >= 3) { st.disabled = true; st.out = null; }
+      } finally {
+        try { if (frame) frame.close(); } catch (_) {}
+        st.busy = false;
+      }
+    })();
+  }
+  function latestPlanes(video, maxAge = 400) {
+    const st = video && planeStates.get(video);
+    return st && st.out && performance.now() - st.out.at <= maxAge ? st.out : null;
   }
 
   return {
-    read, prime, current, reset,
+    read, prime, current, reset, planes, latestPlanes,
+    planesUsable: video => supported && !(video && planeStates.get(video) && planeStates.get(video).disabled),
+    // Coeficientes de YCbCr a RGB para un sombreador: { offset, scale, rv, gu, gv, bu }.
+    coefficients(matrix, full) {
+      const hd = matrix === 'bt709' || matrix === 'bt2020-ncl';
+      const c = full
+        ? (hd ? [1.5748, -0.187324, -0.468124, 1.8556] : [1.402, -0.344136, -0.714136, 1.772])
+        : (hd ? [1.792741, -0.213249, -0.532909, 2.112402] : [1.596027, -0.391762, -0.812968, 2.017232]);
+      return { offset: full ? 0 : 16 / 255, scale: full ? 1 : 255 / 219, rv: c[0], gu: c[1], gv: c[2], bu: c[3] };
+    },
     // Para pruebas: convierte un VideoFrame suelto y devuelve su canvas.
     async convertFrame(frame) {
       const state = { canvas: null, ctx: null, image: null, raw: null, width: 0, height: 0, why: '', info: null };

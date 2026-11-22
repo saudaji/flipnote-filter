@@ -18,7 +18,7 @@ const refAt = args.indexOf('--old-ref');
 const oldRef = refAt >= 0 ? args.splice(refAt, 2)[1] : 'ad2272b';
 const out = path.resolve(args[0] || fs.mkdtempSync(path.join(os.tmpdir(), 'flip-media-')));
 fs.mkdirSync(out, { recursive: true });
-const SNAP = '#deckShutter', MODE = '.deck-mode button:not(.is-on)';
+const SNAP = '#deckShutter', MODE = '#deckModeSwitch';
 const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JSON.stringify(detail) : ''));
 
 async function download(page, action, name) {

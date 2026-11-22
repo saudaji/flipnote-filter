@@ -1,7 +1,8 @@
-// FLIP FL-27 · cuerpo de cámara.
-// Construye la interfaz física (banda superior, pantalla con OSD, botonera de CAM, lanzador de
-// módulos, visor de la última toma) y la conecta al motor que ya existe en index.html. No
-// reimplementa nada: cada mando llama a la misma función o pulsa el mismo control de siempre.
+// FLIP FL-27 · el aparato.
+// Construye la interfaz física (banda superior con su pantallita, visor, botonera de CAM,
+// lanzador de módulos, visor de la última toma) y la conecta al motor que ya existe en
+// index.html. No reimplementa nada: cada mando llama a la misma función o pulsa el mismo
+// control de siempre.
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -42,73 +43,81 @@
     sflow: '<circle cx="12" cy="7" r="3"/><path d="M6 20c0-4 2.5-6.5 6-6.5s6 2.5 6 6.5"/><path d="M3 10c0-3 1.5-5.5 3.5-6.5M21 10c0-3-1.5-5.5-3.5-6.5"/>',
     edit: '<path d="m12 4 8.5 4.5L12 13 3.5 8.5z"/><path d="m3.5 12.5 8.5 4.5 8.5-4.5"/><path d="m3.5 16.5 8.5 4.5 8.5-4.5"/>',
     stage: '<rect x="3" y="5" width="18" height="11" rx="1.5"/><path d="M8 20h8M12 16v4"/>',
+    portal: '<path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><path d="M9 9.5h6v5H9z"/>',
+    hand: '<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11m0-1.5V5a1.5 1.5 0 0 1 3 0v6m0-3.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.6a5 5 0 0 1-3.9-1.9L4.5 15a1.6 1.6 0 0 1 2.4-2.1L8 14"/>',
   };
-  const icon = (name, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${PATHS[name] || ''}</svg>`;
+  const icon = (name, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${PATHS[name] || ''}</svg>`;
   const maskCache = {};
   const iconMask = name => maskCache[name] || (maskCache[name] = 'url("data:image/svg+xml;utf8,' + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${(PATHS[name] || '').replace(/currentColor/g, '#000')}</svg>`) + '")');
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${(PATHS[name] || '').replace(/currentColor/g, '#000')}</svg>`) + '")');
 
+  // Módulos: clave, nombre, descripción y color de su botón.
   const MODULES = [
-    ['cam', 'CAM', 'Cámara y filtros'], ['ascii', 'ASCII', 'Imagen con caracteres'], ['sflow', 'FLOW', 'Siluetas y tipografía'],
-    ['scrash', 'GLITCH', 'Distorsión de imagen'], ['fusion', 'FUSION', 'Cámara + glitch'], ['sono', 'SONO', 'Ondas de sonido'],
-    ['wmp', 'WMP', 'Visualizador musical'], ['edit', 'EDIT', 'Edición por capas'], ['stage', 'STAGE', 'Proyección en vivo'],
+    ['cam', 'CAM', 'Cámara y filtros', '#ec5b45'], ['portal', 'PORTAL', 'Abre una ventana con las manos', '#8b79d6'],
+    ['ascii', 'ASCII', 'Imagen con caracteres', '#566679'], ['sflow', 'FLOW', 'Siluetas y tipografía', '#33b09f'],
+    ['scrash', 'GLITCH', 'Distorsión de imagen', '#f08a2d'], ['fusion', 'FUSION', 'Cámara + glitch', '#2f78dc'],
+    ['sono', 'SONO', 'Ondas de sonido', '#3ca956'], ['wmp', 'WMP', 'Visualizador musical', '#f0ae2b'],
+    ['edit', 'EDIT', 'Edición por capas', '#7d7768'], ['stage', 'STAGE', 'Central de visuales en vivo', '#3b3c3f'],
   ];
-  const tick = ms => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (_) {} };
 
   // ── Construcción ────────────────────────────────────────────────────────────
   document.body.prepend(el('div', { id: 'camBody', 'aria-hidden': 'true' }));
   const top = el('header', { id: 'shellTop' }, `
-    <button class="hw hw-pill" id="shellModule" type="button" aria-haspopup="dialog" aria-label="Cambiar de módulo">${icon('cam')}<span id="shellModuleName">CAM</span>${icon('chev', 'class="chev"')}</button>
-    <div class="shell-brand">FLIP</div>
-    <button class="hw hw-key sm" id="shellMic" type="button" aria-label="Micrófono">${icon('mic')}</button>
-    <button class="hw hw-key sm" id="shellAudio" type="button" aria-label="Entradas de audio">${icon('audio')}</button>
-    <button class="hw hw-key sm" id="shellSettings" type="button" aria-label="Formato, resolución y audio">${icon('gear')}</button>`);
+    <button class="hw hw-keycap" data-color="slate" id="shellModule" type="button" aria-haspopup="dialog" aria-label="Cambiar de módulo">${icon('cam')}<span id="shellModuleName">CAM</span>${icon('chev', 'class="chev"')}</button>
+    <div class="hw-lcd" id="shellLcd" role="status" aria-live="off">
+      <div id="lcdLine1"><span id="lcdLook">FLIP</span><span id="lcdRec"><i></i><span id="lcdRecTime">REC 00:00</span></span></div>
+      <div id="lcdLine2"><span id="lcdFps">-- FPS</span><span id="lcdFormat">4:3 HD</span><span class="lcd-batt" id="lcdBatt" hidden><i></i><i></i><i></i><i></i></span></div>
+    </div>
+    <button class="hw hw-candy sm" id="shellMic" type="button" aria-label="Micrófono">${icon('mic')}</button>
+    <button class="hw hw-candy sm" id="shellAudio" type="button" aria-label="Entradas de audio">${icon('audio')}</button>
+    <button class="hw hw-candy sm" data-color="slate" id="shellSettings" type="button" aria-label="Formato, resolución y audio">${icon('gear')}</button>`);
   const lcd = el('div', { id: 'lcd', 'aria-hidden': 'true' });
   const osd = el('div', { id: 'osd' }, `
     <div id="osdFrame"></div>
-    <div id="osdMode"><b id="osdFamily"></b><span id="osdVariant"></span></div>
     <div id="osdRec"><i></i><span id="osdRecTime">00:00</span></div>
-    <div id="osdInfo"><span id="osdFormat"></span><span class="osd-batt" id="osdBatt" hidden><i></i></span></div>
-    <div id="osdFps"></div>
-    <button class="hw" id="osdAdjust" type="button" aria-label="Ajustes de esta cámara">${icon('sliders')}<span>AJUSTES</span></button>
     <div id="osdHint" role="status"></div>`);
   const deck = el('footer', { id: 'camDeck' }, `
     <div class="deck-variants" id="deckVariants" role="tablist" aria-label="Variante"></div>
     <div class="deck-looks"><div class="deck-looks-track" id="deckLooks" role="listbox" aria-label="Cámaras"></div></div>
     <div class="deck-main">
-      <div class="deck-mode" role="radiogroup" aria-label="Foto o vídeo">
-        <button class="hw" type="button" role="radio" data-mode="foto"><i class="hw-led"></i><span class="hw-print">FOTO</span></button>
-        <button class="hw" type="button" role="radio" data-mode="video"><i class="hw-led rec"></i><span class="hw-print">VIDEO</span></button>
+      <div class="deck-left">
+        <button class="hw" id="deckGallery" type="button" aria-label="Ver la última toma"><b>${icon('image')}</b></button>
+        <div class="deck-mode">
+          <span class="hw-print"><b data-mode-label="foto">FOTO</b><b data-mode-label="video">VIDEO</b></span>
+          <button class="hw hw-switch" id="deckModeSwitch" type="button" role="switch" aria-checked="false" aria-label="Foto o vídeo"><i></i></button>
+        </div>
       </div>
-      <div class="deck-left"><button class="hw" id="deckGallery" type="button" aria-label="Ver la última toma"><b>${icon('image')}</b></button></div>
       <button class="hw" id="deckShutter" type="button" aria-label="Disparar"><i></i></button>
-      <div class="deck-right"><button class="hw hw-key" id="deckFlip" type="button" aria-label="Cambiar entre cámara frontal y trasera">${icon('flip')}</button></div>
+      <div class="deck-right">
+        <div class="hw-labeled"><button class="hw hw-candy" data-color="mustard" id="deckAdjust" type="button" aria-label="Ajustes de esta cámara">${icon('sliders')}</button><span class="hw-print">AJUSTES</span></div>
+        <div class="hw-labeled"><button class="hw hw-candy" data-color="blue" id="deckFlip" type="button" aria-label="Cambiar entre cámara frontal y trasera">${icon('flip')}</button><span class="hw-print">GIRAR</span></div>
+      </div>
     </div>`);
   const launcher = el('div', { id: 'shellLauncher', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Módulos de FLIP' }, `
-    <div class="launcher-head"><h2>MÓDULOS</h2><button class="hw hw-key sm" id="launcherClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
-    <div class="launcher-grid">${MODULES.map(([key, title, sub]) => `<button class="hw launcher-card" type="button" data-module="${key}">${icon(key)}<strong>${title}</strong><small>${sub}</small></button>`).join('')}</div>`);
+    <div class="launcher-head"><h2>MÓDULOS</h2><button class="hw hw-candy sm" id="launcherClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
+    <div class="launcher-grid">${MODULES.map(([key, title, sub, tone]) => `<button class="hw launcher-card" type="button" data-module="${key}"><em style="--tone:${tone}">${icon(key)}</em><strong>${title}</strong><small>${sub}</small>${key === 'stage' ? '<u>PRO</u>' : ''}</button>`).join('')}</div>`);
   const viewer = el('div', { id: 'shellViewer', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Última toma' }, `
-    <div class="launcher-head"><h2>ÚLTIMA TOMA</h2><button class="hw hw-key sm" id="viewerClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
+    <div class="launcher-head"><h2>ÚLTIMA TOMA</h2><button class="hw hw-candy sm" id="viewerClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
     <div class="viewer-stage" id="viewerStage"></div>
     <div class="viewer-meta" id="viewerMeta"></div>
     <div class="viewer-actions"><button type="button" id="viewerSave">Guardar otra vez</button><button type="button" class="primary" id="viewerShare">Compartir</button></div>`);
   document.body.append(top, lcd, osd, deck, launcher, viewer);
 
-  // La portada gana una pieza de la cámara y su placa de modelo.
+  // La portada: el aparato saluda en su pantalla.
   const splashEl = $('splash');
   if (splashEl) {
-    splashEl.prepend(el('div', { class: 'splash-hero', 'aria-hidden': 'true' }));
+    splashEl.prepend(el('div', { class: 'splash-hero', 'aria-hidden': 'true' }, '<b>hola</b><u>FL-27 · LISTA</u>'));
     const title = splashEl.querySelector('.splash-title');
-    if (title) title.after(el('div', { class: 'splash-tag' }, 'FL-27 · DIGITAL STILL / MOTION'));
+    if (title) title.after(el('div', { class: 'splash-tag' }, '<i></i>FL-27 · cámara digital retro'));
   }
 
-  // ── Geometría de la pantalla ────────────────────────────────────────────────
+  // ── Geometría del visor ─────────────────────────────────────────────────────
   // relayout() pregunta aquí cuánto mide el cristal donde va el visor de CAM.
   window.flipShellGlass = function () {
     const rect = osd.getBoundingClientRect();
     return rect.width > 40 && rect.height > 40 ? { w: rect.width, h: rect.height } : null;
   };
-  let deckHeight = 0;
+  let deckHeight = -1;
   function measureDeck() {
     if (document.body.dataset.tab !== 'cam') return;
     const landscape = matchMedia('(orientation: landscape) and (max-height: 540px)').matches;
@@ -124,23 +133,21 @@
   function frameMarks() {
     const glass = osd.getBoundingClientRect(), image = display.getBoundingClientRect();
     if (!glass.width || !image.width) return;
-    const insetX = (glass.width - image.width) / 2 + image.width * 0.07;
-    const insetY = (glass.height - image.height) / 2 + image.height * 0.07;
-    osd.style.setProperty('--frame-x', insetX.toFixed(1) + 'px');
-    osd.style.setProperty('--frame-y', insetY.toFixed(1) + 'px');
+    osd.style.setProperty('--frame-x', ((glass.width - image.width) / 2 + image.width * 0.07).toFixed(1) + 'px');
+    osd.style.setProperty('--frame-y', ((glass.height - image.height) / 2 + image.height * 0.07).toFixed(1) + 'px');
   }
   new ResizeObserver(frameMarks).observe(display);
   new ResizeObserver(measureDeck).observe(deck);
   window.addEventListener('resize', () => requestAnimationFrame(measureDeck));
   window.addEventListener('orientationchange', () => setTimeout(measureDeck, 250));
 
-  // ── CAM: looks, variantes, modo ─────────────────────────────────────────────
+  // ── CAM: diapositivas, variantes, modo ──────────────────────────────────────
   const looks = $('deckLooks'), variants = $('deckVariants');
   const describe = {};
   document.querySelectorAll('.cam-fam-btn').forEach(btn => { describe[btn.dataset.family] = btn.querySelector('small')?.textContent || ''; });
   Object.entries(CAM_FAMILIES).forEach(([key, cfg]) => {
-    const tile = el('button', { class: 'hw look', type: 'button', role: 'option', 'data-family': key, title: describe[key] || '' }, `<span>${cfg.displayLabel || cfg.label}</span>`);
-    tile.style.backgroundImage = `url('./body/look-${key}.webp')`;
+    const tile = el('button', { class: 'hw look', type: 'button', role: 'option', 'data-family': key, title: describe[key] || '' }, `<i></i><span>${cfg.displayLabel || cfg.label}</span>`);
+    tile.firstChild.style.backgroundImage = `url('./body/look-${key}.webp')`;
     looks.appendChild(tile);
   });
   let hintTimer = 0;
@@ -150,11 +157,15 @@
     node.textContent = text;
     node.classList.add('is-on');
     clearTimeout(hintTimer);
-    hintTimer = setTimeout(() => node.classList.remove('is-on'), ms);
+    if (ms > 0) hintTimer = setTimeout(() => node.classList.remove('is-on'), ms);
   }
+  // Otros módulos (Portal) pueden añadir diapositivas propias y atender su pulsación.
+  const lookHandlers = [];
   looks.addEventListener('click', event => {
     const tile = event.target.closest('.look');
-    if (!tile || tile.dataset.family === camFamily) return;
+    if (!tile) return;
+    for (const handler of lookHandlers) if (handler(tile) === true) return;
+    if (!tile.dataset.family || tile.dataset.family === camFamily) return;
     _setCamFamily(tile.dataset.family);
     hint(describe[tile.dataset.family]);
   });
@@ -170,72 +181,78 @@
   });
 
   let shownFamily = '';
+  const lookLabel = { text: null };
   function syncCam() {
     const cfg = _getCamFamilyConfig();
+    const custom = document.body.dataset.look || '';
     looks.querySelectorAll('.look').forEach(tile => {
-      const on = tile.dataset.family === camFamily;
+      const on = custom ? tile.dataset.look === custom : tile.dataset.family === camFamily;
       tile.classList.toggle('is-on', on);
       tile.setAttribute('aria-selected', String(on));
     });
-    if (shownFamily !== camFamily) {
-      shownFamily = camFamily;
+    if (shownFamily !== camFamily + custom) {
+      shownFamily = camFamily + custom;
       const active = looks.querySelector('.look.is-on');
       if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
-    const list = cfg.variants || [];
-    const signature = camFamily + ':' + list.map(v => v.id).join(',');
+    const list = custom ? [] : (cfg.variants || []);
+    const signature = (custom || camFamily) + ':' + list.map(v => v.id).join(',');
     if (variants.dataset.signature !== signature) {
       variants.dataset.signature = signature;
       variants.dataset.count = String(list.length);
-      variants.innerHTML = list.map(v => `<button class="hw hw-pill" type="button" role="tab" data-variant="${v.id}"${v.hint ? ` title="${v.hint.replace(/"/g, '&quot;')}"` : ''}><span>${v.label}</span></button>`).join('');
+      variants.innerHTML = list.map(v => `<button class="hw hw-keycap" type="button" role="tab" data-variant="${v.id}"${v.hint ? ` title="${v.hint.replace(/"/g, '&quot;')}"` : ''}><span>${v.label}</span></button>`).join('');
+      variants.style.visibility = list.length ? '' : 'hidden';
     }
     variants.querySelectorAll('[data-variant]').forEach(key => {
       const on = key.dataset.variant === camVariant;
       key.classList.toggle('is-on', on);
       key.setAttribute('aria-selected', String(on));
     });
-    $('osdFamily').textContent = cfg.displayLabel || cfg.label;
     const variantLabel = list.find(v => v.id === camVariant)?.label || '';
-    $('osdVariant').textContent = list.length > 1 ? variantLabel : '';
+    const name = lookLabel.text || ((cfg.displayLabel || cfg.label) + (list.length > 1 ? ' · ' + variantLabel : ''));
+    $('lcdLook').textContent = (document.body.classList.contains('portal-mode') ? 'PORTAL ' : '') + name;
     syncFormat();
   }
   function syncFormat() {
     const res = { low: 'SD', medium: 'HD', high: 'HD+' }[flipAudioSettings?.resolution] || '';
-    $('osdFormat').textContent = _getCurrentAspectId() + (res ? ' · ' + res : '');
+    $('lcdFormat').textContent = _getCurrentAspectId() + (res ? ' ' + res : '');
   }
 
   const btnMode = $('btnRecord'), btnShot = $('btnCapture');
   function syncMode() {
     const video = camMode === 'video';
     document.body.classList.toggle('cam-video', video);
-    deck.querySelectorAll('[data-mode]').forEach(button => {
-      const on = (button.dataset.mode === 'video') === video;
-      button.classList.toggle('is-on', on);
-      button.setAttribute('aria-checked', String(on));
-    });
+    $('deckModeSwitch').setAttribute('aria-checked', String(video));
+    deck.querySelectorAll('[data-mode-label]').forEach(label => label.classList.toggle('is-on', (label.dataset.modeLabel === 'video') === video));
     const recording = btnShot.classList.contains('recording');
     document.body.classList.toggle('is-recording', recording);
-    const label = recording ? 'Detener la grabación' : video ? 'Grabar vídeo' : 'Tomar foto';
-    $('deckShutter').setAttribute('aria-label', label);
+    $('deckShutter').setAttribute('aria-label', recording ? 'Detener la grabación' : video ? 'Grabar vídeo' : 'Tomar foto');
     const time = (btnShot.querySelector('.btn-icon')?.textContent || '').trim();
-    $('osdRecTime').textContent = /^\d\d:\d\d$/.test(time) ? time : '00:00';
+    const shown = /^\d\d:\d\d$/.test(time) ? time : '00:00';
+    $('osdRecTime').textContent = shown;
+    $('lcdRecTime').textContent = 'REC ' + shown;
   }
   new MutationObserver(syncMode).observe(btnMode, { subtree: true, childList: true, characterData: true });
   new MutationObserver(syncMode).observe(btnShot, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class'] });
-  deck.querySelector('.deck-mode').addEventListener('click', event => {
-    const button = event.target.closest('[data-mode]');
-    if (button && button.dataset.mode !== camMode) btnMode.click();
+  $('deckModeSwitch').addEventListener('click', () => btnMode.click());
+  deck.querySelector('.deck-mode .hw-print').addEventListener('click', event => {
+    const label = event.target.closest('[data-mode-label]');
+    if (label && label.dataset.modeLabel !== camMode) btnMode.click();
   });
   $('deckShutter').addEventListener('click', () => btnShot.click());
   $('deckFlip').addEventListener('click', () => _toggleCamera());
-  $('osdAdjust').addEventListener('click', () => _toggleCamEdit());
+  $('deckAdjust').addEventListener('click', () => _toggleCamEdit());
 
-  // Los datos de cuadros por segundo pasan a la pantalla.
+  // Cuadros por segundo y batería, a la pantallita.
   const fpsSource = $('fps');
-  if (fpsSource) new MutationObserver(() => { $('osdFps').textContent = fpsSource.textContent.toUpperCase(); }).observe(fpsSource, { childList: true, characterData: true, subtree: true });
+  if (fpsSource) new MutationObserver(() => { $('lcdFps').textContent = fpsSource.textContent.toUpperCase(); }).observe(fpsSource, { childList: true, characterData: true, subtree: true });
   if (navigator.getBattery) {
     navigator.getBattery().then(battery => {
-      const paint = () => { const node = $('osdBatt'); node.hidden = false; node.style.setProperty('--level', battery.level.toFixed(2)); };
+      const paint = () => {
+        const node = $('lcdBatt');
+        node.hidden = false;
+        node.querySelectorAll('i').forEach((bar, index) => bar.classList.toggle('on', battery.level > index / 4 + 0.05));
+      };
       paint();
       battery.addEventListener('levelchange', paint);
     }).catch(() => {});
@@ -253,16 +270,30 @@
   if (audioSource) $('shellAudio').addEventListener('click', () => audioSource.click());
   else $('shellAudio').hidden = true;
 
+  // Qué módulo se ve: los del motor, o uno propio de la carcasa (Portal vive sobre CAM).
+  const overlays = {};
+  let overlay = '';
+  const currentModule = () => overlay || activeTab;
   function openLauncher(open) {
     launcher.classList.toggle('is-open', open);
-    if (open) launcher.querySelectorAll('.launcher-card').forEach(card => card.classList.toggle('is-on', card.dataset.module === activeTab));
+    if (open) launcher.querySelectorAll('.launcher-card').forEach(card => card.classList.toggle('is-on', card.dataset.module === currentModule()));
+  }
+  function goModule(key) {
+    if (key === currentModule()) return;
+    if (overlay && overlays[overlay]) { const leaving = overlay; overlay = ''; overlays[leaving].exit(); }
+    if (overlays[key]) {
+      if (activeTab !== overlays[key].tab) switchTab(overlays[key].tab);
+      overlay = key;
+      overlays[key].enter();
+      syncTab(activeTab);
+    } else if (activeTab !== key) switchTab(key);
+    else syncTab(activeTab);
   }
   $('shellModule').addEventListener('click', () => openLauncher(true));
   $('launcherClose').addEventListener('click', () => openLauncher(false));
   launcher.addEventListener('click', event => {
     const card = event.target.closest('.launcher-card');
-    if (card) { openLauncher(false); if (card.dataset.module !== activeTab) switchTab(card.dataset.module); }
-    else if (event.target === launcher) openLauncher(false);
+    if (card) { openLauncher(false); goModule(card.dataset.module); }
   });
 
   // ── Botoneras de los demás módulos: mismos mandos, iconos propios ───────────
@@ -291,6 +322,12 @@
       .observe(bar, { subtree: true, childList: true, characterData: true });
   });
 
+  // Las teclas de fuente de EDIT traían un emoji delante del nombre: en una tecla sobra.
+  document.querySelectorAll('.edit-src-pill, .edit-add-btn').forEach(key => {
+    const text = key.textContent.replace(/^[^\p{L}+]+/u, '').trim();
+    if (text && text !== key.textContent) key.textContent = text;
+  });
+
   // ── Etiquetas de los ajustes, en el idioma de la app ────────────────────────
   const WORDS = { ENGRAVE: 'GRABADO', INK: 'TINTA', DETAIL: 'DETALLE', PAPER: 'PAPEL', PALETTE: 'PALETA', FRAME: 'MARCO', CNTR: 'CONTRASTE', CONTRAST: 'CONTRASTE',
     RESO: 'RESONANCIA', SENSITIVITY: 'SENSIBILIDAD', 'LINE WIDTH': 'GROSOR', LOCK: 'FIJACIÓN', GLOW: 'RESPLANDOR', SCAN: 'BARRIDO', GHOST: 'FANTASMA',
@@ -304,8 +341,7 @@
       if (word && node.textContent.trim() !== word) node.textContent = word;
     });
   }
-  const sheets = [$('palettes'), $('sflowHUD')].filter(Boolean);
-  sheets.forEach(sheet => {
+  [$('palettes'), $('sflowHUD')].filter(Boolean).forEach(sheet => {
     translate(sheet);
     let busy = false;
     new MutationObserver(() => { if (busy) return; busy = true; queueMicrotask(() => { translate(sheet); busy = false; }); }).observe(sheet, { subtree: true, childList: true, characterData: true });
@@ -377,11 +413,7 @@
     try { await navigator.share({ files: [new File([last.blob], last.filename, { type: last.blob.type })] }); } catch (_) {}
   });
 
-  // ── Tacto ───────────────────────────────────────────────────────────────────
-  document.addEventListener('pointerdown', event => {
-    const target = event.target.closest && event.target.closest('.hw, .btn, .splash-door, .cam-var-btn');
-    if (target) tick(target.id === 'deckShutter' || target.classList.contains('btn-center') ? 14 : 7);
-  }, { passive: true });
+  // El sonido y la vibración de las teclas viven en feel.js.
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
     if (viewer.classList.contains('is-open')) openViewer(false);
@@ -397,20 +429,34 @@
   };
   const switchTo = switchTab;
   switchTab = function (tab) {
+    // Un módulo propio de la carcasa se cierra al cambiar de pestaña por cualquier vía.
+    if (overlay && overlays[overlay] && tab !== overlays[overlay].tab) { const leaving = overlay; overlay = ''; overlays[leaving].exit(); }
     const result = switchTo.apply(this, arguments);
     syncTab(tab);
     return result;
   };
   function syncTab(tab) {
     document.body.dataset.tab = tab;
-    const entry = MODULES.find(m => m[0] === tab);
-    $('shellModuleName').textContent = entry ? entry[1] : String(tab).toUpperCase();
+    const key = currentModule();
+    const entry = MODULES.find(m => m[0] === key);
+    $('shellModuleName').textContent = entry ? entry[1] : String(key).toUpperCase();
     $('shellModule').querySelector('svg').outerHTML = icon(entry ? entry[0] : 'cam');
     if (tab === 'cam') { syncCam(); syncMode(); requestAnimationFrame(measureDeck); }
+    else {
+      $('lcdLook').textContent = entry ? entry[1] : String(key).toUpperCase();
+      $('lcdFps').textContent = entry ? entry[2].toUpperCase().slice(0, 22) : '';
+    }
   }
   syncTab(typeof activeTab === 'string' ? activeTab : 'cam');
   syncCam();
   syncMode();
   measureDeck();
-  window.flipShell = { hint, syncCam, measureDeck, openLauncher, openViewer };
+  window.flipShell = {
+    hint, syncCam, syncTab, measureDeck, openLauncher, openViewer, icon, el, goModule,
+    module: currentModule,
+    // Registra un módulo que vive sobre una pestaña del motor: { tab, enter(), exit() }.
+    overlay(key, spec) { overlays[key] = spec; },
+    onLook(handler) { lookHandlers.push(handler); },
+    looks, lookLabel,
+  };
 })();

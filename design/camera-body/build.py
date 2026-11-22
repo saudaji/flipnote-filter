@@ -1,23 +1,43 @@
-# Cuerpo de la cámara FLIP: piezas renderizadas para la interfaz.
+# Cuerpo de la cámara FLIP FL-27: piezas renderizadas para la interfaz.
 #
-#   /Applications/Blender.app/Contents/MacOS/Blender -b -P design/camera-body/build.py -- <pieza> <salida.png> [opciones]
+#   /Applications/Blender.app/Contents/MacOS/Blender -b -P design/camera-body/build.py -- <pieza> <salida.png> [clave=valor …]
 #
-# Una unidad de Blender es un píxel CSS del diseño (400 de ancho). Cámara ortográfica cenital,
-# luz de estudio desde arriba a la izquierda, como manda la convención de las interfaces. Las
-# piezas sueltas (disparador, teclas, marcos) salen con fondo transparente y su sombra de
-# contacto, para componerse en cualquier posición sobre la carcasa.
-import bpy, bmesh, math, sys, os, json
+# Lenguaje: un producto de los 80 hecho en 2027. Plástico ABS crema con grano de molde, teclas de
+# teclado mecánico, botones redondos de colores, acentos coral y azul pizarra, cristal oscuro en
+# las pantallas. Una unidad de Blender es un píxel CSS del diseño (400 de ancho). Cámara
+# ortográfica cenital y luz de estudio desde arriba a la izquierda, como manda la convención de
+# las interfaces. Las piezas sueltas salen con fondo transparente y su sombra de contacto.
+import bpy, bmesh, math, sys, os
 from mathutils import Vector
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-PIECE = ARGS[0] if ARGS else 'deck'
+PIECE = ARGS[0] if ARGS else 'study'
 OUT = ARGS[1] if len(ARGS) > 1 else '/tmp/out.png'
 OPTS = dict(a.split('=', 1) for a in ARGS[2:] if '=' in a)
-SCALE = float(OPTS.get('scale', 3))          # píxeles de imagen por píxel CSS
-SAMPLES = int(OPTS.get('samples', 96))
+SCALE = float(OPTS.get('scale', 3))
+SAMPLES = int(OPTS.get('samples', 128))
 STATE = OPTS.get('state', 'idle')
-FONT_DIN = '/System/Library/Fonts/Supplemental/DIN Alternate Bold.ttf'
+FONT = '/System/Library/Fonts/Supplemental/DIN Alternate Bold.ttf'
 FONT_COND = '/System/Library/Fonts/Supplemental/DIN Condensed Bold.ttf'
+
+
+def srgb(hexcode):
+    """#RRGGBB → color lineal para Blender."""
+    hexcode = hexcode.lstrip('#')
+    out = []
+    for i in (0, 2, 4):
+        c = int(hexcode[i:i + 2], 16) / 255
+        out.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
+    return tuple(out)
+
+
+PALETTE = {
+    'cream': '#E7E0CF', 'cream_hi': '#F0EBDE', 'cream_lo': '#CFC7B3', 'well': '#8D8572',
+    'key': '#EEE9DC', 'gray': '#B5AFA2', 'coral': '#EC5B45', 'slate': '#566679',
+    'mustard': '#F0AE2B', 'blue': '#2F78DC', 'mint': '#33B09F', 'lilac': '#8B79D6',
+    'orange': '#F08A2D', 'green': '#3CA956', 'graphite': '#3B3C3F', 'white': '#F4F1EA',
+    'glass': '#0B0C0D', 'bezel': '#26272A', 'ink': '#3A3833',
+}
 
 
 # ── Escena ──────────────────────────────────────────────────────────────────────────────
@@ -32,19 +52,16 @@ def reset():
         for device in prefs.devices:
             device.use = True
         scene.cycles.device = 'GPU'
-    except Exception as error:  # sin GPU se renderiza en CPU
+    except Exception as error:
         print('GPU no disponible:', error)
     scene.cycles.samples = SAMPLES
     scene.cycles.use_denoising = True
-    scene.cycles.max_bounces = 10
-    scene.cycles.transmission_bounces = 8
-    scene.cycles.glossy_bounces = 6
+    scene.cycles.max_bounces = 8
     scene.cycles.caustics_reflective = False
     scene.cycles.caustics_refractive = False
     scene.render.image_settings.file_format = 'PNG'
     scene.render.image_settings.color_mode = 'RGBA'
     scene.render.image_settings.color_depth = '8'
-    scene.display_settings.display_device = 'sRGB'
     try:
         scene.view_settings.view_transform = 'Khronos PBR Neutral'
     except Exception:
@@ -54,12 +71,12 @@ def reset():
 
 
 def camera(scene, w, h, transparent):
-    cam_data = bpy.data.cameras.new('cam')
-    cam_data.type = 'ORTHO'
-    cam_data.ortho_scale = max(w, h)
-    cam_data.clip_start = 1
-    cam_data.clip_end = 4000
-    cam = bpy.data.objects.new('cam', cam_data)
+    data = bpy.data.cameras.new('cam')
+    data.type = 'ORTHO'
+    data.ortho_scale = max(w, h)
+    data.clip_start = 1
+    data.clip_end = 4000
+    cam = bpy.data.objects.new('cam', data)
     cam.location = (0, 0, 1200)
     scene.collection.objects.link(cam)
     scene.camera = cam
@@ -69,7 +86,7 @@ def camera(scene, w, h, transparent):
     scene.render.film_transparent = transparent
 
 
-def lights(scene, key=1.0):
+def lights(scene):
     world = bpy.data.worlds.new('world')
     scene.world = world
     world.use_nodes = True
@@ -78,9 +95,8 @@ def lights(scene, key=1.0):
     out = nt.nodes.new('ShaderNodeOutputWorld')
     bg = nt.nodes.new('ShaderNodeBackground')
     env = nt.nodes.new('ShaderNodeTexEnvironment')
-    hdri = os.path.join(os.path.dirname(bpy.app.binary_path), '..', 'Resources')
     found = None
-    for root, _dirs, files in os.walk(hdri):
+    for root, _dirs, files in os.walk(os.path.join(os.path.dirname(bpy.app.binary_path), '..', 'Resources')):
         if 'studio.exr' in files and 'world' in root:
             found = os.path.join(root, 'studio.exr')
             break
@@ -92,33 +108,28 @@ def lights(scene, key=1.0):
         nt.links.new(coord.outputs['Generated'], mapping.inputs['Vector'])
         nt.links.new(mapping.outputs['Vector'], env.inputs['Vector'])
         nt.links.new(env.outputs['Color'], bg.inputs['Color'])
-    bg.inputs['Strength'].default_value = 0.55 * key
+    bg.inputs['Strength'].default_value = float(OPTS.get('ambient', 0.5))
     nt.links.new(bg.outputs['Background'], out.inputs['Surface'])
 
     def area(name, loc, size, power, color=(1, 1, 1)):
         data = bpy.data.lights.new(name, 'AREA')
         data.shape = 'RECTANGLE'
-        data.size = size[0]
-        data.size_y = size[1]
-        data.energy = power * key
+        data.size, data.size_y = size
+        data.energy = power
         data.color = color
         obj = bpy.data.objects.new(name, data)
         obj.location = loc
-        direction = Vector((0, 0, 0)) - Vector(loc)
-        obj.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
+        obj.rotation_euler = (Vector((0, 0, 0)) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
         scene.collection.objects.link(obj)
-        return obj
-    # Luz principal arriba a la izquierda, relleno frío abajo a la derecha.
-    area('key', (-520, 620, 900), (900, 520), 2.6e7)
-    area('fill', (640, -520, 700), (700, 700), 5.5e6, (0.82, 0.9, 1.0))
-    area('strip', (60, 900, 420), (1400, 120), 7e6)
-    softbox(scene, key)
+    key = float(OPTS.get('key', 0.9))
+    # Principal grande y suave arriba a la izquierda; relleno cálido enfrente para que las sombras no se ensucien.
+    area('key', (-560, 640, 880), (1000, 700), 2.4e7 * key)
+    area('fill', (620, -560, 760), (900, 900), 6.5e6 * key, (1.0, 0.96, 0.9))
+    softbox(scene)
 
 
-def softbox(scene, key=1.0):
-    """Caja de luz sobre la cámara, invisible para ella. Con vista ortográfica cenital una
-    superficie plana refleja justo lo que tiene encima: el degradado de esta caja es el brillo
-    que cruza la carcasa y los biseles, más claro arriba a la izquierda."""
+def softbox(scene):
+    """Caja de luz cenital, visible solo en los reflejos: da el brillo a las piezas lustrosas."""
     span = 2400
     mesh = bpy.data.meshes.new('softbox')
     mesh.from_pydata([(-span, -span, 0), (span, -span, 0), (span, span, 0), (-span, span, 0)], [], [(0, 3, 2, 1)])
@@ -136,35 +147,32 @@ def softbox(scene, key=1.0):
     emit = nt.nodes.new('ShaderNodeEmission')
     coord = nt.nodes.new('ShaderNodeTexCoord')
     sep = nt.nodes.new('ShaderNodeSeparateXYZ')
-    # Eje diagonal: −x + y crece hacia arriba a la izquierda.
     diag = nt.nodes.new('ShaderNodeMath'); diag.operation = 'SUBTRACT'
     scale = nt.nodes.new('ShaderNodeMapRange')
-    extent = float(OPTS.get('sheen_extent', 420))
+    extent = float(OPTS.get('sheen_extent', 380))
     scale.inputs['From Min'].default_value = -extent
     scale.inputs['From Max'].default_value = extent
     ramp = nt.nodes.new('ShaderNodeValToRGB')
     ramp.color_ramp.interpolation = 'EASE'
-    lo, hi = float(OPTS.get('sheen_lo', 0.02)), float(OPTS.get('sheen_hi', 1.0))
     ramp.color_ramp.elements[0].position = 0.0
-    ramp.color_ramp.elements[0].color = (lo, lo, lo * 1.08, 1)
+    ramp.color_ramp.elements[0].color = (0.05, 0.05, 0.055, 1)
     ramp.color_ramp.elements[1].position = 1.0
-    ramp.color_ramp.elements[1].color = (hi, hi, hi, 1)
-    # Una franja más viva a media diagonal, como el borde de una ventana.
-    band = ramp.color_ramp.elements.new(float(OPTS.get('band_at', 0.62)))
-    band_level = float(OPTS.get('band', 0.55))
-    band.color = (band_level, band_level, band_level * 1.03, 1)
+    ramp.color_ramp.elements[1].color = (1, 1, 1, 1)
     nt.links.new(coord.outputs['Object'], sep.inputs['Vector'])
     nt.links.new(sep.outputs['Y'], diag.inputs[0])
     nt.links.new(sep.outputs['X'], diag.inputs[1])
     nt.links.new(diag.outputs['Value'], scale.inputs['Value'])
     nt.links.new(scale.outputs['Result'], ramp.inputs['Fac'])
     nt.links.new(ramp.outputs['Color'], emit.inputs['Color'])
-    emit.inputs['Strength'].default_value = float(OPTS.get('sheen', 0.5)) * key
+    emit.inputs['Strength'].default_value = float(OPTS.get('sheen', 1.3))
     nt.links.new(emit.outputs['Emission'], out.inputs['Surface'])
     obj.data.materials.append(mat)
 
 
 # ── Materiales ──────────────────────────────────────────────────────────────────────────
+MATS = {}
+
+
 def principled(name, **values):
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
@@ -172,62 +180,81 @@ def principled(name, **values):
     for key, value in values.items():
         if key in bsdf.inputs:
             bsdf.inputs[key].default_value = value
-        else:
-            print('entrada desconocida', key)
     return mat
 
 
-def mat_shell():
-    # Policarbonato ahumado translúcido: deja ver las tripas, desenfocadas por la rugosidad.
-    tint = float(OPTS.get('tint', 0.36))
-    mat = principled('shell', **{'Base Color': (tint * 0.92, tint, tint * 1.08, 1), 'Roughness': float(OPTS.get('frost', 0.3)), 'IOR': 1.50,
-                                  'Transmission Weight': 1.0, 'Coat Weight': 0.6, 'Coat Roughness': 0.07})
-    nt = mat.node_tree
-    out = nt.nodes.get('Material Output')
-    bsdf = nt.nodes.get('Principled BSDF')
-    # Para los rayos de sombra el plástico es un filtro: sin esto la carcasa deja las tripas a oscuras.
-    path = nt.nodes.new('ShaderNodeLightPath')
-    clear = nt.nodes.new('ShaderNodeBsdfTransparent')
-    pass_light = float(OPTS.get('pass', 0.5))
-    clear.inputs['Color'].default_value = (pass_light * 0.92, pass_light, pass_light * 1.06, 1)
-    mix = nt.nodes.new('ShaderNodeMixShader')
-    nt.links.new(path.outputs['Is Shadow Ray'], mix.inputs['Fac'])
-    nt.links.new(bsdf.outputs['BSDF'], mix.inputs[1])
-    nt.links.new(clear.outputs['BSDF'], mix.inputs[2])
-    nt.links.new(mix.outputs['Shader'], out.inputs['Surface'])
-    # Grano de inyección, apenas visible en el brillo.
-    noise = nt.nodes.new('ShaderNodeTexNoise')
-    noise.inputs['Scale'].default_value = 1.4
-    noise.inputs['Detail'].default_value = 4
-    bump = nt.nodes.new('ShaderNodeBump')
-    bump.inputs['Strength'].default_value = 0.02
-    bump.inputs['Distance'].default_value = 0.5
-    nt.links.new(noise.outputs['Fac'], bump.inputs['Height'])
-    nt.links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
-    return mat
-
-
-def mat_pcb():
-    return principled('pcb', **{'Base Color': (0.006, 0.05, 0.043, 1), 'Roughness': 0.38, 'Coat Weight': 0.5, 'Coat Roughness': 0.2})
-
-
-def mat_metal(name, color, rough, aniso=0.0, radial=False):
-    mat = principled(name, **{'Base Color': color + (1,), 'Metallic': 1.0, 'Roughness': rough, 'Anisotropic': aniso})
-    if radial:
+def plastic(color, rough=0.5, grain=1.0, coat=0.0):
+    """ABS inyectado: mate, con el grano fino del molde y un punto de traslucidez."""
+    key = (color, rough, grain, coat)
+    if key in MATS:
+        return MATS[key]
+    rgb = srgb(PALETTE.get(color, color))
+    mat = principled('abs_' + color, **{'Base Color': rgb + (1,), 'Roughness': rough, 'Coat Weight': coat, 'Coat Roughness': 0.06,
+                                         'Subsurface Weight': 0.06, 'Subsurface Radius': (2.0, 1.4, 0.9), 'Subsurface Scale': 2.0})
+    if grain > 0:
         nt = mat.node_tree
+        bsdf = nt.nodes.get('Principled BSDF')
+        coord = nt.nodes.new('ShaderNodeTexCoord')
+        noise = nt.nodes.new('ShaderNodeTexNoise')
+        noise.inputs['Scale'].default_value = float(OPTS.get('grain_scale', 2.6))
+        noise.inputs['Detail'].default_value = 5
+        noise.inputs['Roughness'].default_value = 0.7
+        bump = nt.nodes.new('ShaderNodeBump')
+        bump.inputs['Strength'].default_value = 0.16 * grain
+        bump.inputs['Distance'].default_value = 0.55
+        nt.links.new(coord.outputs['Object'], noise.inputs['Vector'])
+        nt.links.new(noise.outputs['Fac'], bump.inputs['Height'])
+        nt.links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
+        # El color tampoco es plano: la inyección deja nubes muy tenues.
+        cloud = nt.nodes.new('ShaderNodeTexNoise')
+        cloud.inputs['Scale'].default_value = 0.012
+        cloud.inputs['Detail'].default_value = 2
+        ramp = nt.nodes.new('ShaderNodeValToRGB')
+        ramp.color_ramp.elements[0].color = tuple(c * 0.94 for c in rgb) + (1,)
+        ramp.color_ramp.elements[1].color = rgb + (1,)
+        nt.links.new(coord.outputs['Object'], cloud.inputs['Vector'])
+        nt.links.new(cloud.outputs['Fac'], ramp.inputs['Fac'])
+        nt.links.new(ramp.outputs['Color'], bsdf.inputs['Base Color'])
+    MATS[key] = mat
+    return mat
+
+
+def gloss(color):
+    """Botón de caramelo: plástico lustroso con una capa de barniz."""
+    key = ('gloss', color)
+    if key not in MATS:
+        MATS[key] = principled('gloss_' + color, **{'Base Color': srgb(PALETTE.get(color, color)) + (1,), 'Roughness': 0.26, 'Coat Weight': 1.0,
+                                                    'Coat Roughness': 0.05, 'Subsurface Weight': 0.1, 'Subsurface Radius': (2.5, 1.2, 0.8), 'Subsurface Scale': 2.5})
+    return MATS[key]
+
+
+def metal(name, color=(0.84, 0.85, 0.87), rough=0.3, aniso=0.0, radial=False, knurl=0):
+    mat = principled(name, **{'Base Color': color + (1,), 'Metallic': 1.0, 'Roughness': rough, 'Anisotropic': aniso})
+    nt = mat.node_tree
+    bsdf = nt.nodes.get('Principled BSDF')
+    if radial:
         tangent = nt.nodes.new('ShaderNodeTangent')
         tangent.direction_type = 'RADIAL'
         tangent.axis = 'Z'
-        nt.links.new(tangent.outputs['Tangent'], nt.nodes.get('Principled BSDF').inputs['Tangent'])
+        nt.links.new(tangent.outputs['Tangent'], bsdf.inputs['Tangent'])
+    if knurl:
+        # Moleteado: estrías radiales por el ángulo alrededor del eje.
+        coord = nt.nodes.new('ShaderNodeTexCoord')
+        sep = nt.nodes.new('ShaderNodeSeparateXYZ')
+        atan = nt.nodes.new('ShaderNodeMath'); atan.operation = 'ARCTAN2'
+        mul = nt.nodes.new('ShaderNodeMath'); mul.operation = 'MULTIPLY'; mul.inputs[1].default_value = knurl
+        sine = nt.nodes.new('ShaderNodeMath'); sine.operation = 'SINE'
+        bump = nt.nodes.new('ShaderNodeBump')
+        bump.inputs['Strength'].default_value = 0.9
+        bump.inputs['Distance'].default_value = 1.2
+        nt.links.new(coord.outputs['Object'], sep.inputs['Vector'])
+        nt.links.new(sep.outputs['Y'], atan.inputs[0])
+        nt.links.new(sep.outputs['X'], atan.inputs[1])
+        nt.links.new(atan.outputs['Value'], mul.inputs[0])
+        nt.links.new(mul.outputs['Value'], sine.inputs[0])
+        nt.links.new(sine.outputs['Value'], bump.inputs['Height'])
+        nt.links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
     return mat
-
-
-def mat_plastic(name, color, rough=0.35, coat=0.0):
-    return principled(name, **{'Base Color': color + (1,), 'Roughness': rough, 'Coat Weight': coat, 'Coat Roughness': 0.08})
-
-
-def mat_emit(name, color, strength):
-    return principled(name, **{'Base Color': (0, 0, 0, 1), 'Emission Color': color + (1,), 'Emission Strength': strength})
 
 
 # ── Geometría ───────────────────────────────────────────────────────────────────────────
@@ -238,82 +265,54 @@ def link(obj, material=None):
     return obj
 
 
-def rounded_rect(name, w, h, radius, depth, fillet, z=0.0, material=None, resolution=6):
-    """Rectángulo redondeado extruido, con el canto superior e inferior fileteados."""
-    fillet = max(0.0, min(fillet, depth / 2 - 0.001))
-    # El bisel de la curva ensancha el contorno: se dibuja más pequeño para medir lo pedido.
-    w, h, radius = w - 2 * fillet, h - 2 * fillet, radius - fillet
-    radius = max(0.01, min(radius, w / 2 - 0.6, h / 2 - 0.6))
-    curve = bpy.data.curves.new(name, 'CURVE')
-    curve.dimensions = '2D'
-    curve.fill_mode = 'BOTH'
-    spline = curve.splines.new('BEZIER')
-    k = 0.5523 * radius
-    x, y = w / 2, h / 2
-    if y - radius < 1.0:
-        # Extremos semicirculares (tecla en píldora): dos cuartos de círculo por lado con el ápice compartido.
-        radius = y
-        k = 0.5523 * radius
-        pts = [
-            ((x - radius, y), (x - radius - k, y), (x - radius + k, y)), ((x, 0), (x, k), (x, -k)),
-            ((x - radius, -y), (x - radius + k, -y), (x - radius - k, -y)), ((-x + radius, -y), (-x + radius + k, -y), (-x + radius - k, -y)),
-            ((-x, 0), (-x, -k), (-x, k)), ((-x + radius, y), (-x + radius - k, y), (-x + radius + k, y)),
-        ]
-    else:
-        pts = [
-            ((x - radius, y), (x - radius - k, y), (x - radius + k, y)), ((x, y - radius), (x, y - radius + k), (x, y - radius - k)),
-            ((x, -y + radius), (x, -y + radius + k), (x, -y + radius - k)), ((x - radius, -y), (x - radius + k, -y), (x - radius - k, -y)),
-            ((-x + radius, -y), (-x + radius + k, -y), (-x + radius - k, -y)), ((-x, -y + radius), (-x, -y + radius - k), (-x, -y + radius + k)),
-            ((-x, y - radius), (-x, y - radius - k), (-x, y - radius + k)), ((-x + radius, y), (-x + radius - k, y), (-x + radius + k, y)),
-        ]
-    spline.bezier_points.add(len(pts) - 1)
-    for point, (co, left, right) in zip(spline.bezier_points, pts):
-        point.co = (co[0], co[1], 0)
-        point.handle_left = (left[0], left[1], 0)
-        point.handle_right = (right[0], right[1], 0)
-    spline.use_cyclic_u = True
-    curve.resolution_u = 12
-    fillet = max(0.0, min(fillet, depth / 2 - 0.001))
-    curve.extrude = depth / 2 - fillet
-    curve.bevel_depth = fillet
-    curve.bevel_resolution = resolution
-    obj = bpy.data.objects.new(name, curve)
-    obj.location = (0, 0, z + depth / 2)
-    return link(obj, material)
+def place(obj, x, y):
+    obj.location.x += x
+    obj.location.y += y
+    return obj
 
 
-def disc(name, radius, depth, fillet, z=0.0, material=None, resolution=6):
-    return rounded_rect(name, radius * 2, radius * 2, radius, depth, fillet, z, material, resolution)
+def loop_points(w, h, radius, steps=10):
+    """Contorno de un rectángulo redondeado, en sentido antihorario, siempre con los mismos puntos."""
+    radius = max(0.01, min(radius, w / 2, h / 2))
+    x, y = w / 2 - radius, h / 2 - radius
+    pts = []
+    for cx, cy, start in ((x, y, 0), (-x, y, 90), (-x, -y, 180), (x, -y, 270)):
+        for i in range(steps + 1):
+            a = math.radians(start + 90 * i / steps)
+            pts.append((cx + radius * math.cos(a), cy + radius * math.sin(a)))
+    return pts
 
 
-def ring(name, outer, inner, depth, fillet, z=0.0, material=None):
-    curve = bpy.data.curves.new(name, 'CURVE')
-    curve.dimensions = '2D'
-    curve.fill_mode = 'BOTH'
-    for radius in (outer, inner):
-        spline = curve.splines.new('BEZIER')
-        k = 0.5523 * radius
-        pts = [((radius, 0), (radius, -k), (radius, k)), ((0, radius), (k, radius), (-k, radius)),
-               ((-radius, 0), (-radius, k), (-radius, -k)), ((0, -radius), (-k, -radius), (k, -radius))]
-        spline.bezier_points.add(3)
-        for point, (co, left, right) in zip(spline.bezier_points, pts):
-            point.co = (co[0], co[1], 0)
-            point.handle_left = (left[0], left[1], 0)
-            point.handle_right = (right[0], right[1], 0)
-        spline.use_cyclic_u = True
-    curve.resolution_u = 24
-    fillet = max(0.0, min(fillet, depth / 2 - 0.001))
-    curve.extrude = depth / 2 - fillet
-    curve.bevel_depth = fillet
-    curve.bevel_resolution = 5
-    curve.offset = -fillet
-    obj = bpy.data.objects.new(name, curve)
-    obj.location = (0, 0, z + depth / 2)
-    return link(obj, material)
+def loft(name, loops, material=None, cap_top=None, cap_bottom=False):
+    """Une contornos sucesivos (cada uno: puntos y altura). cap_top: cuánto se hunde el centro de la tapa."""
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    rings = [[bm.verts.new((px, py, z)) for px, py in pts] for pts, z in loops]
+    count = len(rings[0])
+    for a, b in zip(rings, rings[1:]):
+        for i in range(count):
+            j = (i + 1) % count
+            bm.faces.new((a[i], a[j], b[j], b[i]))
+    if cap_top is not None:
+        centre = bm.verts.new((0, 0, loops[-1][1] - cap_top))
+        top = rings[-1]
+        for i in range(count):
+            bm.faces.new((top[i], top[(i + 1) % count], centre))
+    if cap_bottom:
+        bm.faces.new(list(reversed(rings[0])))
+    bm.normal_update()
+    bm.to_mesh(mesh)
+    bm.free()
+    for poly in mesh.polygons:
+        poly.use_smooth = True
+    try:
+        mesh.set_sharp_from_angle(angle=math.radians(float(OPTS.get('sharp', 42))))
+    except Exception:
+        pass
+    return link(bpy.data.objects.new(name, mesh), material)
 
 
 def lathe(name, profile, z=0.0, material=None, segments=128):
-    """Pieza de revolución a partir de un perfil (radio, altura). El perfil va de dentro afuera."""
     mesh = bpy.data.meshes.new(name)
     bm = bmesh.new()
     rows = []
@@ -338,6 +337,10 @@ def lathe(name, profile, z=0.0, material=None, segments=128):
     bm.free()
     for poly in mesh.polygons:
         poly.use_smooth = True
+    try:
+        mesh.set_sharp_from_angle(angle=math.radians(40))
+    except Exception:
+        pass
     obj = bpy.data.objects.new(name, mesh)
     obj.location = (0, 0, z)
     return link(obj, material)
@@ -347,70 +350,34 @@ def arc(cx, cz, radius, start, end, steps=7):
     return [(cx + radius * math.cos(math.radians(start + (end - start) * i / steps)), cz + radius * math.sin(math.radians(start + (end - start) * i / steps))) for i in range(steps + 1)]
 
 
-def turned_disc(name, radius, depth, fillet=1.0, crown=0.0, z=0.0, material=None, dish=0.0):
-    """Disco torneado: tapa abombada (crown) o cóncava (dish), canto fileteado y pared."""
+def dome(name, radius, depth, crown, fillet, z, material):
+    """Botón redondo: tapa abombada, canto fileteado y pared."""
     flat = radius - fillet
-    profile = []
-    steps = 10
-    for i in range(steps + 1):
-        t = i / steps
-        r = flat * t
-        profile.append((r, depth + crown * (1 - t * t) - dish * (1 - t * t)))
+    profile = [(flat * i / 12, depth + crown * (1 - (i / 12) ** 2)) for i in range(13)]
     profile += arc(flat, depth - fillet, fillet, 90, 0)[1:]
     profile.append((radius, 0))
     return lathe(name, profile, z, material)
 
 
-def turned_ring(name, outer, inner, depth, chamfer_out=1.5, chamfer_in=1.0, z=0.0, material=None):
-    """Anillo torneado con chaflanes: el exterior recoge la luz, el interior cae hacia el hueco."""
-    profile = [(inner, 0), (inner, depth - chamfer_in), (inner + chamfer_in, depth), (outer - chamfer_out, depth), (outer, depth - chamfer_out), (outer, 0)]
-    mesh_obj = lathe(name, profile, z, material)
-    # Los chaflanes son aristas vivas: sombreado por caras con autosuavizado por ángulo.
-    mesh = mesh_obj.data
-    try:
-        mesh.set_sharp_from_angle(angle=math.radians(28))
-    except Exception:
-        pass
-    return mesh_obj
+def ring(name, outer, inner, depth, chamfer, z, material):
+    profile = [(inner, 0), (inner, depth - chamfer * 0.6), (inner + chamfer * 0.6, depth), (outer - chamfer, depth), (outer, depth - chamfer), (outer, 0)]
+    return lathe(name, profile, z, material)
 
 
-def dome(name, radius, height, z=0.0, material=None):
-    """Casquete convexo: la tapa de un botón."""
-    mesh = bpy.data.meshes.new(name)
-    bm = bmesh.new()
-    segments, rings = 64, 14
-    sphere_r = (radius * radius + height * height) / (2 * height)
-    top = Vector((0, 0, height))
-    verts_prev = None
-    max_angle = math.asin(min(1.0, radius / sphere_r))
-    center = bm.verts.new((0, 0, height))
-    for i in range(1, rings + 1):
-        angle = max_angle * i / rings
-        r = sphere_r * math.sin(angle)
-        zz = height - sphere_r * (1 - math.cos(angle))
-        row = [bm.verts.new((r * math.cos(2 * math.pi * s / segments), r * math.sin(2 * math.pi * s / segments), zz)) for s in range(segments)]
-        for s in range(segments):
-            if verts_prev is None:
-                bm.faces.new((center, row[s], row[(s + 1) % segments]))
-            else:
-                bm.faces.new((verts_prev[s], row[s], row[(s + 1) % segments], verts_prev[(s + 1) % segments]))
-        verts_prev = row
-    bm.to_mesh(mesh)
-    bm.free()
-    for poly in mesh.polygons:
-        poly.use_smooth = True
-    obj = bpy.data.objects.new(name, mesh)
-    obj.location = (0, 0, z)
-    return link(obj, material)
+def catcher(w, h, z=0.0):
+    mesh = bpy.data.meshes.new('catcher')
+    mesh.from_pydata([(-w, -h, z), (w, -h, z), (w, h, z), (-w, h, z)], [], [(0, 1, 2, 3)])
+    obj = bpy.data.objects.new('catcher', mesh)
+    obj.is_shadow_catcher = True
+    return link(obj, plastic('cream', 0.5, 0))
 
 
-def text(name, body, size, x, y, z, material, font=FONT_DIN, align='CENTER', extrude=0.0, spacing=1.0):
+def text(name, body, size, x, y, z, material, font=FONT, spacing=1.0):
     curve = bpy.data.curves.new(name, 'FONT')
     curve.body = body
     curve.size = size
-    curve.align_x = align
+    curve.align_x = 'CENTER'
     curve.align_y = 'CENTER'
-    curve.extrude = extrude
     curve.space_character = spacing
     try:
         curve.font = bpy.data.fonts.load(font, check_existing=True)
@@ -421,255 +388,204 @@ def text(name, body, size, x, y, z, material, font=FONT_DIN, align='CENTER', ext
     return link(obj, material)
 
 
-def catcher(w, h, z=0.0):
-    mesh = bpy.data.meshes.new('catcher')
-    mesh.from_pydata([(-w, -h, z), (w, -h, z), (w, h, z), (-w, h, z)], [], [(0, 1, 2, 3)])
-    obj = bpy.data.objects.new('catcher', mesh)
-    obj.is_shadow_catcher = True
-    return link(obj, mat_plastic('catch', (0.2, 0.2, 0.2), 0.5))
-
-
-def place(obj, x, y):
-    obj.location.x += x
-    obj.location.y += y
-    return obj
-
-
 # ── Piezas ──────────────────────────────────────────────────────────────────────────────
-def build_shutter(x=0, y=0, video=False, pressed=False):
-    chrome = mat_metal('chrome', (0.88, 0.89, 0.92), 0.1)
-    spun = mat_metal('spun', (0.82, 0.83, 0.86), 0.26, aniso=0.9, radial=True)
-    gun = mat_metal('gun', (0.10, 0.105, 0.12), 0.32, aniso=0.7, radial=True)
-    red = principled('capred', **{'Base Color': (0.62, 0.02, 0.015, 1), 'Metallic': 0.85, 'Roughness': 0.3, 'Anisotropic': 0.9, 'Coat Weight': 0.6, 'Coat Roughness': 0.1})
-    tangent = red.node_tree.nodes.new('ShaderNodeTangent')
-    tangent.direction_type = 'RADIAL'; tangent.axis = 'Z'
-    red.node_tree.links.new(tangent.outputs['Tangent'], red.node_tree.nodes.get('Principled BSDF').inputs['Tangent'])
-    cap = red if video else spun
+def keycap(x, y, w, h, color='key', pressed=False, radius=7.0):
+    """Tecla de teclado mecánico vista desde arriba: faldón inclinado, canto suave y tapa algo cóncava."""
+    travel = -2.6 if pressed else 0.0
+    height, inset = 9.0, 4.6
+    well = loft('well', [(loop_points(w + 3.0, h + 3.0, radius + 1.2), -0.2), (loop_points(w + 3.0, h + 3.0, radius + 1.2), 0.25)], plastic('well', 0.7, 0), cap_top=0.0)
+    cap = loft('keycap', [
+        (loop_points(w, h, radius), 0.3 + travel),
+        (loop_points(w - 1.0, h - 1.0, radius - 0.3), 2.0 + travel),
+        (loop_points(w - inset * 1.7, h - inset * 1.7, max(2.0, radius - 2.2)), height - 1.1 + travel),
+        (loop_points(w - inset * 2.0, h - inset * 2.0, max(1.8, radius - 2.6)), height - 0.25 + travel),
+        (loop_points(w - inset * 2.5, h - inset * 2.5, max(1.5, radius - 3.0)), height + travel),
+    ], plastic(color, 0.46, 0.55), cap_top=0.7)
+    for part in (well, cap):
+        place(part, x, y)
+    return [well, cap]
+
+
+def candy(x, y, radius=24, color='coral', pressed=False):
+    """Botón redondo lustroso asentado en su hueco."""
+    travel = -1.7 if pressed else 0.0
+    parts = [
+        lathe('seat', [(0, 0.2), (radius + 1.6, 0.2), (radius + 1.6, -0.2)], 0, plastic('well', 0.7, 0)),
+        dome('candy', radius, 6.0, 1.9, 2.2, 0.4 + travel, gloss(color)),
+    ]
+    for part in parts:
+        place(part, x, y)
+    return parts
+
+
+def shutter(x, y, video=False, pressed=False):
+    """El disparador: un botón grande en un aro de aluminio. Blanco cálido para foto, coral para vídeo."""
     travel = -2.4 if pressed else 0.0
+    alu = metal('alu', (0.83, 0.84, 0.86), 0.3, aniso=0.7, radial=True)
     parts = [
-        turned_disc('sh_flange', 50, 2.4, 0.8, 0, 0, gun),
-        turned_ring('sh_collar', 46.5, 34, 10.5, 3.2, 2.0, 1.5, chrome),
-        turned_ring('sh_gap', 34.2, 30.6, 5.5, 0.4, 0.4, 1.5, mat_plastic('seat', (0.012, 0.012, 0.016), 0.6)),
-        turned_disc('sh_cap', 30.4, 9.2, 1.6, 0.0, 2.6 + travel, cap, dish=1.3),
+        lathe('sh_seat', [(0, 0.2), (51, 0.2), (51, -0.2)], 0, plastic('well', 0.7, 0)),
+        ring('sh_ring', 49.5, 40.5, 5.5, 1.8, 0.3, alu),
+        lathe('sh_gap', [(0, 0.6), (40.6, 0.6), (40.6, 0.2)], 0, plastic('graphite', 0.6, 0)),
+        dome('sh_cap', 38.0, 8.5, 3.4, 3.2, 1.0 + travel, gloss('coral' if video else 'white')),
     ]
     for part in parts:
         place(part, x, y)
     return parts
 
 
-def build_key(x=0, y=0, pressed=False, radius=24):
-    chrome = mat_metal('chrome_k', (0.86, 0.87, 0.9), 0.12)
-    rubber = mat_plastic('rubber', (0.05, 0.053, 0.06), 0.5, coat=0.2)
-    travel = -1.5 if pressed else 0.0
+def knob(x, y, radius=26):
+    """Perilla de aluminio moleteado con la cara torneada."""
+    side = metal('knurl', (0.80, 0.81, 0.83), 0.34, knurl=float(OPTS.get('knurl', 64)))
+    face = metal('face', (0.86, 0.87, 0.89), 0.24, aniso=0.85, radial=True)
     parts = [
-        turned_ring('k_bezel', radius, radius - 4.6, 5.2, 1.8, 1.0, 0, chrome),
-        turned_disc('k_cap', radius - 4.9, 5.4, 1.4, 1.1, 0.6 + travel, rubber),
+        lathe('kn_seat', [(0, 0.2), (radius + 2.2, 0.2), (radius + 2.2, -0.2)], 0, plastic('well', 0.7, 0)),
+        lathe('kn_side', [(radius - 3.0, 15), (radius - 0.6, 14.2), (radius, 12.5), (radius, 0.4)], 0, side),
+        lathe('kn_face', [(0, 15.3), (radius - 6, 15.3), (radius - 3.2, 15.0)], 0, face),
     ]
     for part in parts:
         place(part, x, y)
     return parts
 
 
-def build_pill(x=0, y=0, w=64, h=30, lit=False, pressed=False):
-    chrome = mat_metal('chrome_p', (0.84, 0.85, 0.88), 0.16)
-    body = mat_plastic('pill', (0.06, 0.064, 0.072) if not lit else (0.62, 0.64, 0.62), 0.45, coat=0.35)
-    travel = -1.2 if pressed else 0.0
+def dial(x, y, radius=18, color='graphite'):
+    """Perilla de sintetizador: falda, cuerpo estriado anodizado y tapa de aluminio torneado.
+    No lleva marca: la pone la interfaz, que es la que gira."""
+    side = metal('dial_side', srgb(PALETTE[color]), 0.46, knurl=float(OPTS.get('knurl', 40)))
+    face = metal('dial_face', (0.86, 0.87, 0.89), 0.26, aniso=0.85, radial=True)
     parts = [
-        rounded_rect('p_bezel', w, h, h / 2, 4.0, 1.3, 0, chrome),
-        rounded_rect('p_cap', w - 5.6, h - 5.6, (h - 5.6) / 2, 5.6, 2.3, 0.4 + travel, body),
+        lathe('dl_seat', [(0, 0.2), (radius + 6.6, 0.2), (radius + 6.6, -0.2)], 0, plastic('well', 0.7, 0)),
+        lathe('dl_skirt', [(radius + 5.2, 0.3), (radius + 5.2, 1.6), (radius + 3.8, 3.0), (radius - 0.4, 3.4)], 0, plastic(color, 0.5, 0.2)),
+        lathe('dl_side', [(radius, 3.2), (radius, 13.2), (radius - 0.9, 14.6), (radius - 2.6, 15.2)], 0, side),
+        lathe('dl_face', [(0, 15.5), (radius - 3.6, 15.5), (radius - 2.6, 15.2)], 0, face),
     ]
     for part in parts:
         place(part, x, y)
     return parts
 
 
-def build_frame(w, h, radius=9, border=5.5, x=0, y=0):
-    """Marco de una ventana (ranura de looks, miniatura): bisel cromado y cristal negro hundido."""
-    chrome = mat_metal('chrome_f', (0.80, 0.81, 0.84), 0.2)
-    glass = principled('glass', **{'Base Color': (0.006, 0.007, 0.009, 1), 'Roughness': 0.06, 'Coat Weight': 1.0, 'Coat Roughness': 0.03})
-    outer = rounded_rect('f_outer', w, h, radius, 5, 1.4, 0, chrome)
-    inner = rounded_rect('f_glass', w - border * 2, h - border * 2, max(1, radius - border), 2.2, 0.3, 0.2, glass)
-    # El bisel es un marco: se le resta el hueco con un booleano.
-    cutter = rounded_rect('f_cut', w - border * 2, h - border * 2, max(1, radius - border), 30, 0.0, -10, None)
-    bpy.context.view_layer.objects.active = outer
-    for obj in (outer, cutter):
-        obj.select_set(True)
-    bpy.ops.object.convert(target='MESH')
-    mod = outer.modifiers.new('cut', 'BOOLEAN')
-    mod.object = cutter
-    mod.operation = 'DIFFERENCE'
-    bpy.context.view_layer.objects.active = outer
-    bpy.ops.object.modifier_apply(modifier='cut')
-    bpy.data.objects.remove(cutter)
-    for part in (outer, inner):
+def jack(x, y, radius=9):
+    """Toma de panel de 3,5 mm: tuerca hexagonal, casquillo roscado y el hueco."""
+    parts = [
+        lathe('jk_nut', [(radius + 4.4, 0.2), (radius + 4.4, 2.4), (radius + 3.4, 3.3), (radius + 0.6, 3.3)], 0, metal('jack_nut', (0.74, 0.75, 0.77), 0.34), segments=6),
+        lathe('jk_bush', [(radius + 0.8, 3.1), (radius + 0.8, 4.7), (radius, 5.3), (radius - 2.2, 5.3), (radius - 3.1, 4.5), (radius - 3.1, 3.2)], 0, metal('jack_bush', (0.86, 0.87, 0.88), 0.22, aniso=0.6, radial=True)),
+        lathe('jk_hole', [(radius - 3.1, 3.2), (radius - 3.1, -7), (0, -7)], 0, plastic('glass', 0.85, 0)),
+    ]
+    for part in parts:
         place(part, x, y)
-    return [outer, inner]
-
-
-def traces(name, w, h, rng, material, z):
-    """Pistas de cobre: buses de líneas paralelas con quiebros a 45°, como en una placa real."""
-    curve = bpy.data.curves.new(name, 'CURVE')
-    curve.dimensions = '3D'
-    curve.bevel_depth = 0.55
-    curve.bevel_resolution = 0
-    def path(points):
-        spline = curve.splines.new('POLY')
-        spline.points.add(len(points) - 1)
-        for point, (px, py) in zip(spline.points, points):
-            point.co = (px, py, 0, 1)
-    for _ in range(int(OPTS.get('buses', 34) * max(1.0, (w * h) / 160000))):
-        lanes = rng.choice([1, 1, 2, 3, 4, 6, 8])
-        pitch = 2.6
-        x, y = rng.uniform(-w / 2, w / 2), rng.uniform(-h / 2, h / 2)
-        horizontal = rng.random() < 0.5
-        legs = []
-        for _leg in range(rng.randint(2, 4)):
-            run = rng.uniform(24, 130) * rng.choice([-1, 1])
-            jog = rng.uniform(8, 34) * rng.choice([-1, 1])
-            legs.append((run, jog))
-        for lane in range(lanes):
-            off = (lane - (lanes - 1) / 2) * pitch
-            px, py = (x, y + off) if horizontal else (x + off, y)
-            points = [(px, py)]
-            for run, jog in legs:
-                if horizontal:
-                    px += run; points.append((px, py))
-                    px += abs(jog) * (1 if run > 0 else -1); py += jog; points.append((px, py))
-                else:
-                    py += run; points.append((px, py))
-                    py += abs(jog) * (1 if run > 0 else -1); px += jog; points.append((px, py))
-            path(points)
-    obj = bpy.data.objects.new(name, curve)
-    obj.location = (0, 0, z)
-    return link(obj, material)
-
-
-def chip(name, cx, cy, cw, ch, z, body, pin, pins=True):
-    parts = [place(rounded_rect(name, cw, ch, 1.2, 3.6, 0.4, z, body), cx, cy)]
-    if pins:
-        # Patas a los dos lados largos.
-        count = max(3, int(max(cw, ch) / 4.2))
-        for side in (-1, 1):
-            for i in range(count):
-                t = (i + 0.5) / count - 0.5
-                if cw >= ch:
-                    parts.append(place(rounded_rect(name + 'p', 1.6, 4.2, 0.2, 1.0, 0.1, z, pin), cx + t * (cw - 4), cy + side * (ch / 2 + 1.6)))
-                else:
-                    parts.append(place(rounded_rect(name + 'p', 4.2, 1.6, 0.2, 1.0, 0.1, z, pin), cx + side * (cw / 2 + 1.6), cy + t * (ch - 4)))
     return parts
 
 
-def build_body(w, h):
-    """Carcasa translúcida con las tripas debajo."""
-    import random
-    rng = random.Random(int(OPTS.get('seed', 27)))
-    floor = -25.0
-    shell = rounded_rect('shell', w + 120, h + 120, 26, 14, 3.0, -14, mat_shell())
-    board = rounded_rect('board', w + 100, h + 100, 4, 2, 0.2, floor - 2, mat_pcb())
-    black = mat_plastic('ic', (0.014, 0.014, 0.017), 0.28, coat=0.5)
-    silver = mat_metal('can', (0.80, 0.81, 0.82), 0.22)
-    tin = mat_metal('tin', (0.74, 0.75, 0.76), 0.3)
-    gold = principled('gold', **{'Base Color': (1.0, 0.70, 0.22, 1), 'Metallic': 1.0, 'Roughness': 0.28,
-                                 'Emission Color': (1.0, 0.62, 0.18, 1), 'Emission Strength': float(OPTS.get('copper', 0.06))})
-    blue = mat_plastic('cap', (0.03, 0.13, 0.6), 0.3, coat=0.7)
-    white = mat_plastic('conn', (0.78, 0.76, 0.7), 0.5)
-    flex = mat_plastic('flex', (0.62, 0.30, 0.04), 0.4, coat=0.5)
-    parts = [shell, board, traces('traces', w + 40, h + 40, rng, gold, floor + 0.3)]
-    for i in range(int(OPTS.get('chips', 15) * (w * h) / 120000)):
-        cw, ch = rng.choice([(34, 34), (52, 28), (24, 24), (62, 44), (18, 40), (44, 44)])
-        cx, cy = rng.uniform(-w / 2 + 16, w / 2 - 16), rng.uniform(-h / 2 + 16, h / 2 - 16)
-        kind = rng.random()
-        if kind < 0.5:
-            parts += chip('ic%d' % i, cx, cy, cw, ch, floor, black, tin)
-        elif kind < 0.68:
-            parts.append(place(rounded_rect('sh%d' % i, cw, ch, 3, 5, 0.7, floor, silver), cx, cy))
-        elif kind < 0.86:
-            parts.append(place(turned_disc('el%d' % i, rng.uniform(6, 10), 9, 1.0, 0.3, floor, blue if rng.random() < 0.5 else silver), cx, cy))
-        else:
-            parts.append(place(rounded_rect('cn%d' % i, cw, 12, 1.5, 6, 0.6, floor, white), cx, cy))
-    # Pila de botón, cinta plana y bobina del altavoz: las siluetas que se reconocen a través del plástico.
-    for cx, cy in ((w * 0.27, h * 0.5 - 150), (-w * 0.2, -h * 0.5 + 420)):
-        parts.append(place(turned_disc('coin%d' % len(parts), 31, 5, 1.0, 0.2, floor, silver), cx, cy))
-        parts.append(place(turned_ring('coinr%d' % len(parts), 31, 26, 5.6, 0.6, 0.6, floor, tin), cx, cy))
-    parts.append(place(rounded_rect('ribbon', 70, 190, 2, 0.8, 0.2, floor + 1.5, flex), -w * 0.24, h * 0.5 - 60))
-    for i, radius in enumerate((34, 27, 20, 13, 6)):
-        parts.append(place(turned_ring('spk%d' % i, radius, radius - 2.6, 2 + i * 0.9, 0.5, 0.5, floor, gold if i % 2 else silver), w * 0.28, -h * 0.5 + 300))
-    # Diodos encendidos bajo la carcasa: el plástico los convierte en halos de color.
-    glow = float(OPTS.get('glow', 1))
-    leds = [(-w * 0.36, -h * 0.5 + 150, (0.45, 1.0, 0.12), 22), (w * 0.40, -h * 0.5 + 250, (0.1, 0.85, 1.0), 14), (w * 0.02, -h * 0.5 + 30, (1.0, 0.35, 0.05), 12),
-            (w * 0.34, h * 0.5 - 30, (0.45, 1.0, 0.12), 14), (-w * 0.40, h * 0.5 - 24, (1.0, 0.2, 0.1), 10)]
-    for gx, gy, color, power in leds:
-        parts.append(place(turned_disc('led%d' % len(parts), 3.0, 2.2, 0.6, 0.6, floor, mat_emit('glow%d' % len(parts), color, power * glow)), gx, gy))
+def recess(w, h, radius=14, wall=8.0, depth=5.0, dark=5.0, floor=None, x=0, y=0):
+    """Marco hundido de una pantalla: pared crema que baja, bisel oscuro y hueco (transparente) para el
+    cristal. Con floor, el fondo es de ese material (una bandeja)."""
+    inner_w, inner_h, inner_r = w - wall * 2, h - wall * 2, max(1, radius - wall)
+    parts = [loft('rc_wall', [(loop_points(w, h, radius), 0.0), (loop_points(inner_w, inner_h, inner_r), -depth)], plastic('cream', 0.5, 1.0))]
+    if dark > 0:
+        parts.append(loft('rc_bezel', [(loop_points(inner_w, inner_h, inner_r), -depth), (loop_points(inner_w - dark * 2, inner_h - dark * 2, max(1, inner_r - dark)), -depth - 0.6)], plastic('bezel', 0.42, 0.3)))
+    if floor:
+        fw, fh, fr = inner_w - dark * 2, inner_h - dark * 2, max(1, inner_r - dark)
+        parts.append(loft('rc_floor', [(loop_points(fw, fh, fr), -depth - 0.6), (loop_points(fw, fh, fr), -depth - 0.55)], plastic(floor, 0.6, 0.6), cap_top=0.0))
+    for part in parts:
+        place(part, x, y)
     return parts
 
 
-def screw(x, y, radius=6.2):
-    steel = mat_metal('steel', (0.62, 0.63, 0.66), 0.3, aniso=0.5, radial=True)
-    head = place(disc('screw', radius, 2.6, 0.9, 0, steel), x, y)
-    slot_mat = mat_plastic('slot', (0.01, 0.01, 0.012), 0.6)
-    a = place(rounded_rect('slot_a', radius * 1.3, 1.5, 0.4, 0.8, 0.1, 2.2, slot_mat), x, y)
-    b = place(rounded_rect('slot_b', 1.5, radius * 1.3, 0.4, 0.8, 0.1, 2.2, slot_mat), x, y)
-    return [head, a, b]
+def slide_switch(x, y, w=60, h=24, nub=True, track=True, at=-1):
+    parts = []
+    if track:
+        parts.append(loft('sw_track', [(loop_points(w, h, h / 2), 0.0), (loop_points(w - 5, h - 5, (h - 5) / 2), -3.0), (loop_points(w - 5, h - 5, (h - 5) / 2), -2.95)], plastic('graphite', 0.55, 0.2), cap_top=0.0))
+    if nub:
+        nw = w * 0.46
+        parts.append(place(loft('sw_nub', [(loop_points(nw, h - 7, 5), -2.9), (loop_points(nw - 1, h - 8, 4.6), 1.8), (loop_points(nw - 4, h - 11, 3.2), 2.6)], plastic('key', 0.42, 0.5), cap_top=0.0), at * (w - 5 - nw) / 2 * 0.92, 0))
+    for part in parts:
+        place(part, x, y)
+    return parts
 
 
-# ── Programas ───────────────────────────────────────────────────────────────────────────
-def decals(w, h):
-    """Serigrafía de la carcasa: marca, modelo y avisos, en los bordes para no chocar con los mandos."""
-    ink = mat_plastic('ink', (0.72, 0.75, 0.78), 0.55)
-    dim = mat_plastic('ink_dim', (0.36, 0.39, 0.42), 0.55)
-    orange = mat_plastic('ink_orange', (0.95, 0.36, 0.05), 0.5)
-    z = 0.12
-    bottom = -h / 2
-    text('d_model', 'FLIP  FL-27  ·  DIGITAL STILL / MOTION', 5.6, 0, bottom + 9, z, dim, font=FONT_COND, spacing=1.7)
-    return ink, dim, orange
+def body(w, h):
+    """La carcasa: una losa crema con su grano, ranuras de ventilación y tornillos hundidos."""
+    slab = loft('body', [(loop_points(w + 160, h + 160, 30), -12), (loop_points(w + 160, h + 160, 30), 0.0)], plastic('cream', 0.52, 1.0), cap_top=0.0, cap_bottom=True)
+    cutters = []
+    for i in range(7):
+        cutters.append(place(loft('slot%d' % i, [(loop_points(46, 3.6, 1.8), -4.0), (loop_points(46, 3.6, 1.8), 3.0)], None, cap_top=0.0, cap_bottom=True), -w / 2 + 44, -h / 2 + 30 + i * 7.4))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cutters.append(place(lathe('screwhole', [(0, 3.0), (5.2, 3.0), (5.2, -2.6), (0, -2.6)], 0, None, segments=48), sx * (w / 2 - 15), sy * (h / 2 - 15)))
+    bpy.context.view_layer.objects.active = slab
+    for index, cutter in enumerate(cutters):
+        mod = slab.modifiers.new('cut%d' % index, 'BOOLEAN')
+        mod.object = cutter
+        mod.operation = 'DIFFERENCE'
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+    for cutter in cutters:
+        bpy.data.objects.remove(cutter)
+    try:
+        slab.data.set_sharp_from_angle(angle=math.radians(40))
+    except Exception:
+        pass
+    steel = metal('steel', (0.66, 0.67, 0.69), 0.34, aniso=0.5, radial=True)
+    dark = plastic('graphite', 0.6, 0)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cx, cy = sx * (w / 2 - 15), sy * (h / 2 - 15)
+            place(dome('screw', 4.3, 1.4, 0.5, 0.6, -2.5, steel), cx, cy)
+            place(loft('cross_a', [(loop_points(5.4, 1.1, 0.4), -0.7), (loop_points(5.4, 1.1, 0.4), -0.55)], dark, cap_top=0.0), cx, cy)
+            place(loft('cross_b', [(loop_points(1.1, 5.4, 0.4), -0.7), (loop_points(1.1, 5.4, 0.4), -0.55)], dark, cap_top=0.0), cx, cy)
+    # Serigrafía del modelo, pequeña, junto al borde inferior.
+    text('model', 'FLIP  FL-27  ·  RETRO-STYLE DIGITAL CAMERA', 5.2, 34, -h / 2 + 12, 0.1, plastic('ink', 0.6, 0), font=FONT_COND, spacing=1.6)
+    return slab
 
 
 def main():
     scene = reset()
+    lights(scene)
     if PIECE == 'study':
-        # Lámina de estudio: carcasa con todas las piezas encima, para juzgar materiales y luz.
-        w, h = 400, 300
+        w, h = 400, 320
         camera(scene, w, h, False)
-        lights(scene)
-        build_body(w, h)
-        build_shutter(0, -70)
-        build_shutter(118, -70, video=True)
-        build_key(-150, -70)
-        build_key(-100, -70, pressed=True)
-        build_pill(-150, 30)
-        build_pill(-80, 30, lit=True)
-        build_frame(360, 66, x=0, y=96)
-        screw(-182, -132)
-        screw(182, -132)
-        ink = mat_plastic('ink', (0.78, 0.8, 0.82), 0.5)
-        text('t1', 'FOTO', 9, -52, -22, 0.15, ink, spacing=1.3)
-        text('t2', 'VIDEO', 9, 54, -22, 0.15, ink, spacing=1.3)
-        text('t3', 'FLIP  DIGITAL  FL-27', 7, 0, -138, 0.15, ink, font=FONT_COND, spacing=1.6)
+        body(w, h)
+        recess(372, 96, x=0, y=100)
+        keycap(-150, 20, 78, 36, 'coral')
+        keycap(-66, 20, 78, 36, 'key')
+        keycap(18, 20, 78, 36, 'key', pressed=True)
+        keycap(102, 20, 78, 36, 'slate')
+        keycap(170, 20, 40, 36, 'gray')
+        shutter(0, -78)
+        shutter(-118, -78, video=True)
+        for i, color in enumerate(('coral', 'mustard', 'blue', 'mint', 'lilac', 'graphite')):
+            candy(84 + (i % 3) * 46, -54 - (i // 3) * 48, 19, color)
+        knob(-176, -128, 16)
     elif PIECE == 'body':
         w, h = 400, int(OPTS.get('h', 900))
         camera(scene, w, h, False)
-        lights(scene)
-        build_body(w, h)
-        decals(w, h)
-        for sx in (-1, 1):
-            screw(sx * 184, -h / 2 + 16, 5.4)
-            screw(sx * 184, h / 2 - 16, 5.4)
-    elif PIECE in ('shutter', 'key', 'pill', 'frame'):
-        sizes = {'shutter': (112, 112), 'key': (56, 56), 'pill': (int(OPTS.get('w', 96)), 40), 'frame': (int(OPTS.get('w', 96)), int(OPTS.get('h', 72)))}
+        body(w, h)
+    else:
+        sizes = {'shutter': (112, 112), 'candy': (56, 56), 'keycap': (int(OPTS.get('w', 96)), int(OPTS.get('h', 46))), 'recess': (int(OPTS.get('w', 132)), int(OPTS.get('h', 132))),
+                 'knob': (72, 72), 'switch': (72, 34), 'nub': (40, 34), 'dial': (60, 60), 'jack': (36, 36)}
+        if PIECE not in sizes:
+            raise SystemExit('pieza desconocida: ' + PIECE)
         w, h = sizes[PIECE]
         camera(scene, w, h, True)
-        lights(scene)
-        catcher(w, h)
+        # Las piezas hundidas (marcos) no llevan plano de sombra: quedaría por encima y las taparía.
+        if PIECE not in ('recess', 'switch'):
+            catcher(w, h)
         if PIECE == 'shutter':
-            build_shutter(0, 0, video=OPTS.get('cap') == 'video', pressed=STATE == 'down')
-        elif PIECE == 'key':
-            build_key(0, 0, pressed=STATE == 'down')
-        elif PIECE == 'pill':
-            build_pill(0, 0, w=w - 8, h=32, lit=STATE == 'lit', pressed=STATE == 'down')
-        else:
-            build_frame(w - 6, h - 6, radius=float(OPTS.get('radius', 10)), border=float(OPTS.get('border', 5)))
-    else:
-        raise SystemExit('pieza desconocida: ' + PIECE)
+            shutter(0, 0, video=OPTS.get('cap') == 'video', pressed=STATE == 'down')
+        elif PIECE == 'candy':
+            candy(0, 0, 23, OPTS.get('color', 'coral'), pressed=STATE == 'down')
+        elif PIECE == 'keycap':
+            keycap(0, 0, w - 10, h - 10, OPTS.get('color', 'key'), pressed=STATE == 'down')
+        elif PIECE == 'recess':
+            recess(w - 4, h - 4, radius=float(OPTS.get('radius', 16)), wall=float(OPTS.get('wall', 8)), depth=float(OPTS.get('depth', 5)), dark=float(OPTS.get('dark', 5)), floor=OPTS.get('floor'))
+        elif PIECE == 'knob':
+            knob(0, 0, 28)
+        elif PIECE == 'dial':
+            dial(0, 0, 18, OPTS.get('color', 'graphite'))
+        elif PIECE == 'jack':
+            jack(0, 0, 9)
+        elif PIECE == 'switch':
+            slide_switch(0, 0, nub=False)
+        elif PIECE == 'nub':
+            slide_switch(0, 0, w=60, nub=True, track=False, at=0)
     scene.render.filepath = OUT
     bpy.ops.render.render(write_still=True)
     print('RENDER_OK', OUT)

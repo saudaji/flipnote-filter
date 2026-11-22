@@ -48,16 +48,21 @@ async function main() {
       return draws;
     });
     assert.equal(calls, 1);
+    // STAGE: el sintetizador dibuja la cámara y su ventana de salida recibe la imagen.
     await page.locator('#shellModule').click();
     await page.locator('#shellLauncher [data-module="stage"]').click();
+    await page.waitForFunction(() => flipStage.status().ok && flipStage.status().hasA, null, { timeout: 15000 });
+    await hasImage(page, 'stageCanvas');
     const popup = page.waitForEvent('popup');
-    await page.locator('#btnStageOpenOut').click();
+    await page.locator('#rigTabs [data-page="out"]').click();
+    await page.locator('#rigPanel [data-act="window"]').click();
     const output = await popup;
     output.on('pageerror', error => errors.push(error.message));
-    await hasImage(output, 'stageOutCanvas');
-    await page.locator('#stageSrcAudioMic').click();
-    await output.waitForFunction(() => extMicStream?.getAudioTracks().length > 0);
+    await hasImage(output, 'out');
+    await page.locator('#rigMic').click();
+    await page.waitForFunction(() => flipStage.status().audio.on && extMicStream?.getAudioTracks().length > 0);
     await output.close();
+    await page.waitForFunction(() => !flipStage.status().out.window);
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.context().setOffline(true);
     await page.reload();

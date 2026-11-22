@@ -13,7 +13,7 @@ const { launch, openFlip, probe, openModule } = require('./lib/harness.cjs');
 const out = path.resolve(process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), 'flip-flows-')));
 fs.mkdirSync(out, { recursive: true });
 // Controles visibles de la barra inferior de CAM: modo foto/vídeo y disparador.
-const SNAP = '#deckShutter', MODE = '.deck-mode button:not(.is-on)';
+const SNAP = '#deckShutter', MODE = '#deckModeSwitch';
 const log = [];
 const step = (name, detail) => { log.push({ name, detail }); console.log('✓ ' + name + (detail ? ' · ' + JSON.stringify(detail) : '')); };
 
@@ -143,7 +143,7 @@ async function main() {
     const opened = [];
     for (const family of await page.evaluate(() => Object.keys(CAM_FAMILIES))) {
       await page.locator('#deckLooks [data-family="' + family + '"]').click();
-      await page.locator('#osdAdjust').click();
+      await page.locator('#deckAdjust').click();
       assert.ok(await sheetOpen(), 'AJUSTES no abre la hoja en ' + family);
       // Tocar dentro de la hoja (título y primer deslizador a la vista) no la cierra.
       await page.locator('#camEditTitle').click();

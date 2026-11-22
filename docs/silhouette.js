@@ -180,6 +180,9 @@ const flipSilhouette = (() => {
   function push(source, sx, sy, sw, sh, mirror) {
     s.lastUse = performance.now();
     if (s.phase !== 'ready' || s.busy || !(sw > 0) || !(sh > 0)) return false;
+    // 30 siluetas por segundo como mucho: quien dibuja a 60 o a 120 reutiliza la última. Segmentar
+    // cada refresco de pantalla era de lo que más calentaba (FLOW y la escena SILUETA de STAGE).
+    if (s.lastUse - (s.sentAt || 0) < 33) return false;
     try {
       prepare(source, sx, sy, sw, sh, mirror);
     } catch (_) {

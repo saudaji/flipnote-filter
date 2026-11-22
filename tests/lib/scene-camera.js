@@ -7,6 +7,9 @@
   'use strict';
   const cfg = window.__flipSceneCamera;
   if (!cfg || !navigator.mediaDevices) return;
+  // WebKit recoge el envoltorio de navigator.mediaDevices si nadie lo sujeta, y con él lo que se le
+  // haya asignado: se guarda una referencia para que la cámara simulada siga puesta.
+  window.__flipSceneDevices = navigator.mediaDevices;
   const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   const state = window.__flipSceneCameraState = { opens: 0, live: 0, denied: 0, busy: 0, torch: [], facing: [], audioLive: 0 };
   navigator.mediaDevices.getUserMedia = async function (constraints) {

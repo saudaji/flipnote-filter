@@ -15,6 +15,85 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&family=IBM+Plex+Mono:wght@400;600&family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Doto:wght@400..900&family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
   <title>FLIP</title>
+  <script>
+  // Si FLIP no llega a arrancar, que lo diga en vez de quedarse en blanco. Sintaxis antigua a
+  // propósito: esto tiene que funcionar en el navegador donde lo demás no.
+  // Con las cookies bloqueadas (ajuste de Safari en iPhone, o un navegador dentro de otra app), solo
+  // nombrar localStorage lanza un error y la app moría al cargar. Entonces se usa una copia en
+  // memoria: los ajustes no se recuerdan de una visita a otra, pero la cámara funciona.
+  (function () {
+    function memory() {
+      var data = {};
+      return {
+        getItem: function (key) { return Object.prototype.hasOwnProperty.call(data, key) ? data[key] : null; },
+        setItem: function (key, value) { data[key] = String(value); },
+        removeItem: function (key) { delete data[key]; },
+        clear: function () { data = {}; },
+        key: function (index) { return Object.keys(data)[index] || null; },
+        get length() { return Object.keys(data).length; }
+      };
+    }
+    var names = ['localStorage', 'sessionStorage'];
+    for (var i = 0; i < names.length; i++) {
+      var usable = false;
+      try { var store = window[names[i]]; if (store) { store.getItem('flip.probe'); usable = true; } } catch (error) {}
+      if (!usable) { try { Object.defineProperty(window, names[i], { configurable: true, value: memory() }); window.__flipNoStorage = true; } catch (error) {} }
+    }
+  })();
+  (function () {
+    var done = false, failed = false, errors = [], lastRestart = 0, stumbles = 0, restart = 0, warned = false;
+    function show(reason) {
+      if (failed || document.getElementById('flipBootFail')) return;
+      failed = true;
+      var box = document.createElement('div');
+      box.id = 'flipBootFail';
+      box.setAttribute('role', 'alert');
+      box.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483647;background:#E7E0CF;color:#232427;font:16px/1.45 -apple-system,system-ui,sans-serif;padding:max(28px,env(safe-area-inset-top)) 22px 28px;overflow:auto;-webkit-text-size-adjust:100%';
+      box.innerHTML = '<h1 style="font-size:22px;margin:0 0 10px">FLIP no pudo arrancar</h1>' +
+        '<p style="margin:0 0 14px">La app tropezó al cargar en este navegador. Suele arreglarse recargando; si se repite, actualiza el navegador (o el sistema del teléfono) y vuelve a abrirla.</p>' +
+        '<p style="margin:0 0 18px"><button id="flipBootRetry" type="button" style="font:inherit;font-weight:700;padding:13px 20px;border:0;border-radius:10px;background:#E8553F;color:#fff">Recargar limpio</button></p>' +
+        '<pre style="white-space:pre-wrap;word-break:break-word;font:12px/1.4 ui-monospace,Menlo,monospace;opacity:.75;margin:0"></pre>';
+      (document.body || document.documentElement).appendChild(box);
+      box.getElementsByTagName('pre')[0].textContent = reason + '\n' + navigator.userAgent;
+      document.getElementById('flipBootRetry').onclick = function () {
+        // Sin lo que guardó el service worker: una copia rota en caché no puede dejar la app en blanco para siempre.
+        var go = function () { location.reload(); };
+        try {
+          var jobs = [];
+          if (window.caches && caches.keys) jobs.push(caches.keys().then(function (keys) { return Promise.all(keys.map(function (key) { return /^flipnote-filter-/.test(key) ? caches['delete'](key) : null; })); }));
+          if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) jobs.push(navigator.serviceWorker.getRegistrations().then(function (list) { return Promise.all(list.map(function (reg) { return reg.unregister(); })); }));
+          Promise.all(jobs).then(go, go);
+        } catch (error) { go(); }
+      };
+    }
+    window.__flipBoot = {
+      ok: function () { done = true; },
+      fail: function (reason) { show(reason + (errors.length ? '\n' + errors.join('\n') : '')); },
+      state: function () { return { done: done, failed: failed, errors: errors.slice(), stumbles: stumbles }; }
+    };
+    window.addEventListener('error', function (event) {
+      if (!event || !event.message) return;                 // una imagen o una fuente que no carga no impide arrancar
+      var line = event.message + ' @ ' + String(event.filename || '').split('/').pop() + ':' + (event.lineno || 0);
+      if (!done) { if (errors.length < 6) errors.push(line); return; }
+      // Ya en marcha: si un cuadro falla, el visor no se queda parado. Se reanuda (una vez por segundo
+      // como mucho) y, si el fallo insiste, se avisa una sola vez.
+      stumbles++;
+      if (restart) return;                                  // ya hay una reanudación en camino
+      var now = Date.now(), wait = Math.max(250, 1000 - (now - lastRestart));
+      restart = setTimeout(function () {
+        restart = 0; lastRestart = Date.now();
+        try {
+          if (typeof scheduleFrame !== 'function') return;
+          if (typeof cameraLoop === 'function' && typeof activeTab !== 'undefined' && activeTab === 'cam' && typeof cameraRunning !== 'undefined' && cameraRunning) scheduleFrame(cameraLoop);
+        } catch (again) {}
+        if (stumbles >= 8 && !warned && typeof flipToast === 'function') { warned = true; flipToast('FLIP tuvo un tropiezo al dibujar. Si la imagen se queda parada, vuelve a abrir la app.', 6000); }
+      }, wait);
+    }, true);
+    // Sin señal de vida a los 15 segundos de cargar: algo se quedó a medias.
+    window.addEventListener('load', function () { setTimeout(function () { if (!done) show(errors.length ? errors.join('\n') : 'La app no terminó de cargar.'); }, 15000); });
+  })();
+  </script>
+  <noscript><div style="position:fixed;left:0;top:0;right:0;bottom:0;background:#E7E0CF;color:#232427;font:16px/1.45 -apple-system,system-ui,sans-serif;padding:28px 22px">FLIP necesita JavaScript para funcionar. Actívalo en los ajustes del navegador y recarga.</div></noscript>
   <style>
     @font-face { font-family:'Bloom';      src:local('Bloom'),      url('./fonts/Bloom-Regular.otf')   format('opentype'); }
     @font-face { font-family:'BN Monica';  src:local('BN Monica'),  url('./fonts/BNMonica.otf')        format('opentype'); }
@@ -5134,7 +5213,31 @@ function _renderCamEngineFrame(source, srcW, srcH, targetCtx, mirror, options = 
 }
 let renderingProfile;
 function renderVariant() { return renderingProfile?.variant ?? camVariant; }
+// ── Capas de cámara a demanda ───────────────────────────────────────────────────────────
+// Cada cámara tiene capas del tamaño del visor (rejillas, viñetas) y cachés por tamaño de foto.
+// Vivas todas a la vez pasan de 140 MB en formato vertical, y Safari de iPhone limita el total de
+// lienzos de una página: al pasarse, los lienzos nuevos salen vacíos sin dar error. Aquí solo
+// viven las de las cámaras que se están pintando; las demás se sueltan a los seis segundos.
+const _camLayerSets = {};
+let _camLayerSwept = 0;
+function _dropCanvasCache(cache) {
+  for (const item of cache.values()) { const c = item && (item.canvas || item); if (c && typeof c.width === 'number' && c.getContext) { c.width = 0; c.height = 0; } }
+  cache.clear();
+}
+function _parkCamLayers(set) {
+  set.parked = true;
+  for (const c of set.canvases()) { c.width = 0; c.height = 0; }
+  if (set.drop) set.drop();
+}
+function _useCamLayers(renderer, now) {
+  const set = _camLayerSets[renderer];
+  if (set) { if (set.parked) { set.parked = false; set.build(); } set.used = now; }
+  if (now - _camLayerSwept < 2500) return;
+  _camLayerSwept = now;
+  for (const other of Object.values(_camLayerSets)) if (!other.parked && now - other.used > 6000) _parkCamLayers(other);
+}
 function drawCameraFrame(frame) {
+  _useCamLayers(frame.profile.renderer, performance.now());
   switch (frame.profile.renderer) {
     case 'stamp':
       if (frame.path === 'capture') {
@@ -6315,6 +6418,7 @@ function _buildDolphinScanlines() {
   _dlpScanCtx.fillRect(0, 0, OUT_W, OUT_H);
 }
 _buildDolphinScanlines();
+_camLayerSets.dolphin = { used: 0, parked: false, canvases: () => [_dlpScanCvs], build: () => _buildDolphinScanlines(), drop: () => _dropCanvasCache(_dlpScanCache) };
 
 function _getDolphinRenderTarget(sampleW, sampleH) {
   if (sampleW === DSI_W && sampleH === DSI_H) return { canvas: small, ctx: ctxS, buffer: lowBuf };
@@ -6661,6 +6765,9 @@ function _getCaskiaSeikoPalette() {
 }
 _buildCaskiaOverlay();
 _buildCaskiaEInkOverlay();
+_camLayerSets.caskia = { used: 0, parked: false, canvases: () => [_caskiaScanCvs, _caskiaEInkOverlayCvs, _caskiaSeikoOverlayCvs],
+  build: () => { _buildCaskiaOverlay(); _buildCaskiaEInkOverlay(); _caskiaSeikoOverlayKey = ''; },
+  drop: () => { _dropCanvasCache(_caskiaOverlayCache); _dropCanvasCache(_caskiaEInkOverlayCache); _caskiaSeikoOverlayKey = ''; } };
 _buildCaskiaSeikoOverlay(..._getCaskiaSeikoGridDims());
 
 function _getCaskiaRenderTarget(sampleW, sampleH) {
@@ -7015,6 +7122,12 @@ function _getVfdStdCols() {
 }
 _buildVFDOverlay();
 _buildVfdThermalOverlay();
+_camLayerSets.vfd = { used: 0, parked: false, canvases: () => [_vfdCvs, _vfdThermalCvs], build: () => { _buildVFDOverlay(); _buildVfdThermalOverlay(); },
+  drop: () => { _dropCanvasCache(_vfdOverlayCache); _dropCanvasCache(_vfdThermalOverlayCache); if (typeof _vfdCrtGlow !== 'undefined' && _vfdCrtGlow) for (const glow of _vfdCrtGlow) { glow.canvas.width = 0; glow.canvas.height = 0; } } };
+_camLayerSets.stamp = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (typeof _stampRelease === 'function') _stampRelease(); } };
+_camLayerSets.oscam = { used: 0, parked: false, canvases: () => [_oscamPersistCvs, _oscamOverlayCvs, _oscamFrameCvs],
+  build: () => { if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence(); if (typeof _buildOscamOverlay === 'function') _buildOscamOverlay(); },
+  drop: () => { if (typeof releaseOpticalScopes === 'function') releaseOpticalScopes(); if (typeof _resetOscamCaptureStates === 'function') _resetOscamCaptureStates(); } };
 
 function _getVfdRenderTarget(sampleW, sampleH) {
   if (sampleW === DSI_W && sampleH === DSI_H) return { canvas: small, ctx: ctxS, buffer: lowBuf };
@@ -7129,14 +7242,15 @@ function _vfdCrtNoise(x, y, f) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 // La máscara del tubo: franjas de fósforo rojo, verde y azul y una línea de barrido por fila de
-// la señal. Se guarda a su ancho final (las franjas no admiten estirarse) y se estira en alto.
+// la señal. Es una celda mínima que se repite como patrón (estirada en alto hasta casar con las
+// filas): no hace falta un lienzo del tamaño de la foto.
 function _getVfdCrtMask(outW, outH, rows) {
-  const key = outW + 'x' + outH + ':' + rows;
+  const pitch = Math.max(3, 3 * Math.round(outW / 510)), tall = Math.max(2, Math.round(outH / rows));
+  const key = pitch + 'x' + tall;
   let mask = _vfdCrtMaskCache.get(key);
   if (mask) return mask;
-  if (_vfdCrtMaskCache.size >= 4) _vfdCrtMaskCache.clear();
-  const pitch = Math.max(3, 3 * Math.round(outW / 510)), band = pitch / 3;
-  const tall = Math.max(2, Math.round(outH / rows));
+  if (_vfdCrtMaskCache.size >= 6) _vfdCrtMaskCache.clear();
+  const band = pitch / 3;
   const cell = document.createElement('canvas');
   cell.width = pitch; cell.height = tall;
   const c = cell.getContext('2d');
@@ -7146,11 +7260,7 @@ function _getVfdCrtMask(outW, outH, rows) {
     c.fillStyle = 'rgba(0,0,0,' + (1 - beam).toFixed(3) + ')';
     c.fillRect(0, row, pitch, 1);
   }
-  mask = document.createElement('canvas');
-  mask.width = outW; mask.height = rows * tall;
-  const m = mask.getContext('2d');
-  m.fillStyle = m.createPattern(cell, 'repeat');
-  m.fillRect(0, 0, mask.width, mask.height);
+  mask = { cell, tall, patterns: new WeakMap() };
   _vfdCrtMaskCache.set(key, mask);
   return mask;
 }
@@ -7271,7 +7381,11 @@ function _renderVfdCrt(lum, sampleW, sampleH, renderTarget, targetCtx, outW, out
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
   ctx.globalCompositeOperation = 'multiply';                                  // rejilla de fósforo y líneas de barrido
-  ctx.drawImage(mask, 0, 0, outW, outH);
+  let pattern = mask.patterns.get(ctx);
+  if (!pattern) { pattern = ctx.createPattern(mask.cell, 'repeat'); mask.patterns.set(ctx, pattern); }
+  if (pattern.setTransform) pattern.setTransform(new DOMMatrix([1, 0, 0, outH / (sampleH * mask.tall), 0, 0]));
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, outW, outH);
   ctx.globalCompositeOperation = 'lighter';                                   // el fósforo se desborda
   ctx.globalAlpha = 0.3;
   ctx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
@@ -12336,7 +12450,9 @@ document.addEventListener('visibilitychange', () => {
 let camSerialSwitch = false;
 try { camSerialSwitch = localStorage.getItem('flip.cam.serial') === '1'; } catch (_) {}
 function _camConstraints(facing) {
-  return { video:{ facingMode:facing, width:{ideal:1280}, height:{ideal:720} }, audio:false };
+  // 30 cuadros por segundo: ninguna cámara de FLIP pinta más deprisa, y un sensor a 60 (lo que
+  // entregan por defecto algunos teléfonos) gasta el doble —sensor, copia y subida— para lo mismo.
+  return { video:{ facingMode:facing, width:{ideal:1280}, height:{ideal:720}, frameRate:{ideal:30} }, audio:false };
 }
 async function _reopenCamera(facing) {
   try {
@@ -12472,13 +12588,11 @@ function applyCamAspect(aw, ah) {
   ctxS.imageSmoothingEnabled = false;
   ctxD.imageSmoothingEnabled = false;
   buildScanlines();
-  _buildDolphinScanlines(); // rebuild DOLPHIN overlay for new canvas size
-  _buildCaskiaOverlay();    // rebuild CASKIA pixel grid overlay for new canvas size
-  if (typeof _buildCaskiaEInkOverlay === 'function') _buildCaskiaEInkOverlay();
-  if (typeof _buildCaskiaSeikoOverlay === 'function') _buildCaskiaSeikoOverlay(..._getCaskiaSeikoGridDims());
+  // Las capas de cada cámara se rehacen al nuevo tamaño solo si esa cámara está en uso; las demás
+  // siguen sueltas y se harán cuando toque pintarlas.
+  for (const set of Object.values(_camLayerSets)) { if (set.parked) continue; set.build(); if (set.drop) set.drop(); }
+  if (!_camLayerSets.caskia.parked && typeof _buildCaskiaSeikoOverlay === 'function') _buildCaskiaSeikoOverlay(..._getCaskiaSeikoGridDims());
   if (typeof _ensureCaskiaEInkMemory === 'function') _ensureCaskiaEInkMemory();
-  _buildVFDOverlay();       // rebuild VFD overlay for new canvas size
-  if (typeof _buildVfdThermalOverlay === 'function') _buildVfdThermalOverlay();
   if (typeof _buildOscamOverlay === 'function') _buildOscamOverlay();
   if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
   _syncAspectButtonsUI();
@@ -12737,9 +12851,9 @@ function cameraLoop(t) {
     return;
   }
   // PORTAL dibuja la cámara fluida y aplica la cadencia de cada emulador solo dentro de la ventana.
-  const portalOn = typeof flipPortal !== 'undefined' && flipPortal.active;
+  const portalOn = !!(window.flipPortal && window.flipPortal.active);
   // Con dibujo acelerado PORTAL va a la cadencia de la pantalla y lee la cámara por su cuenta.
-  const portalFast = portalOn && flipPortal.fast;
+  const portalFast = portalOn && window.flipPortal.fast;
   const minInterval = portalOn ? (portalFast ? 0 : 1000 / 30) : (camFpsEnabled ? 1000 / camFpsTarget : 0);
   if (!_pipeTestOn && !portalFast && awaitCamFrame(t - camLastFrameMs, minInterval)) { scheduleFrame(cameraLoop); return; }
   if (t - camLastFrameMs >= minInterval) {
@@ -12770,7 +12884,7 @@ function cameraLoop(t) {
       }
     } else if (vid.videoWidth) {
       const cam = liveCamFrame();
-      if (portalOn) flipPortal.render(cam, ctxD, t);
+      if (portalOn) window.flipPortal.render(cam, ctxD, t);
       else _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctxD, false, {
         path:'preview',
         now:t,
@@ -13216,6 +13330,14 @@ window._flipPipeTest = (on) => { _pipeTestOn = !!on; };
 // TABS
 // ════════════════════════════════════════════════════════════════════
 let activeTab = 'cam';
+// Lienzos auxiliares que solo usa un módulo: existen mientras ese módulo está abierto.
+const _moduleCanvases = {};
+function _syncModuleCanvases(tab) {
+  for (const [name, list] of Object.entries(_moduleCanvases)) for (const c of list) {
+    if (name === tab) { if (!c.width && c.__w) { c.width = c.__w; c.height = c.__h; } }
+    else if (c.width) { c.__w = c.width; c.__h = c.height; c.width = 0; c.height = 0; }
+  }
+}
 function _syncScrashHudVisibility() {
   const scrashAreaVisible = document.getElementById('scrashArea')?.classList.contains('visible');
   const uploadVisible = document.getElementById('uploadSection')?.classList.contains('visible');
@@ -13251,6 +13373,7 @@ function switchTab(tab) {
   if (activeTab === 'ascii' && tab !== 'ascii') _stopRecorderSafely(asciiRecorder);
   document.getElementById('modulePicker').value = tab;
   activeTab = tab;
+  _syncModuleCanvases(tab);
   for (const button of document.querySelectorAll('.tab-bar .tab')) {
     const selected = button.id.toLowerCase() === 'tab' + tab;
     if (selected) {
@@ -15686,7 +15809,7 @@ function _getCamRecordingOptions() {
   const options = { aspectRatio: _getCurrentAspectId(), resolution: flipAudioSettings.resolution };
   if (!vid.videoWidth) return options;
   // En PORTAL la foto y el vídeo son lo que hay en el visor: la ventana depende de las manos de ese instante.
-  if (typeof flipPortal !== 'undefined' && flipPortal.active) {
+  if (window.flipPortal && window.flipPortal.active) {
     options.portal = true;
     options.renderFrame = ({ ctx, width, height }) => { ctx.drawImage(display, 0, 0, width, height); };
     options.onStop = () => {};
@@ -16900,6 +17023,8 @@ ctxSonoLeg.imageSmoothingEnabled = false;
 const sonoAscCvs   = document.createElement('canvas');
 sonoAscCvs.width   = OUT_W; sonoAscCvs.height = OUT_H;
 const ctxSonoAsc   = sonoAscCvs.getContext('2d', { willReadFrequently:false });
+_moduleCanvases.sono = [sonoFlipCvs, sonoScopeCvs, sonoLegCvs, sonoAscCvs];
+_syncModuleCanvases(activeTab);
 
 // Sono state
 let sonoRunning    = false;
@@ -22310,6 +22435,7 @@ function _initFlipOsBoot() {
 }
 
 _initFlipOsBoot();
+for (const set of Object.values(_camLayerSets)) _parkCamLayers(set);
 
 if ('serviceWorker' in navigator) {
   const hadWorker = !!navigator.serviceWorker.controller;
@@ -22324,10 +22450,31 @@ if ('serviceWorker' in navigator) {
     else flipToast('Hay una versión nueva de FLIP. Vuelve a abrirla para usarla.', 6000);
   });
 }
+window.__flipMainReady = true;                              // el guion llegó hasta el final (lo comprueba el vigía de arranque)
 </script>
 <script src="./feel.js"></script>
 <script src="./shell.js"></script>
 <script src="./portal.js"></script>
 <script src="./stage.js"></script>
+<script>
+// ¿Arrancó todo? El motor y la carcasa son imprescindibles; PORTAL, STAGE y las teclas pueden faltar
+// (un navegador viejo que no entienda alguno): la cámara funciona sin ellos.
+(function () {
+  var boot = window.__flipBoot;
+  if (!boot) return;
+  var core = [], extra = [];
+  // Un módulo cuyo arranque falló deja su nombre declarado pero sin valor: hasta preguntar por él lanza.
+  var has = function (probe) { try { return !!probe(); } catch (error) { return false; } };
+  if (!window.__flipMainReady) core.push('el motor de la cámara');
+  if (!has(function () { return flipSensor && flipSilhouette && nightVision && typeof scheduleFrame === 'function' && typeof plotOpticalScope === 'function' && typeof renderStamp === 'function'; })) core.push('una pieza del motor');
+  if (!has(function () { return flipShell; })) core.push('la carcasa');
+  if (!has(function () { return window.flipFeel; })) extra.push('teclas');
+  if (!has(function () { return flipPortal; })) extra.push('PORTAL');
+  if (!has(function () { return flipStage; })) extra.push('STAGE');
+  if (core.length) { boot.fail('No cargó ' + core.join(' ni ') + '.'); return; }
+  boot.ok();
+  if (extra.length && typeof flipToast === 'function') flipToast('En este navegador no cargó: ' + extra.join(', ') + '. Lo demás funciona.', 6000);
+})();
+</script>
 </body>
 </html>

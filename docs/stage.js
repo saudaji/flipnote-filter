@@ -762,13 +762,13 @@ void main() {
   function handsOn(on) {
     if (on === hands.on) return;
     hands.on = on;
-    if (on) { if (typeof flipPortal !== 'undefined') flipPortal.start(); readout('MANOS: CARGANDO', 2500); }
-    else if (typeof flipPortal !== 'undefined' && flipPortal.release) flipPortal.release();
+    if (on) { if (window.flipPortal) window.flipPortal.start(); readout('MANOS: CARGANDO', 2500); }
+    else if (window.flipPortal && window.flipPortal.release) window.flipPortal.release();
     syncKeys();
   }
   function trackHands(base) {
-    if (typeof flipPortal === 'undefined' || !flipPortal.track) return;
-    const res = flipPortal.track(base);
+    if (!window.flipPortal || !window.flipPortal.track) return;
+    const res = window.flipPortal.track(base);
     if (res.phase !== hands.phase) { hands.phase = res.phase; if (res.phase === 'ready') readout('MANOS LISTAS'); else if (res.phase === 'failed') { flipToast(res.message || 'El seguimiento de manos no cargó.'); handsOn(false); } }
     hands.seen = res.fresh && res.hands.length > 0;
     if (!hands.seen) return;

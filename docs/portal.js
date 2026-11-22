@@ -24,7 +24,10 @@ const flipPortal = (() => {
   const LIB = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/+esm';
   const WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm';
   const MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
-  const INPUT = 256;          // lado largo de la imagen que ve el rastreador
+  const INPUT = 480;          // lado largo de la imagen que ve el rastreador: a 256 una mano a un metro eran 18 píxeles de palma
+  const AWAKE_MS = 1500;      // sin manos este tiempo, el rastreador pasa a mirar de vez en cuando
+  const IDLE_EVERY = 160;     // …cada tantos ms (con manos delante va tan deprisa como puede)
+  const CAL_EVERY = 250;      // la calibración del delegado de GPU compara como mucho cuatro cuadros por segundo
   const BASE_LONG = 480;      // lado largo del lienzo pequeño del que beben el rastreador y los estilos
   const FX_LONG = 960;        // lado largo de cada estilo dentro de su ventana
   const LOST_MS = 300;        // sin detección este tiempo, una mano deja de existir
@@ -38,8 +41,9 @@ const flipPortal = (() => {
 
   const state = {
     active: false, lastT: 0,
-    base: null, bctx: null, baseAt: -Infinity,
-    hands: [],                    // manos vivas en píxeles, adelantadas al instante del dibujo
+    base: null, bctx: null, baseAt: -Infinity, baseShot: 0, bases: [], baseHead: -1, styleBase: null,
+    delay: 0, shownAt: 0,         // cuánto va la imagen por detrás del reloj, y de cuándo es el cuadro en pantalla
+    hands: [],                    // manos vivas en píxeles, en el instante del cuadro que se ve
     shape: null, amount: 0, opened: -Infinity,
     mode: '', slots: null, lensAfter: 0,
     trail: [],                    // figuras recientes: al fijar se toma la de justo antes del clic
@@ -50,7 +54,7 @@ const flipPortal = (() => {
 
   // ── Rastreador de manos ───────────────────────────────────────────────────
   const trk = { phase: 'idle', message: '', error: '', loading: null, provider: null, main: null, cand: null, strikes: 0, ms: 0, frames: 0,
-    input: null, ictx: null, cal: null, score: null, delegate: '', raw: [], rawAt: -Infinity };
+    input: null, ictx: null, cal: null, score: null, delegate: '', raw: [], rawAt: -Infinity, sentShot: 0 };
   const CHOICE = 'flip.hands.delegate';
   const chrome = (navigator.userAgent.match(/Chrome\/(\d+)/) || [])[1] || '';
   function remembered() { try { const v = JSON.parse(localStorage.getItem(CHOICE) || 'null'); return v && v.v === chrome ? v.d : ''; } catch (_) { return ''; } }
@@ -121,20 +125,28 @@ const flipPortal = (() => {
     trk.ictx.drawImage(canvas, 0, 0, w, h);
     const bitmap = trk.input.transferToImageBitmap();
     rec.busy = true; rec.sentAt = performance.now(); rec.id = id;
+    // De cuándo es la imagen (no cuándo se envía): de ahí sale cuánto hay que adelantar la mano al dibujarla.
+    rec.shotAt = canvas === state.base && state.baseShot ? state.baseShot : rec.sentAt;
     clearTimeout(rec.timer);
     rec.timer = setTimeout(() => { rec.busy = false; onFault(rec, 'sin respuesta'); }, 4000);
     rec.worker.postMessage({ type: 'frame', id, bitmap }, [bitmap]);
   }
   let frameId = 0;
+  // ¿Hay manos (o las hubo hace un momento)? Con ellas el rastreador no para; sin ellas, descansa.
+  const awake = now => now - trk.rawAt < AWAKE_MS;
   function push(canvas) {
     if (trk.phase !== 'ready' || !canvas || !canvas.width) return;
-    if (trk.provider) { accept(dedupe(trk.provider(performance.now()) || []), 0, performance.now()); return; }
+    const now = performance.now();
+    if (trk.provider) { if (canvas === state.base) trk.sentShot = state.baseShot; accept(dedupe(trk.provider(now) || []), 0, now); return; }
     const main = trk.main;
     if (!main || main.busy) return;
+    if (now - main.sentAt < (awake(now) ? 31 : IDLE_EVERY)) return;          // con manos, 30 por segundo como mucho; sin ellas, de vez en cuando
     const id = ++frameId;
     send(main, canvas, id);
+    if (canvas === state.base) trk.sentShot = state.baseShot;
     // Calibración: el mismo cuadro va también al candidato, para comparar sus manos con las de referencia.
-    if (trk.cand && !trk.cand.busy && !trk.cal) { trk.cal = { id, main: null, cand: null, ms: 0 }; send(trk.cand, canvas, id); }
+    // Solo cuando hay manos que comparar, y sin doblar el trabajo en cada cuadro.
+    if (trk.cand && !trk.cand.busy && !trk.cal && trk.raw.length && now - (trk.calAt || 0) >= CAL_EVERY) { trk.calAt = now; trk.cal = { id, main: null, cand: null, ms: 0 }; send(trk.cand, canvas, id); }
   }
   // El modelo a veces da la misma mano dos veces.
   function dedupe(hands) {
@@ -148,10 +160,16 @@ const flipPortal = (() => {
     rec.busy = false; rec.ms = msg.ms;
     const hands = dedupe(msg.hands.map(hand => { hand.points.meta = hand.meta || null; return hand.points; }));
     if (rec === trk.main) {
-      accept(hands, msg.ms, rec.sentAt);
+      accept(hands, msg.ms, rec.shotAt);
       if (trk.cal && trk.cal.id === msg.id) { trk.cal.main = hands; judge(); }
-      // El cuadro siguiente sale ya, sin esperar al próximo dibujo: la inferencia nunca está parada.
-      if (state.active && state.base && performance.now() - state.baseAt < 50) push(state.base);
+      // Con manos delante, el cuadro siguiente sale ya, sin esperar al próximo dibujo, y lo más fresco posible.
+      if (hands.length && state.active) {
+        const t = performance.now();
+        if (t - rec.sentAt >= 31) {
+          if (t - state.baseAt > 12) refreshBase(null, t);
+          if (state.base && state.baseShot > trk.sentShot) push(state.base);
+        }
+      }
     } else if (rec === trk.cand) {
       if (trk.cal && trk.cal.id === msg.id) { trk.cal.cand = hands; trk.cal.ms = msg.ms; judge(); } else trk.cal = null;
     }
@@ -187,14 +205,42 @@ const flipPortal = (() => {
     trk.message = 'El seguimiento de manos dejó de responder. Toca el visor para reintentar.';
   }
 
+  // ── Imagen sincronizada con el seguimiento ────────────────────────────────
+  // El rastreador tarda: cuando dice dónde está una mano, la mano ya no está ahí. Adivinar dónde
+  // estará no sirve con dedos (medido con vídeo real: no mejora al último dato). Lo que sí: enseñar
+  // la cámara un instante por detrás —lo que tarda el rastreador— y colocar cada mano interpolando
+  // entre las dos detecciones que rodean al cuadro que se ve. La figura queda cosida a las yemas.
+  const SYNC_MIN = 60, SYNC_MAX = 240;
+  const sync = { delay: 120, want: 120, latency: 70, period: 60, lastShot: 0, lastT: 0 };
+  function syncFeed(shot, now, seen) {
+    // Solo cuentan las detecciones con manos: sin ellas el rastreador va despacio a propósito.
+    if (seen && shot > sync.lastShot) {
+      const period = shot - sync.lastShot;
+      if (period < 400) sync.period += (period - sync.period) * 0.15;
+      sync.latency += (clamp(now - shot, 0, 400) - sync.latency) * 0.15;
+      // Lo justo: lo que tarda la detección más algo más de medio periodo (el resto lo cubre la pequeña prolongación).
+      sync.want = clamp(sync.latency + sync.period * 0.6 + 8, SYNC_MIN, SYNC_MAX);
+    }
+    if (shot > sync.lastShot) sync.lastShot = shot;
+  }
+  function syncStep(now) {
+    // El retraso se mueve despacio (60 ms por segundo): un cambio brusco sería un salto en la imagen.
+    const dt = Math.min(100, Math.max(0, now - (sync.lastT || now)));
+    sync.lastT = now;
+    sync.delay += clamp(sync.want - sync.delay, -dt * 0.06, dt * 0.06);
+    return gfx.ok ? sync.delay : 0;                     // sin WebGL no hay cola de cuadros: se dibuja el último
+  }
+
   // ── Estimador de cada mano ────────────────────────────────────────────────
-  // Filtro 1€ por coordenada (suave cuando la mano está quieta, rápido cuando se mueve) y su
-  // velocidad. Al dibujar, la posición se adelanta lo que hace que se tomó el cuadro analizado.
-  const MIN_CUTOFF = 1.6, BETA = 10, D_CUTOFF = 5;
+  // Filtro 1€ por coordenada, ligero: quita el temblor de la detección sin retrasarla. Cada mano
+  // guarda sus últimas posiciones con su hora; al dibujar se interpola en la hora del cuadro visible.
+  const est = { minCutoff: 3, beta: 30, dCutoff: 5 };
+  const HISTORY = 20;
   const tracks = [];
   const alpha = (dt, cutoff) => 1 / (1 + 1 / (TAU * cutoff * dt));
   function accept(hands, ms, capturedAt) {
     const now = performance.now(), t = capturedAt / 1000;
+    syncFeed(capturedAt, now, hands.length > 0);
     trk.raw = hands; trk.rawAt = hands.length ? now : trk.rawAt;
     trk.ms = ms; trk.frames++; trk.strikes = 0;
     const free = tracks.slice(), next = [];
@@ -209,32 +255,39 @@ const flipPortal = (() => {
       if (best) {
         free.splice(free.indexOf(best), 1);
         const dt = t - best.at;
-        if (dt <= 0 || dt > 0.35) { best.x.set(points); best.v.fill(0); }
+        if (dt <= 0 || dt > 0.35) { best.x.set(points); best.v.fill(0); best.hist.length = 0; }
         else for (let i = 0; i < 42; i++) {
-          best.v[i] += alpha(dt, D_CUTOFF) * ((points[i] - best.raw[i]) / dt - best.v[i]);
-          best.x[i] += alpha(dt, MIN_CUTOFF + BETA * Math.abs(best.v[i])) * (points[i] - best.x[i]);
+          best.v[i] += alpha(dt, est.dCutoff) * ((points[i] - best.raw[i]) / dt - best.v[i]);
+          best.x[i] += alpha(dt, est.minCutoff + est.beta * Math.abs(best.v[i])) * (points[i] - best.x[i]);
         }
         best.raw.set(points); best.at = t; best.seen = now;
+        best.hist.push({ t, x: best.x.slice() });
+        if (best.hist.length > HISTORY) best.hist.shift();
         touch(best, points, now);
         next.push(best);
-      } else next.push({ x: Float32Array.from(points), raw: Float32Array.from(points), v: new Float32Array(42), px: new Float32Array(42), at: t, seen: now, born: now, pinch: false, hits: 0, openAt: 0 });
+      } else next.push({ x: Float32Array.from(points), raw: Float32Array.from(points), v: new Float32Array(42), px: new Float32Array(42), hist: [{ t, x: Float32Array.from(points) }], at: t, seen: now, born: now, pinch: false, hits: 0, openAt: 0 });
     }
-    // Una mano que falta en una detección sigue un momento donde iba, frenando.
-    for (const track of free) if (now - track.seen < LOST_MS && next.length < 2) { for (let i = 0; i < 42; i++) track.v[i] *= 0.6; track.pinch = false; track.hits = 0; next.push(track); }
+    // Una mano que falta en una detección no se borra aún: la imagen va por detrás y todavía tiene que verse irse.
+    const keep = Math.max(LOST_MS, sync.delay + 220);
+    for (const track of free) if (now - track.seen < keep && next.length < 2) { track.pinch = false; track.hits = 0; next.push(track); }
     tracks.length = 0;
     for (const track of next) tracks.push(track);
   }
-  function pose(now, w, h) {
-    const out = [];
+  // Las manos en el instante `at` (ms, el del cuadro que se ve): interpoladas entre las dos
+  // detecciones que lo rodean. Si la siguiente aún no ha llegado, siguen 40 ms por donde iban y esperan.
+  function pose(at, w, h) {
+    const out = [], td = at / 1000;
+    const grace = Math.max(0.12, sync.period * 0.0016);
     for (const track of tracks) {
-      if (now - track.seen > LOST_MS) continue;
-      const lead = clamp(now / 1000 - track.at, 0, 0.11);
-      let speed = 0;
-      for (const i of [WRIST, THUMB, INDEX, MIDDLE_MCP]) speed += Math.hypot(track.v[2 * i], track.v[2 * i + 1]);
-      const gain = clamp((speed / 4 - 0.05) / 0.3) * 0.9;          // quieta no se adelanta (no tiembla); en movimiento, sí
-      for (let i = 0; i < 21; i++) {
-        track.px[2 * i] = (track.x[2 * i] + track.v[2 * i] * lead * gain) * w;
-        track.px[2 * i + 1] = (track.x[2 * i + 1] + track.v[2 * i + 1] * lead * gain) * h;
+      const hist = track.hist, n = hist.length;
+      if (!n || td < hist[0].t - 0.02 || td > hist[n - 1].t + grace) continue;     // aún no había aparecido, o ya se fue
+      let i = n - 1;
+      while (i > 0 && hist[i - 1].t > td) i--;
+      const b = hist[i], a = hist[i > 0 ? i - 1 : 0], span = b.t - a.t;
+      const f = span > 0 ? clamp((td - a.t) / span, 0, 1 + 0.04 / Math.max(0.02, span)) : 1;
+      for (let k = 0; k < 42; k += 2) {
+        track.px[k] = (a.x[k] + (b.x[k] - a.x[k]) * f) * w;
+        track.px[k + 1] = (a.x[k + 1] + (b.x[k + 1] - a.x[k + 1]) * f) * h;
       }
       out.push(track.px);
     }
@@ -245,7 +298,11 @@ const flipPortal = (() => {
   // que venir de abierto y durar dos detecciones: una pose que ya llega cerrada no cuenta.
   function touch(track, points, now) {
     let ring, open;
-    if (points.meta) { ring = points.meta[0] / 0.03; open = points.meta[1] > 0.055 && points.meta[2] > 0.125; }
+    if (points.meta) {
+      // Relativo a la palma (muñeca–nudillo del medio): vale igual para una mano grande que para una pequeña.
+      const palm = points.meta[3] || 0.094;
+      ring = points.meta[0] / palm / 0.4; open = points.meta[1] / palm > 0.58 && points.meta[2] / palm > 1.3;
+    }
     else {                                                                   // sin 3D (pruebas): en píxeles, relativo al tamaño de la mano
       const W = state.w || 1, H = state.h || 1, far = (a, b) => Math.hypot((points[2 * a] - points[2 * b]) * W, (points[2 * a + 1] - points[2 * b + 1]) * H);
       const size = far(WRIST, MIDDLE_MCP) || 1;
@@ -339,11 +396,19 @@ const flipPortal = (() => {
       const pair = hands.slice(0, 2).sort((a, b) => centerX(a) - centerX(b));
       const ca = [(pair[0][2 * THUMB_MCP] + pair[0][2 * INDEX_MCP]) / 2, (pair[0][2 * THUMB_MCP + 1] + pair[0][2 * INDEX_MCP + 1]) / 2];
       const cb = [(pair[1][2 * THUMB_MCP] + pair[1][2 * INDEX_MCP]) / 2, (pair[1][2 * THUMB_MCP + 1] + pair[1][2 * INDEX_MCP + 1]) / 2];
-      const a = side(pair[0], [cb[0] - ca[0], cb[1] - ca[1]]), b = side(pair[1], [ca[0] - cb[0], ca[1] - cb[1]]);
-      const one = [a.far[0], a.far[1], b.far[0], b.far[1], b.inner[0], b.inner[1], a.inner[0], a.inner[1]];
-      const two = [a.far[0], a.far[1], b.inner[0], b.inner[1], b.far[0], b.far[1], a.inner[0], a.inner[1]];   // una mano del revés
-      pts = Math.abs(areaOf(one)) >= Math.abs(areaOf(two)) ? one : two;
+      // Las cuatro yemas son las cuatro esquinas: índice y pulgar de la mano izquierda, pulgar e índice
+      // de la derecha. Cada lado de la ventana es la pinza de una mano: si se cierra, ese lado se queda
+      // en punta; si una mano gira, la figura se cruza. Sin reordenar: la figura no salta al cruzarse.
+      const A = pair[0], B = pair[1];
+      pts = [A[2 * INDEX], A[2 * INDEX + 1], B[2 * INDEX], B[2 * INDEX + 1], B[2 * THUMB], B[2 * THUMB + 1], A[2 * THUMB], A[2 * THUMB + 1]];
       kind = 'quad';
+      // Lo abierta que está: la media de las dos pinzas por lo separadas que están las manos. (El área
+      // de una figura cruzada se anula; esto no.)
+      const sa = Math.hypot(pts[0] - pts[6], pts[1] - pts[7]), sb = Math.hypot(pts[2] - pts[4], pts[3] - pts[5]);
+      const gap = Math.hypot((pts[0] + pts[6] - pts[2] - pts[4]) / 2, (pts[1] + pts[7] - pts[3] - pts[5]) / 2);
+      let qx = 0, qy = 0;
+      for (let i = 0; i < 8; i += 2) { qx += pts[i] / 4; qy += pts[i + 1] / 4; }
+      return { kind, pts, area: (sa + sb) / 2 * gap / (w * h), cx: qx, cy: qy };
     } else if (hands.length === 1) {
       const s = side(hands[0], null);
       pts = [s.foot[0], s.foot[1], s.outer[0], s.outer[1], s.far[0], s.far[1], s.inner[0], s.inner[1]];
@@ -397,7 +462,7 @@ const flipPortal = (() => {
     return entry;
   }
   function paintStyle(entry, style, now) {
-    const base = state.base, w = entry.canvas.width, h = entry.canvas.height, ctx = entry.ctx;
+    const base = state.styleBase || state.base, w = entry.canvas.width, h = entry.canvas.height, ctx = entry.ctx;
     if (style.extra === 'ASCII') FLIP_STEP_ENGINES.ascii.renderStep(base, ctx, { cols: 72 }, null, now);
     else if (style.extra === 'SONO') _editRenderSonoSource(ctx, w, h, now);
     else if (style.extra === 'WMP') _editRenderWmpSource(ctx, w, h, now);
@@ -428,7 +493,7 @@ const flipPortal = (() => {
         // Un estilo que falla no puede parar la cámara: su ventana enseña la imagen sin tratar y se avisa una vez.
         const message = String(error && error.message || error);
         if (state.fxError !== message) { state.fxError = message; console.warn('[PORTAL] estilo', pick[1].key, message); flipToast('Esta cámara no pudo dibujarse dentro de la ventana.'); }
-        pick[0].ctx.drawImage(state.base, 0, 0, fw, fh); pick[0].at = now; pick[0].dirty = true; pick[0].drawn = true;
+        pick[0].ctx.drawImage(state.styleBase || state.base, 0, 0, fw, fh); pick[0].at = now; pick[0].dirty = true; pick[0].drawn = true;
       }
       if (performance.now() - began > 5) break;                               // el segundo, solo si sobra tiempo
     }
@@ -444,7 +509,9 @@ const flipPortal = (() => {
     if (now - state.lockedAt < 500) return false;
     // La figura de un instante antes: acercar el anular al pulgar mueve la esquina que marca el pulgar.
     let shot = null;
-    if (how === 'clic') for (const past of state.trail) if (now - past.at >= 150) shot = past;
+    // (La imagen ya va por detrás: solo se retrocede lo que le falte hasta 150 ms.)
+    const back = Math.max(0, 150 - state.delay);
+    if (how === 'clic') for (const past of state.trail) if (now - past.at >= back) shot = past;
     if (!shot) shot = state.shape && state.amount > 0.5 ? { pts: state.shape.pts.slice(), w: state.w, h: state.h } : null;
     if (!shot) { hint('Haz primero una figura con las manos', 1800); return false; }
     if (panes.length >= MAX_PANES) { flipToast('Caben ' + MAX_PANES + ' portales. Borra alguno para fijar otro.'); return false; }
@@ -517,7 +584,7 @@ void main() { vec2 p = aPos / uSize; gl_Position = vec4(p.x * 2. - 1., 1. - p.y 
 precision highp float;
 uniform vec4 uColor; out vec4 o;
 void main() { o = uColor; }`;
-  const gfx = { canvas: null, gl: null, ok: false, tried: false, alloc: {}, kind: 0, seq: -1, fit: [1, 1, 0, 0], yuv: null, yuvOff: [0, .5, .5], yuvKey: '', path: '', hasCam: false, dirty: true, hooked: false, direct: false };
+  const gfx = { canvas: null, gl: null, ok: false, tried: false, ring: [], head: -1, span: 10, every: 33, lastUp: -Infinity, lastAsk: -Infinity, seq: -1, fit: [1, 1, 0, 0], yuv: null, yuvOff: [0, .5, .5], yuvKey: '', path: '', hasCam: false, dirty: true, hooked: false, direct: false };
   function program(vert, frag) {
     const gl = gfx.gl;
     const make = (type, source) => { const s = gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'sombreador'); return s; };
@@ -540,7 +607,7 @@ void main() { o = uColor; }`;
     gfx.tried = true;
     try {
       const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl2', { alpha: false, antialias: true, depth: false, stencil: true, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
+      const gl = canvas.getContext('webgl2', { alpha: false, antialias: true, depth: false, stencil: true, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'default' });
       if (!gl) return false;
       gfx.canvas = canvas; gfx.gl = gl;
       gfx.cam = program(VERT_FULL, FRAG_CAM); gfx.fx = program(VERT_FULL, FRAG_FX); gfx.flat = program(VERT_FLAT, FRAG_FLAT);
@@ -551,8 +618,7 @@ void main() { o = uColor; }`;
       gl.bindBuffer(gl.ARRAY_BUFFER, gfx.vbo);
       gl.enableVertexAttribArray(0);
       gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-      gfx.texA = texture(); gfx.texU = texture(); gfx.texV = texture();
-      gfx.alloc = {};
+      gfx.ring = []; gfx.head = -1; gfx.lastUp = -Infinity; gfx.seq = -1; gfx.hasCam = false;
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.disable(gl.DEPTH_TEST);
       canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); gfx.ok = false; });
@@ -561,11 +627,12 @@ void main() { o = uColor; }`;
     } catch (error) { gfx.ok = false; gfx.error = String(error && error.message || error); }
     return gfx.ok;
   }
-  function plane(name, tex, format, internal, w, h, data, offset, rowLength) {
+  function plane(slot, name, format, internal, w, h, data, offset, rowLength) {
     const gl = gfx.gl, key = internal + ':' + w + 'x' + h;
-    gl.bindTexture(gl.TEXTURE_2D, tex);
+    if (!slot[name]) slot[name] = texture();
+    gl.bindTexture(gl.TEXTURE_2D, slot[name]);
     gl.pixelStorei(gl.UNPACK_ROW_LENGTH, rowLength);
-    if (gfx.alloc[name] !== key) { gfx.alloc[name] = key; gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, gl.UNSIGNED_BYTE, data, offset); }
+    if (slot.alloc[name] !== key) { slot.alloc[name] = key; gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, gl.UNSIGNED_BYTE, data, offset); }
     else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, format, gl.UNSIGNED_BYTE, data, offset);
     gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
   }
@@ -573,29 +640,54 @@ void main() { o = uColor; }`;
     const sa = sw / sh, oa = w / h, sx = sa > oa ? oa / sa : 1, sy = sa > oa ? 1 : sa / oa;
     gfx.fit = [sx, sy, .5 - .5 * sx, .5 - .5 * sy];
   }
-  // La cámara a textura: en Android, sus planos nativos (ni una conversión del navegador); si no, el vídeo directo.
-  function uploadCamera(w, h) {
+  // La cola: los últimos cuadros de la cámara, cada uno en su textura y con su hora. Tantos como
+  // hagan falta para cubrir el retraso máximo a la cadencia a la que llegan (entre 4 y 16).
+  function nextSlot(shot) {
+    const gl = gfx.gl;
+    if (gfx.lastUp > -Infinity) gfx.every += (clamp(shot - gfx.lastUp, 8, 100) - gfx.every) * 0.1;
+    gfx.lastUp = shot;
+    gfx.span = clamp(Math.ceil((SYNC_MAX + 50) / gfx.every) + 1, 4, 16);
+    while (gfx.ring.length > gfx.span) { const old = gfx.ring.pop(); if (old) for (const name of ['A', 'U', 'V']) if (old[name]) gl.deleteTexture(old[name]); }
+    gfx.head = (gfx.head + 1) % gfx.span;
+    let slot = gfx.ring[gfx.head];
+    if (!slot) slot = gfx.ring[gfx.head] = { A: null, U: null, V: null, alloc: {}, shot: -Infinity, kind: 0, src: [1, 1], yuv: null, yuvOff: null };
+    slot.shot = shot;
+    return slot;
+  }
+  // El cuadro que toca enseñar en el instante `at`: el más reciente que no sea posterior.
+  function slotAt(at) {
+    let best = null, oldest = null;
+    for (const slot of gfx.ring) {
+      if (!slot || slot.shot === -Infinity) continue;
+      if (slot.shot <= at && (!best || slot.shot > best.shot)) best = slot;
+      if (!oldest || slot.shot < oldest.shot) oldest = slot;
+    }
+    return best || oldest;
+  }
+  function uploadCamera(now) {
     const gl = gfx.gl;
     if (!vid.videoWidth || vid.readyState < 2) return;
     if (ANDROID && !gfx.direct && flipSensor.planesUsable(vid)) {
-      flipSensor.planes(vid);
+      // Un cuadro cada 28 ms como mucho: con la cámara a 60 no se copia ni se sube el doble para lo mismo.
+      if (now - gfx.lastAsk >= 28) { gfx.lastAsk = now; flipSensor.planes(vid); }
       const pl = flipSensor.latestPlanes(vid);
       if (pl) {
         if (pl.seq !== gfx.seq) {
           gfx.seq = pl.seq;
+          const slot = nextSlot(pl.at);
           const L = pl.layout, pw = pl.width, ph = pl.height, cw = (pw + 1) >> 1, ch = (ph + 1) >> 1;
           if (pl.kind === 'planar') {
-            plane('A', gfx.texA, gl.RED, gl.R8, pw, ph, pl.data, L[0].offset, L[0].stride);
-            plane('U', gfx.texU, gl.RED, gl.R8, cw, ch, pl.data, L[1].offset, L[1].stride);
-            plane('V', gfx.texV, gl.RED, gl.R8, cw, ch, pl.data, L[2].offset, L[2].stride);
-            gfx.kind = 1;
+            plane(slot, 'A', gl.RED, gl.R8, pw, ph, pl.data, L[0].offset, L[0].stride);
+            plane(slot, 'U', gl.RED, gl.R8, cw, ch, pl.data, L[1].offset, L[1].stride);
+            plane(slot, 'V', gl.RED, gl.R8, cw, ch, pl.data, L[2].offset, L[2].stride);
+            slot.kind = 1;
           } else if (pl.kind === 'biplanar') {
-            plane('A', gfx.texA, gl.RED, gl.R8, pw, ph, pl.data, L[0].offset, L[0].stride);
-            plane('U', gfx.texU, gl.RG, gl.RG8, cw, ch, pl.data, L[1].offset, L[1].stride >> 1);
-            gfx.kind = 2;
+            plane(slot, 'A', gl.RED, gl.R8, pw, ph, pl.data, L[0].offset, L[0].stride);
+            plane(slot, 'U', gl.RG, gl.RG8, cw, ch, pl.data, L[1].offset, L[1].stride >> 1);
+            slot.kind = 2;
           } else {
-            plane('A', gfx.texA, gl.RGBA, gl.RGBA8, pw, ph, pl.data, L[0].offset, L[0].stride >> 2);
-            gfx.kind = pl.kind === 'bgr' ? 3 : 0;
+            plane(slot, 'A', gl.RGBA, gl.RGBA8, pw, ph, pl.data, L[0].offset, L[0].stride >> 2);
+            slot.kind = pl.kind === 'bgr' ? 3 : 0;
           }
           const key = pl.matrix + ':' + pl.fullRange;
           if (key !== gfx.yuvKey) {
@@ -604,11 +696,10 @@ void main() { o = uColor; }`;
             gfx.yuv = new Float32Array([k.scale, k.scale, k.scale, 0, k.gu, k.bu, k.rv, k.gv, 0]);
             gfx.yuvOff = [k.offset, .5, .5];
           }
-          gfx.src = [pw, ph];
+          slot.yuv = gfx.yuv; slot.yuvOff = gfx.yuvOff; slot.src = [pw, ph];
           gfx.path = 'planos ' + pl.format;
         }
         gfx.hasCam = true;
-        cover(gfx.src[0], gfx.src[1], w, h);
         return;
       }
       if (gfx.path.startsWith('planos')) return;                              // el siguiente está en camino
@@ -618,14 +709,16 @@ void main() { o = uColor; }`;
       const loop = () => { gfx.dirty = true; if (state.active) vid.requestVideoFrameCallback(loop); else gfx.hooked = false; };
       vid.requestVideoFrameCallback(loop);
     }
-    if (gfx.dirty || !gfx.hooked || gfx.path !== 'directa') {
+    // Cuadro nuevo de la cámara (y no más de uno cada 24 ms, para que la cola cubra un cuarto de segundo).
+    if ((gfx.dirty || !gfx.hooked || gfx.path !== 'directa') && (now - gfx.lastUp >= 24 || gfx.path !== 'directa')) {
       gfx.dirty = false;
-      gl.bindTexture(gl.TEXTURE_2D, gfx.texA);
+      const slot = nextSlot(now);
+      if (!slot.A) slot.A = texture();
+      gl.bindTexture(gl.TEXTURE_2D, slot.A);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, vid);
-      gfx.alloc.A = '';
+      slot.alloc.A = ''; slot.kind = 0; slot.yuv = null; slot.src = [vid.videoWidth, vid.videoHeight];
     }
-    gfx.kind = 0; gfx.path = 'directa'; gfx.hasCam = true;
-    cover(vid.videoWidth, vid.videoHeight, w, h);
+    gfx.path = 'directa'; gfx.hasCam = true;
   }
   function flat(points, mode, color, w, h) {
     const gl = gfx.gl, pr = gfx.flat;
@@ -700,26 +793,26 @@ void main() { o = uColor; }`;
     }
     return list;
   }
-  function drawGl(ctx, now, w, h, list) {
+  function drawGl(ctx, now, w, h, list, slot) {
     const gl = gfx.gl, canvas = gfx.canvas;
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-    uploadCamera(w, h);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, w, h);
     gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST);
     gl.colorMask(true, true, true, true);
-    if (gfx.hasCam) {
+    if (slot && slot.A) {
       const pr = gfx.cam;
+      cover(slot.src[0], slot.src[1], w, h);
       gl.useProgram(pr.pr);
       gl.bindVertexArray(gfx.vaoFull);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, gfx.texA);
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, gfx.texU);
-      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, gfx.texV);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, slot.A);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, slot.U || slot.A);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, slot.V || slot.U || slot.A);
       gl.uniform1i(pr.at('uA'), 0); gl.uniform1i(pr.at('uU'), 1); gl.uniform1i(pr.at('uV'), 2);
       gl.uniform4f(pr.at('uFit'), gfx.fit[0], gfx.fit[1], gfx.fit[2], gfx.fit[3]);
       gl.uniform1f(pr.at('uMirror'), state.mirror ? 1 : 0);
-      gl.uniform1i(pr.at('uKind'), gfx.kind);
-      if (gfx.yuv) { gl.uniformMatrix3fv(pr.at('uYuv'), false, gfx.yuv); gl.uniform3f(pr.at('uYuvOff'), gfx.yuvOff[0], gfx.yuvOff[1], gfx.yuvOff[2]); }
+      gl.uniform1i(pr.at('uKind'), slot.kind);
+      if (slot.yuv) { gl.uniformMatrix3fv(pr.at('uYuv'), false, slot.yuv); gl.uniform3f(pr.at('uYuvOff'), slot.yuvOff[0], slot.yuvOff[1], slot.yuvOff[2]); }
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     } else { gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
     for (const item of list) drawWindow(item.ring, pool.get(item.style.key), w, h, item.look);
@@ -745,34 +838,61 @@ void main() { o = uColor; }`;
   }
 
   // ── Cuadro ────────────────────────────────────────────────────────────────
+  const BASES = 8;
   function ensure(w, h) {
     const scale = BASE_LONG / Math.max(w, h);
     const bw = Math.max(2, Math.round(w * scale / 2) * 2), bh = Math.max(2, Math.round(h * scale / 2) * 2);
-    if (!state.base) { state.base = document.createElement('canvas'); state.bctx = state.base.getContext('2d', { willReadFrequently: true }); }
-    if (state.base.width !== bw || state.base.height !== bh) {
-      state.base.width = bw; state.base.height = bh; state.baseAt = -Infinity;
+    if (state.bw !== bw || state.bh !== bh) {
+      state.bw = bw; state.bh = bh;
+      state.bases.length = 0; state.baseHead = -1; state.base = null; state.styleBase = null; state.baseAt = -Infinity; state.baseShot = 0;
       if (typeof _resetCamEngineState === 'function') _resetCamEngineState('capture');
     }
     state.w = w; state.h = h;
   }
-  // El lienzo pequeño: la cámara recortada al formato del visor y, si es la frontal, en espejo.
+  // El lienzo pequeño: la cámara recortada al formato del visor y, si es la frontal, en espejo. Hay
+  // una cola de ellos, cada uno con su hora: el rastreador mira el último; los estilos, el del
+  // instante que se está enseñando.
   function refreshBase(cam, now) {
-    let source = cam.source, sw = cam.srcW, sh = cam.srcH;
-    if (flipSensor.usable(vid)) {
+    if (!state.bw) return false;
+    // En Android leer el vídeo con drawImage cuesta 20–30 ms: se usa el lector rápido, que va un
+    // cuadro por detrás (y se anota de cuándo es). En el resto, el vídeo tal cual, que es de ahora.
+    let source = vid, sw = vid.videoWidth, sh = vid.videoHeight, shot = now;
+    if (ANDROID && flipSensor.usable(vid)) {
       if (!flipSensor.pending(vid)) flipSensor.prime(vid);
       const fast = flipSensor.current(vid, 160);
-      if (fast) { source = fast.canvas; sw = fast.width; sh = fast.height; }
-      else if (ANDROID && state.baseAt > -Infinity) return false;             // aún no llega el cuadro rápido: sigue valiendo el anterior
+      if (fast) {
+        if (fast.at <= state.baseShot && state.baseAt > -Infinity) return false;   // es el mismo cuadro que ya se envió
+        source = fast.canvas; sw = fast.width; sh = fast.height; shot = fast.at;
+      }
+      else if (state.baseAt > -Infinity || !cam) return false;                 // aún no llega el cuadro rápido: sigue valiendo el anterior
+      else { source = cam.source; sw = cam.srcW; sh = cam.srcH; }
     }
     if (!sw || !sh) return false;
-    const b = state.bctx, bw = state.base.width, bh = state.base.height;
+    state.baseHead = (state.baseHead + 1) % BASES;
+    let slot = state.bases[state.baseHead];
+    if (!slot) {
+      const canvas = document.createElement('canvas');
+      canvas.width = state.bw; canvas.height = state.bh;
+      slot = state.bases[state.baseHead] = { canvas, ctx: canvas.getContext('2d', { willReadFrequently: true }), shot: 0 };
+    }
+    const b = slot.ctx, bw = state.bw, bh = state.bh;
     const [sx, sy, cw, ch] = cropCoordsForDims(sw, sh, bw, bh);
     b.setTransform(1, 0, 0, 1, 0, 0);
     if (state.mirror) { b.translate(bw, 0); b.scale(-1, 1); }
     b.drawImage(source, sx, sy, cw, ch, 0, 0, bw, bh);
     b.setTransform(1, 0, 0, 1, 0, 0);
-    state.baseAt = now;
+    slot.shot = shot;
+    state.base = slot.canvas; state.bctx = b; state.baseAt = now; state.baseShot = shot;
     return true;
+  }
+  function baseFor(at) {
+    let best = null, oldest = null;
+    for (const slot of state.bases) {
+      if (!slot || !slot.shot) continue;
+      if (slot.shot <= at && (!best || slot.shot > best.shot)) best = slot;
+      if (!oldest || slot.shot < oldest.shot) oldest = slot;
+    }
+    return (best || oldest || { canvas: state.base }).canvas;
   }
   function render(cam, ctx, now) {
     const w = ctx.canvas.width, h = ctx.canvas.height;
@@ -781,9 +901,18 @@ void main() { o = uColor; }`;
     state.lastT = now;
     state.mirror = typeof facingMode === 'string' && facingMode === 'user';
     const fast = initGl();
-    // 1 · Manos: un cuadro pequeño al rastreador (a 30 por segundo como mucho) y su posición ahora mismo.
-    if (now - state.baseAt >= 30 && refreshBase(cam, now)) push(state.base);
-    state.hands = pose(now, w, h);
+    // 0 · La cámara: el cuadro nuevo entra en la cola y se elige el que toca enseñar (el de hace `delay` ms).
+    state.delay = syncStep(now);
+    let slot = null;
+    if (fast) { uploadCamera(now); slot = slotAt(now - state.delay); }
+    state.shownAt = slot ? slot.shot : now;
+    // 1 · Manos: un cuadro pequeño al rastreador (a 30 por segundo como mucho) y su posición en el cuadro que se ve.
+    // Sin manos, sin ventana y sin portales fijados, el cuadro pequeño solo se renueva cuando el rastreador va a mirar.
+    const needed = awake(now) || state.shape || panes.length;
+    if (now - state.baseAt >= (needed ? 30 : IDLE_EVERY)) refreshBase(cam, now);
+    if (state.base && state.baseShot > trk.sentShot) push(state.base);       // el rastreador recibe cada cuadro una sola vez
+    state.styleBase = state.bases.length ? baseFor(state.shownAt) : state.base;
+    state.hands = pose(state.shownAt, w, h);
     state.pinched = tracks.some(track => track.pinch);
     const click = (trk.clickAt || 0) > (state.clickSeen || 0);
     if (click) state.clickSeen = trk.clickAt;
@@ -811,12 +940,23 @@ void main() { o = uColor; }`;
     // 3 · Estilos en uso, por turnos.
     const list = windowsFor(now, w, h);
     if (list.length && state.baseAt > -Infinity) feedStyles(list.map(item => item.style).filter((style, i, all) => all.findIndex(o => o.key === style.key) === i), now, w, h);
-    // 4 · A pantalla.
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
-    if (fast) drawGl(ctx, now, w, h, list); else draw2d(ctx, cam, w, h, list);
-    ctx.restore();
+    // 4 · A pantalla, solo si algo cambió: el cuadro de cámara que se enseña, la figura, un estilo
+    // recién pintado o una animación en marcha. La pantalla refresca a 60 o 120; la cámara, a 30.
+    let stamp = (slot ? slot.shot : 0) + '|' + state.amount.toFixed(3) + '|' + list.length + '|' + (selected >= 0 ? selected + '@' + now : '') + '|' + (state.mirror ? 1 : 0) + '|' + w + 'x' + h;
+    for (const item of list) {
+      const entry = pool.get(item.style.key);
+      let sum = 0;
+      for (let i = 0; i < item.ring.length; i++) sum += item.ring[i] * (1 + (i & 7));
+      stamp += '|' + item.style.key + (entry && entry.dirty ? '*' + entry.at : '') + (item.look && item.look.burst > 0.002 ? '!' + now : '') + sum.toFixed(1);
+    }
+    if (!fast || stamp !== state.stamp || ctx !== state.stampCtx) {
+      state.stamp = stamp; state.stampCtx = ctx;
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
+      if (fast) drawGl(ctx, now, w, h, list, slot); else draw2d(ctx, cam, w, h, list);
+      ctx.restore();
+    }
     marks(w, h, now);
   }
 
@@ -891,6 +1031,10 @@ void main() { o = uColor; }`;
   function enter() {
     Object.assign(state, { active: true, amount: 0, shape: null, hands: [], shown: null, mode: '', slots: null, lensAfter: 0, wait: false, hintUntil: 0 });
     state.trail.length = 0; trk.strikes = 0;
+    // Lo que quedara en las colas es de otra visita: no se enseña.
+    for (const slot of gfx.ring) if (slot) slot.shot = -Infinity;
+    for (const slot of state.bases) if (slot) slot.shot = 0;
+    gfx.head = -1; gfx.lastUp = -Infinity; gfx.seq = -1; state.baseAt = -Infinity; state.baseShot = 0; sync.lastT = 0; trk.sentShot = 0;
     document.body.classList.add('portal-mode');
     if (typeof camFamily === 'string' && camFamily === 'SLHT') _setCamFamily('DSI');
     const looks = flipShell.looks;
@@ -916,6 +1060,11 @@ void main() { o = uColor; }`;
     if (window.flipShell) flipShell.hint('');
     stop();
     state.hands = [];
+    // Al salir se sueltan las texturas de la cola (decenas de megas de GPU que CAM no usa).
+    if (gfx.gl) for (const slot of gfx.ring.splice(0)) if (slot) for (const name of ['A', 'U', 'V']) if (slot[name]) gfx.gl.deleteTexture(slot[name]);
+    gfx.head = -1; gfx.hasCam = false;
+    for (const slot of state.bases.splice(0)) if (slot) { slot.canvas.width = slot.canvas.height = 0; }
+    state.base = null; state.styleBase = null; state.baseHead = -1; state.baseAt = -Infinity; state.bw = state.bh = 0;
   }
   // Dedo sobre el visor: elegir, mover (dos dedos: escalar y girar), o fijar la ventana viva.
   const grab = { id: -1, pane: -1, moved: false, start: null, last: null, second: null, basePts: null, baseSpan: 0, baseAngle: 0 };
@@ -995,8 +1144,12 @@ void main() { o = uColor; }`;
       mode: state.mode || '', held: state.slots ? state.slots.map(slot => (slot.lostAt ? (slot.edge ? 'lado' : 'espera') : 'viva')) : null, hands: state.hands.length,
       tips: trk.raw.length ? [+trk.raw[0][8].toFixed(3), +trk.raw[0][9].toFixed(3), +trk.raw[0][16].toFixed(3), +trk.raw[0][17].toFixed(3)] : null,
       amount: +state.amount.toFixed(3), shape: state.shape ? state.shape.kind : null, area: state.shape ? +state.shape.area.toFixed(4) : 0, look: state.look,
+      // La figura viva, en 0…1 del visor (para medir cuánto se separa de los dedos).
+      figure: state.shape && state.w ? Array.from(state.shape.pts, (v, i) => +(v / (i % 2 ? state.h : state.w)).toFixed(4)) : null,
       panes: panes.length, selected, styles: panes.map(pane => pane.style.key), waiting: state.wait, pinched: state.pinched,
-      ms: trk.ms, error: trk.error || '', fxError: state.fxError || '', gl: gfx.ok, path: gfx.path }),
+      ms: trk.ms, error: trk.error || '', fxError: state.fxError || '', gl: gfx.ok, path: gfx.path,
+      // La imagen va `delay` ms por detrás: lo que tarda el rastreador (latency) más parte de su periodo.
+      delay: Math.round(state.delay), latency: Math.round(sync.latency), period: Math.round(sync.period), queue: gfx.ring.length }),
     // Portales fijados, para las teclas y para las pruebas.
     panes: {
       list: () => panes.map(pane => ({ id: pane.id, style: pane.style.key, pts: Array.from(pane.pts, v => +v.toFixed(4)) })),
@@ -1011,5 +1164,10 @@ void main() { o = uColor; }`;
     use(provider) { stop(!!provider); trk.provider = provider; trk.phase = provider ? 'ready' : 'idle'; },
     // Pruebas: fuerza la subida directa del vídeo en vez de los planos.
     direct(on) { gfx.direct = !!on; gfx.path = ''; },
+    // Ajuste del estimador (para medirlo con vídeo real): devuelve los valores en uso.
+    tune(next) { Object.assign(est, next || {}); if (next && next.delay != null) { sync.want = sync.delay = next.delay; } return { ...est, delay: sync.delay }; },
   };
 })();
+// Quien pregunte por PORTAL lo hace por window.flipPortal: si este archivo falla al iniciarse, el nombre
+// declarado queda sin valor y hasta `typeof flipPortal` lanza (y con él, el bucle de la cámara).
+window.flipPortal = flipPortal;

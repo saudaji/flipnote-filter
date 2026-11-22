@@ -7,7 +7,7 @@ const path = require('node:path');
 const TESTS = [
   ['alpha-smoke.cjs'], ['optical-cameras.cjs'], ['night-vision.cjs'], ['vector-beam.cjs'],
   ['material-audit.cjs', '--strict'], ['alpha-flows.cjs'], ['alpha-media.cjs'], ['alpha-performance.cjs', '--seconds', '3', '--soak', '24'],
-  ['portal.cjs'], ['feel.cjs'], ['stage.cjs'], ['vfd-crt.cjs'],
+  ['portal.cjs'], ['feel.cjs'], ['stage.cjs'], ['vfd-crt.cjs'], ['boot-guard.cjs'], ['webkit-smoke.cjs'],
 ];
 let failed = 0;
 for (const [file, ...args] of TESTS) {

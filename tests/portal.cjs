@@ -39,7 +39,7 @@ async function main() {
     }, rect);
     const INSIDE = [0.42, 0.4, 0.16, 0.16], OUTSIDE = [0.04, 0.04, 0.12, 0.1];
     const greenness = c => c.g - (c.r + c.b) / 2;
-    const FRAME = [L(0.25, 0.08), L(0.75, -0.08)];                 // ventana de x 0,33–0,67 e y 0,30–0,65
+    const FRAME = [L(0.25, 0.08), L(0.75, -0.08)];                 // yemas en (0,25 0,30) (0,75 0,30) (0,67 0,65) (0,33 0,65)
 
     // 1 · Entrar por el lanzador: PORTAL vive sobre CAM y dibuja acelerado.
     await openModule(page, 'portal');
@@ -63,7 +63,10 @@ async function main() {
     await settle(1000);
     st = await S();
     assert.equal(st.shape, 'quad'); assert.ok(st.amount > 0.95, 'la ventana se abre: ' + st.amount);
-    assert.ok(st.area > 0.1 && st.area < 0.14, 'la ventana ocupa lo que encierran las dos L: ' + st.area);
+    assert.ok(st.area > 0.13 && st.area < 0.17, 'la ventana ocupa lo que encierran las cuatro yemas: ' + st.area);
+    // Las cuatro esquinas son las cuatro yemas: índice y pulgar de la mano izquierda, pulgar e índice de la derecha.
+    const corners = [[0.25, 0.30], [0.75, 0.30], [0.67, 0.65], [0.33, 0.65]];
+    corners.forEach(([x, y], i) => assert.ok(Math.hypot(st.figure[2 * i] - x, st.figure[2 * i + 1] - y) < 0.012, 'la esquina ' + i + ' está en su yema: ' + st.figure.slice(2 * i, 2 * i + 2)));
     const inside = await zone(INSIDE), outside = await zone(OUTSIDE);
     assert.ok(greenness(inside) > greenness(plain) + 18, 'dentro se ve DSi (verde): ' + greenness(inside).toFixed(1) + ' frente a ' + greenness(plain).toFixed(1));
     assert.ok(greenness(outside) < greenness(inside) - 18, 'fuera sigue la cámara');
@@ -72,6 +75,21 @@ async function main() {
     await hands([[[0.25, 0.65], [0.33, 0.64], [0.33, 0.65]], [[0.75, 0.65], [0.67, 0.64], [0.67, 0.65]]]);
     await settle(700);
     assert.ok((await S()).amount < 0.1, 'cerrar las L cierra la ventana');
+    // Una mano cierra su pinza y la otra no: ese lado queda en punta y la ventana sigue abierta (un triángulo).
+    await hands([[[0.25, 0.5], [0.33, 0.49], [0.33, 0.5]], L(0.75, -0.08)]);
+    await settle(700);
+    st = await S();
+    assert.equal(st.shape, 'quad'); assert.ok(st.amount > 0.9 && st.area > 0.02, 'con una pinza cerrada queda un triángulo abierto: ' + JSON.stringify([st.amount, st.area]));
+    assert.ok(Math.hypot(st.figure[0] - st.figure[6], st.figure[1] - st.figure[7]) < 0.03, 'las dos esquinas de la mano cerrada coinciden');
+    // Una mano del revés (el índice por debajo del pulgar): la figura se cruza y no se cierra ni salta.
+    await hands([L(0.25, 0.08), [[0.75, 0.3], [0.75, 0.65], [0.67, 0.3]]]);
+    await settle(700);
+    st = await S();
+    assert.equal(st.shape, 'quad'); assert.ok(st.amount > 0.9 && st.area > 0.08, 'la figura cruzada sigue abierta: ' + JSON.stringify([st.amount, st.area]));
+    assert.ok(Math.abs(st.figure[3] - 0.65) < 0.02 && Math.abs(st.figure[5] - 0.3) < 0.02, 'cada esquina sigue en su yema aunque la figura se cruce: ' + st.figure);
+    // La imagen va unas décimas por detrás del reloj (lo que tarda el seguimiento) y la figura se coloca en ese instante.
+    assert.ok(st.delay >= 55 && st.delay <= 245, 'retraso de la imagen dentro de lo previsto: ' + st.delay + ' ms');
+    assert.ok(st.queue >= 4 && st.queue <= 16, 'cola de cuadros de cámara: ' + st.queue);
     await hands(FRAME);
     await settle(800);
 
@@ -152,7 +170,7 @@ async function main() {
     assert.equal(st.waiting, true, 'mientras dura el clic, la ventana viva espera');
     let list = await page.evaluate(() => flipPortal.panes.list());
     const xs = [0, 2, 4, 6].map(i => list[0].pts[i]), ys = [1, 3, 5, 7].map(i => list[0].pts[i]);
-    assert.ok(Math.abs(Math.min(...xs) - 0.33) < 0.03 && Math.abs(Math.max(...xs) - 0.67) < 0.03 && Math.abs(Math.min(...ys) - 0.3) < 0.03 && Math.abs(Math.max(...ys) - 0.65) < 0.03, 'el portal queda donde estaba la figura: ' + JSON.stringify(list[0].pts));
+    assert.ok(Math.abs(Math.min(...xs) - 0.25) < 0.03 && Math.abs(Math.max(...xs) - 0.75) < 0.03 && Math.abs(Math.min(...ys) - 0.3) < 0.03 && Math.abs(Math.max(...ys) - 0.65) < 0.03, 'el portal queda donde estaba la figura (de yema a yema): ' + JSON.stringify(list[0].pts));
     assert.equal(list[0].style, 'DSI:STD');
     // Suelta el clic y se lleva las manos: el portal se queda.
     await hands([]);
@@ -240,6 +258,17 @@ async function main() {
       await page.waitForFunction(n => flipPortal.status().frames > n + 3, base, { timeout: 20000 });
       st = await S();
       console.log('rastreador real · ' + st.ms.toFixed(0) + ' ms por cuadro · delegado ' + st.delegate);
+      // Sin manos delante el rastreador descansa: mira de vez en cuando, no en cada cuadro.
+      // (La escena de la habitación lleva una mano dibujada; se cambia por una pared lisa.)
+      await page.evaluate(() => { window.__sceneBefore = window.__flipSceneCamera.scene; window.__flipSceneCamera.scene = 'flat'; window.__flipSceneCamera.options = { value: 120 }; });
+      await settle(2600);
+      const idle0 = await S();
+      await settle(3000);
+      const idle1 = await S();
+      const rate = (idle1.frames - idle0.frames) / 3;
+      assert.ok(rate > 2 && rate < 9, 'sin manos el rastreador descansa pero sigue mirando: ' + rate.toFixed(1) + ' detecciones por segundo');
+      console.log('rastreador en reposo · ' + rate.toFixed(1) + ' detecciones por segundo');
+      await page.evaluate(() => { window.__flipSceneCamera.scene = window.__sceneBefore; window.__flipSceneCamera.options = null; });
       // 14 · …y, tras salir con un cuadro en vuelo y volver, sigue recibiendo cuadros.
       // (En un teléfono se quedaba «ocupado» para siempre y PORTAL dejaba de ver las manos.)
       for (let round = 0; round < 3; round++) {

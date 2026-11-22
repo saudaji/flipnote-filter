@@ -195,6 +195,13 @@
   // ── Salida ──────────────────────────────────────────────────────────────────
   let ctx = null, bus = null, pending = null;
   const turn = {};
+  // Un contexto de audio en marcha mantiene despierto el hilo de sonido aunque no suene nada: tras
+  // unos segundos sin teclas se suspende, y el siguiente toque lo despierta.
+  let nap = 0;
+  function rest() {
+    clearTimeout(nap);
+    nap = setTimeout(() => { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); }, 9000);
+  }
   function wake() {
     if (!prefs.sound) return;
     if (!ctx) {
@@ -213,6 +220,7 @@
       build();
     }
     if (ctx.state !== 'running') ctx.resume().catch(() => {});
+    rest();
   }
   function play(sound, gain, x, delay) {
     if (!ctx || !bus || !buffers || !buffers[sound]) return false;
@@ -246,9 +254,12 @@
   const recording = () => hushed.size > 0 || document.body.classList.contains('is-recording') || !!document.querySelector('.btn.recording');
   // Micrófonos abiertos por cualquier módulo: el altavoz se cuela en ellos.
   const microphones = new Set();
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    const open = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-    navigator.mediaDevices.getUserMedia = function (constraints) {
+  // Safari recoge el envoltorio de navigator.mediaDevices si nadie lo sujeta, y con él esta función:
+  // se guarda una referencia para que siga puesta.
+  const devices = navigator.mediaDevices;
+  if (devices && devices.getUserMedia) {
+    const open = devices.getUserMedia.bind(devices);
+    devices.getUserMedia = function (constraints) {
       const request = open(constraints);
       if (constraints && constraints.audio) request.then(stream => stream.getAudioTracks().forEach(track => microphones.add(track)), () => {});
       return request;
@@ -381,7 +392,7 @@
     kinds: () => JSON.parse(JSON.stringify(KINDS)),
     render: (name, variant = 0) => RECIPES[name] ? synth(RECIPES[name], 977 + Object.keys(RECIPES).indexOf(name) * 131 + variant * 17) : null,
     recipes: () => Object.keys(RECIPES),
-    state: () => ({ context: ctx ? ctx.state : 'none', built: !!buffers, recording: recording(), mic: micLive() }),
+    state: () => ({ context: ctx ? ctx.state : 'none', built: !!buffers, recording: recording(), mic: micLive(), devices: !!devices }),
   };
   // El panel de ajustes se pinta antes de que este archivo cargue: se monta ahora si ya existe.
   mount(document.getElementById('flipFeelPills'));

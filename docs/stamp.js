@@ -142,6 +142,11 @@ function _stampPaper(paletteKey, palette, workW, workH, amount, variantKey, seed
 //   ISSUE · conmemorativo dentado con matasellos de primer día
 let _stampFontEpoch = 0;
 const _stampFrameCache = new Map();
+// Suelta los marcos guardados (su memoria se libera ya, sin esperar al recolector).
+function _stampRelease() {
+  for (const frame of _stampFrameCache.values()) if (frame && frame.canvas) { frame.canvas.width = 0; frame.canvas.height = 0; }
+  _stampFrameCache.clear();
+}
 if (typeof document !== 'undefined' && document.fonts && document.fonts.load) {
   const refresh = () => { _stampFontEpoch++; _stampFrameCache.clear(); };
   Promise.all([document.fonts.load('700 24px Cinzel'), document.fonts.load('24px Canterbury')]).then(refresh, refresh);
@@ -298,7 +303,8 @@ function _stampFrame(variantKey, paletteKey, palette, outW, outH, seed) {
   const key = [variantKey, paletteKey, outW, outH, _stampFontEpoch, day].join(':');
   let frame = _stampFrameCache.get(key);
   if (frame) return frame;
-  if (_stampFrameCache.size > 5) _stampFrameCache.clear();
+  // Dos marcos como mucho (visor y foto): cada uno es un lienzo del tamaño de la imagen.
+  if (_stampFrameCache.size > 1) _stampRelease();
   const canvas = document.createElement('canvas');
   canvas.width = outW; canvas.height = outH;
   const ctx = canvas.getContext('2d');

@@ -2,6 +2,22 @@
 
 // An optical pickup: one horizontal line is a spatial signal. Only TIME uses a clock.
 const opticalScopes = new WeakMap();
+// Los estados vivos, para poder soltar sus capas cuando OSCAM lleva un rato sin pintarse.
+const opticalScopeRefs = [];
+function releaseOpticalScopes() {
+  for (let i = opticalScopeRefs.length - 1; i >= 0; i--) {
+    const state = opticalScopeRefs[i].deref();
+    if (!state) { opticalScopeRefs.splice(i, 1); continue; }
+    const V = state.vector;
+    if (!V) continue;
+    for (const frame of V.frames || []) if (frame.layer) { frame.layer.width = 0; frame.layer.height = 0; }
+    for (const layer of V.pool || []) { layer.width = 0; layer.height = 0; }
+    if (V.frames) V.frames.length = 0;
+    if (V.pool) V.pool.length = 0;
+    if (V.drawn) V.drawn.fill(0);
+    V.primed = false;
+  }
+}
 const scopeSamples = 256;
 const hannWindow = Float32Array.from(
   { length: scopeSamples },
@@ -525,6 +541,7 @@ function plotOpticalScope(source, srcW, srcH, ctx, mirror, mode, now) {
   if (!state) {
     state = createOpticalScope();
     opticalScopes.set(ctx, state);
+    if (typeof WeakRef === 'function') { opticalScopeRefs.push(new WeakRef(state)); if (opticalScopeRefs.length > 12) opticalScopeRefs.shift(); }
   }
   if (mode === 'STD') {
     // VECTOR muestrea la escena en celdas cuadradas con la proporción del visor.

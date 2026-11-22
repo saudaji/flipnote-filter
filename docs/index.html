@@ -2731,11 +2731,28 @@
     .flip-export-reset:active { opacity: 0.6; }
 
     /* ── V50: Toast notifications ── */
+    #cameraGate {
+      position: fixed; left: 50%; top: 44%; transform: translate(-50%, -50%);
+      z-index: 40; width: min(86vw, 340px); padding: 18px 16px;
+      display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+      background: rgba(10, 12, 10, 0.92); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 10px;
+      color: rgba(255, 255, 255, 0.92); font-family: monospace; text-align: center;
+    }
+    #cameraGate[hidden] { display: none; }
+    #cameraGate strong { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+    #cameraGate p { margin: 0; font-size: 11px; line-height: 1.5; color: rgba(255, 255, 255, 0.72); }
+    #cameraGate button {
+      min-height: 46px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+      font-family: monospace; font-size: 12px; font-weight: bold; letter-spacing: 1px;
+      background: #f2f2ee; color: #0b0d0b; border: 0;
+    }
+    #cameraGate button.quiet { min-height: 40px; background: none; color: rgba(255, 255, 255, 0.78); border: 1px solid rgba(255, 255, 255, 0.24); font-weight: normal; }
     .flip-toast-container {
       position: fixed;
       top: 50px;
-      left: 50%;
-      transform: translateX(-50%);
+      left: 0;
+      right: 0;
+      padding: 0 12px;
       z-index: 9999;
       display: flex;
       flex-direction: column;
@@ -2753,7 +2770,11 @@
       letter-spacing: 0.5px;
       border-radius: 6px;
       border: 1px solid rgba(255, 255, 255, 0.1);
-      white-space: nowrap;
+      /* Un aviso largo se parte en líneas: en un teléfono no puede salirse de la pantalla. */
+      max-width: 440px;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.45;
       animation: flipToastIn 0.25s ease, flipToastOut 0.3s ease 2.7s forwards;
     }
     @keyframes flipToastIn {
@@ -2904,6 +2925,12 @@
 </nav>
 
 <canvas id="display"></canvas>
+<div id="cameraGate" hidden>
+  <strong id="cameraGateTitle">Cámara apagada</strong>
+  <p id="cameraGateText">FLIP necesita la cámara para este módulo.</p>
+  <button type="button" id="btnCameraGate">ACTIVAR CÁMARA</button>
+  <button type="button" id="btnCameraGateFile" class="quiet">USAR UN ARCHIVO</button>
+</div>
 
 <!-- ASCII area: canvas + panel together for split layout -->
 <div id="asciiArea">
@@ -4921,11 +4948,15 @@ function relayout() {
   const avH = Math.max(160, viewport.height - viewport.topInset - 96);
   const avW = viewport.width;
 
+  // El visor de CAM deja sitio a la barra de variantes: en horizontal o en 9:16 no queda tapado.
+  const camH = Math.max(140, avH - 74);
   let w, h;
-  if (avW / avH > aspect) { h = avH; w = h * aspect; }
+  if (avW / camH > aspect) { h = camH; w = h * aspect; }
   else { w = avW; h = w / aspect; }
   display.style.width = w + 'px';
   display.style.height = h + 'px';
+  // Sin holgura vertical, el visor se centra por encima de la barra en vez de quedar debajo.
+  display.style.bottom = (avH - h) / 2 < 74 ? (96 + 74) + 'px' : '';
 
   let aw, ah;
   if (asciiPanelOpen && avW >= 768) {
@@ -4937,9 +4968,10 @@ function relayout() {
     const maxWidthFromHeight = canvasAvailH * aspect;
     aw = Math.min(avW, maxWidthFromHeight);
     ah = aw / aspect;
+  } else if (avW / avH > aspect) {
+    ah = avH; aw = ah * aspect;
   } else {
-    aw = w;
-    ah = h;
+    aw = avW; ah = aw / aspect;
   }
   asciiCvs.style.width = aw + 'px';
   asciiCvs.style.height = ah + 'px';
@@ -12153,10 +12185,90 @@ function startCamera(facing) {
     if (cameraRequest.facing === facing) return cameraRequest.promise;
     return cameraRequest.promise.catch(() => {}).then(() => startCamera(facing));
   }
-  const promise = openCamera(facing).finally(() => { cameraRequest = null; });
+  const promise = openCamera(facing).finally(() => { cameraRequest = null; })
+    .then(value => { syncCameraGate(null); return value; }, error => { syncCameraGate(error); throw error; });
   cameraRequest = { facing, promise };
+  syncCameraGate();
   return promise;
 }
+
+// ── Puerta de cámara ──────────────────────────────────────────────
+// Si CAM se queda sin cámara (permiso denegado, cámara ocupada, vuelta del segundo plano)
+// el visor ofrece un botón para activarla y dice qué pasó.
+const CAMERA_TABS = new Set(['cam', 'ascii', 'scrash', 'fusion']);
+let cameraGateError = null, cameraParked = false;
+function cameraGateMessage(error) {
+  if (!error) return ['Cámara apagada', 'FLIP necesita la cámara para este módulo.'];
+  switch (error.name) {
+    case 'NotAllowedError': case 'SecurityError':
+      return ['Cámara bloqueada', 'El navegador no dio permiso. Toca el candado de la barra de direcciones, permite la cámara y vuelve a intentarlo.'];
+    case 'NotFoundError': case 'OverconstrainedError':
+      return ['Sin cámara', 'No se encontró una cámara disponible en este dispositivo.'];
+    case 'NotReadableError': case 'AbortError':
+      return ['Cámara ocupada', 'Otra aplicación la está usando. Ciérrala y vuelve a intentarlo.'];
+    default:
+      return ['Cámara apagada', error.message || 'No se pudo abrir la cámara.'];
+  }
+}
+function syncCameraGate(error) {
+  const gate = document.getElementById('cameraGate');
+  if (!gate) return;
+  if (error !== undefined) cameraGateError = error;
+  const tab = _getSafeActiveTab();
+  const booted = typeof splash === 'undefined' || splash.classList.contains('hidden');
+  const idle = booted && tab === 'cam' && !stream && !cameraRequest && !extAudioMode && !extMicOnlyMode && !cameraParked;
+  gate.hidden = !idle;
+  if (!idle) return;
+  const [title, text] = cameraGateMessage(cameraGateError);
+  document.getElementById('cameraGateTitle').textContent = title;
+  document.getElementById('cameraGateText').textContent = text;
+}
+document.getElementById('btnCameraGate').addEventListener('click', () => {
+  startCamera(facingMode).catch(() => {});
+});
+document.getElementById('btnCameraGateFile').addEventListener('click', () => switchTab('edit'));
+
+// ── Segundo plano ─────────────────────────────────────────────────
+// Al ocultarse la página se cierra la toma en curso y se sueltan cámara y micrófono;
+// al volver se recupera la cámara si el módulo la usa.
+function releaseCamera() {
+  if (!stream) return;
+  try { stream.getTracks().forEach(track => track.stop()); } catch (_) {}
+  stream = null;
+  vid.srcObject = null;
+  _clearCamZoomSupport();
+  _syncCamZoomUI();
+}
+function whenVisible() {
+  if (document.visibilityState !== 'hidden') return Promise.resolve();
+  return new Promise(resolve => {
+    const check = () => {
+      if (document.visibilityState === 'hidden') return;
+      document.removeEventListener('visibilitychange', check);
+      resolve();
+    };
+    document.addEventListener('visibilitychange', check);
+  });
+}
+document.addEventListener('visibilitychange', () => {
+  if (IS_STAGE_OUT || !CAMERA_TABS.has(_getSafeActiveTab())) return;
+  if (document.visibilityState === 'hidden') {
+    if (typeof recorder !== 'undefined' && recorder && recorder.state !== 'inactive') { _stopRecorderSafely(recorder); stopRecTimer(); }
+    if (extMicOnlyMode && typeof stopMicOnly === 'function') {
+      stopMicOnly().catch(() => {});
+      const mic = document.getElementById('btnMicMobile');
+      if (mic) { mic.classList.remove('active'); mic.textContent = '🎙'; }
+    }
+    if (stream || cameraRequest) cameraParked = true;
+    releaseCamera();
+    return;
+  }
+  const dead = !!stream && stream.getVideoTracks().every(track => track.readyState === 'ended');
+  if (!cameraParked && !dead) return;
+  cameraParked = false;
+  if (dead) releaseCamera();
+  if (!extAudioMode) startCamera(facingMode).catch(error => flipToast('⚠ ' + (error?.message || 'Camera failed')));
+});
 
 async function openCamera(facing) {
   const nextStream = await navigator.mediaDevices.getUserMedia({
@@ -12194,6 +12306,7 @@ async function openCamera(facing) {
   }
   _refreshCamZoomSupport(nextStream.getVideoTracks()[0] || null);
   _resetCamEngineState('preview');
+  if (document.visibilityState === 'hidden' && cameraParked) { releaseCamera(); return; }
   if (activeTab === 'cam' && cameraRunning) scheduleFrame(cameraLoop);
   if (activeTab === 'ascii' && asciiRunning) scheduleFrame(asciiLoop);
   if (activeTab === 'fusion' && fusionRunning) scheduleFrame(_fusionLoop);
@@ -13093,7 +13206,8 @@ function switchTab(tab) {
   }
   if (!isSono) stopSono();
   if (isSono)  enterSono();
-  if (!isWmp)  wmpPauseLoop(); // pause render; keep audio context alive
+  // Al salir de WMP el micrófono se suelta; un archivo en reproducción solo pausa el dibujo.
+  if (!isWmp) { if (wmpMicStream) wmpStopAudio(); else wmpPauseLoop(); }
   if (isWmp)   enterWmp();
   if (!isScrash) exitScrash();
   if (isScrash)  enterScrash();
@@ -13125,6 +13239,7 @@ function switchTab(tab) {
   if (isCam   && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) scheduleFrame(cameraLoop);
   if (isAscii && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser) || asciiStaticSrc)) scheduleFrame(asciiLoop);
   if (isFusion && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) scheduleFrame(_fusionLoop);
+  syncCameraGate();
 }
 
 document.getElementById('tabCam'  ).addEventListener('click', () => switchTab('cam'));
@@ -13214,6 +13329,8 @@ function flipToast(message, duration = 3000) {
   const toast = document.createElement('div');
   toast.className = 'flip-toast';
   toast.textContent = message;
+  // El desvanecido acompaña a la duración pedida, no a un tiempo fijo.
+  toast.style.animationDelay = '0s, ' + Math.max(0.4, (duration - 300) / 1000) + 's';
   container.appendChild(toast);
   setTimeout(() => toast.remove(), duration);
 }
@@ -15580,6 +15697,8 @@ btnCap.addEventListener('click', async () => {
           recMime = _resolveRecordedMime(recMime, recChunks);
           const ext=_videoExtFromMime(recMime);
           lastBlob=new Blob(recChunks,{type:recMime});
+          // Si la toma se cerró porque la página pasó a segundo plano, se guarda al volver.
+          await whenVisible();
           await saveBlob(lastBlob, _flipName(camFamily === 'SLHT' ? 'slht' : 'cam', ext));
         }
       });
@@ -15949,6 +16068,7 @@ async function _bootFromSplash() {
     flipToast('⚠ ' + (err?.message || 'Camera failed') + ' — abre EDIT para usar un archivo');
   } finally {
     _splashBooting = false;
+    syncCameraGate();
   }
 }
 
@@ -17088,7 +17208,10 @@ function sonoLoop(ts) {
 // ── Mic start/stop ────────────────────────────────────────────────────
 async function startSonoMic() {
   try {
-    sonoMicStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    const micStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    // El permiso puede resolverse cuando ya se salió de SONO: el micrófono no se queda abierto.
+    if (activeTab !== 'sono') { micStream.getTracks().forEach(t => t.stop()); return false; }
+    sonoMicStream = micStream;
     sonoAudioCtx  = new (window.AudioContext || window.webkitAudioContext)();
     sonoAnalyser  = sonoAudioCtx.createAnalyser();
     sonoAnalyser.fftSize = 2048;
@@ -17581,7 +17704,9 @@ async function wmpStartMic() {
   await wmpStopAudio();
   document.getElementById('wmpPermErr').textContent = '';
   try {
-    wmpMicStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    const micStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    if (activeTab !== 'wmp') { micStream.getTracks().forEach(t => t.stop()); return; }
+    wmpMicStream = micStream;
     wmpAudioCtx  = new (window.AudioContext || window.webkitAudioContext)();
     wmpAnalyser  = wmpAudioCtx.createAnalyser();
     wmpAnalyser.fftSize = 2048;

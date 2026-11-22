@@ -60,7 +60,7 @@ async function main() {
     output.on('pageerror', error => errors.push(error.message));
     await hasImage(output, 'out');
     await page.locator('#rigMic').click();
-    await page.waitForFunction(() => flipStage.status().audio.on && extMicStream?.getAudioTracks().length > 0);
+    await page.waitForFunction(() => flipStage.status().audio.on && flipStage.status().audio.kind === 'mic');
     await output.close();
     await page.waitForFunction(() => !flipStage.status().out.window);
     await page.evaluate(() => navigator.serviceWorker.ready);

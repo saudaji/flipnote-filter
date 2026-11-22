@@ -12,7 +12,7 @@ const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${
 
 async function phone(browser) {
   const { page, errors } = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 720, h: 1280, fps: 30 } });
-  await page.evaluate(() => { localStorage.removeItem('flip.stage.v2'); flipStage.reset(); });
+  await page.evaluate(() => { localStorage.removeItem('flip.stage.v3'); flipStage.reset(); });
   const settle = ms => page.waitForTimeout(ms);
   const S = () => page.evaluate(() => flipStage.status());
   const probe = (x, y, w, h) => page.evaluate(r => flipStage.probe(r[0], r[1], r[2], r[3]), [x, y, w, h]);
@@ -22,6 +22,8 @@ async function phone(browser) {
   // 1 · Entra por el lanzador y dibuja la cámara por la vía rápida de planos.
   await openModule(page, 'stage');
   await page.waitForFunction(() => flipStage.status().hasA, null, { timeout: 15000 });
+  // El primer cuadro puede llegar por la vía directa mientras se copia el primero de los planos.
+  await page.waitForFunction(() => flipStage.status().path.startsWith('planos'), null, { timeout: 8000 }).catch(() => {});
   let st = await S();
   assert.equal(st.ok, true, 'WebGL 2: ' + st.error);
   assert.deepEqual(st.size, [960, 540], 'calidad AUTO en un teléfono');
@@ -138,6 +140,51 @@ async function phone(browser) {
   near(mod.withSound.rgb, .7, .01, 'los graves empujan RGB'); near(mod.withSound.hue, .2, .01, 'los medios empujan el matiz');
   assert.ok(mod.withSound.beat > .8 && mod.later < .05, 'el golpe salta y se apaga: ' + JSON.stringify([mod.withSound.beat, mod.later]));
 
+  // 8b · Música de verdad por el analizador: bombo a 128 por minuto, platos y un acorde, sintetizados.
+  // Tiene que seguirla a volumen normal, 24 dB más baja (se adapta sola) y callar en el silencio.
+  await page.evaluate(() => {
+    flipStage.audio.use(ctx => {
+      const rate = ctx.sampleRate, beat = 60 / 128, n = Math.round(rate * beat * 32);
+      const buffer = ctx.createBuffer(1, n, rate), d = buffer.getChannelData(0);
+      let seed = 7;
+      const noise = () => { seed = (seed * 16807) % 2147483647; return seed / 1073741823.5 - 1; };
+      for (let i = 0; i < n; i++) {
+        const t = i / rate, tb = t % beat, th = (t + beat / 2) % beat;
+        d[i] = Math.sin(2 * Math.PI * (48 + 90 * Math.exp(-tb * 28)) * tb) * Math.exp(-tb * 9) * .9 + noise() * Math.exp(-th * 60) * .18
+          + Math.sin(2 * Math.PI * 440 * t) * .05 + Math.sin(2 * Math.PI * 660 * t) * .04;
+      }
+      const source = ctx.createBufferSource(), gain = ctx.createGain();
+      source.buffer = buffer; source.loop = true; gain.gain.value = .5;
+      source.connect(gain); source.start();
+      window.__music = gain;
+      return gain;
+    });
+  });
+  const listen = (ms, from = 0) => page.evaluate(([ms, from]) => new Promise(done => {
+    const t0 = performance.now(), start = flipStage.status().audio.beats; let lo = 1, hi = 0;
+    const tick = () => {
+      const t = performance.now() - t0;
+      if (t >= from) { const bass = flipStage.mods().bass; lo = Math.min(lo, bass); hi = Math.max(hi, bass); }
+      if (t < ms) requestAnimationFrame(tick); else { const a = flipStage.status(); done({ beats: a.audio.beats - start, bpm: a.audio.bpm, source: a.bpmSource, lo, hi, level: a.audio.level, silent: a.audio.silent }); }
+    };
+    tick();
+  }), [ms, from]);
+  const loud = await listen(7000, 2500);
+  assert.ok(loud.beats >= 12 && loud.beats <= 18, 'cuenta los golpes del bombo (unos 15 en 7 s): ' + loud.beats);
+  near(loud.bpm, 128, 4, 'saca el tempo de la música'); assert.equal(loud.source, 'AUTO');
+  assert.ok(loud.hi > .8 && loud.lo < .25, 'los graves suben con cada bombo y bajan entre ellos: ' + JSON.stringify(loud));
+  assert.ok(loud.level > .3, 'el medidor enseña que la señal llega: ' + loud.level);
+  await page.evaluate(() => { window.__music.gain.value = .5 * Math.pow(10, -24 / 20); });
+  const soft = await listen(7000, 4000);
+  assert.ok(soft.beats >= 11, 'con la música 24 dB más baja sigue contando golpes: ' + soft.beats);
+  assert.ok(soft.hi > .6, 'y los mandos siguen moviéndose igual de lejos: ' + JSON.stringify(soft));
+  await page.evaluate(() => { window.__music.gain.value = 0; });
+  const hush = await listen(5500, 3000);
+  assert.ok(hush.beats <= 1 && hush.hi < .05 && hush.silent && hush.bpm === 0, 'en silencio no inventa golpes ni tempo y avisa de que no llega señal: ' + JSON.stringify(hush));
+  assert.equal(await page.locator('#rigTallyAudio b').textContent(), 'NO LLEGA SEÑAL');
+  await page.evaluate(() => flipStage.audio.off());
+  assert.equal(await page.locator('#rigTallyAudio b').textContent().then(async () => { await settle(200); return page.locator('#rigTallyAudio b').textContent(); }), 'SIN SONIDO');
+
   // 9 · Consola: perillas con el dedo, doble toque a fábrica, parcheo con cables.
   await page.locator('#rigTabs [data-page="fb"]').click();
   const before = await page.evaluate(() => flipStage.get('fb.amt'));
@@ -206,6 +253,28 @@ async function phone(browser) {
   assert.equal((await S()).scene, 4, 'las notas 36–43 llaman a las escenas');
   const clock = await page.evaluate(() => { for (let i = 0; i < 25; i++) flipStage.midi.inject([0xf8], 1000 + i * (60000 / 128 / 24)); const s = flipStage.status(); return [s.bpm, s.bpmSource]; });
   near(clock[0], 128, .5, 'el reloj MIDI marca el tempo'); assert.equal(clock[1], 'MIDI');
+  // Sin aprender nada: los mandos del controlador gobiernan los de la página que se ve, por orden.
+  await page.locator('#rigTabs [data-page="fb"]').click();
+  await page.evaluate(() => { flipStage.midi.inject([0xb0, 71, 127]); flipStage.midi.inject([0xb0, 70, 0]); flipStage.midi.inject([0xb0, 72, 64]); flipStage.step(30); });
+  const auto = await page.evaluate(() => ['fb.amt', 'fb.zoom', 'fb.rot'].map(id => +flipStage.get(id).toFixed(2)));
+  assert.deepEqual(auto, [0, 1, 0.5], 'CC 70, 71 y 72 mueven las tres primeras perillas de BUCLE');
+  // El CC aprendido antes (21 → ZOOM de GEOM) manda sobre la regla automática aunque caiga en un banco conocido.
+  const learned = await page.evaluate(() => { const amt = flipStage.get('fb.amt'); flipStage.midi.inject([0xb0, 21, 127]); flipStage.step(30); return [flipStage.get('geo.zoom'), flipStage.get('fb.amt') === amt]; });
+  near(learned[0], 1, .01, 'el CC aprendido sigue en su mando'); assert.equal(learned[1], true, 'y no toca la página visible');
+  // Cambio de programa → escena; notas 60–67 → escenas; otra nota → golpe; ruedas → PAD; volumen → nivel.
+  const free = await page.evaluate(() => {
+    flipStage.midi.inject([0xc0, 5]); const byProgram = flipStage.status().scene;
+    flipStage.midi.inject([0x90, 62, 100]); flipStage.midi.inject([0x80, 62, 0]); const byNote = flipStage.status().scene;
+    flipStage.midi.inject([0x90, 84, 127]); flipStage.step(1); const hit = flipStage.mods().beat; flipStage.midi.inject([0x80, 84, 0]);
+    flipStage.midi.inject([0xe0, 0, 96]); flipStage.midi.inject([0xb0, 1, 32]); flipStage.step(1); const pad = [flipStage.mods().padx, flipStage.mods().pady];
+    flipStage.midi.inject([0xb0, 7, 64]); flipStage.step(30); const level = flipStage.get('out.level');
+    flipStage.midi.inject([0xb0, 7, 127]); flipStage.step(30);
+    return { byProgram, byNote, hit, pad, level };
+  });
+  assert.equal(free.byProgram, 5); assert.equal(free.byNote, 2);
+  assert.ok(free.hit > .8, 'una nota suelta da un golpe: ' + free.hit);
+  near(free.pad[0], .75, .01, 'la rueda de tono es el PAD X'); near(free.pad[1], 32 / 127, .01, 'la de modulación, el PAD Y');
+  near(free.level, 64 / 127, .01, 'el volumen MIDI es el nivel de salida');
   // Tempo a golpes.
   await settle(1700);
   for (let i = 0; i < 4; i++) { await page.locator('#rigTap').click(); await settle(480); }
@@ -266,7 +335,7 @@ async function phone(browser) {
 // La ventana de salida, en un ordenador.
 async function desktop(browser) {
   const { page, errors } = await openFlip(browser, { desktop: true, sceneCamera: { scene: 'roomLit', w: 1280, h: 720, fps: 30 } });
-  await page.evaluate(() => { localStorage.removeItem('flip.stage.v2'); flipStage.reset(); });
+  await page.evaluate(() => { localStorage.removeItem('flip.stage.v3'); flipStage.reset(); });
   await openModule(page, 'stage');
   await page.waitForFunction(() => flipStage.status().hasA, null, { timeout: 15000 });
   let st = await page.evaluate(() => flipStage.status());

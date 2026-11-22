@@ -40,9 +40,9 @@ dentro la imagen sale con la cámara elegida.
 - Se elige en la misma bandeja de CAM: DSi, STAMP, AUTO 03, DLPHN, CASKIA, VFD, OSCAM, más ASCII y
   las dos que siguen al sonido (SONO, WMP). **SLHT no se ofrece.** De **STAMP entra la trama, no el
   marco** del sello, y el ajuste de marco del usuario no se toca.
-- Con una sola mano (la otra sujeta el teléfono) la ventana es una **lente** entre el pulgar y el
-  índice. Tocar el visor **fija** la ventana para poder soltar las manos.
-- La cámara va fluida a 30 fps y cada emulador mantiene su cadencia solo dentro de la ventana.
+- Con una sola mano (la otra sujeta el teléfono) la ventana es la **esquina** que dibujan su
+  pulgar y su índice. Las ventanas se **fijan** para componer un vitral (apartado 7).
+- La cámara va a la cadencia de la pantalla y cada emulador mantiene la suya solo dentro de la ventana.
 - Foto y vídeo salen por el disparador de siempre y son lo que se ve.
 - El seguimiento de manos (MediaPipe, 21 puntos por mano) corre en un worker con el delegado de
   CPU, igual que el detector de siluetas, y el service worker guarda el modelo tras la primera
@@ -144,16 +144,66 @@ depuración USB, con su cámara real (720 × 1280, I420). Herramientas en `tests
 
 Los colores de la cámara por planos (BT.601 de rango completo en este teléfono) se ven naturales.
 
-## 7 · Sin verificar
+## 7 · Lo que cambió después de usarlo con el teléfono en la mano
 
-- **PORTAL con manos delante de un teléfono.** El rastreador carga y corre en el Samsung, y el
-  gesto está probado con el vídeo de referencia en el ordenador; falta una persona haciendo el
-  marco delante del teléfono.
-- **Sonido con micrófono y MIDI en el teléfono.** Sus permisos piden un toque del dueño; no se
-  concedieron por depuración. La reacción al sonido y el MIDI están probados con datos inyectados.
-- El **sonido de las teclas a oído** y la vibración en la mano: registrados y aceptados por el
-  teléfono, no escuchados ni sentidos por una persona.
-- **Controlador MIDI real** y **proyector por cable**.
+**Fallos encontrados en el Samsung y su causa.**
+
+| Lo que pasaba | Causa | Ahora |
+|---|---|---|
+| GIRAR no cambiaba a la cámara frontal («Could not start video source») | La app abría la cámara nueva sin soltar la actual; ese teléfono no deja tener dos abiertas (el Pixel sí). Pasaba también en CAM | Se intenta sin corte y, si falla, se suelta la actual y se reintenta; el teléfono queda anotado. Medido: el giro tarda alrededor de un segundo |
+| PORTAL no detectaba las manos | Al salir de PORTAL con un cuadro en vuelo, el rastreador quedaba «ocupado» para siempre y al volver no recibía ninguno | El estado se limpia al parar; hay prueba que sale y entra tres veces con un cuadro en vuelo |
+| Al abrir mucho el marco, saltaba a un círculo | Una mano se salía del cuadro y la ventana pasaba a ser la de una sola mano | El marco recuerda a sus dos manos; si una sale por un lado, su borde llega hasta ese lado |
+| PORTAL se sentía lento | Dibujaba a 30 por segundo y cada cuadro costaba 14 ms; el seguimiento daba 10 lecturas por segundo, con un filtro que arrastraba | Ver abajo |
+| STAGE no reaccionaba a la música | El sonido estaba apagado y nada lo decía; en un ordenador, además, el micrófono no oye lo que suena por los auriculares | Ver abajo |
+
+**PORTAL, núcleo nuevo.** Dibujo en WebGL a la cadencia de la pantalla (61 dibujos por segundo en
+la prueba), con la cámara por sus planos nativos en Android. Cada mano tiene un estimador (filtro
+1€ más velocidad) que adelanta su posición lo que tardó la inferencia, y el cuadro siguiente sale
+hacia el rastreador en cuanto vuelve el anterior. El delegado de GPU del rastreador se prueba en
+paralelo con el de CPU y solo se adopta si da las mismas manos y es más rápido (en el Mac pasó de
+27 a 18 ms por lectura). La ventana sigue la «L» de cada mano, como en el vídeo de referencia:
+va de la yema que apunta hacia dentro a ese punto desplazado lo que el otro dedo se separa en
+perpendicular; cerrar la L la cierra.
+
+**Portales fijados (vitral).** Una ventana se fija con el clic de anular y pulgar (medido en 3D con
+el modelo de la mano, porque en 2D dos yemas coinciden por perspectiva sin tocarse; tiene que
+venir de abierto y durar dos lecturas), con la tecla FIJAR o tocando el visor. Cada portal guarda
+figura, sitio y estilo: se elige otra cámara y se fija el siguiente. Se mueven arrastrando (dos
+dedos: escala y giro), cambian de estilo al tocar otra cámara y se borran con su aspa o con
+BORRAR (mantenerla los borra todos). Hasta ocho.
+
+**STAGE, sonido.** Entrada propia y elegible: micrófono, otra entrada de audio o «este ordenador»
+(el navegador pregunta qué pestaña o pantalla compartir, con su audio). Arriba a la derecha del
+monitor se ve de dónde entra el sonido y cuánto llega; si la escena pide sonido y está apagado,
+la tecla MIC late; si está encendido y no llega nada, lo dice. Cada banda se mide en decibelios
+y se normaliza entre su suelo y su techo recientes, así reacciona igual con la música baja que
+alta. Los golpes salen del flujo espectral de los graves y el tempo de su autocorrelación; un
+reloj de compases se engancha a los golpes para que los LFO «a tempo» caigan en el pulso. Las
+escenas de fábrica llevan ahora reacciones más marcadas.
+
+**STAGE, MIDI sin configurar.** Las notas 36–43 y 60–67 llaman a las escenas y cualquier otra da
+un golpe; los ocho mandos de los controladores habituales (CC desde 70, 21, 16, 102 o 41)
+gobiernan las perillas de la página visible; la rueda de tono y la de modulación son el pad; el
+volumen es el nivel de salida; un cambio de programa, la escena; el reloj MIDI, el tempo.
+APRENDER sigue fijando un mando concreto a un control.
+
+**Evidencia de esta parte.** `portal.cjs` (61 dibujos por segundo, marco, bordes, clic, vitral,
+mover, estilos, borrar, rastreador real), `stage.cjs` con música sintetizada entrando de verdad
+por el analizador (bombo a 128: cuenta ~15 golpes en 7 s y da 128 ±4 de tempo; 24 dB más baja
+sigue reaccionando igual; en silencio no inventa nada y avisa) y MIDI inyectado; `alpha-flows.cjs`
+con un teléfono simulado que no abre dos cámaras. Con el vídeo de referencia como cámara: manos
+en 97 de 101 muestras, ninguna rotura del marco y ningún portal fijado sin querer.
+
+## 8 · Sin verificar
+
+- **El PORTAL nuevo y el sonido de STAGE en un teléfono.** El Samsung se desconectó antes de
+  poder medirlos; lo comprobado en él es lo del apartado 6 (anterior a estos cambios) más el giro
+  de cámara y que el rastreador vuelve a recibir cuadros. Falta medir allí el dibujo a 60 por
+  segundo, el delegado de GPU del rastreador y el clic de anular y pulgar con una mano real.
+- **«Este ordenador» como entrada de sonido**: depende del diálogo de compartir del navegador;
+  no se puede automatizar y no se probó a mano.
+- **Controlador MIDI real** y **proyector por cable**: MIDI está probado con mensajes inyectados.
+- El **sonido de las teclas a oído** y la vibración en la mano.
 - El Pixel 10 (estaba en uso): esta pasada no se midió en él.
 - LED real en FLASH, NIGHT en penumbra real, temperatura y batería en uso largo, giro del
   teléfono en CAM, vuelta del segundo plano (igual que en la pasada anterior).

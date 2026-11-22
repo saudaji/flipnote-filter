@@ -52,6 +52,13 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 .rig-tally span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 5px 2px; border-radius: 3px; background: rgba(0, 0, 0, .42); }
 .rig-tally i { width: 6px; height: 6px; border-radius: 50%; background: #5fe08a; box-shadow: 0 0 5px #5fe08a; }
 #rigTallyOut, #rigTallyRec { display: none; }
+/* Arriba a la derecha: de dónde entra el sonido y cuánto llega. */
+.rig-tally-right { left: auto; right: 8px; }
+#rigTallyAudio.is-off { opacity: .55; }
+#rigTallyAudio.is-silent { background: rgba(229, 57, 43, .85); }
+#rigTallyAudio .vu { display: block; width: 44px; height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .22); }
+#rigTallyAudio .vu u { display: block; height: 100%; width: calc(var(--vu, 0) * 100%); background: linear-gradient(90deg, #5fe08a, #5fe08a 55%, #f0ae2b 78%, #e5392b); transition: width .05s linear; }
+#rigTallyAudio.is-off .vu { display: none; }
 #rigTallyOut { background: rgba(47, 120, 220, .85); }
 #rigTallyRec { background: rgba(229, 57, 43, .9); }
 #rigTallyRec i { background: #fff; box-shadow: none; animation: lcd-blink 1s steps(2, jump-none) infinite; }
@@ -105,6 +112,7 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 .rig-title { position: absolute; top: 5px; left: 20px; right: 20px; text-align: center; letter-spacing: .2em; color: var(--ink-dim); }
 .rig-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 0 3px 4px; }
 .rig-picks[data-count="1"] { grid-template-columns: minmax(0, 1fr); padding: 0 46px 4px; }
+.rig-picks[data-count="3"] .rig-pick:nth-child(3) { grid-column: 1 / -1; padding: 0 46px; }
 .rig-pick { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .rig-pick > .hw-print { padding-left: 3px; }
 .rig-pick-row { display: flex; align-items: center; gap: 2px; }
@@ -201,6 +209,9 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 #rigTap.is-beat { filter: brightness(1.14); }
 #rigMic.is-on { background-image: url('./body/candy-mint.webp'); }
 #rigMic.is-busy { opacity: .6; }
+/* La escena pide sonido y la entrada está apagada: la tecla avisa. */
+#rigMic.is-asking { animation: rig-ask 1.1s ease-in-out infinite; }
+@keyframes rig-ask { 50% { filter: brightness(1.35); box-shadow: 0 0 0 3px rgba(51, 176, 159, .55); border-radius: 50%; } }
 #rigMidi.is-on { background-image: url('./body/candy-lilac.webp'); }
 #rigMidi.is-learning { animation: rig-learn .6s ease-in-out infinite; }
 #rigMidi.is-active svg { filter: drop-shadow(0 0 4px #fff); }

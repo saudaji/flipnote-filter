@@ -86,7 +86,7 @@ const flipStage = (() => {
     { id: 'geo', label: 'GEOM', title: 'GEOMETRÍA', picks: [['geo.mirror', 'ESPEJO']], knobs: ['geo.zoom', 'geo.rot', 'geo.spin', 'geo.kal', 'geo.tile', 'geo.warp', 'geo.wfreq'] },
     { id: 'col', label: 'COLOR', title: 'COLOR', picks: [['col.pal', 'PALETA DE TINTA']], knobs: ['col.hue', 'col.sat', 'col.con', 'col.cycle', 'col.tint', 'col.post', 'col.solar'], toggles: [['col.inv', 'NEGATIVO']] },
     { id: 'sig', label: 'SEÑAL', title: 'SEÑAL DE VÍDEO', knobs: ['sig.rgb', 'sig.tear', 'sig.vhold', 'sig.bleed', 'sig.pix', 'sig.scan', 'sig.noise', 'sig.strobe'] },
-    { id: 'mod', label: 'MOD', title: 'MODULACIÓN', picks: [['lfo1.shape', 'LFO 1'], ['lfo2.shape', 'LFO 2']], knobs: ['lfo1.rate', 'lfo2.rate', 'aud.gain', 'aud.fall'] },
+    { id: 'mod', label: 'MOD', title: 'MODULACIÓN', picks: [['lfo1.shape', 'LFO 1'], ['lfo2.shape', 'LFO 2'], ['aud.src', 'ENTRADA DE SONIDO']], knobs: ['lfo1.rate', 'lfo2.rate', 'aud.gain', 'aud.fall'] },
     { id: 'out', label: 'SALIDA', title: 'SALIDA', picks: [['out.aspect', 'FORMATO'], ['out.quality', 'CALIDAD']], knobs: ['out.level', 'mod.morph'], toggles: [['out.flipX', 'VOLTEAR H'], ['out.flipY', 'VOLTEAR V']] },
   ];
 
@@ -94,19 +94,19 @@ const flipStage = (() => {
   const basePatch = () => { const p = {}; for (const id of SCENE_IDS) p[id] = P[id][1]; return p; };
   const scene = (name, p = {}, d = {}, r = []) => ({ name, p: Object.assign(basePatch(), p), d: Object.assign({}, D0, d), r });
   const FACTORY = () => [
-    scene('DIRECTO', { 'sig.scan': .22, 'sig.rgb': .1, 'col.sat': .56, 'col.con': .55 }, {}, [['bass', 'sig.rgb', .4], ['beat', 'geo.zoom', .07]]),
-    scene('TÚNEL', { 'fb.amt': .88, 'fb.zoom': .62, 'fb.rot': .53, 'fb.hue': .1, 'fb.decay': .86, 'col.sat': .6 }, {}, [['lfo1', 'fb.rot', .1], ['bass', 'fb.zoom', .12]]),
-    scene('MANDALA', { 'geo.kal': .55, 'geo.spin': .56, 'geo.zoom': .44, 'fb.amt': .6, 'fb.zoom': .53, 'fb.decay': .84, 'col.sat': .66, 'lfo1.rate': .22 }, { 'fb.mode': 1 }, [['lfo1', 'geo.zoom', .14], ['mid', 'col.hue', .25]]),
-    scene('SILUETA', { 'mix.fade': 1, 'key.level': .5, 'key.soft': .3, 'gen.freq': .3, 'gen.speed': .64, 'gen.hue': .62, 'gen.shape': .5 }, { 'mix.mode': 5, 'src.gen': 2 }, [['bass', 'gen.freq', .22], ['lfo2', 'gen.hue', .2]]),
-    scene('VHS', { 'sig.tear': .34, 'sig.bleed': .62, 'sig.scan': .5, 'sig.noise': .34, 'sig.rgb': .26, 'col.sat': .62, 'col.con': .56 }, {}, [['beat', 'sig.tear', .5], ['lfo2', 'sig.noise', .12]]),
-    scene('NEÓN', { 'col.solar': .72, 'col.tint': .82, 'col.post': .3, 'fb.amt': .5, 'fb.hue': .22, 'fb.decay': .86, 'fb.zoom': .52 }, { 'col.pal': 4, 'fb.mode': 1 }, [['lfo1', 'col.hue', .5], ['high', 'sig.rgb', .35]]),
-    scene('OSCILOS', { 'mix.fade': .9, 'gen.freq': .5, 'gen.hue': .3, 'gen.shape': .2, 'fb.amt': .86, 'fb.zoom': .44, 'fb.hue': .07, 'fb.decay': .9, 'col.sat': .4 }, { 'mix.mode': 1, 'src.gen': 6, 'fb.mode': 1 }, [['bass', 'fb.zoom', -.1], ['mid', 'gen.hue', .3]]),
+    scene('DIRECTO', { 'sig.scan': .22, 'sig.rgb': .08, 'col.sat': .56, 'col.con': .55 }, {}, [['bass', 'sig.rgb', .55], ['beat', 'geo.zoom', .1], ['high', 'col.con', .12]]),
+    scene('TÚNEL', { 'fb.amt': .88, 'fb.zoom': .62, 'fb.rot': .53, 'fb.hue': .1, 'fb.decay': .86, 'col.sat': .6 }, {}, [['lfo1', 'fb.rot', .1], ['bass', 'fb.zoom', .2], ['mid', 'fb.hue', .2], ['beat', 'col.con', .14]]),
+    scene('MANDALA', { 'geo.kal': .55, 'geo.spin': .56, 'geo.zoom': .44, 'fb.amt': .6, 'fb.zoom': .53, 'fb.decay': .84, 'col.sat': .66, 'lfo1.rate': .22 }, { 'fb.mode': 1 }, [['lfo1', 'geo.zoom', .12], ['beat', 'geo.zoom', .14], ['mid', 'col.hue', .3], ['bass', 'geo.warp', .35]]),
+    scene('SILUETA', { 'mix.fade': 1, 'key.level': .5, 'key.soft': .3, 'gen.freq': .3, 'gen.speed': .64, 'gen.hue': .62, 'gen.shape': .5 }, { 'mix.mode': 5, 'src.gen': 2 }, [['bass', 'gen.freq', .3], ['lfo2', 'gen.hue', .2], ['beat', 'gen.shape', .3]]),
+    scene('VHS', { 'sig.tear': .34, 'sig.bleed': .62, 'sig.scan': .5, 'sig.noise': .34, 'sig.rgb': .26, 'col.sat': .62, 'col.con': .56 }, {}, [['beat', 'sig.tear', .6], ['bass', 'sig.rgb', .45], ['lfo2', 'sig.noise', .12]]),
+    scene('NEÓN', { 'col.solar': .72, 'col.tint': .82, 'col.post': .3, 'fb.amt': .5, 'fb.hue': .22, 'fb.decay': .86, 'fb.zoom': .52 }, { 'col.pal': 4, 'fb.mode': 1 }, [['lfo1', 'col.hue', .5], ['high', 'sig.rgb', .4], ['bass', 'fb.zoom', .16], ['beat', 'col.post', .25]]),
+    scene('OSCILOS', { 'mix.fade': .9, 'gen.freq': .5, 'gen.hue': .3, 'gen.shape': .2, 'fb.amt': .86, 'fb.zoom': .44, 'fb.hue': .07, 'fb.decay': .9, 'col.sat': .4 }, { 'mix.mode': 1, 'src.gen': 6, 'fb.mode': 1 }, [['bass', 'fb.zoom', -.14], ['mid', 'gen.hue', .3], ['beat', 'gen.freq', .35]]),
     scene('CARTA', { 'mix.fade': 1 }, { 'src.gen': 8 }, []),
   ];
 
   // ── Estado guardado ─────────────────────────────────────────────────────────
-  const STORE = 'flip.stage.v2';
-  function fresh() { return { v: 2, scene: 0, scenes: FACTORY(), live: null, global: { aspect: 0, quality: 0, flipX: 0, flipY: 0, bpm: 0, p: {} }, midi: { cc: {}, note: {} } }; }
+  const STORE = 'flip.stage.v3';        // v3: escenas de fábrica con reacción al sonido más marcada
+  function fresh() { return { v: 3, scene: 0, scenes: FACTORY(), live: null, global: { aspect: 0, quality: 0, flipX: 0, flipY: 0, bpm: 0, p: {} }, midi: { cc: {}, note: {} } }; }
   function tidyPatch(patch, fallback) {
     const out = { name: String(patch && patch.name || fallback.name).slice(0, 12), p: {}, d: {}, r: [] };
     for (const id of SCENE_IDS) out.p[id] = Number.isFinite(patch && patch.p && patch.p[id]) ? clamp(patch.p[id]) : fallback.p[id];
@@ -119,7 +119,7 @@ const flipStage = (() => {
     const base = fresh();
     try {
       const raw = JSON.parse(localStorage.getItem(STORE) || 'null');
-      if (!raw || raw.v !== 2 || !Array.isArray(raw.scenes)) return base;
+      if (!raw || raw.v !== 3 || !Array.isArray(raw.scenes)) return base;
       base.scenes = base.scenes.map((factory, i) => tidyPatch(raw.scenes[i], factory));
       base.scene = clamp(raw.scene | 0, 0, 7);
       if (raw.live) base.live = tidyPatch(raw.live, base.scenes[base.scene]);
@@ -343,7 +343,7 @@ void main() {
   // ── Motor ───────────────────────────────────────────────────────────────────
   const eng = { canvas: null, gl: null, ok: false, error: '', w: 0, h: 0, fb: [], flip: 0, alloc: {}, camKind: 0, camSeq: -1, hasA: false, hasMask: false, maskSeq: -1, maskBytes: null, fit: [1, 1, 0, 0], mirror: 0, yuvKey: '', path: '' };
   const state = { active: false, raf: 0, clean: false, failed: 0 };
-  const clock = { last: 0, t: 0, n: 0, fps: 60, slow: 0, fast: 0, autoH: COARSE ? 540 : 720, dtAvg: 16.7 };
+  const clock = { last: 0, t: 0, n: 0, fps: 60, slow: 0, fast: 0, autoH: COARSE ? 540 : 720, dtAvg: 16.7, beat: 0 };
   const ph = { gen: 0, spin: 0, cycle: 0, roll: 0, warp: 0, lfo: [0, 0], rnd: [{ cycle: -1, from: 0, to: 0 }, { cycle: -1, from: 0, to: 0 }] };
   const mods = Object.fromEntries(SOURCES.map(s => [s[0], 0]));
   const val = {};
@@ -569,64 +569,131 @@ void main() {
   }
 
   // ── Sonido ──────────────────────────────────────────────────────────────────
-  const audio = { on: false, busy: false, owned: false, analyser: null, freq: null, wave: null, rate: 48000, tex: new Uint8Array(512), env: { bass: 0, mid: 0, high: 0 }, agc: { bass: [0, .12], mid: [0, .12], high: [0, .12] },
-    beat: 0, flux: { prev: 0, mean: 0, dev: 0 }, lastBeat: 0, gaps: [], bpm: 0, inject: null };
-  async function micOn(deviceId) {
-    if (audio.busy || audio.on) return;
+  // La entrada (micrófono, otra entrada de audio o el sonido del propio ordenador) pasa por un
+  // analizador propio. Cada banda se mide en decibelios y se normaliza entre su suelo y su techo
+  // recientes: reacciona igual con la música baja que alta, y con mezclas muy comprimidas.
+  // Los golpes salen del flujo espectral de los graves; el tempo, de la autocorrelación de ese
+  // flujo; y el reloj de compases se engancha a los golpes para que los LFO «a tempo» caigan en el pulso.
+  const audio = { on: false, busy: false, kind: 'mic', deviceId: '', devices: [], ctx: null, node: null, analyser: null, stream: null,
+    db: null, time: null, wave: null, tex: new Uint8Array(512), env: { bass: 0, mid: 0, high: 0 }, band: {}, beat: 0, level: 0, loud: -100, quietFor: 0,
+    prev: null, flux: [], onsets: [], lastBeat: -1e9, lastFlux: 0, bpm: 0, tempoAt: 0, beats: 0, inject: null, rate: 48000 };
+  const BANDS = { bass: [35, 160], mid: [300, 2200], high: [4500, 12000] };
+  const GATE_DB = -66;                                                     // por debajo, es el ruido del micrófono
+  function audioReset() {
+    audio.env.bass = audio.env.mid = audio.env.high = 0;
+    Object.assign(audio, { band: {}, beat: 0, level: 0, loud: -100, quietFor: 0, prev: null, flux: [], onsets: [], lastBeat: -1e9, lastFlux: 0, bpm: 0, beats: 0 });
+  }
+  // Conecta una fuente al analizador (la entrada elegida, o una fuente de prueba).
+  function audioWire(make) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!audio.ctx || audio.ctx.state === 'closed') audio.ctx = new AC();
+    if (audio.ctx.state === 'suspended') audio.ctx.resume().catch(() => {});
+    const analyser = audio.ctx.createAnalyser();
+    analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0; analyser.minDecibels = -100; analyser.maxDecibels = -10;
+    audio.node = make(audio.ctx);
+    audio.node.connect(analyser);
+    Object.assign(audio, { analyser, db: new Float32Array(analyser.frequencyBinCount), time: new Float32Array(analyser.fftSize), wave: new Uint8Array(1024), rate: audio.ctx.sampleRate, on: true });
+    audioReset();
+  }
+  const systemAudio = () => !COARSE && !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  function audioOptions() {
+    const list = [{ kind: 'mic', id: '', label: 'MICRÓFONO' }];
+    audio.devices.forEach((device, index) => list.push({ kind: 'mic', id: device.id, label: (device.label || 'ENTRADA ' + (index + 2)).toUpperCase().replace(/\s*\(.*?\)\s*/g, ' ').trim().slice(0, 18) }));
+    if (systemAudio()) list.push({ kind: 'system', id: '', label: 'ESTE ORDENADOR' });
+    return list;
+  }
+  async function listDevices() {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices();
+      audio.devices = all.filter(d => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications' && d.label).map(d => ({ id: d.deviceId, label: d.label })).slice(0, 6);
+      if (ui.panel) syncPicks();
+    } catch (_) {}
+  }
+  async function audioOn(kind = audio.kind, deviceId = audio.deviceId) {
+    if (audio.busy) return false;
     audio.busy = true; syncKeys();
     try {
-      await _buildExtAudioChain(deviceId || undefined);
-      const an = extAudioCtx.createAnalyser();
-      an.fftSize = 1024; an.smoothingTimeConstant = 0.3; an.minDecibels = -95; an.maxDecibels = -20;
-      extInGainNode.connect(an);
-      Object.assign(audio, { analyser: an, freq: new Uint8Array(an.frequencyBinCount), wave: new Uint8Array(an.fftSize), rate: extAudioCtx.sampleRate, on: true, owned: true });
-      readout('MIC ENCENDIDO');
+      let stream;
+      if (kind === 'system') {
+        // El sonido que suena en este ordenador: el navegador pregunta qué pestaña o pantalla compartir.
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, suppressLocalAudioPlayback: false }, systemAudio: 'include' });
+        stream.getVideoTracks().forEach(track => track.stop());
+        if (!stream.getAudioTracks().length) { flipToast('No llegó sonido: al elegir la pestaña o la pantalla, activa «Compartir audio».', 6000); return false; }
+      } else {
+        const plain = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+        try { stream = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? Object.assign({ deviceId: { exact: deviceId } }, plain) : plain }); }
+        catch (error) { if (error && error.name === 'NotAllowedError') throw error; stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      }
+      audioOff(true);
+      audioWire(ctx => ctx.createMediaStreamSource(stream));
+      Object.assign(audio, { stream, kind, deviceId: deviceId || '' });
+      stream.getAudioTracks()[0].addEventListener('ended', () => { if (audio.stream === stream) audioOff(); });
+      feel.hush('stage-system', kind === 'system');                          // sus propios clics entrarían en el análisis
+      listDevices();
+      readout(kind === 'system' ? 'SONIDO DEL ORDENADOR' : 'MIC ENCENDIDO');
+      return true;
     } catch (error) {
-      audio.on = false;
-      flipToast('Sin micrófono no hay reacción al sonido.');
-    } finally { audio.busy = false; syncKeys(); }
+      flipToast(error && error.name === 'NotAllowedError' ? 'Sin permiso de audio no hay reacción al sonido.' : 'No se pudo abrir esa entrada de sonido.');
+      return false;
+    } finally { audio.busy = false; syncKeys(); if (ui.panel) syncPicks(); }
   }
-  function micOff() {
+  function audioOff(quiet) {
     const was = audio.on;
-    audio.on = false; audio.analyser = null;
-    if (audio.owned && !extAudioMode && !extMicOnlyMode) {
-      try { if (extMicStream) extMicStream.getTracks().forEach(track => track.stop()); } catch (_) {}
-      extMicStream = null;
-      try { if (extAudioCtx) extAudioCtx.close(); } catch (_) {}
-      extAudioCtx = null; extAnalyser = null; extInGainNode = null;
-      try { FlipAudioReact.attach(null); } catch (_) {}
-    }
-    audio.owned = false;
-    audio.env.bass = audio.env.mid = audio.env.high = 0; audio.beat = 0; audio.bpm = 0; audio.gaps.length = 0;
-    if (was) syncKeys();
+    audio.on = false;
+    try { if (audio.node) audio.node.disconnect(); } catch (_) {}
+    try { if (audio.stream) audio.stream.getTracks().forEach(track => track.stop()); } catch (_) {}
+    audio.node = null; audio.analyser = null; audio.stream = null;
+    audioReset();
+    feel.hush('stage-system', false);
+    if (was && !quiet) syncKeys();
   }
-  function bandOf(lo, hi) {
-    const freq = audio.freq, n = freq.length, hz = audio.rate / 2 / n;
-    const a = Math.max(1, Math.floor(lo / hz)), b = Math.min(n - 1, Math.ceil(hi / hz));
+  const binOf = hz => clamp(Math.round(hz / (audio.rate / 2 / audio.db.length)), 1, audio.db.length - 1);
+  function bandDb(lo, hi) {
+    const a = binOf(lo), b = binOf(hi);
     let sum = 0;
-    for (let i = a; i <= b; i++) sum += freq[i];
-    return sum / ((b - a + 1) * 255);
+    for (let i = a; i <= b; i++) sum += Math.exp(audio.db[i] * .1151293);       // dB → amplitud
+    return 8.685889 * Math.log(sum / (b - a + 1) + 1e-9);                       // media → dB
   }
-  function follow(key, raw, dt, gain, fall) {
-    const g = audio.agc[key], e = audio.env;
-    g[1] = Math.max(raw, g[1] * Math.exp(-dt / 9), .12);                  // techo: lo más fuerte de los últimos segundos
-    g[0] = Math.min(raw, g[0] + dt * .03);                                // suelo: el ruido de fondo
-    const x = clamp(Math.pow(clamp((raw - g[0]) / Math.max(.1, g[1] - g[0])), 1.5) * gain);
-    e[key] = x > e[key] ? lerp(e[key], x, .75) : e[key] + (x - e[key]) * (1 - Math.exp(-dt / fall));
+  function follow(key, db, dt, gain, fall, open) {
+    const band = audio.band[key] || (audio.band[key] = { hi: db, lo: db - 12 });
+    if (open) {
+      // El techo baja despacio… salvo que la música lleve un rato sin acercarse a él (bajaron el volumen): entonces, deprisa.
+      band.far = db > band.hi - 4 ? 0 : (band.far || 0) + dt;
+      band.hi = db > band.hi ? db : band.hi - (band.far > 1.2 ? 9 : 2.5) * dt;
+      band.lo = db < band.lo ? band.lo + (db - band.lo) * Math.min(1, dt * 8) : band.lo + 1.2 * dt;   // el suelo sube despacio
+    }
+    const range = clamp(band.hi - band.lo, 9, 40);
+    const x = open ? clamp(Math.pow(clamp((db - (band.hi - range)) / range), 1.7) * gain) : 0;
+    const e = audio.env;
+    e[key] = x > e[key] ? x : e[key] + (x - e[key]) * (1 - Math.exp(-dt / fall));
+  }
+  // Tempo: autocorrelación del flujo de graves de los últimos seis segundos, en pasos de 10 ms.
+  // La serie se suaviza (un golpe ocupa varios pasos) para que un periodo que no cae en un número
+  // entero de pasos correlacione igual, y entre un tempo y su mitad se prefiere el más rápido.
+  function tempo(now) {
+    const span = 6000, step = 10, n = span / step, raw = new Float32Array(n), series = new Float32Array(n);
+    for (const [at, value] of audio.onsets) { const k = Math.floor((at - (now - span)) / step); if (k >= 0 && k < n && value > raw[k]) raw[k] = value; }
+    let mean = 0;
+    for (let i = 0; i < n; i++) mean += raw[i] / n;
+    for (let i = 0; i < n; i++) raw[i] = Math.max(0, raw[i] - mean * 1.5);
+    let zero = 0;
+    for (let i = 2; i < n - 2; i++) { series[i] = (raw[i - 2] + 2 * raw[i - 1] + 3 * raw[i] + 2 * raw[i + 1] + raw[i + 2]) / 9; zero += series[i] * series[i]; }
+    if (zero < 1e-6) return 0;
+    const score = lag => { let r = 0; for (let i = lag; i < n; i++) r += series[i] * series[i - lag]; return r / zero; };
+    let best = 0, bestLag = 0;
+    for (let lag = 33; lag <= 100; lag++) {                                     // de 182 a 60 pulsos por minuto
+      const r = score(lag) * Math.exp(-.5 * Math.pow(Math.log2(6000 / lag / 120) / .9, 2));
+      if (r > best) { best = r; bestLag = lag; }
+    }
+    if (best < .12) return 0;
+    const half = Math.round(bestLag / 2);
+    if (half >= 33 && Math.max(score(half - 1), score(half), score(half + 1)) > score(bestLag) * .55) bestLag = [half - 1, half, half + 1].sort((x, y) => score(y) - score(x))[0];
+    const a = score(bestLag - 1), b = score(bestLag), c = score(bestLag + 1), fine = (a - c) / (2 * (a - 2 * b + c) || 1);
+    return 6000 / (bestLag + clamp(fine, -.5, .5));
   }
   function onBeat(now) {
-    const gap = now - audio.lastBeat;
-    audio.lastBeat = now; audio.beat = 1;
-    if (gap > 240 && gap < 1600) { audio.gaps.push(gap); if (audio.gaps.length > 12) audio.gaps.shift(); }
-    else if (gap >= 1600) audio.gaps.length = 0;
-    if (audio.gaps.length >= 6) {
-      const sorted = audio.gaps.slice().sort((a, b) => a - b), median = sorted[sorted.length >> 1];
-      const spread = (sorted[Math.floor(sorted.length * .75)] - sorted[Math.floor(sorted.length * .25)]) / median;
-      let bpm = 60000 / median;
-      while (bpm < 70) bpm *= 2;
-      while (bpm > 175) bpm /= 2;
-      audio.bpm = spread < .35 ? (audio.bpm ? lerp(audio.bpm, bpm, .3) : bpm) : 0;
-    } else audio.bpm = 0;
+    audio.lastBeat = now; audio.beat = 1; audio.beats++;
+    clock.beat += (Math.round(clock.beat) - clock.beat) * .35;                  // el reloj de compases se engancha al golpe
   }
   function readAudio(dt, now) {
     const tex = audio.tex;
@@ -636,20 +703,49 @@ void main() {
       audio.env.bass = j.bass || 0; audio.env.mid = j.mid || 0; audio.env.high = j.high || 0;
       if (j.beat) { audio.beat = j.beat; j.beat = 0; }
     } else if (audio.on && audio.analyser) {
-      if (extAudioCtx && extAudioCtx.state === 'suspended') extAudioCtx.resume().catch(() => {});
-      audio.analyser.getByteFrequencyData(audio.freq);
+      if (audio.ctx.state === 'suspended') audio.ctx.resume().catch(() => {});
+      audio.analyser.getFloatFrequencyData(audio.db);
+      audio.analyser.getFloatTimeDomainData(audio.time);
       audio.analyser.getByteTimeDomainData(audio.wave);
+      let sum = 0;
+      for (let i = 0; i < audio.time.length; i += 4) sum += audio.time[i] * audio.time[i];
+      const loud = 10 * Math.log10(sum / (audio.time.length / 4) + 1e-12), open = loud > GATE_DB;
+      audio.loud = loud;
+      const level = clamp((loud + 62) / 50);
+      audio.level = level > audio.level ? level : audio.level + (level - audio.level) * (1 - Math.exp(-dt / .25));
+      audio.quietFor = open ? 0 : audio.quietFor + dt;
       const gain = Math.pow(2, (val['aud.gain'] === undefined ? .5 : val['aud.gain']) * 4 - 2), fall = .04 + Math.pow(val['aud.fall'] === undefined ? .4 : val['aud.fall'], 2) * .9;
-      const bass = bandOf(30, 170);
-      follow('bass', bass, dt, gain, fall); follow('mid', bandOf(260, 2000), dt, gain, fall); follow('high', bandOf(4000, 12000), dt, gain, fall);
-      const fl = audio.flux, rise = Math.max(0, bass - fl.prev), k = Math.min(1, dt / 1.2);
-      fl.prev = bass;
-      fl.mean += (rise - fl.mean) * k; fl.dev += (Math.abs(rise - fl.mean) - fl.dev) * k;
-      if (rise > fl.mean + fl.dev * 2.6 + .018 && now - audio.lastBeat > 150) onBeat(now);
-      for (let i = 0; i < 256; i++) { tex[i] = audio.freq[i]; tex[256 + i] = audio.wave[i * 4]; }
+      for (const key of Object.keys(BANDS)) follow(key, bandDb(BANDS[key][0], BANDS[key][1]), dt, gain, fall, open);
+      // Golpes: cuánto suben los graves (40–140 Hz, donde vive el bombo) de un cuadro al siguiente, frente a lo habitual del último segundo y medio.
+      const a = binOf(40), b = binOf(140);
+      let flux = 0;
+      if (audio.prev) for (let i = a; i <= b; i++) { const d = audio.db[i] - audio.prev[i - a]; if (d > 0) flux += d; }
+      flux /= (b - a + 1);
+      if (!audio.prev || audio.prev.length !== b - a + 1) audio.prev = new Float32Array(b - a + 1);
+      for (let i = a; i <= b; i++) audio.prev[i - a] = audio.db[i];
+      if (!open) flux = 0;
+      const hist = audio.flux;
+      let mean = 0, dev = 0;
+      for (const f of hist) mean += f / (hist.length || 1);
+      for (const f of hist) dev += (f - mean) * (f - mean) / (hist.length || 1);
+      hist.push(flux);
+      if (hist.length > 90) hist.shift();
+      audio.onsets.push([now, flux]);
+      while (audio.onsets.length && now - audio.onsets[0][0] > 6200) audio.onsets.shift();
+      // Se dispara en la cima del flujo: cuando el cuadro anterior superó el umbral y este ya baja.
+      const last = audio.lastFlux;
+      if (hist.length > 20 && last > mean + Math.sqrt(dev) * 2 + 1 && flux < last && now - audio.lastBeat > 220) onBeat(now);
+      audio.lastFlux = flux;
+      if (now - audio.tempoAt > 600) {
+        audio.tempoAt = now;
+        let bpm = audio.beats >= 4 && now - audio.lastBeat < 2500 ? tempo(now) : 0;   // sin golpes recientes no hay tempo que sacar
+        if (bpm && audio.bpm) { while (bpm < audio.bpm * .7) bpm *= 2; while (bpm > audio.bpm * 1.45) bpm /= 2; }   // sin saltos de octava
+        audio.bpm = bpm ? (audio.bpm ? lerp(audio.bpm, bpm, .35) : bpm) : (now - audio.lastBeat > 2500 ? 0 : audio.bpm);
+      }
+      for (let i = 0; i < 256; i++) { tex[i] = clamp((audio.db[i] + 100) / 90) * 255; tex[256 + i] = audio.wave[i * 4]; }
     }
     if (!audio.on || !audio.analyser) {
-      // Sin micrófono, el osciloscopio no se queda muerto: una onda de reposo que respira con los LFO.
+      // Sin entrada, el osciloscopio no se queda muerto: una onda de reposo que respira con los LFO.
       const a = .3 + .2 * mods.lfo1, f = 2 + mods.lfo2;
       for (let i = 0; i < 256; i++) {
         const x = i / 255;
@@ -657,7 +753,8 @@ void main() {
         tex[256 + i] = 128 + 110 * a * Math.sin(TAU * (x * f + clock.t * .7)) * Math.sin(Math.PI * x) + 14 * Math.sin(TAU * (x * 9 - clock.t * 1.9));
       }
     }
-    mods.bass = audio.env.bass; mods.mid = audio.env.mid; mods.high = audio.env.high; mods.beat = clamp(audio.beat);
+    mods.bass = audio.env.bass; mods.mid = audio.env.mid; mods.high = audio.env.high;
+    mods.beat = clamp(Math.max(audio.beat, midi.hit));
   }
 
   // ── Manos ───────────────────────────────────────────────────────────────────
@@ -681,7 +778,20 @@ void main() {
   }
 
   // ── MIDI ────────────────────────────────────────────────────────────────────
-  const midi = { access: null, state: 'off', names: [], learn: false, target: '', held: new Set(), gate: 0, seen: -1e9, slew: {}, ticks: [], bpm: 0, tickAt: -1e9 };
+  // Sin configurar nada: las notas 36–43 y 60–67 llaman a las escenas y cualquier otra da un golpe;
+  // los mandos del controlador gobiernan los de la página visible (por orden de número de CC); la
+  // rueda de modulación y la de tono son el PAD; el volumen (CC 7), el nivel de salida; un cambio de
+  // programa, la escena; y el reloj MIDI, el tempo. APRENDER fija un mando concreto a un control.
+  const midi = { access: null, state: 'off', names: [], learn: false, target: '', held: new Set(), gate: 0, hit: 0, seen: -1e9, slew: {}, ticks: [], bpm: 0, tickAt: -1e9, tickBeat: 0, knobs: [], last: '' };
+  const CC_SKIP = new Set([0, 6, 32, 38, 64, 65, 66, 67, 96, 97, 98, 99, 100, 101]);        // banco, datos, pedales
+  // Los ocho mandos de los controladores más comunes mandan CC seguidos desde uno de estos números:
+  // así el primer mando del aparato es la primera perilla de la página desde el primer giro.
+  const CC_BANKS = [70, 21, 16, 102, 41];
+  function knobSlot(cc) {
+    for (const base of CC_BANKS) if (cc >= base && cc < base + 8) return cc - base;
+    if (!midi.knobs.includes(cc)) { midi.knobs.push(cc); midi.knobs.sort((a, b) => a - b); }      // los demás, por orden de número
+    return midi.knobs.indexOf(cc);
+  }
   async function midiConnect() {
     if (!navigator.requestMIDIAccess) { midi.state = 'none'; flipToast('Este navegador no tiene MIDI. En Android y en ordenador, usa Chrome.'); syncKeys(); return false; }
     try { midi.access = await navigator.requestMIDIAccess({ sysex: false }); }
@@ -708,23 +818,44 @@ void main() {
       midi.ticks.push(stamp || now);
       if (midi.ticks.length > 25) midi.ticks.shift();
       if (midi.ticks.length >= 13) { const bpm = 60000 / ((midi.ticks[midi.ticks.length - 1] - midi.ticks[0]) / (midi.ticks.length - 1) * 24); if (bpm > 30 && bpm < 300) { midi.bpm = bpm; midi.tickAt = now; } }
+      midi.tickBeat += 1 / 24;
+      clock.beat += (midi.tickBeat - clock.beat) * .5;                    // el reloj de compases sigue al del controlador
       return;
     }
-    if (status === 0xfa) { ph.lfo[0] = ph.lfo[1] = 0; midi.ticks.length = 0; return; }
+    if (status === 0xfa) { midi.ticks.length = 0; midi.tickBeat = 0; clock.beat = 0; ph.lfo[0] = ph.lfo[1] = 0; return; }
     if (status >= 0xf0) return;
     midi.seen = now;
+    if (type === 0xc0) { recall(data[1] % 8); return; }                 // cambio de programa → escena
+    if (type === 0xe0) { pad.x = ((data[2] << 7) | data[1]) / 16383; midi.last = 'TONO'; return; }   // rueda de tono → PAD X
     if (type === 0xb0) {
       const x = data[2] / 127;
       if (midi.learn && midi.target) { learnBind('cc', key); return; }
       const dst = store.midi.cc[key];
-      if (!dst) return;
-      if (dst[0] === 'p') { midi.slew[dst.slice(2)] = x; if (morph) delete morph.to[dst.slice(2)]; }
-      else if (data[2] >= 64) trigger(dst);
+      if (dst) {
+        if (dst[0] === 'p') { midi.slew[dst.slice(2)] = x; if (morph) delete morph.to[dst.slice(2)]; }
+        else if (data[2] >= 64) trigger(dst);
+        return;
+      }
+      // Sin asignar.
+      const cc = data[1];
+      if (cc === 1) { pad.y = x; midi.last = 'MOD'; return; }
+      if (cc === 7) { midi.slew['out.level'] = x; return; }
+      if (CC_SKIP.has(cc) || cc >= 120) return;
+      const page = PAGES.find(entry => entry.id === ui.page) || PAGES[0];
+      const controls = page.fader ? [page.fader].concat(page.knobs) : page.knobs;
+      const id = controls[knobSlot(cc) % controls.length];
+      midi.slew[id] = x;
+      if (morph) delete morph.to[id];
+      midi.last = 'CC ' + cc;
+      readout('CC ' + cc + ' > ' + P[id][0] + ' ' + describe(id, x), 900);
     } else if (type === 0x90 && data[2] > 0) {
       midi.held.add(key); midi.gate = data[2] / 127;
       if (midi.learn && midi.target) { learnBind('note', key); return; }
-      const dst = store.midi.note[key] || (Object.keys(store.midi.note).length === 0 && data[1] >= 36 && data[1] <= 43 ? 's:' + (data[1] - 36) : '');
+      const note = data[1], free = Object.keys(store.midi.note).length === 0;
+      const dst = store.midi.note[key] || (free && note >= 36 && note <= 43 ? 's:' + (note - 36) : free && note >= 60 && note <= 67 ? 's:' + (note - 60) : '');
+      midi.last = 'NOTA ' + note;
       if (dst && dst[0] !== 'p') trigger(dst);
+      else { midi.hit = Math.max(midi.hit, data[2] / 127); readout('NOTA ' + note + ' > GOLPE', 600); }       // cualquier otra nota es un golpe
     } else if (type === 0x80 || type === 0x90) midi.held.delete(key);
   }
   function learnBind(kind, key) {
@@ -756,6 +887,7 @@ void main() {
 
   // ── Reloj y moduladores ─────────────────────────────────────────────────────
   const taps = [];
+  // Quién marca el tempo: el reloj MIDI si llega; si no, el que se marcó a golpes; si no, el de la música.
   function bpmNow() { return performance.now() - midi.tickAt < 1500 ? midi.bpm : store.global.bpm || audio.bpm || 120; }
   function bpmSource() { return performance.now() - midi.tickAt < 1500 ? 'MIDI' : store.global.bpm ? 'TAP' : audio.bpm ? 'AUTO' : ''; }
   function tap() {
@@ -764,13 +896,11 @@ void main() {
     taps.push(now);
     if (taps.length > 5) taps.shift();
     if (taps.length >= 2) { store.global.bpm = clamp(60000 / ((taps[taps.length - 1] - taps[0]) / (taps.length - 1)), 40, 240); save(); }
+    clock.beat = Math.round(clock.beat);                                  // el golpe marca dónde cae el pulso
     ph.lfo[0] = Math.round(ph.lfo[0]); ph.lfo[1] = Math.round(ph.lfo[1]);
     readout(store.global.bpm ? 'TEMPO ' + Math.round(store.global.bpm) + ' BPM' : 'TAP · SIGUE EL RITMO');
   }
-  function lfoHz(n) {
-    const v = val['lfo' + n + '.rate'] === undefined ? live.p['lfo' + n + '.rate'] : val['lfo' + n + '.rate'];
-    return live.d['lfo.sync'] ? bpmNow() / 60 * DIVS[Math.min(7, Math.floor(v * 8))][0] : .03 * Math.pow(500, v);
-  }
+  const lfoRate = n => (val['lfo' + n + '.rate'] === undefined ? live.p['lfo' + n + '.rate'] : val['lfo' + n + '.rate']);
   function wave(shape, phase, memo) {
     const x = phase - Math.floor(phase);
     if (shape === 0) return Math.sin(x * TAU);
@@ -782,9 +912,16 @@ void main() {
   }
   const pad = { x: .5, y: .5, active: false };
   function stepMods(dt) {
-    for (const n of [0, 1]) { ph.lfo[n] += lfoHz(n + 1) * dt; mods['lfo' + (n + 1)] = wave(live.d['lfo' + (n + 1) + '.shape'], ph.lfo[n], ph.rnd[n]); }
+    clock.beat += bpmNow() / 60 * dt;
+    for (const n of [0, 1]) {
+      // A tempo, la fase sale del reloj de compases (así cae en el pulso); libre, corre por su cuenta.
+      if (live.d['lfo.sync']) ph.lfo[n] = clock.beat * DIVS[Math.min(7, Math.floor(lfoRate(n + 1) * 8))][0];
+      else ph.lfo[n] += .03 * Math.pow(500, lfoRate(n + 1)) * dt;
+      mods['lfo' + (n + 1)] = wave(live.d['lfo' + (n + 1) + '.shape'], ph.lfo[n], ph.rnd[n]);
+    }
     mods.padx = pad.x; mods.pady = pad.y;
     mods.note = midi.held.size ? midi.gate : mods.note * Math.exp(-dt / .25);
+    midi.hit *= Math.exp(-dt / .16);
     const k = 1 - Math.exp(-dt / .07);
     for (const key of ['hx', 'hy', 'pinch']) mods[key] += (hands.goal[key] - mods[key]) * k;
     for (const id of Object.keys(midi.slew)) {
@@ -984,7 +1121,7 @@ void main() {
   function recStart() {
     if (!eng.ok || typeof MediaRecorder === 'undefined') { flipToast('Este navegador no puede grabar vídeo.'); return; }
     const feed = eng.canvas.captureStream(30);
-    if (audio.on && extMicStream) extMicStream.getAudioTracks().forEach(track => feed.addTrack(track));
+    if (audio.on && audio.stream) audio.stream.getAudioTracks().forEach(track => feed.addTrack(track));
     let made;
     try { made = _createFlipRecorder(feed, 8000000); } catch (_) { flipToast('No se pudo iniciar la grabación.'); return; }
     Object.assign(rec, { recorder: made.recorder, mime: made.mime || 'video/webm', chunks: [], on: true, t0: performance.now() });
@@ -1060,7 +1197,7 @@ void main() {
     ui.rig.style.setProperty('--arm', ui.armed ? SRC[ui.armed].tone : 'transparent');
     syncJacks();
     if (ui.armed) readout(SRC[ui.armed].label + ' > TOCA UN MANDO', 4000); else readout('', 0);
-    if (ui.armed && (ui.armed === 'bass' || ui.armed === 'mid' || ui.armed === 'high' || ui.armed === 'beat') && !audio.on && !audio.inject) flipToast('Enciende MIC para que los mandos sigan el sonido.', 2600);
+    if (ui.armed && (ui.armed === 'bass' || ui.armed === 'mid' || ui.armed === 'high') && !audio.on && !audio.inject) flipToast('Enciende MIC para que los mandos sigan el sonido.', 2600);
     if (ui.armed === 'note' && midi.state === 'off') flipToast('Pulsa MIDI para conectar tu controlador.', 2600);
   }
 
@@ -1075,9 +1212,12 @@ void main() {
   };
   const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SVG[name]}</svg>`;
   const getD = id => (id.startsWith('out.') ? (id === 'out.black' ? (ui.black ? 1 : 0) : store.global[id.slice(4)]) : live.d[id]);
-  const optionIndex = id => (id === 'src.look' ? Math.max(0, LOOKS.findIndex(l => l.key === live.d[id])) : getD(id));
+  const optionsOf = id => (id === 'aud.src' ? audioOptions().map(option => option.label) : OPTIONS[id]);
+  const optionIndex = id => (id === 'src.look' ? Math.max(0, LOOKS.findIndex(l => l.key === live.d[id]))
+    : id === 'aud.src' ? Math.max(0, audioOptions().findIndex(option => option.kind === audio.kind && option.id === audio.deviceId)) : getD(id));
   function setD(id, value) {
     if (id === 'out.black') { setBlack(!!value); return; }
+    if (id === 'aud.src') { const option = audioOptions()[value]; if (option) { audio.kind = option.kind; audio.deviceId = option.id; audioOn(option.kind, option.id); } return; }
     if (id.startsWith('out.')) { store.global[id.slice(4)] = value; if (id === 'out.aspect' || id === 'out.quality') { clock.autoH = COARSE ? 540 : 720; resize(); } }
     else live.d[id] = id === 'src.look' ? LOOKS[value].key : value;
     if (id === 'src.look' && typeof _resetCamEngineState === 'function') { _resetCamEngineState('capture'); look.key = ''; }
@@ -1122,6 +1262,7 @@ void main() {
             <canvas id="stageCanvas" width="960" height="540"></canvas>
             <i class="rig-cross" id="rigCross"></i>
             <div class="rig-tally"><span id="rigTallyLive"><i></i>EN VIVO</span><span id="rigTallyOut">SALIDA</span><span id="rigTallyRec"><i></i>REC</span></div>
+            <div class="rig-tally rig-tally-right"><span id="rigTallyAudio" class="is-off"><b>SIN SONIDO</b><em class="vu"><u></u></em></span></div>
             <div class="rig-note" id="rigNote" role="status"></div>
             <div class="rig-clean-hint" id="rigCleanHint">Arrastra: PAD X · Y &nbsp;·&nbsp; Doble toque: siguiente escena &nbsp;·&nbsp; Atrás: salir</div>
           </div>
@@ -1190,7 +1331,7 @@ void main() {
     }
   }
   function syncPicks() {
-    ui.panel.querySelectorAll('.rig-pick').forEach(node => { node.querySelector('.hw-lcd b').textContent = OPTIONS[node.dataset.pick][optionIndex(node.dataset.pick)] || ''; });
+    ui.panel.querySelectorAll('.rig-pick').forEach(node => { node.querySelector('.hw-lcd b').textContent = optionsOf(node.dataset.pick)[optionIndex(node.dataset.pick)] || ''; });
   }
   function syncToggles() { if (ui.panel) ui.panel.querySelectorAll('[data-toggle]').forEach(node => node.setAttribute('aria-checked', String(!!getD(node.dataset.toggle)))); }
   function syncScenes() {
@@ -1271,10 +1412,19 @@ void main() {
     const cross = $('rigCross');
     cross.style.left = (pad.x * 100).toFixed(1) + '%'; cross.style.top = ((1 - pad.y) * 100).toFixed(1) + '%';
     put('rigBpm', String(Math.round(bpmNow())));
+    // El sonido, a la vista: de dónde entra, cuánto llega, y si no llega nada.
+    const chip = $('rigTallyAudio'), silent = audio.on && audio.quietFor > 4;
+    const label = !audio.on ? 'SIN SONIDO' : silent ? 'NO LLEGA SEÑAL' : audio.kind === 'system' ? 'ORDENADOR' : audio.kind === 'custom' ? 'PRUEBA' : 'MIC';
+    if (chip.firstChild.textContent !== label) chip.firstChild.textContent = label;
+    chip.classList.toggle('is-off', !audio.on); chip.classList.toggle('is-silent', silent);
+    chip.style.setProperty('--vu', audio.level.toFixed(2));
+    const wanted = live.r.some(r => r[0] === 'bass' || r[0] === 'mid' || r[0] === 'high' || r[0] === 'beat') || live.d['src.gen'] === 6 || live.d['src.gen'] === 7;
+    $('rigMic').classList.toggle('is-asking', !audio.on && !audio.busy && wanted);
     $('rigTap').classList.toggle('is-beat', (ph.lfo[0] % 1) < .12 && !!live.d['lfo.sync']);
     $('rigMidi').classList.toggle('is-active', now - midi.seen < 120);
     if (!eng.ok) note(eng.error ? 'Este navegador no tiene WebGL 2: STAGE no puede dibujar aquí.' : '');
     else if (!camReady()) note(live.d['src.gen'] && live.p['mix.fade'] > .5 ? '' : 'Sin cámara. Toca el monitor para activarla.');
+    else if (audio.on && audio.quietFor > 4) note('No llega sonido. Sube la música o elige otra entrada en MOD.');
     else if (live.d['mix.mode'] === 5 && !eng.hasMask) note(flipSilhouette.status().phase === 'failed' ? 'El recorte de silueta necesita conexión la primera vez.' : 'Cargando el recorte de silueta…');
     else note('');
     lcd(false);
@@ -1347,10 +1497,10 @@ void main() {
     ui.panel.addEventListener('click', event => {
       const stepper = event.target.closest('[data-step]');
       if (stepper) {
-        const id = stepper.closest('.rig-pick').dataset.pick, count = OPTIONS[id].length;
+        const id = stepper.closest('.rig-pick').dataset.pick, count = optionsOf(id).length;
         setD(id, (optionIndex(id) + +stepper.dataset.step + count) % count);
         syncPicks(); syncToggles();
-        readout(OPTIONS[id][optionIndex(id)], 1100);
+        readout(optionsOf(id)[optionIndex(id)], 1100);
         return;
       }
       const toggle = event.target.closest('[data-toggle]');
@@ -1408,7 +1558,7 @@ void main() {
     $('rigPhoto').addEventListener('click', photo);
     $('rigOut').addEventListener('click', () => (COARSE ? clean(!state.clean) : openWindow()));
     $('rigTap').addEventListener('click', event => { if (midi.learn) learnTarget('t:tap', event.currentTarget); else tap(); });
-    $('rigMic').addEventListener('click', () => (audio.on ? micOff() : micOn()));
+    $('rigMic').addEventListener('click', () => (audio.on ? audioOff() : audioOn()));
     $('rigMidi').addEventListener('click', () => { if (midi.state === 'off' || midi.state === 'denied' || midi.state === 'none') midiConnect(); else setLearn(!midi.learn); });
     // El monitor es un pad XY; doble toque, siguiente escena. Sin cámara, un toque la pide.
     let lastPadTap = 0;
@@ -1476,7 +1626,7 @@ void main() {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     if (out.win && !out.win.closed) { try { out.win.close(); } catch (_) {} }
     output.detach();
-    micOff(); handsOn(false); wake(false);
+    audioOff(); handsOn(false); wake(false);
     if (ui.armed) arm(ui.armed);
     if (midi.learn) setLearn(false);
     save();
@@ -1493,8 +1643,8 @@ void main() {
     pad(x, y) { pad.x = clamp(x); pad.y = clamp(y); },
     get active() { return state.active; },
     status: () => ({ active: state.active, ok: eng.ok, error: eng.error, size: [eng.w, eng.h], fps: +clock.fps.toFixed(1), scene: store.scene, name: store.scenes[store.scene].name, hasA: eng.hasA, path: eng.path, camKind: eng.camKind,
-      hasMask: eng.hasMask, page: ui.page, armed: ui.armed, routes: live.r.map(r => r.slice()), audio: { on: audio.on, bpm: Math.round(audio.bpm) }, bpm: +bpmNow().toFixed(1), bpmSource: bpmSource(),
-      midi: { state: midi.state, learn: midi.learn, target: midi.target, map: JSON.parse(JSON.stringify(store.midi)) }, hands: { on: hands.on, seen: hands.seen }, out: { window: !!out.ctx, clean: state.clean }, rec: rec.on, black: ui.black, morphing: !!morph }),
+      hasMask: eng.hasMask, page: ui.page, armed: ui.armed, routes: live.r.map(r => r.slice()), audio: { on: audio.on, kind: audio.kind, bpm: +audio.bpm.toFixed(1), level: +audio.level.toFixed(3), loud: +audio.loud.toFixed(1), beats: audio.beats, silent: audio.on && audio.quietFor > 4 }, beat: +clock.beat.toFixed(3), bpm: +bpmNow().toFixed(1), bpmSource: bpmSource(),
+      midi: { state: midi.state, learn: midi.learn, target: midi.target, last: midi.last, knobs: midi.knobs.slice(), map: JSON.parse(JSON.stringify(store.midi)) }, hands: { on: hands.on, seen: hands.seen }, out: { window: !!out.ctx, clean: state.clean }, rec: rec.on, black: ui.black, morphing: !!morph }),
     get: id => (id in P ? live.p[id] : getD(id)),
     value: id => val[id],
     mods: () => Object.assign({}, mods),
@@ -1516,7 +1666,9 @@ void main() {
       const n = data.length / 4;
       return { r: r / n, g: g / n, b: b / n };
     },
-    audio: { inject(levels) { audio.inject = levels ? Object.assign({}, levels) : null; }, on: micOn, off: micOff },
+    audio: { inject(levels) { audio.inject = levels ? Object.assign({}, levels) : null; }, on: audioOn, off: audioOff,
+      // Conecta una fuente propia al analizador (pruebas): recibe el AudioContext y devuelve un nodo.
+      use(make) { audioOff(true); audioWire(make); audio.kind = 'custom'; syncKeys(); return audio.ctx; } },
     midi: { inject: (bytes, stamp) => midiIn(bytes, stamp === undefined ? performance.now() : stamp), connect: midiConnect, learn: setLearn },
     // direct: fuerza la subida directa del vídeo. inject: sustituye la cámara por unos planos dados (pruebas del sombreador).
     camera: { direct(on) { camState.forceDirect = !!on; eng.path = ''; eng.camSeq = -1; }, inject(planes) { camState.injected = planes || null; eng.camSeq = -1; eng.path = ''; eng.yuvKey = ''; } },

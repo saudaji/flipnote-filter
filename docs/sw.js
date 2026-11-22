@@ -1,4 +1,4 @@
-const CACHE = 'flipnote-filter-v80-alpha-pass4';
+const CACHE = 'flipnote-filter-v81-alpha-pass4';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './frame-runtime.js', './stamp.js', './optical-scope.js', './night-vision.js', './sensor.js',
   './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './feel.js', './portal.js', './stage.js', './stage.css', './stage-out.html', './hands-worker.js', './pretext.js', './enochian.ttf',

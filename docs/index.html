@@ -4211,6 +4211,7 @@
      de desktop, pero sin apagar la cámara (ver startMicOnly/stopMicOnly). -->
 <button id="btnMicMobile" type="button" aria-label="Toggle microphone">🎙</button>
 
+<script src="./optical-scope.js"></script>
 <script src="./stamp.js"></script>
 <script src="./frame-runtime.js"></script>
 <script>
@@ -5066,7 +5067,7 @@ const CAM_FAMILIES = {
   OSCAM: {
     label:'OSCAM',
     displayLabel:'OSCAM',
-    variants:[{ id:'STD', label:'STD' }, { id:'LGCY', label:'LGCY' }],
+    variants:[{ id:'STD', label:'VECTOR' }, { id:'XY', label:'X–Y' }, { id:'FFT', label:'FFT' }, { id:'TIME', label:'TIEMPO' }, { id:'LGCY', label:'LGCY' }],
     editMode:'oscam',
     paletteContext:null,
   },
@@ -5287,6 +5288,10 @@ function drawCameraFrame(frame) {
       renderVFD(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
       return frame;
     case 'oscam':
+      if (frame.profile.variant !== 'LGCY') {
+        plotOpticalScope(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant, frame.now);
+        return frame;
+      }
       const oscState = _getOscamRenderState(frame.options.outW || frame.targetCtx.canvas.width,
         frame.options.outH || frame.targetCtx.canvas.height, frame.path);
       _withOscamRenderState(oscState, () => renderOscam(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror));
@@ -5733,7 +5738,10 @@ function _applyCamState() {
   oscamPanel.style.display = editMode === 'oscam' ? 'block' : 'none';
   slhtPanel.style.display = editMode === 'slht' ? 'block' : 'none';
   oscamLegacyRow.classList.toggle('visible', editMode === 'oscam' && camVariant === 'LGCY');
-  oscamStaticOnlyRow.classList.toggle('visible', editMode === 'oscam');
+  oscamStaticOnlyRow.classList.toggle('visible', editMode === 'oscam' && camVariant !== 'TIME');
+  oscamStaticOnlyRow.querySelector('.oscam-lbl').textContent = ({ FFT:'FILA', XY:'SEPARACIÓN', STD:'NIVEL' })[camVariant] || 'SCAN';
+  document.getElementById('oscamPresence').closest('.oscam-ctrl-row').querySelector('.oscam-lbl').textContent =
+    camVariant === 'LGCY' ? 'LOCK' : 'PERSISTENCIA';
   document.getElementById('caskiaGhost').value = caskiaSeikoGhostVal;
   document.getElementById('vCaskiaGhost').textContent = caskiaSeikoGhostVal;
   document.getElementById('caskiaDither').value = caskiaSeikoDitherVal;
@@ -5842,7 +5850,7 @@ document.getElementById('btnPalFree').addEventListener('click', () => {
 document.getElementById('palFreeInk').addEventListener('input', _updateFreePal);
 document.getElementById('palFreePaper').addEventListener('input', _updateFreePal);
 document.getElementById('oscamIntensity').addEventListener('input', e => {
-  oscamIntensityVal = parseInt(e.target.value, 10) || 42;
+  oscamIntensityVal = Number(e.target.value);
   document.getElementById('vOscamIntensity').textContent = oscamIntensityVal;
   if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
   saveSettings();
@@ -6301,24 +6309,16 @@ function _renderDitheredCore(source, srcW, srcH, targetCtx, mirror, autoLevels, 
         gray = Math.max(0, gray * (1 - vd * upVignetteVal/100));
       }
       // Dithering intensity: blend between threshold-only and full Bayer
-      let isInk;
-      if (applyEdits && upDitherIntVal < 100) {
-        const hard = gray < acThreshVal;
-        const bayer = gray < BAYER8[row8 + (x & 7)];
-        const t = upDitherIntVal / 100;
-        isInk = t < 0.5 ? hard : (Math.random() < t ? bayer : hard);
-      } else {
-        // Apply threshold offset to Bayer curve when applyEdits is on
-        const bt = (applyEdits && acThreshVal !== 128)
-          ? Math.max(0, Math.min(255, BAYER8[row8 + (x & 7)] + acThreshVal - 128))
-          : BAYER8[row8 + (x & 7)];
-        isInk = gray < bt;
-      }
+      const strength = applyEdits ? upDitherIntVal/100 : 1;
+      const midpoint = applyEdits ? acThreshVal : 128;
+      const threshold = Math.min(255,Math.max(1,midpoint + (BAYER8[row8 + (x & 7)] - 127.5)*strength));
+      const isInk = gray < threshold;
       outBuf[i]=isInk?IR:PR; outBuf[i+1]=isInk?IG:PG;
       outBuf[i+2]=isInk?IB:PB; outBuf[i+3]=255;
     }
   }
   sampleCtx.putImageData(new ImageData(outBuf, sampleW, sampleH), 0, 0);
+  targetCtx.imageSmoothingEnabled = false;
   targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
   if (outScan) targetCtx.drawImage(outScan, 0, 0, outW, outH);
 }
@@ -6391,11 +6391,8 @@ function _getDolphinScanCanvas(outW, outH) {
   }
   return canvas;
 }
-function _getDolphinCaptureSampleDims(options = {}) {
-  const resolutionId = options.resolution || ((flipAudioSettings && flipAudioSettings.resolution) || 'medium');
-  const scale = resolutionId === 'high' ? 1.7 : (resolutionId === 'low' ? 1.08 : 1.34);
-  const even = v => Math.max(32, Math.round(v / 2) * 2);
-  return { sampleW: even(DSI_W * scale), sampleH: even(DSI_H * scale) };
+function _getDolphinCaptureSampleDims() {
+  return { sampleW:DSI_W, sampleH:DSI_H };
 }
 function _renderDolphinCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
@@ -6823,7 +6820,7 @@ function _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror, options = {}) 
     for (let x = 0; x < sampleW; x++) {
       const idx = y * sampleW + x;
       const i = idx << 2;
-      const base = ((lum[idx] - minG) * 255 / range) || 0;
+      const base = lum[idx] + (Math.min(1, range/56)) * ((lum[idx] - minG) * 255 / range - lum[idx]);
       const left = x ? lum[idx - 1] : lum[idx];
       const up = y ? lum[idx - sampleW] : lum[idx];
       const edge = Math.abs(lum[idx] - left) * 0.42 + Math.abs(lum[idx] - up) * 0.28;
@@ -7137,7 +7134,7 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
       for (let x = 0; x < sampleW; x++) {
         const idx = y * sampleW + x;
         const i = idx << 2;
-        const norm = ((lum[idx] - minG) * 255 / range) || 0;
+        const norm = lum[idx] + (Math.min(1, range/56)) * ((lum[idx] - minG) * 255 / range - lum[idx]);
         const left = x ? lum[idx - 1] : lum[idx];
         const up = y ? lum[idx - sampleW] : lum[idx];
         const edge = (Math.abs(lum[idx] - left) + Math.abs(lum[idx] - up)) * 0.52;
@@ -7308,8 +7305,8 @@ function _getAuto03Profile() {
     cfg.sharpen = 0.30;
     cfg.noise = 0.018;
     cfg.bloom = 0.078;
-    cfg.centerLift = 0.056;
-    cfg.vignette = 0.14;
+    cfg.centerLift = 1.85;
+    cfg.vignette = 0.54;
     cfg.highlightThreshold = 0.73;
     cfg.redGain = 1.022;
     cfg.greenGain = 1.0;
@@ -7327,7 +7324,7 @@ function _getAuto03Profile() {
     cfg.specBoost = 0.17;
     cfg.rolloff = 0.03;
     cfg.sharpen = 0.20;
-    cfg.noise = 0.042;
+    cfg.noise = 0.062;
     cfg.bloom = 0.096;
     cfg.centerLift = 0.02;
     cfg.vignette = 0.09;
@@ -7408,6 +7405,20 @@ function auto03ExposureMap(width, height, cfg) {
   auto03Lens = { key, values };
   return values;
 }
+const nightFrames = new WeakMap();
+function integrateNightFrame(ctx, source, pixels, w, h, now) {
+  const last = nightFrames.get(ctx);
+  if (!last || last.source !== source || last.w !== w || last.h !== h || now < last.time || now-last.time>240) {
+    nightFrames.set(ctx,{source,w,h,time:now,values:Float32Array.from(pixels)});
+    return;
+  }
+  const keep = Math.min(.82, Math.exp(-Math.max(1,now-last.time)/85));
+  for (let i=0;i<pixels.length;i+=4) for(let c=i;c<i+3;c++) {
+    last.values[c] += (pixels[c]-last.values[c])*(1-keep);
+    pixels[c] = last.values[c];
+  }
+  last.time=now;
+}
 function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
@@ -7424,9 +7435,15 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
   renderTarget.ctx.drawImage(source, sx, sy, sw, sh, 0, 0, sampleW, sampleH);
   renderTarget.ctx.restore();
   const { data: src } = renderTarget.ctx.getImageData(0, 0, sampleW, sampleH);
+  const variant = renderVariant();
+  if (variant === 'NIGHT') integrateNightFrame(targetCtx, source, src, sampleW, sampleH, now);
+  else nightFrames.delete(targetCtx);
   const lum = _fillCamLumBuf(src, sampleW, sampleH);
   const seed = ((now / 33) | 0) + (renderVariant() === 'NIGHT' ? 71 : renderVariant() === 'FLASH' ? 37 : 11);
   const lens = auto03ExposureMap(sampleW, sampleH, cfg);
+  let meter = 0, count = 0;
+  for (let j=0;j<lum.length;j+=31) {meter+=lum[j]; count++;}
+  const nightGain = Math.max(1.12, Math.min(4.2, 126/(14+meter/count)));
   bloomTarget.buffer.fill(0);
 
   for (let y = 0; y < sampleH; y++) {
@@ -7449,7 +7466,7 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
       g += micro * 0.94;
       b += micro * 1.14;
 
-      const exposure = lens[idx];
+      const exposure = lens[idx] * (variant === 'NIGHT' ? nightGain : 1);
       r *= exposure;
       g *= exposure;
       b *= exposure;
@@ -7459,7 +7476,7 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
       b = b * (1.032 * cfg.blueGain) + g * 0.005;
 
       let luma = (r * 77 + g * 150 + b * 29) / (255 * 256);
-      luma = Math.pow(_auto03Clamp01(luma), 1 + cfg.shadowComp);
+      luma = Math.pow(_auto03Clamp01(luma), variant === 'NIGHT' ? .82 : 1 + cfg.shadowComp);
       luma += (luma - 0.5) * cfg.contrast * (0.82 - Math.abs(luma - 0.5) * 0.56);
       const hi = _auto03Smoothstep(0.70, 1, luma);
       luma += hi * hi * cfg.specBoost * 0.09;
@@ -9435,18 +9452,24 @@ function renderOscam(source, srcW, srcH, targetCtx, mirror) {
 // Android-safe: reduced analysis res, decoupled segmentation cadence
 // ════════════════════════════════════════════════════════════════════
 
-// ── Analysis dimensions (Android gets smaller buffers) ────────────
-const SLHT_AW = EARLY_IS_ANDROID ? 80  : 128;
-const SLHT_AH = EARLY_IS_ANDROID ? 60  : 96;
+// ── Analysis dimensions ────────────
+const SLHT_AW = 144;
+const SLHT_AH = 108;
 
 // ── Segmenter (lazy async, owns its own MediaPipe instance) ───────
 let _slhtSeg       = null;
 let _slhtSegReady  = false;
 let _slhtSegBusy   = false;
 let _slhtSegFailedMsg = '';
-// Run segmentation every N render frames (Android: skip more frames)
-const SLHT_SEG_SKIP = EARLY_IS_ANDROID ? 3 : 2;
-let _slhtSegFrame  = 0;
+const silhouetteInput = document.createElement('canvas');
+const silhouetteInputCtx = silhouetteInput.getContext('2d');
+const silhouetteMatte = document.createElement('canvas');
+silhouetteMatte.width = SLHT_AW; silhouetteMatte.height = SLHT_AH;
+const silhouetteMatteCtx = silhouetteMatte.getContext('2d');
+const _slhtLocalMatte = new Float32Array(SLHT_AW*SLHT_AH);
+const silhouettePixels = silhouetteMatteCtx.createImageData(SLHT_AW, SLHT_AH);
+let silhouetteGeometry = '', silhouetteLastInference = -Infinity;
+let silhouetteLocal = true, silhouetteInferenceErrors = 0;
 // Offscreen canvas for sampling video at analysis resolution
 let _slhtAnasCvs   = null;
 let _slhtAnasCtx   = null;
@@ -9492,8 +9515,12 @@ function _slhtNoise(xi, yi) {
 }
 
 // ── Glyph vocabulary (weighted toward dashes) ─────────────────────
-const SLHT_GLYPHS = ['-','-','-','-','-','–','–','/','\\','|'];
-const SLHT_NG = SLHT_GLYPHS.length;
+// Repeated directions weight the field toward short horizontal dashes.
+const SLHT_STROKES = [
+  [.35, 0], [.35, 0], [.35, 0], [.35, 0], [.35, 0],
+  [.52, 0], [.52, 0], [.36, -.4], [.36, .4], [0, .46],
+];
+const SLHT_NG = SLHT_STROKES.length;
 
 // ── MediaPipe URLs (same model as SFLOW tab) ──────────────────────
 const SLHT_MP_WASM  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm';
@@ -9501,12 +9528,31 @@ const SLHT_MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/image_seg
 const SLHT_INIT_TIMEOUT_MS = 15000;
 
 function _slhtWithTimeout(task, timeoutMs = SLHT_INIT_TIMEOUT_MS) {
-  return Promise.race([
-    task,
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('SLHT AI init timeout')), timeoutMs);
-    })
-  ]);
+  return new Promise((resolve, reject) => {
+    let expired = false;
+    const timer = setTimeout(() => {
+      expired = true;
+      reject(new Error('Segmenter initialization timed out'));
+    }, timeoutMs);
+    task.then(value => {
+      clearTimeout(timer);
+      if (expired) value?.close?.();
+      else resolve(value);
+    }, error => { clearTimeout(timer); reject(error); });
+  });
+}
+
+async function createPersonSegmenter() {
+  const { ImageSegmenter, FilesetResolver } = await _slhtWithTimeout(
+    import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/+esm')
+  );
+  const vision = await _slhtWithTimeout(FilesetResolver.forVisionTasks(SLHT_MP_WASM));
+  const create = delegate => _slhtWithTimeout(ImageSegmenter.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: SLHT_MP_MODEL, delegate },
+    outputCategoryMask: false, outputConfidenceMasks: true, runningMode: 'VIDEO',
+  }));
+  try { return await create('GPU'); }
+  catch (_) { return create('CPU'); }
 }
 
 // ── Segmenter lazy init ───────────────────────────────────────────
@@ -9514,15 +9560,7 @@ async function _slhtInitSeg() {
   if (_slhtSegReady || _slhtSegBusy) return;
   _slhtSegBusy = true;
   try {
-    const { ImageSegmenter, FilesetResolver } =
-      await _slhtWithTimeout(import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/+esm'));
-    const vision = await _slhtWithTimeout(FilesetResolver.forVisionTasks(SLHT_MP_WASM));
-    _slhtSeg = await _slhtWithTimeout(ImageSegmenter.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: SLHT_MP_MODEL, delegate: 'GPU' },
-      outputCategoryMask: false,
-      outputConfidenceMasks: true,
-      runningMode: 'VIDEO',
-    }));
+    _slhtSeg = await createPersonSegmenter();
     _slhtSegReady = true;
     _slhtSegFailedMsg = '';
     _slhtFieldOK  = false;  // rebuild field on first frame with real mask
@@ -9630,8 +9668,9 @@ function _slhtBuildField(mask, maxDist) {
       const gx = (-tl - 2*ml - bl + tr + 2*mr + br);
       const gy = (-tl - 2*tc - tr + bl + 2*bc + br);
       const len = Math.sqrt(gx*gx + gy*gy) || 1;
-      nx[i] = gx / len;
-      ny[i] = gy / len;
+      const sign = mask[i] >= .5 ? -1 : 1;
+      nx[i] = sign*gx / len;
+      ny[i] = sign*gy / len;
     }
   }
   _slhtFieldOK = true;
@@ -9709,7 +9748,13 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
   if (!_slhtSegReady && !_slhtSegBusy && !_slhtSegFailedMsg) _slhtInitSeg();
 
   // ── Sample video at analysis resolution ──
-  const [asx, asy, asw, ash] = cropCoordsForDims(srcW, srcH, SLHT_AW, SLHT_AH);
+  const geometry = [CW, CH, srcW, srcH, mirror].join(':');
+  if (geometry !== silhouetteGeometry) {
+    silhouetteGeometry = geometry;
+    _slhtFieldOK = false; _slhtPInited = false; silhouetteLastInference = -Infinity;
+    _slhtPrevMask.fill(0);
+  }
+  const [asx, asy, asw, ash] = cropCoordsForDims(srcW, srcH, CW, CH);
   _slhtAnasCtx.save();
   if (mirror) {
     _slhtAnasCtx.translate(SLHT_AW, 0);
@@ -9723,19 +9768,50 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
   _slhtUpdateMotion(imgData);
 
   // ── Segmentation (throttled) ──
-  _slhtSegFrame = (_slhtSegFrame + 1) % SLHT_SEG_SKIP;
-  if (_slhtSegFrame === 0 && _slhtSegReady && _slhtSeg) {
-    let rawMask = null, mW = 0, mH = 0;
-    try {
-      const result = _slhtSeg.segmentForVideo(source, performance.now());
-      if (result?.confidenceMasks?.[0]) {
-        rawMask = result.confidenceMasks[0].getAsFloat32Array().slice();
-        mW = result.confidenceMasks[0].width;
-        mH = result.confidenceMasks[0].height;
+  const instant = performance.now();
+  if (!_slhtFieldOK || instant - silhouetteLastInference >= (EARLY_IS_ANDROID ? 80 : 55)) {
+    silhouetteLastInference = instant;
+    let rawMask, mW, mH;
+    if (_slhtSegReady && _slhtSeg) {
+      const scale = 320 / Math.max(CW, CH);
+      const iw = Math.max(1, Math.round(CW*scale)), ih = Math.max(1, Math.round(CH*scale));
+      if (silhouetteInput.width !== iw || silhouetteInput.height !== ih) {
+        silhouetteInput.width = iw; silhouetteInput.height = ih;
       }
-      result?.close?.();
-    } catch(_) { /* silently skip on error */ }
-
+      silhouetteInputCtx.save();
+      if (mirror) { silhouetteInputCtx.translate(iw,0); silhouetteInputCtx.scale(-1,1); }
+      silhouetteInputCtx.drawImage(source,asx,asy,asw,ash,0,0,iw,ih);
+      silhouetteInputCtx.restore();
+      let result;
+      try {
+        result = _slhtSeg.segmentForVideo(silhouetteInput, instant);
+        const mask = result.confidenceMasks[0];
+        rawMask = mask.getAsFloat32Array().slice();
+        mW = mask.width; mH = mask.height;
+        silhouetteInferenceErrors = 0;
+      } catch (err) {
+        if (++silhouetteInferenceErrors >= 3) {
+          _slhtSeg.close(); _slhtSeg = null; _slhtSegReady = false;
+          _slhtSegFailedMsg = 'Toca para reintentar la segmentación';
+        }
+      } finally { result?.close(); }
+    }
+    silhouetteLocal = !rawMask;
+    if (!rawMask) {
+      // Local contrast matte gives an immediate optical silhouette even offline.
+      mW = SLHT_AW; mH = SLHT_AH;
+      rawMask = _slhtLocalMatte;
+      const pix = imgData.data;
+      let rr=0, gg=0, bb=0, count=0;
+      for (let y=0; y<mH; y+=3) for (const x of [0,mW-1]) {
+        const i=4*(y*mW+x); rr+=pix[i]; gg+=pix[i+1]; bb+=pix[i+2]; count++;
+      }
+      rr/=count; gg/=count; bb/=count;
+      for(let j=0;j<rawMask.length;j++){
+        const i=4*j, delta=(Math.abs(pix[i]-rr)+Math.abs(pix[i+1]-gg)+Math.abs(pix[i+2]-bb))/3;
+        rawMask[j]=Math.max(0, Math.min(1,(delta-15)/48));
+      }
+    }
     if (rawMask && mW > 0 && mH > 0) {
       // Downsample + temporal smooth mask into _slhtMask
       const W = SLHT_AW, H = SLHT_AH;
@@ -9753,7 +9829,9 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
             rawMask[my1 * mW + mx0] * (1 - fx) * fy        +
             rawMask[my1 * mW + mx1] * fx        * fy;
           const i = y * W + x;
-          _slhtMask[i] = _slhtPrevMask[i] * smooth + v * (1 - smooth);
+          const previous = _slhtPrevMask[i];
+          const keep = _slhtFieldOK ? smooth * Math.max(.15, 1 - Math.abs(v - previous)) : 0;
+          _slhtMask[i] = previous * keep + v * (1 - keep);
           _slhtPrevMask[i] = _slhtMask[i];
         }
       }
@@ -9899,45 +9977,24 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, CW, CH);
 
-  // 2. Dim video background (grayscale-like via low alpha)
-  const vA = srcW / srcH, cA = CW / CH;
-  let dw, dh, dx, dy;
-  if (vA > cA) { dh = CH; dw = CH * vA; dx = (CW - dw) / 2; dy = 0; }
-  else          { dw = CW; dh = CW / vA; dx = 0; dy = (CH - dh) / 2; }
-
-  ctx.save();
-  if (mirror) { ctx.translate(CW, 0); ctx.scale(-1, 1); }
-  ctx.globalAlpha = 0.20;
-  ctx.drawImage(source, dx, dy, dw, dh);
-  ctx.globalAlpha = 1.0;
+  // The subject forms a light printing surface for dark type; the halo is luminous outside it.
+  const plate = silhouettePixels.data;
+  for (let j=0; j<_slhtMask.length; j++) {
+    const t = Math.max(0,Math.min(1,(_slhtMask[j]-.22)/.56));
+    const coverage = t*t*(3-2*t);
+    const shade = 7 + coverage*(135+_slhtPrevLuma[j]*.34);
+    const rim = Math.max(0,1-_slhtDist[j]/2.5)*42;
+    const i=j*4;
+    plate[i]=shade+rim; plate[i+1]=shade+rim*1.12; plate[i+2]=shade+rim*.96; plate[i+3]=255;
+  }
+  silhouetteMatteCtx.putImageData(silhouettePixels,0,0);
+  ctx.save(); ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(silhouetteMatte,0,0,CW,CH);
+  if (silhouetteLocal) {
+    ctx.fillStyle='#c6d5ce';ctx.font=Math.max(11,CW/70)+'px monospace';
+    ctx.fillText(_slhtSegFailedMsg ? 'CONTORNO LOCAL · toca para reintentar' : 'CONTORNO LOCAL · cargando IA',CW*.025,CH*.052);
+  }
   ctx.restore();
-
-  // 3. Loading overlay if segmenter not ready
-  if (_slhtSegFailedMsg) {
-    ctx.save();
-    ctx.fillStyle = 'rgba(24,24,24,0.78)';
-    ctx.fillRect(0, 0, CW, CH);
-    ctx.fillStyle = 'rgba(220,220,220,0.92)';
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('SLHT DISABLED', CW * 0.5, CH * 0.5 - 14);
-    ctx.font = '9px monospace';
-    ctx.fillText(_slhtSegFailedMsg, CW * 0.5, CH * 0.5 + 4);
-    ctx.fillText('Tap to retry', CW * 0.5, CH * 0.5 + 18);
-    ctx.restore();
-    return;
-  }
-  if (!_slhtSegReady) {
-    ctx.save();
-    ctx.fillStyle = 'rgba(160,160,160,0.75)';
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('SLHT — LOADING AI…', CW * 0.5, CH * 0.5);
-    ctx.restore();
-    return;
-  }
 
   // 4. Draw particles — crisp black glyph marks
   if (!_slhtFieldOK) return;
@@ -9948,11 +10005,8 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
   const fillN       = slhtFillAmt / 100;
   const glyphSz     = slhtGlyphSz;
 
-  ctx.font           = `${glyphSz}px monospace`;
-  ctx.textAlign      = 'center';
-  ctx.textBaseline   = 'middle';
-  ctx.fillStyle      = '#000000';
-
+  // Bucket ink strokes by opacity so a full particle field takes at most eight strokes.
+  const marks = Array.from({length:8}, () => new Path2D());
   for (let i = 0; i < _slhtActiveP; i++) {
     const life = _slhtPL[i];
     if (life <= 0) continue;
@@ -9982,22 +10036,26 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
     }
     if (alpha < 0.04) continue;
 
-    // Render: use setTransform to avoid save/restore overhead
-    ctx.globalAlpha = alpha > 1 ? 1 : alpha;
-    ctx.setTransform(_slhtPC[i], _slhtPS[i], -_slhtPS[i], _slhtPC[i], px, py);
-    ctx.fillText(SLHT_GLYPHS[_slhtPG[i]], 0, 0);
+    const [localX, localY] = SLHT_STROKES[_slhtPG[i]];
+    const ux = _slhtPC[i], uy = _slhtPS[i];
+    const dx=glyphSz*(ux*localX-uy*localY), dy=glyphSz*(uy*localX+ux*localY);
+    const path=marks[(inside?0:4)+Math.min(3,Math.floor(alpha*4))];
+    path.moveTo(px-dx,py-dy);path.lineTo(px+dx,py+dy);
   }
-
-  // Reset transform + alpha
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalAlpha = 1.0;
+  ctx.save();
+  ctx.lineWidth=Math.max(.8,glyphSz*.13);ctx.lineCap='round';
+  for(let k=0;k<marks.length;k++){
+    ctx.strokeStyle=k<4?'#0c1111':'#cee8dc';
+    ctx.globalAlpha=((k%4)+1)/4;
+    ctx.stroke(marks[k]);
+  }
+  ctx.restore();
 }
 
 // ── SLHT reset (called when switching away from SLHT family) ──────
 function _resetSlht() {
   _slhtPInited = false;
   _slhtFieldOK = false;
-  _slhtSegFrame = 0;
   _slhtSegFailedMsg = '';
   _slhtPrevMask.fill(0);
   _slhtMask.fill(0);
@@ -15350,7 +15408,7 @@ function _getCamRecordingOptions() {
   if (!vid.videoWidth) return options;
   options.renderFrame = ({ ctx, width, height, now }) => {
     // These effects accumulate history on the live canvas; sample the exact presented frame.
-    if (camFamily === 'SLHT' || (camFamily === 'CASKIA' && camVariant !== 'STD')) {
+    if (camFamily === 'SLHT' || (camFamily === 'OSCAM' && camVariant === 'TIME') || (camFamily === 'CASKIA' && camVariant !== 'STD')) {
       ctx.drawImage(display, 0, 0, width, height);
       return;
     }
@@ -15366,7 +15424,39 @@ function _getCamRecordingOptions() {
   return options;
 }
 
+function waitForCameraFrame(video) {
+  return new Promise(resolve => {
+    if (!video.requestVideoFrameCallback) { setTimeout(resolve, 55); return; }
+    const timer = setTimeout(() => { video.cancelVideoFrameCallback(handle); resolve(); }, 220);
+    const handle = video.requestVideoFrameCallback(() => { clearTimeout(timer); resolve(); });
+  });
+}
+let flashPhotoPending = false;
 async function cameraPhoto() {
+  const track = vid.srcObject?.getVideoTracks?.()[0];
+  if (camFamily !== 'AUTO03' || camVariant !== 'FLASH' || !track?.getCapabilities?.().torch || track.getSettings?.().torch) {
+    return renderCameraPhoto();
+  }
+  if (flashPhotoPending) return null;
+  flashPhotoPending = true;
+  let enabled = false;
+  const previousConstraints = track.getConstraints();
+  try {
+    try {
+      await track.applyConstraints({...previousConstraints, advanced:[...(previousConstraints.advanced || []), {torch:true}]});
+      enabled = true;
+      await new Promise(resolve => setTimeout(resolve, 180));
+    } catch (_) { /* The simulated flash remains available on cameras without a controllable LED. */ }
+    return await renderCameraPhoto();
+  } finally {
+    if (enabled && track.readyState === 'live') {
+      try { await track.applyConstraints({...previousConstraints, advanced:[...(previousConstraints.advanced || []), {torch:false}]}); }
+      catch (_) { flipToast('Desactiva la luz desde los controles de la cámara.'); }
+    }
+    flashPhotoPending = false;
+  }
+}
+async function renderCameraPhoto() {
   const options = _getCamRecordingOptions();
   if (!options.renderFrame) return _canvasToJpeg(display);
   const { width, height } = _getFlipRecordDimensions(display, options);
@@ -15374,7 +15464,27 @@ async function cameraPhoto() {
   canvas.width = width;
   canvas.height = height;
   try {
-    options.renderFrame({ ctx:canvas.getContext('2d'), width, height, now:performance.now() });
+    if (camFamily === 'AUTO03' && camVariant === 'NIGHT') {
+      const burst = document.createElement('canvas');
+      burst.width = Math.min(vid.videoWidth, width);
+      burst.height = Math.max(1, Math.round(burst.width*vid.videoHeight/vid.videoWidth));
+      const mix = burst.getContext('2d');
+      const initialStream = vid.srcObject;
+      for (let i=0;i<3;i++) {
+        if (i) await waitForCameraFrame(vid);
+        if (vid.srcObject !== initialStream || !vid.videoWidth) return null;
+        mix.globalAlpha=1/(i+1);
+        mix.drawImage(vid,0,0,burst.width,burst.height);
+      }
+      const ctx = canvas.getContext('2d');
+      _renderCamEngineFrame(burst,burst.width,burst.height,ctx,false,{
+        family:'AUTO03', variant:'NIGHT', path:'capture', now:performance.now(),
+        resolution:options.resolution, outW:width,outH:height,
+      });
+      _renderCamStickerLayer(ctx,false);
+    } else {
+      options.renderFrame({ ctx:canvas.getContext('2d'), width, height, now:performance.now() });
+    }
     return await _canvasToJpeg(canvas);
   } finally {
     options.onStop();
@@ -15427,7 +15537,9 @@ btnCap.addEventListener('click', async () => {
   if (camMode === 'foto') {
     // Take photo
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    await saveBlob(await cameraPhoto(), _flipName(camFamily === 'SLHT' ? 'slht' : 'cam', 'jpg'));
+    const shot = await cameraPhoto();
+    if (!shot) return;
+    await saveBlob(shot, _flipName(camFamily === 'SLHT' ? 'slht' : 'cam', 'jpg'));
   } else {
     // Toggle video recording
     if (!recorder || recorder.state === 'inactive') {
@@ -19953,8 +20065,7 @@ if (screen.width > 768) {
     b = Math.round(b + (255 - b) * t);
     return `rgb(${r},${g},${b})`;
   }
-  const MEDIAPIPE_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm';
-  const MEDIAPIPE_MODEL= 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
+
 
   // ── Elements ────────────────────────────────────────────────────────
   const sfVid     = document.getElementById('sflowVid');
@@ -20010,15 +20121,7 @@ if (screen.width > 768) {
     _sfSegInitBusy = true;
     _sfBadge('FLOW — loading AI…');
     try {
-      const { ImageSegmenter, FilesetResolver } =
-        await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/+esm');
-      const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM);
-      _sfSegmenter = await ImageSegmenter.createFromOptions(vision, {
-        baseOptions    : { modelAssetPath: MEDIAPIPE_MODEL, delegate: 'GPU' },
-        outputCategoryMask: false,
-        outputConfidenceMasks: true,
-        runningMode    : 'VIDEO',
-      });
+      _sfSegmenter = await createPersonSegmenter();
       _sfSegInitDone = true;
       _sfSegInitBusy = false;
       return true;
@@ -20407,8 +20510,6 @@ if (screen.width > 768) {
     const maskArr = maskRaw;
 
     // ── Compute aura depth in mask px (scale) ───────────────────────
-    const scaleX   = maskW / VW;
-    const scaleY   = maskH / VH;
     const auraDepth = SF_AURA_DEPTH[_sfAuraKey] || SF_AURA_DEPTH.m;
 
     // Build vectors from mask
@@ -20440,6 +20541,8 @@ if (screen.width > 768) {
     } else {
       dw = CW; dh = CW / vAspect; dx = 0; dy = (CH - dh) / 2;
     }
+    // Each glyph samples the same point in the full camera frame as the cover crop.
+    const scaleX = maskW / dw, scaleY = maskH / dh;
     sfCtx.globalAlpha = _sfEff.dim / 100;
     sfCtx.drawImage(sfVid, dx, dy, dw, dh);
     sfCtx.globalAlpha = 1;
@@ -20478,8 +20581,8 @@ if (screen.width > 768) {
     _sfAuraCtx.font = `bold ${Math.round(_sfFontSize() * 1.4)}px monospace`;
     for (let gi = 0; gi < grid.chars.length; gi++) {
       const g = grid.chars[gi];
-      const mx = Math.round((g.x / CW) * maskW * scaleX) | 0;
-      const my = Math.round((g.y / CH) * maskH * scaleY) | 0;
+      const mx = Math.floor((g.x - dx) * scaleX);
+      const my = Math.floor((g.y - dy) * scaleY);
       if (mx < 0 || mx >= maskW || my < 0 || my >= maskH) continue;
       const mi = my * maskW + mx;
       const d  = dist[mi];
@@ -20500,8 +20603,8 @@ if (screen.width > 768) {
     for (let gi = 0; gi < grid.chars.length; gi++) {
       const g = grid.chars[gi];
       // Map canvas coord → mask coord
-      const mx = Math.round((g.x / CW) * maskW * scaleX) | 0;
-      const my = Math.round((g.y / CH) * maskH * scaleY) | 0;
+      const mx = Math.floor((g.x - dx) * scaleX);
+      const my = Math.floor((g.y - dy) * scaleY);
       if (mx < 0 || mx >= maskW || my < 0 || my >= maskH) continue;
 
       const mi = my * maskW + mx;
@@ -20589,6 +20692,7 @@ if (screen.width > 768) {
     if (extAudioMode && extAnalyser) { _sfStartAudioMode(); return; }
     _sfMode = 'cam';
     _sfFacing = facing || _sfFacing;
+    _sfMaskSmooth = null;
     _sfBadge('FLOW — starting…');
 
     // Stop any existing stream

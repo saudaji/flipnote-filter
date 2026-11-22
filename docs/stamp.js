@@ -77,7 +77,7 @@ function _stampNoise(x, y, seed = 0) {
 }
 function _stampBand(coord, spacing, width) {
   const safeSpacing = Math.max(1.5, spacing);
-  const m = ((coord % safeSpacing) + safeSpacing) % safeSpacing;
+  const m = coord - safeSpacing * Math.floor(coord / safeSpacing);
   const d = Math.abs(m - safeSpacing * 0.5);
   const feather = Math.max(0.18, width * 0.32);
   const hard = Math.max(0.15, width * 0.5);
@@ -177,7 +177,7 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const paper = stampPaperVal / 100;
   const scaleX = DSI_W / sampleW;
   const scaleY = DSI_H / sampleH;
-  const seed = (options.temporal?.seed || _camEngineCore.sessionSeed || 0) >>> 0;
+  const seed = (_camEngineCore.sessionSeed || 0) >>> 0;
 
   let minBlur = 255;
   let maxBlur = 0;
@@ -199,6 +199,7 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
     }
   }
   const range = Math.max(1, maxBlur - minBlur);
+  const sceneContrast = Math.min(1, (maxBlur - minBlur) / 56);
   const baseSpacing = Math.max(3.25, 9.9 - engrave * 4.1 - detail * 1.8 + variant.spacingBias);
   const crossSpacing = baseSpacing + 2.8 - engrave * 0.55;
   const tertiarySpacing = baseSpacing + 1.55 - engrave * 0.35;
@@ -225,7 +226,8 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
       const ay = Math.abs(gy);
       const edge = _stampClamp01((ax + ay) / Math.max(20, 78 - detail * 36));
       const localTone = lum[idx] / 255;
-      const broadTone = _stampClamp01((blur[idx] - minBlur) / range);
+      const relativeTone = _stampClamp01((blur[idx] - minBlur) / range);
+      const broadTone = localTone + sceneContrast * (relativeTone - localTone);
       let tone = broadTone * (1 - localBlend) + localTone * localBlend;
       tone = _stampPosterize(tone, variant.toneLevels, posterSoftness);
       tone = Math.pow(tone, variant.gamma + (paper - 0.5) * 0.12);
@@ -234,9 +236,9 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
 
       const px = x * scaleX;
       const py = y * scaleY;
-      const grain = _stampNoise(x, y, seed);
-      const paperNoise = (_stampNoise(x >> 1, y >> 1, seed + 17) - 0.5);
-      const fiberNoise = _stampNoise((x * 3) + 9, y + 5, seed + 41);
+      const grain = _stampNoise(Math.floor(px), Math.floor(py), seed);
+      const paperNoise = (_stampNoise(px >> 1, py >> 1, seed + 17) - 0.5);
+      const fiberNoise = _stampNoise(Math.floor(px * 3) + 9, Math.floor(py) + 5, seed + 41);
       const fiber = fiberNoise > (0.90 - paper * 0.18) ? (fiberNoise - (0.90 - paper * 0.18)) / 0.18 : 0;
       const jitter = (grain - 0.5) * (0.55 + paper * 0.65);
       const warp = _stampWarpNoise(px, py, seed) * warpAmount + jitter * 0.8;
@@ -261,7 +263,7 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
       const mass = _stampSmoothstep(0.72 - ink * 0.24, 0.965, shadow) * variant.massBoost;
       const edgeBoost = _stampSmoothstep(0.08 - detail * 0.05, 0.34, edge) *
         (0.46 + shadow * 0.64) * variant.edgeBoost;
-      const stippleNoise = _stampNoise((x >> 1) + 3, (y >> 1) + 7, seed + 91);
+      const stippleNoise = _stampNoise((px >> 1) + 3, (py >> 1) + 7, seed + 91);
       const stipple = (shadow > 0.24 && shadow < 0.56 && stippleNoise < shadow * (0.08 + variant.stippleBoost))
         ? (0.08 + variant.stippleBoost)
         : 0;
@@ -315,10 +317,12 @@ function _renderStampCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
     targetCtx.globalCompositeOperation = 'multiply';
     targetCtx.globalAlpha = 0.035 + paper * 0.06;
     targetCtx.fillStyle = `rgb(${palette.fiber.join(',')})`;
+    targetCtx.beginPath();
     for (let y = drawBounds.y; y < drawBounds.y + drawBounds.h; y += 3) {
       const wobble = ((y * 17 + seed) & 7) - 3;
-      targetCtx.fillRect(drawBounds.x, y + wobble * 0.08, drawBounds.w, 1);
+      targetCtx.rect(drawBounds.x, y + wobble * 0.08, drawBounds.w, 1);
     }
+    targetCtx.fill();
     targetCtx.globalCompositeOperation = 'source-over';
   }
   targetCtx.globalAlpha = 1;

@@ -1,6 +1,6 @@
-const CACHE = 'flipnote-filter-v74-public-alpha';
+const CACHE = 'flipnote-filter-v75-optical-cameras';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
-  './frame-runtime.js', './stamp.js', './pretext.js', './enochian.ttf',
+  './frame-runtime.js', './stamp.js', './optical-scope.js', './pretext.js', './enochian.ttf',
   './fonts/Bloom-Regular.otf', './fonts/BNMonica.otf', './fonts/Fluidic-Regular.otf', './fonts/Canterbury.ttf'];
 const shell = new URL('./index.html', self.registration.scope).href;
 

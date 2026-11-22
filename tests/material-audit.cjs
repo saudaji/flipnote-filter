@@ -68,11 +68,12 @@ async function main() {
         row.stick = moved;
         // Visor frente a exportación en alta.
         settle('portrait', 16, null);
-        const visor = FlipKit.luma(display, null, [128, 96]);
+        // Se compara punto a punto en la rejilla del dispositivo: un tramado de 1 bit no admite otra escala.
+        const visor = FlipKit.luma(display, null, [DSI_W, DSI_H]);
         const visorMean = FlipKit.stats(display).mean;
         const shot = FlipKit.exportFrame('portrait', 15 / fps, base + 15 * 1000 / fps, null, 'high');
         row.exportSize = shot.width + 'x' + shot.height;
-        row.exportCorr = FlipKit.correlation(visor, FlipKit.luma(shot, null, [128, 96]));
+        row.exportCorr = FlipKit.correlation(visor, FlipKit.luma(shot, null, [DSI_W, DSI_H]));
         row.exportDelta = FlipKit.stats(shot).mean - visorMean;
         return row;
       }, { family, variant, fps: CADENCE[family] }));
@@ -90,7 +91,7 @@ async function main() {
         // THRML es una paleta de falso color: su luminancia no es monótona por diseño.
         if (id !== 'VFD THRML') assert.ok(r.mono > 0.85, id + ': orden tonal ' + r.mono);
         assert.ok(r.levels >= 3, id + ': niveles ' + r.levels);
-        assert.ok(r.exportCorr > 0.8, id + ': visor frente a exportación ' + r.exportCorr);
+        assert.ok(r.exportCorr > 0.9, id + ': visor frente a exportación ' + r.exportCorr);
         assert.ok(Math.abs(r.exportDelta) < 14, id + ': nivel de la exportación ' + r.exportDelta);
       }
     }

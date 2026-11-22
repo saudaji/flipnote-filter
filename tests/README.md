@@ -12,7 +12,7 @@ FLIP_URL=http://127.0.0.1:8760 node tests/run-all.cjs
 
 | Prueba | Qué comprueba |
 |---|---|
-| `alpha-smoke.cjs` | Arranque, foto en alta, un render por refresco, salida de STAGE, arranque sin red. |
+| `alpha-smoke.cjs` | Arranque, foto en alta, un render por refresco, STAGE con su ventana de salida y su micrófono, arranque sin red. |
 | `optical-cameras.cjs` | X–Y, FFT y TIEMPO de OSCAM; LED de FLASH; alineación de FLOW. |
 | `night-vision.cjs` | AUTO 03 NIGHT: rostro legible en penumbra, negro profundo, lámpara con núcleo pálido y smear, señal monocroma azul verdosa, AGC, obturador lento, foto igual al visor. |
 | `vector-beam.cjs` | OSCAM VECTOR: círculo de un solo trazo, diagonal de bajo contraste, sin puentes entre objetos, estabilidad con ruido, respuesta al movimiento y apagado del fósforo. |
@@ -20,6 +20,9 @@ FLIP_URL=http://127.0.0.1:8760 node tests/run-all.cjs
 | `alpha-flows.cjs` | Recorrido de alfa en un Pixel emulado, con los mandos visibles: permiso denegado y recuperado, foto, doble disparo, vídeo, grabar y parar al instante, cambio de cámara, NIGHT y FLASH, cambios rápidos de modo, segundo plano, mandos sin encimarse en vertical, pantalla pequeña y horizontal, liberación de cámara y micrófono. |
 | `alpha-media.cjs` | Vídeo con audio (ffprobe), visor frente a foto y vídeo, importación en EDIT, actualización desde la alfa anterior con su service worker. |
 | `alpha-performance.cjs` | ms por cuadro, cadencia y tirones por variante, con y sin CPU frenada, y uso sostenido. |
+| `portal.cjs` | PORTAL: marco a dos manos y lente a una (manos simuladas en posiciones conocidas), el emulador solo dentro de la ventana, STAMP sin marco, ASCII y sonido, foto igual al visor, y arranque del rastreador real. |
+| `feel.cjs` | Tacto: qué suena y qué vibra en cada pieza (disparador, teclas, botones, interruptor, muescas), que nada suena sin un dedo, que dos sonidos no se pisan, y que al grabar o con el micrófono abierto las teclas callan o bajan. |
+| `stage.cjs` | STAGE: cámara por planos nativos y por vídeo directo, conversión YUV del sombreador (I420 y NV12), carta de ajuste, mezcla, bucle, geometría, color, corte a negro, las ocho escenas, LFO, sonido y golpe, parcheo con cables, perillas y deslizador, guardar escena y transición, MIDI (aprender un CC, notas, reloj), tempo a golpes, manos como mando, foto, grabación, encaje en tres tamaños y ventana de salida en escritorio. |
 
 `capture-gallery.cjs <carpeta>` genera la galería de capturas y clips con las mismas escenas
 sobre cualquier commit, para comparar antes y después.

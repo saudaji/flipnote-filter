@@ -8,6 +8,12 @@
       "port": 8742
     },
     {
+      "name": "flip-alpha2",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/serve.js", "8760"],
+      "port": 8760
+    },
+    {
       "name": "saudaji",
       "runtimeExecutable": "node",
       "runtimeArgs": [".claude/serve-saudaji.js"],

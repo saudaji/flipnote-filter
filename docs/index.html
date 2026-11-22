@@ -1139,6 +1139,7 @@
 
     /* ── AUTO 03 edit panel ── */
     #auto03EditPanel { display:none; margin-bottom:3px; }
+    .auto03-note { margin:0 0 8px; color:var(--mid); font-family:monospace; font-size:9px; line-height:1.45; letter-spacing:.2px; }
     .auto03-row {
       display:flex;
       align-items:center;
@@ -3369,6 +3370,7 @@
     </div>
   </div>
   <div id="auto03EditPanel" style="display:none;">
+    <p id="auto03ModeNote" class="auto03-note"></p>
     <div class="auto03-row">
       <span class="auto03-lbl">TONE</span>
       <div class="auto03-group">
@@ -4213,6 +4215,7 @@
 
 <script src="./optical-scope.js"></script>
 <script src="./stamp.js"></script>
+<script src="./night-vision.js"></script>
 <script src="./frame-runtime.js"></script>
 <script>
 // ════════════════════════════════════════════════════════════════════
@@ -5035,7 +5038,11 @@ const CAM_FAMILIES = {
     label:'AUTO03',
     displayLabel:'AUTO 03',
     internalId:'ccd_auto_03',
-    variants:[{ id:'DAY', label:'DAY' }, { id:'FLASH', label:'FLASH' }, { id:'NIGHT', label:'NIGHT' }],
+    variants:[
+      { id:'DAY', label:'DAY', hint:'DAY · exposición directa del sensor.' },
+      { id:'FLASH', label:'FLASH', hint:'FLASH · destello simulado. Al disparar enciende la luz del teléfono si la cámara lo permite.' },
+      { id:'NIGHT', label:'NIGHT', hint:'NIGHT · emulación de visión nocturna de videocámara. Amplifica la luz visible que capta el teléfono; no usa infrarrojo.' },
+    ],
     editMode:'auto03',
     paletteContext:null,
   },
@@ -5221,6 +5228,7 @@ function drawCameraFrame(frame) {
             sampleH: captureDims.sampleH,
             outW: frame.options.outW,
             outH: frame.options.outH,
+            still: frame.options.still,
           }
         );
         return frame;
@@ -5664,6 +5672,7 @@ function _renderCamVariantPill() {
       type:'button',
     });
     btn.dataset.variant = variant.id;
+    if (variant.hint) btn.title = variant.hint;
     pill.appendChild(btn);
   });
   pill.classList.toggle('visible', variants.length > 1);
@@ -5768,6 +5777,8 @@ function _applyCamState() {
   document.querySelectorAll('.oscam-color-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.osccol === oscamColorMode);
   });
+  document.getElementById('auto03ModeNote').textContent =
+    (fam.variants.find(v => v.id === camVariant)?.hint) || '';
   document.querySelectorAll('.auto03-btn[data-a03tone]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.a03tone === auto03ToneMode);
   });
@@ -6019,9 +6030,13 @@ document.querySelectorAll('.cam-fam-btn').forEach(btn => {
 document.getElementById('camVariantPill').addEventListener('click', e => {
   const btn = e.target.closest('.cam-var-btn');
   if (!btn) return;
+  const changed = camVariant !== btn.dataset.variant;
   camVariant = btn.dataset.variant;
   _applyCamState();
   saveSettings();
+  // Al entrar en una variante se dice qué hace, sin prometer más de lo que el teléfono puede dar.
+  const hint = _getCamFamilyConfig().variants.find(v => v.id === camVariant)?.hint;
+  if (changed && hint) flipToast(hint, 4200);
 });
 
 // ── DLPHN edit panel handlers ─────────────────────────────────────
@@ -7314,27 +7329,6 @@ function _getAuto03Profile() {
     cfg.shadowCool = 0.06;
     cfg.warmHighlights = 0.18;
     cfg.blackBite = 0.10;
-  } else if (renderVariant() === 'NIGHT') {
-    cfg.sat = 1.16;
-    cfg.redSat = 1.07;
-    cfg.greenSat = 0.90;
-    cfg.blueSat = 1.20;
-    cfg.contrast = 0.24;
-    cfg.shadowComp = 0.12;
-    cfg.specBoost = 0.17;
-    cfg.rolloff = 0.03;
-    cfg.sharpen = 0.20;
-    cfg.noise = 0.062;
-    cfg.bloom = 0.096;
-    cfg.centerLift = 0.02;
-    cfg.vignette = 0.09;
-    cfg.highlightThreshold = 0.75;
-    cfg.redGain = 1.016;
-    cfg.greenGain = 0.992;
-    cfg.blueGain = 1.05;
-    cfg.shadowCool = 0.22;
-    cfg.warmHighlights = 0.10;
-    cfg.blackBite = 0.09;
   }
   if (auto03ToneMode === 'SOFT') {
     cfg.contrast -= 0.09;
@@ -7405,25 +7399,22 @@ function auto03ExposureMap(width, height, cfg) {
   auto03Lens = { key, values };
   return values;
 }
-const nightFrames = new WeakMap();
-function integrateNightFrame(ctx, source, pixels, w, h, now) {
-  const last = nightFrames.get(ctx);
-  if (!last || last.source !== source || last.w !== w || last.h !== h || now < last.time || now-last.time>240) {
-    nightFrames.set(ctx,{source,w,h,time:now,values:Float32Array.from(pixels)});
-    return;
-  }
-  const keep = Math.min(.82, Math.exp(-Math.max(1,now-last.time)/85));
-  for (let i=0;i<pixels.length;i+=4) for(let c=i;c<i+3;c++) {
-    last.values[c] += (pixels[c]-last.values[c])*(1-keep);
-    pixels[c] = last.values[c];
-  }
-  last.time=now;
-}
 function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
   const outW = Math.max(1, Math.round(options.outW || targetCtx.canvas?.width || OUT_W));
   const outH = Math.max(1, Math.round(options.outH || targetCtx.canvas?.height || OUT_H));
+  if (renderVariant() === 'NIGHT') {
+    nightVision.render(source, srcW, srcH, targetCtx, mirror, now, {
+      sampleW, sampleH, outW, outH, still: options.still,
+      contrast: auto03ToneMode === 'SOFT' ? -0.3 : auto03ToneMode === 'PUNCH' ? 0.3 : 0,
+      sharp: auto03SharpMode === 'LOW' ? 0.45 : auto03SharpMode === 'CRISP' ? 1.6 : 1,
+      noise: auto03NoiseMode === 'CLEAN' ? 0.4 : auto03NoiseMode === 'NIGHT' ? 1.5 : 1,
+    });
+    _drawAuto03Stamp(targetCtx, outW, outH);
+    return;
+  }
+  nightVision.reset(targetCtx);
   const buffers = _ensureAuto03Buffers(sampleW, sampleH);
   const renderTarget = buffers.render;
   const bloomTarget = buffers.bloom;
@@ -7435,15 +7426,10 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
   renderTarget.ctx.drawImage(source, sx, sy, sw, sh, 0, 0, sampleW, sampleH);
   renderTarget.ctx.restore();
   const { data: src } = renderTarget.ctx.getImageData(0, 0, sampleW, sampleH);
-  const variant = renderVariant();
-  if (variant === 'NIGHT') integrateNightFrame(targetCtx, source, src, sampleW, sampleH, now);
-  else nightFrames.delete(targetCtx);
+  const flash = renderVariant() === 'FLASH';
   const lum = _fillCamLumBuf(src, sampleW, sampleH);
-  const seed = ((now / 33) | 0) + (renderVariant() === 'NIGHT' ? 71 : renderVariant() === 'FLASH' ? 37 : 11);
+  const seed = ((now / 33) | 0) + (flash ? 37 : 11);
   const lens = auto03ExposureMap(sampleW, sampleH, cfg);
-  let meter = 0, count = 0;
-  for (let j=0;j<lum.length;j+=31) {meter+=lum[j]; count++;}
-  const nightGain = Math.max(1.12, Math.min(4.2, 126/(14+meter/count)));
   bloomTarget.buffer.fill(0);
 
   for (let y = 0; y < sampleH; y++) {
@@ -7466,7 +7452,7 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
       g += micro * 0.94;
       b += micro * 1.14;
 
-      const exposure = lens[idx] * (variant === 'NIGHT' ? nightGain : 1);
+      const exposure = lens[idx];
       r *= exposure;
       g *= exposure;
       b *= exposure;
@@ -7476,7 +7462,7 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
       b = b * (1.032 * cfg.blueGain) + g * 0.005;
 
       let luma = (r * 77 + g * 150 + b * 29) / (255 * 256);
-      luma = Math.pow(_auto03Clamp01(luma), variant === 'NIGHT' ? .82 : 1 + cfg.shadowComp);
+      luma = Math.pow(_auto03Clamp01(luma), 1 + cfg.shadowComp);
       luma += (luma - 0.5) * cfg.contrast * (0.82 - Math.abs(luma - 0.5) * 0.56);
       const hi = _auto03Smoothstep(0.70, 1, luma);
       luma += hi * hi * cfg.specBoost * 0.09;
@@ -7546,11 +7532,11 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
   targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
   targetCtx.globalCompositeOperation = 'screen';
   targetCtx.globalAlpha = 0.09 + cfg.bloom * 0.85;
-  targetCtx.filter = `blur(${renderVariant() === 'FLASH' ? 2.4 : renderVariant() === 'NIGHT' ? 2.8 : 1.6}px)`;
+  targetCtx.filter = `blur(${flash ? 2.4 : 1.6}px)`;
   targetCtx.drawImage(bloomTarget.canvas, 0, 0, outW, outH);
-  if (renderVariant() !== 'DAY') {
+  if (flash) {
     targetCtx.globalAlpha = 0.04 + cfg.bloom * 0.35;
-    targetCtx.filter = `blur(${renderVariant() === 'FLASH' ? 4.2 : 4.8}px)`;
+    targetCtx.filter = 'blur(4.2px)';
     targetCtx.drawImage(bloomTarget.canvas, 0, 0, outW, outH);
   }
   targetCtx.filter = 'none';
@@ -15470,7 +15456,10 @@ async function renderCameraPhoto() {
       burst.height = Math.max(1, Math.round(burst.width*vid.videoHeight/vid.videoWidth));
       const mix = burst.getContext('2d');
       const initialStream = vid.srcObject;
-      for (let i=0;i<3;i++) {
+      // La foto repite la exposición del visor: misma ganancia y los mismos cuadros integrados.
+      const still = nightVision.snapshot(ctxD) || { gain: 0, exposure: 95 };
+      const shots = Math.max(1, Math.min(4, Math.round(still.exposure / 33.3)));
+      for (let i=0;i<shots;i++) {
         if (i) await waitForCameraFrame(vid);
         if (vid.srcObject !== initialStream || !vid.videoWidth) return null;
         mix.globalAlpha=1/(i+1);
@@ -15479,7 +15468,7 @@ async function renderCameraPhoto() {
       const ctx = canvas.getContext('2d');
       _renderCamEngineFrame(burst,burst.width,burst.height,ctx,false,{
         family:'AUTO03', variant:'NIGHT', path:'capture', now:performance.now(),
-        resolution:options.resolution, outW:width,outH:height,
+        resolution:options.resolution, outW:width,outH:height, still,
       });
       _renderCamStickerLayer(ctx,false);
     } else {

@@ -5273,7 +5273,7 @@ function drawCameraFrame(frame) {
         );
         return frame;
       }
-      renderCaskia(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
+      renderCaskia(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.now);
       return frame;
     case 'vfd':
       if (frame.path === 'capture') {
@@ -6154,23 +6154,21 @@ function _getDsiScanCanvas(outW, outH, sampleH) {
     canvas.height = outH;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, outW, outH);
+    const pitch = outH / Math.max(1, sampleH), line = pitch / 4;
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    for (let y = 0; y < outH; y += step) ctx.fillRect(0, y, outW, 1);
-    const microStep = Math.max(2, Math.round(step * 0.5));
+    for (let row = 0; row < sampleH; row++) ctx.fillRect(0, row * pitch, outW, line);
     ctx.fillStyle = 'rgba(0,0,0,0.20)';
-    for (let y = 1; y < outH; y += microStep) ctx.fillRect(0, y, outW, 1);
+    for (let row = 0; row < sampleH; row++) {
+      ctx.fillRect(0, (row + 0.25) * pitch, outW, line);
+      ctx.fillRect(0, (row + 0.75) * pitch, outW, line);
+    }
     _dsiScanCache.set(key, canvas);
   }
   return canvas;
 }
-function _getDsiCaptureSampleDims(options = {}) {
-  const resolutionId = options.resolution || ((flipAudioSettings && flipAudioSettings.resolution) || 'medium');
-  const scale = resolutionId === 'high' ? 1.6 : (resolutionId === 'low' ? 1.08 : 1.3);
-  const even = v => Math.max(32, Math.round(v / 2) * 2);
-  return {
-    sampleW: even(DSI_W * scale),
-    sampleH: even(DSI_H * scale),
-  };
+// La pantalla emulada tiene un número fijo de puntos: una foto en alta los amplía, no los multiplica.
+function _getDsiCaptureSampleDims() {
+  return { sampleW: DSI_W, sampleH: DSI_H };
 }
 
 // Apply upload-panel color adjustments to r,g,b — used by renderDithered when applyEdits=true
@@ -6542,13 +6540,19 @@ const CASKIA_LCD_COLS = [
   [ 48,  60,  32],
   [ 22,  28,  10],
 ];
+// Sustrato de tinta electrónica: el «blanco» es un gris claro (≈44 % de reflectancia) y el negro, gris oscuro.
 const CASKIA_EINK_COLS = [
-  [238, 236, 228],
-  [214, 210, 200],
-  [176, 171, 160],
-  [112, 108, 101],
-  [ 54,  52,  49],
+  [216, 214, 204],
+  [196, 193, 183],
+  [162, 158, 148],
+  [106, 102,  96],
+  [ 52,  50,  47],
 ];
+// 16 niveles de gris, como un panel de 4 bits.
+const CASKIA_EINK_GRAYS = Array.from({ length: 16 }, (_, k) => {
+  const at = k / 15 * 4, lo = Math.min(3, Math.floor(at)), t = at - lo;
+  return CASKIA_EINK_COLS[lo].map((v, c) => Math.round(v + (CASKIA_EINK_COLS[lo + 1][c] - v) * t));
+});
 const CASKIA_DITHER_4X4 = [
    0, 136,  34, 170,
   204,  68, 238, 102,
@@ -6737,11 +6741,12 @@ function _getCaskiaOverlayCanvas(outW, outH, sampleW, sampleH) {
     canvas.height = outH;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, outW, outH);
-    const stepX = Math.max(2, Math.round((outW / Math.max(1, sampleW)) * _CASKIA_CELL));
-    const stepY = Math.max(2, Math.round((outH / Math.max(1, sampleH)) * _CASKIA_CELL));
+    const stepX = (outW / Math.max(1, sampleW)) * _CASKIA_CELL;
+    const stepY = (outH / Math.max(1, sampleH)) * _CASKIA_CELL;
+    const gap = Math.max(1, stepX / (OUT_W / DSI_W * _CASKIA_CELL));
     ctx.fillStyle = 'rgba(164,172,130,0.28)';
-    for (let x = stepX - 1; x < outW; x += stepX) ctx.fillRect(x, 0, 1, outH);
-    for (let y = stepY - 1; y < outH; y += stepY) ctx.fillRect(0, y, outW, 1);
+    for (let k = 1; k * stepX <= outW + 0.5; k++) ctx.fillRect(k * stepX - gap, 0, gap, outH);
+    for (let k = 1; k * stepY <= outH + 0.5; k++) ctx.fillRect(0, k * stepY - gap, outW, gap);
     const vg = ctx.createRadialGradient(outW / 2, outH / 2, outH * 0.30, outW / 2, outH / 2, outH * 0.75);
     vg.addColorStop(0, 'rgba(164,172,130,0)');
     vg.addColorStop(1, 'rgba(164,172,130,0.35)');
@@ -6778,12 +6783,10 @@ function _getCaskiaEInkOverlayCanvas(outW, outH) {
   }
   return canvas;
 }
-function _getCaskiaCaptureSampleDims(options = {}) {
-  const resolutionId = options.resolution || ((flipAudioSettings && flipAudioSettings.resolution) || 'medium');
-  const scale = resolutionId === 'high' ? 1.5 : (resolutionId === 'low' ? 1.06 : 1.24);
-  const even = v => Math.max(32, Math.round(v / 2) * 2);
-  return { sampleW: even(DSI_W * scale), sampleH: even(DSI_H * scale) };
+function _getCaskiaCaptureSampleDims() {
+  return { sampleW: DSI_W, sampleH: DSI_H };
 }
+const caskiaLcdStates = new WeakMap();
 function _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
@@ -6802,6 +6805,14 @@ function _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror, options = {}) 
   const lum = _fillCamLumBuf(src, sampleW, sampleH);
 
   if (renderVariant() !== 'E-INK') {
+    // LCD pasivo: el punto no cambia de golpe, arrastra unas décimas de segundo.
+    const now = options.now ?? performance.now();
+    let lcd = caskiaLcdStates.get(targetCtx);
+    if (!lcd || lcd.level.length !== lum.length) caskiaLcdStates.set(targetCtx, lcd = { level: new Float32Array(lum.length), last: -1 });
+    const fresh = lcd.last < 0 || now <= lcd.last || now - lcd.last > 500;
+    const follow = fresh ? 1 : 1 - Math.exp(-(now - lcd.last) / 110);
+    lcd.last = now;
+    for (let p = 0; p < lum.length; p++) lum[p] = lcd.level[p] += (lum[p] - lcd.level[p]) * follow;
     for (let y = 0; y < sampleH; y++) {
       for (let x = 0; x < sampleW; x++) {
         const idx = y * sampleW + x;
@@ -6843,15 +6854,10 @@ function _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror, options = {}) 
       const prev = (memory.length === lum.length && _caskiaEInkPrimed) ? memory[idx] : dry;
       const dither = (CASKIA_DITHER_4X4[((y & 3) << 2) | (x & 3)] - 128) * 0.08;
       const paper = (((x * 13 + y * 7) & 15) - 7.5) * 0.9;
-      const mixed = Math.max(0, Math.min(255, dry * 0.86 + prev * 0.14 + dither + paper));
-      if (memory.length === lum.length) memory[idx] = prev * 0.93 + dry * 0.07;
-      let band;
-      if      (mixed > 224) band = 0;
-      else if (mixed > 176) band = 1;
-      else if (mixed > 124) band = 2;
-      else if (mixed > 72) band = 3;
-      else                 band = 4;
-      const c = CASKIA_EINK_COLS[band];
+      // Fantasma: queda un resto tenue de lo anterior y tarda segundos en irse, como sin refresco completo.
+      const mixed = Math.max(0, Math.min(255, dry * 0.91 + prev * 0.09 + dither * 0.5 + paper * 0.6));
+      if (memory.length === lum.length) memory[idx] = prev * 0.975 + dry * 0.025;
+      const c = CASKIA_EINK_GRAYS[15 - Math.min(15, (mixed * 16 / 256) | 0)];
       outBuf[i] = c[0]; outBuf[i + 1] = c[1]; outBuf[i + 2] = c[2]; outBuf[i + 3] = 255;
     }
   }
@@ -6862,8 +6868,9 @@ function _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror, options = {}) 
   targetCtx.drawImage(_getCaskiaEInkOverlayCanvas(outW, outH), 0, 0, outW, outH);
 }
 
-function renderCaskia(source, srcW, srcH, targetCtx, mirror) {
-  if (renderVariant() !== 'SEIKO') return _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror);
+let _caskiaSeikoRange = null, _caskiaSeikoLast = -1;
+function renderCaskia(source, srcW, srcH, targetCtx, mirror, now = performance.now()) {
+  if (renderVariant() !== 'SEIKO') return _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror, { now });
   const { width, height } = targetCtx.canvas;
   const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
   ctxS.save();
@@ -6901,10 +6908,20 @@ function renderCaskia(source, srcW, srcH, targetCtx, mirror) {
     sumL += l;
   }
   const sceneMean = sumL / (_caskiaSeikoLum.length || 1);
-  const sceneRange = Math.max(0.11, maxL - minL);
-  const phase = ((performance.now() / 1000) * 60) | 0;
-  const persist = 0.08 + ghost * 0.24;
-  const decay = 0.72 + ghost * 0.22;
+  // El nivel de la pantalla sigue a la escena con inercia: lo que entra en cuadro no hace bombear el resto.
+  const dt = _caskiaSeikoPrimed && now > _caskiaSeikoLast && now - _caskiaSeikoLast < 500 ? now - _caskiaSeikoLast : -1;
+  _caskiaSeikoLast = now;
+  if (dt < 0 || !_caskiaSeikoRange) _caskiaSeikoRange = { min: minL, max: maxL };
+  else {
+    const follow = 1 - Math.exp(-dt / 450);
+    _caskiaSeikoRange.min += (minL - _caskiaSeikoRange.min) * follow;
+    _caskiaSeikoRange.max += (maxL - _caskiaSeikoRange.max) * follow;
+  }
+  minL = _caskiaSeikoRange.min;
+  const sceneRange = Math.max(0.11, _caskiaSeikoRange.max - minL);
+  const phase = ((now / 1000) * 60) | 0;
+  // Cristal guest-host de 1982: cada punto tarda décimas de segundo en llegar a su nivel.
+  const response = dt < 0 ? 1 : 1 - Math.exp(-dt / (40 + ghost * 380));
   const reflectivity = 0.62 + sceneMean * 0.24;
   const ambient = 0.82 + sceneMean * 0.16;
   const scenePalette = palette.map(([r, g, b]) => [
@@ -6930,12 +6947,12 @@ function renderCaskia(source, srcW, srcH, targetCtx, mirror) {
       shaped = _clamp01(shaped);
 
       const prev = _caskiaSeikoPrimed ? _caskiaSeikoMemory[idx] : shaped;
-      const driven = prev * persist + shaped * (1 - persist);
-      _caskiaSeikoMemory[idx] = prev * decay + shaped * (1 - decay);
+      const driven = prev + (shaped - prev) * response;
+      _caskiaSeikoMemory[idx] = driven;
 
       const ordered = (CASKIA_SEIKO_DITHER_8X8[((y & 7) << 3) | (x & 7)] / 63 - 0.5) * (0.012 + ditherAmt * 0.055);
       const field = ((((x * 5 + y * 3 + phase) & 3) - 1.5) / 1.5) * (0.002 + ditherAmt * 0.004);
-      const quant = _clamp01(0.03 + driven * 0.94 + ordered + field);
+      const quant = _clamp01(0.03 + (1 - driven) * 0.94 + ordered + field);
       const band = Math.max(0, Math.min(levelMax, Math.round(quant * levelMax)));
       const c = scenePalette[band];
       data[p] = c[0];
@@ -7078,7 +7095,8 @@ function _getVfdOverlayCanvas(outW, outH) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, outW, outH);
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    for (let y = 1; y < outH; y += 2) ctx.fillRect(0, y, outW, 1);
+    const pitch = outH / (OUT_H / 2);
+    for (let k = 0; k * pitch < outH; k++) ctx.fillRect(0, (k + 0.5) * pitch, outW, pitch / 2);
     const vg = ctx.createRadialGradient(outW / 2, outH / 2, outH * 0.20, outW / 2, outH / 2, outH * 0.80);
     vg.addColorStop(0, 'rgba(0,0,0,0)');
     vg.addColorStop(1, 'rgba(0,0,0,0.65)');
@@ -7115,12 +7133,10 @@ function _getVfdThermalOverlayCanvas(outW, outH) {
   }
   return canvas;
 }
-function _getVfdCaptureSampleDims(options = {}) {
-  const resolutionId = options.resolution || ((flipAudioSettings && flipAudioSettings.resolution) || 'medium');
-  const scale = resolutionId === 'high' ? 1.6 : (resolutionId === 'low' ? 1.05 : 1.28);
-  const even = v => Math.max(32, Math.round(v / 2) * 2);
-  return { sampleW: even(DSI_W * scale), sampleH: even(DSI_H * scale) };
+function _getVfdCaptureSampleDims() {
+  return { sampleW: DSI_W, sampleH: DSI_H };
 }
+const thermalRanges = new WeakMap();
 function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
@@ -7144,6 +7160,12 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
       if (lum[i] < minG) minG = lum[i];
       if (lum[i] > maxG) maxG = lum[i];
     }
+    // Autorrango con inercia, como el de una cámara térmica: un objeto que entra no hace parpadear el resto.
+    let span = thermalRanges.get(targetCtx);
+    // Un corte de escena reajusta de golpe; los cambios graduales se siguen con inercia.
+    if (!span || Math.abs(minG - span.min) > 48 || Math.abs(maxG - span.max) > 48) thermalRanges.set(targetCtx, span = { min: minG, max: maxG });
+    span.min += (minG - span.min) * 0.18; span.max += (maxG - span.max) * 0.18;
+    minG = span.min; maxG = span.max;
     const range = maxG - minG || 1;
     for (let y = 0; y < sampleH; y++) {
       for (let x = 0; x < sampleW; x++) {
@@ -7153,7 +7175,7 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
         const left = x ? lum[idx - 1] : lum[idx];
         const up = y ? lum[idx - sampleW] : lum[idx];
         const edge = (Math.abs(lum[idx] - left) + Math.abs(lum[idx] - up)) * 0.52;
-        let therm = norm * 0.78 + edge * 1.05;
+        let therm = norm * 0.86 + edge * 1.05;
         if (norm > 180) therm += 16;
         therm = Math.max(0, Math.min(255, therm));
         let band;

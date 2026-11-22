@@ -1,19 +1,26 @@
-const CACHE = 'flipnote-filter-v73-puertas-color-riel-trail';
-const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png', './pretext.js',
+const CACHE = 'flipnote-filter-v74-public-alpha';
+const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
+  './frame-runtime.js', './stamp.js', './pretext.js', './enochian.ttf',
   './fonts/Bloom-Regular.otf', './fonts/BNMonica.otf', './fonts/Fluidic-Regular.otf', './fonts/Canterbury.ttf'];
+const shell = new URL('./index.html', self.registration.scope).href;
 
-self.addEventListener('install', e =>
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()))
-);
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+});
 
-self.addEventListener('activate', e =>
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  )
-);
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(
+    keys.filter(key => key.startsWith('flipnote-filter-') && key !== CACHE).map(key => caches.delete(key))
+  )).then(() => self.clients.claim()));
+});
 
-self.addEventListener('fetch', e =>
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)))
-);
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  if (request.method !== 'GET' || !request.url.startsWith(self.registration.scope)) return;
+  const url = new URL(request.url);
+  const home = new URL('./', self.registration.scope);
+  const isHome = request.mode === 'navigate' && (url.pathname === home.pathname || url.pathname === new URL(shell).pathname);
+  event.respondWith(caches.open(CACHE).then(async cache =>
+    (await cache.match(isHome ? shell : request)) || fetch(request)
+  ));
+});

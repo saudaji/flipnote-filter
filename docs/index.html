@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0F380F">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -1088,6 +1088,9 @@
     /* AUTO 03 body theme — premium CCD digicam steel blue */
     body.auto03-mode { --ink:#08101a; --dark:#22344d; --mid:#6f90b5; --paper:#d6e4f4; }
     body.auto03-mode .tab.active { background:rgba(214,228,244,.08); }
+    /* STAMP body theme — engraved paper / postal issue */
+    body.stamp-mode { --ink:#1b120d; --dark:#5b4636; --mid:#a4876d; --paper:#efe0c8; }
+    body.stamp-mode .tab.active { background:rgba(239,224,200,.08); }
     /* VFD body theme — cyan emisivo */
     body.vfd-mode { --ink:#000a0a; --dark:#003030; --mid:#008080; --paper:#00e8d0; }
     body.vfd-mode .tab.active { background:rgba(0,232,208,.08); }
@@ -1178,6 +1181,84 @@
       border-color:#d8ecff;
       color:#f4fbff;
       background:rgba(186,216,255,.12);
+    }
+    /* ── STAMP edit panel ── */
+    #stampEditPanel { display:none; margin-bottom:3px; }
+    .stamp-ctrl-row {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-bottom:6px;
+    }
+    .stamp-lbl {
+      color:#8b674d;
+      font-family:monospace;
+      font-size:7px;
+      letter-spacing:.8px;
+      min-width:58px;
+      flex-shrink:0;
+      text-transform:uppercase;
+    }
+    .stamp-val {
+      color:#f1debf;
+      font-family:monospace;
+      font-size:7px;
+      min-width:24px;
+      text-align:right;
+      flex-shrink:0;
+    }
+    .stamp-ctrl-row input[type="range"] {
+      flex:1;
+      height:2px;
+      accent-color:#d4b184;
+      cursor:pointer;
+    }
+    .stamp-row {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:6px;
+    }
+    .stamp-group {
+      flex:1;
+      min-width:0;
+      display:flex;
+      gap:4px;
+      flex-wrap:wrap;
+    }
+    .stamp-btn {
+      flex:1;
+      min-width:0;
+      min-height:24px;
+      padding:0 6px;
+      background:none;
+      border:1.5px solid #5b4636;
+      color:#9e8268;
+      font-family:monospace;
+      font-size:7px;
+      font-weight:bold;
+      letter-spacing:.55px;
+      cursor:pointer;
+      line-height:1;
+      transition:.1s;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+    .stamp-btn.active {
+      border-color:#e6c18f;
+      color:#fff2de;
+      background:rgba(230,193,143,.12);
+      box-shadow:0 0 0 1px rgba(230,193,143,.08) inset;
+    }
+    body.stamp-mode .cam-fam-btn.active {
+      background:rgba(230,193,143,.12);
+    }
+    body.stamp-mode .cam-var-btn.active {
+      border-color:#d8b07d;
+      background:rgba(216,176,125,.10);
+    }
+    body.stamp-mode #btnCamEditDock {
+      color:#fff0dc;
     }
     /* ── CASKIA SEIKO edit panel ── */
     #caskiaEditPanel { display:none; margin-bottom:3px; }
@@ -2753,6 +2834,30 @@
         width:calc((100% - 8px) / 5);
       }
     }
+    .tab-bar { overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
+    .tab-bar .tab { flex:1 0 auto; min-width:68px; padding:0 10px; letter-spacing:.6px; color:var(--mid); }
+    .tab-bar .tab.active { color:var(--paper); box-shadow:inset 0 -3px var(--paper); }
+    button:focus-visible, input:focus-visible { outline:2px solid var(--paper); outline-offset:-2px; }
+    #camFamilyTray { max-height:50vh; overflow:auto; }
+    #camFamilyStrip { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:4px; }
+    #camFamilyStrip .cam-fam-btn { height:auto; min-height:44px; padding:6px 10px; text-align:left; color:#ddd; }
+    .cam-fam-btn strong,.cam-fam-btn small { display:block; line-height:1.35; }
+    .cam-fam-btn strong { font-size:12px; }
+    .cam-fam-btn small { font:11px system-ui,sans-serif; color:#ccc; }
+    #camFamilyStrip .cam-fam-btn.active { box-shadow:inset 3px 0 var(--paper); }
+    @media (max-height:480px) { #camFamilyTray { bottom:90px; max-height:45vh; } }
+    .tab-bar .tab { font-family:system-ui,sans-serif; text-align:left; letter-spacing:normal; color:var(--paper); }
+    .tab strong,.tab small { display:block; }
+    .tab strong { font:700 11px/1.25 monospace; letter-spacing:.06em; }
+    .tab small { margin-top:1px; font-size:10px; font-weight:400; text-transform:none; }
+    .module-picker { display:none; }
+    #camControlDock .cam-var-btn { min-height:36px; font:600 11px monospace; color:#d8d8d8; }
+    #camControlDock .cam-var-btn.active { color:#fff; box-shadow:inset 0 -2px currentColor; }
+    @media (max-width:780px) {
+      .tab-bar .tab { display:none; }
+      .module-picker { display:flex; align-items:center; width:100%; padding:0 12px; gap:12px; color:var(--paper); font:12px system-ui,sans-serif; }
+      .module-picker select { flex:1; min-width:0; height:100%; color:inherit; background:var(--ink); border:0; font:600 14px system-ui,sans-serif; }
+    }
   </style>
 </head>
 <body>
@@ -2773,18 +2878,19 @@
 <canvas id="small"   style="display:none"></canvas>
 <canvas id="scanCvs" style="display:none"></canvas>
 
-<div class="tab-bar">
-  <button class="tab active" id="tabCam">📷 CAM</button>
+<nav class="tab-bar" aria-label="Módulos de FLIP">
+  <button class="tab active" id="tabCam" aria-current="page"><strong>CAM</strong><small>Cámara y filtros</small></button>
   <!-- UPLOAD retirado del nav (la tubería sigue viva para el futuro STUDIO); oculto, no removido, porque switchTab le togglea clases -->
   <button class="tab"        id="tabUp" style="display:none">📂 UPLOAD</button>
-  <button class="tab"        id="tabAscii">🔤 ASCII</button>
-  <button class="tab"        id="tabSono" >🔊 SONO</button>
-  <button class="tab"        id="tabWmp"  >📺 WMP</button>
-  <button class="tab"        id="tabScrash">⚡ GLITCH</button>
-  <button class="tab"        id="tabFusion">✧ FUSION</button>
-  <button class="tab"        id="tabSflow" >✦ FLOW</button>
-  <button class="tab"        id="tabEdit"  >🎛 EDIT</button>
-</div>
+  <button class="tab"        id="tabAscii"><strong>ASCII</strong><small>Imagen con caracteres</small></button>
+  <button class="tab"        id="tabSono" ><strong>SONO</strong><small>Ondas de sonido</small></button>
+  <button class="tab"        id="tabWmp"  ><strong>WMP</strong><small>Visualizador musical</small></button>
+  <button class="tab"        id="tabScrash"><strong>GLITCH</strong><small>Distorsión de imagen</small></button>
+  <button class="tab"        id="tabFusion"><strong>FUSION</strong><small>Cámara + glitch</small></button>
+  <button class="tab"        id="tabSflow" ><strong>FLOW</strong><small>Siluetas y tipografía</small></button>
+  <button class="tab"        id="tabEdit"  ><strong>EDIT</strong><small>Edición por capas</small></button>
+<label class="module-picker"><span>Módulo</span><select id="modulePicker"><option value="cam">CAM · Cámara y filtros</option><option value="ascii">ASCII · Imagen con caracteres</option><option value="sono">SONO · Ondas de sonido</option><option value="wmp">WMP · Visualizador musical</option><option value="scrash">GLITCH · Distorsión de imagen</option><option value="fusion">FUSION · Cámara + glitch</option><option value="sflow">FLOW · Siluetas y tipografía</option><option value="edit">EDIT · Edición por capas</option><option value="stage">STAGE · Proyección en vivo</option></select></label>
+</nav>
 
 <canvas id="display"></canvas>
 
@@ -3105,11 +3211,11 @@
   <div class="splash-doors">
     <button class="splash-door" id="btnSplashOriginal">
       <span class="splash-door-label">▶ FLIP ORIGINAL</span>
-      <span class="splash-door-sub">cámara · edición · módulos</span>
+      <span class="splash-door-sub">Tomar fotos, grabar y editar</span>
     </button>
     <button class="splash-door" id="btnSplashStage">
       <span class="splash-door-label">🎬 FLIP STAGE</span>
-      <span class="splash-door-sub">estación en vivo · proyector</span>
+      <span class="splash-door-sub">Mezclar en vivo y proyectar</span>
     </button>
   </div>
 </div>
@@ -3156,13 +3262,14 @@
 
 <div id="camFamilyTray">
   <div id="camFamilyStrip">
-    <button class="cam-fam-btn active" data-family="DSI"    title="DSi — Flipnote original">DSI</button>
-    <button class="cam-fam-btn"        data-family="AUTO03" title="AUTO 03 — CCD Digicam">AUTO 03</button>
-    <button class="cam-fam-btn"        data-family="DLPHN"  title="DLPHN — OEL Y2K">DLPHN</button>
-    <button class="cam-fam-btn"        data-family="CASKIA" title="CASKIA — LCD retro">CASKIA</button>
-    <button class="cam-fam-btn"        data-family="VFD"    title="VFD — Vacuum Fluorescent">VFD</button>
-    <button class="cam-fam-btn"        data-family="OSCAM"  title="OSCAM — Oscilloscope camera">OSCAM</button>
-    <button class="cam-fam-btn"        data-family="SLHT"   title="SLHT — Silhouette field">SLHT</button>
+    <button class="cam-fam-btn active" data-family="DSI"    title="DSi — Flipnote original"><strong>DSI</strong><small>Dibujo a dos tintas</small></button>
+    <button class="cam-fam-btn"        data-family="STAMP"  title="STAMP — Postal engraving print"><strong>STAMP</strong><small>Grabado postal</small></button>
+    <button class="cam-fam-btn"        data-family="AUTO03" title="AUTO 03 — CCD Digicam"><strong>AUTO 03</strong><small>Digicam CCD</small></button>
+    <button class="cam-fam-btn"        data-family="DLPHN"  title="DLPHN — OEL Y2K"><strong>DLPHN</strong><small>Pantalla OEL</small></button>
+    <button class="cam-fam-btn"        data-family="CASKIA" title="CASKIA — LCD retro"><strong>CASKIA</strong><small>LCD y tinta electrónica</small></button>
+    <button class="cam-fam-btn"        data-family="VFD"    title="VFD — Vacuum Fluorescent"><strong>VFD</strong><small>Fósforo fluorescente</small></button>
+    <button class="cam-fam-btn"        data-family="OSCAM"  title="OSCAM — Oscilloscope camera"><strong>OSCAM</strong><small>Osciloscopio</small></button>
+    <button class="cam-fam-btn"        data-family="SLHT"   title="SLHT — Silhouette field"><strong>SLHT</strong><small>Campo de siluetas</small></button>
   </div>
 </div>
 
@@ -3282,6 +3389,45 @@
         <button class="auto03-btn active" data-a03stamp="OFF">OFF</button>
         <button class="auto03-btn" data-a03stamp="SMALL">SMALL</button>
         <button class="auto03-btn" data-a03stamp="CLASSIC">CLASSIC</button>
+      </div>
+    </div>
+  </div>
+  <div id="stampEditPanel" style="display:none;">
+    <div class="stamp-ctrl-row">
+      <span class="stamp-lbl">ENGRAVE</span>
+      <span class="stamp-val" id="vStampEngrave">62</span>
+      <input type="range" id="stampEngrave" min="0" max="100" value="62">
+    </div>
+    <div class="stamp-ctrl-row">
+      <span class="stamp-lbl">INK</span>
+      <span class="stamp-val" id="vStampInk">58</span>
+      <input type="range" id="stampInk" min="0" max="100" value="58">
+    </div>
+    <div class="stamp-ctrl-row">
+      <span class="stamp-lbl">DETAIL</span>
+      <span class="stamp-val" id="vStampDetail">54</span>
+      <input type="range" id="stampDetail" min="0" max="100" value="54">
+    </div>
+    <div class="stamp-ctrl-row">
+      <span class="stamp-lbl">PAPER</span>
+      <span class="stamp-val" id="vStampPaper">28</span>
+      <input type="range" id="stampPaper" min="0" max="100" value="28">
+    </div>
+    <div class="stamp-row">
+      <span class="stamp-lbl">PALETTE</span>
+      <div class="stamp-group">
+        <button class="stamp-btn active" data-stamppal="POSTAL">GREEN</button>
+        <button class="stamp-btn" data-stamppal="COBALT">COBALT</button>
+        <button class="stamp-btn" data-stamppal="SEPIA">SEPIA</button>
+        <button class="stamp-btn" data-stamppal="OXIDE">OXIDE</button>
+        <button class="stamp-btn" data-stamppal="NOIR">NOIR</button>
+      </div>
+    </div>
+    <div class="stamp-row">
+      <span class="stamp-lbl">FRAME</span>
+      <div class="stamp-group">
+        <button class="stamp-btn" data-stampframe="OFF">OFF</button>
+        <button class="stamp-btn active" data-stampframe="ON">ISSUE</button>
       </div>
     </div>
   </div>
@@ -4055,6 +4201,8 @@
      de desktop, pero sin apagar la cámara (ver startMicOnly/stopMicOnly). -->
 <button id="btnMicMobile" type="button" aria-label="Toggle microphone">🎙</button>
 
+<script src="./stamp.js"></script>
+<script src="./frame-runtime.js"></script>
 <script>
 // ════════════════════════════════════════════════════════════════════
 // STAGE OUTPUT — boot fork (BLOQUE 7). Declared FIRST, before splash/
@@ -4840,6 +4988,12 @@ let auto03ToneMode = 'STANDARD';
 let auto03SharpMode = 'CLASSIC';
 let auto03NoiseMode = 'CCD';
 let auto03StampMode = 'OFF';
+let stampEngraveVal = 62;
+let stampInkVal = 58;
+let stampDetailVal = 54;
+let stampPaperVal = 28;
+let stampPaletteMode = 'POSTAL';
+let stampFrameMode = 'ON';
 let _caskiaEInkPrimed = false;
 let _caskiaSeikoPrimed = false;
 let _oscamPersistCvs = document.createElement('canvas');
@@ -4854,6 +5008,17 @@ const CAM_FAMILIES = {
     variants:[{ id:'STD', label:'STD' }, { id:'LGCY', label:'LGCY' }],
     editMode:'duotone',
     paletteContext:'DSI',
+  },
+  STAMP: {
+    label:'STAMP',
+    displayLabel:'STAMP',
+    variants:[
+      { id:'ENGR', label:'ENGR' },
+      { id:'INK', label:'INK' },
+      { id:'ISSUE', label:'ISSUE' },
+    ],
+    editMode:'stamp',
+    paletteContext:null,
   },
   AUTO03: {
     label:'AUTO03',
@@ -4913,6 +5078,7 @@ function _getCamFamilyConfig(fam = camFamily) {
 }
 const CAMERA_ENGINE_RENDERERS = Object.freeze({
   DSI: 'dsi',
+  STAMP: 'stamp',
   AUTO03: 'auto03',
   DLPHN: 'dolphin',
   CASKIA: 'caskia',
@@ -4974,7 +5140,7 @@ function _resetCamEngineState(path = null) {
   }
 }
 function _createCamEngineFrame(source, srcW, srcH, targetCtx, mirror, options = {}) {
-  const profile = _getCamEngineProfile(options.family || camFamily, options.variant || camVariant);
+  const profile = _getCamEngineProfile(options.family || camFamily, options.variant || (options.family && options.family !== camFamily ? _getCamFamilyConfig(options.family).variants[0].id : camVariant));
   const path = options.path || 'preview';
   const temporal = _getCamEngineState(profile, path);
   temporal.frame += 1;
@@ -4994,7 +5160,41 @@ function _createCamEngineFrame(source, srcW, srcH, targetCtx, mirror, options = 
 }
 function _renderCamEngineFrame(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const frame = _createCamEngineFrame(source, srcW, srcH, targetCtx, mirror, options);
+  const previous = renderingProfile;
+  renderingProfile = frame.profile;
+  try {
+    return drawCameraFrame(frame);
+  } finally {
+    renderingProfile = previous;
+  }
+}
+let renderingProfile;
+function renderVariant() { return renderingProfile?.variant ?? camVariant; }
+function drawCameraFrame(frame) {
   switch (frame.profile.renderer) {
+    case 'stamp':
+      if (frame.path === 'capture') {
+        const captureDims = _getStampCaptureSampleDims(frame.options);
+        _renderStampCore(
+          frame.source,
+          frame.srcW,
+          frame.srcH,
+          frame.targetCtx,
+          frame.mirror,
+          {
+            sampleW: captureDims.sampleW,
+            sampleH: captureDims.sampleH,
+            outW: frame.options.outW,
+            outH: frame.options.outH,
+            temporal: frame.temporal,
+          }
+        );
+        return frame;
+      }
+      renderStamp(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, {
+        temporal: frame.temporal,
+      });
+      return frame;
     case 'auto03':
       if (frame.path === 'capture') {
         const captureDims = _getAuto03CaptureSampleDims(frame.options);
@@ -5077,22 +5277,9 @@ function _renderCamEngineFrame(source, srcW, srcH, targetCtx, mirror, options = 
       renderVFD(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
       return frame;
     case 'oscam':
-      if (frame.path === 'capture') {
-        _renderOscamLegacyScoped(
-          frame.source,
-          frame.srcW,
-          frame.srcH,
-          frame.targetCtx,
-          frame.mirror,
-          {
-            path:'capture',
-            outW: frame.options.outW,
-            outH: frame.options.outH,
-          }
-        );
-        return frame;
-      }
-      renderOscam(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
+      const oscState = _getOscamRenderState(frame.options.outW || frame.targetCtx.canvas.width,
+        frame.options.outH || frame.targetCtx.canvas.height, frame.path);
+      _withOscamRenderState(oscState, () => renderOscam(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror));
       return frame;
     case 'slht':
       renderSlht(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
@@ -5476,6 +5663,7 @@ function _syncCamPanels() {
   document.body.classList.toggle('cam-edit-open', isCam && camEditOpen && _hasCamEditor());
   document.getElementById('camControlDock').classList.toggle('visible', isCam);
   document.getElementById('camFamilyTray').classList.toggle('visible', isCam && (camFamilyTrayOpen || (camEditOpen && _hasCamEditor())));
+  document.querySelector('.cam-family-trigger')?.setAttribute('aria-expanded', String(document.getElementById('camFamilyTray').classList.contains('visible')));
   _syncCamMobileUtilityDock();
 }
 function _syncCamThemeClasses() {
@@ -5484,6 +5672,7 @@ function _syncCamThemeClasses() {
   document.body.classList.toggle('dolphin-mode', isDolphin);
   document.body.classList.toggle('dlp-lgcy-mode', isDolphin && camVariant === 'LGCY');
   document.body.classList.toggle('dlp-warm-mode', isDolphin && dlpColorMode === 'WARM');
+  document.body.classList.toggle('stamp-mode', isCam && camFamily === 'STAMP');
   document.body.classList.toggle('auto03-mode', isCam && camFamily === 'AUTO03');
   document.body.classList.toggle('caskia-mode', isCam && camFamily === 'CASKIA');
   document.body.classList.toggle('vfd-mode', isCam && camFamily === 'VFD');
@@ -5495,6 +5684,10 @@ function _syncCamThemeClasses() {
 function _applyCamState() {
   const fam = _getCamFamilyConfig();
   if (!fam.variants.some(v => v.id === camVariant)) camVariant = fam.variants[0]?.id || 'STD';
+  if (!customCameraFps) {
+    camFpsTarget = cameraCadence[camFamily] || 24;
+    syncCameraCadence();
+  }
   const nextEngineKey = `${camFamily}:${camVariant}`;
   if (nextEngineKey !== _camEngineAppliedKey) {
     _resetCamEngineState('preview');
@@ -5509,6 +5702,7 @@ function _applyCamState() {
   if (camFamily !== 'SLHT' && typeof _resetSlht === 'function') _resetSlht();
   document.querySelectorAll('.cam-fam-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.family === camFamily);
+    b.setAttribute('aria-pressed', String(b.dataset.family === camFamily));
   });
   _renderCamVariantPill();
   document.getElementById('camFamilyBadge').textContent = fam.displayLabel || fam.label;
@@ -5517,6 +5711,7 @@ function _applyCamState() {
   const dlpPanel = document.getElementById('dlpEditPanel');
   const caskiaPanel = document.getElementById('caskiaEditPanel');
   const auto03Panel = document.getElementById('auto03EditPanel');
+  const stampPanel = document.getElementById('stampEditPanel');
   const oscamPanel = document.getElementById('oscamEditPanel');
   const slhtPanel = document.getElementById('slhtEditPanel');
   const oscamLegacyRow = document.getElementById('oscamLegacyRow');
@@ -5524,6 +5719,7 @@ function _applyCamState() {
   dlpPanel.style.display = editMode === 'dolphin' ? 'block' : 'none';
   caskiaPanel.style.display = editMode === 'caskia' ? 'block' : 'none';
   auto03Panel.style.display = editMode === 'auto03' ? 'block' : 'none';
+  stampPanel.style.display = editMode === 'stamp' ? 'block' : 'none';
   oscamPanel.style.display = editMode === 'oscam' ? 'block' : 'none';
   slhtPanel.style.display = editMode === 'slht' ? 'block' : 'none';
   oscamLegacyRow.classList.toggle('visible', editMode === 'oscam' && camVariant === 'LGCY');
@@ -5565,6 +5761,20 @@ function _applyCamState() {
   });
   document.querySelectorAll('.auto03-btn[data-a03stamp]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.a03stamp === auto03StampMode);
+  });
+  document.getElementById('stampEngrave').value = stampEngraveVal;
+  document.getElementById('vStampEngrave').textContent = stampEngraveVal;
+  document.getElementById('stampInk').value = stampInkVal;
+  document.getElementById('vStampInk').textContent = stampInkVal;
+  document.getElementById('stampDetail').value = stampDetailVal;
+  document.getElementById('vStampDetail').textContent = stampDetailVal;
+  document.getElementById('stampPaper').value = stampPaperVal;
+  document.getElementById('vStampPaper').textContent = stampPaperVal;
+  document.querySelectorAll('.stamp-btn[data-stamppal]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.stamppal === stampPaletteMode);
+  });
+  document.querySelectorAll('.stamp-btn[data-stampframe]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.stampframe === stampFrameMode);
   });
   document.getElementById('btnCamEditDock').disabled = !_hasCamEditor();
   const mb = document.getElementById('btnMode');
@@ -5699,6 +5909,40 @@ document.querySelectorAll('.auto03-btn[data-a03stamp]').forEach(btn => {
     auto03StampMode = btn.dataset.a03stamp || 'OFF';
     document.querySelectorAll('.auto03-btn[data-a03stamp]').forEach(b =>
       b.classList.toggle('active', b.dataset.a03stamp === auto03StampMode));
+    saveSettings();
+  });
+});
+[
+  ['stampEngrave', 'vStampEngrave', 'stampEngraveVal'],
+  ['stampInk', 'vStampInk', 'stampInkVal'],
+  ['stampDetail', 'vStampDetail', 'stampDetailVal'],
+  ['stampPaper', 'vStampPaper', 'stampPaperVal'],
+].forEach(([inputId, valueId, stateKey]) => {
+  const input = document.getElementById(inputId);
+  const valueEl = document.getElementById(valueId);
+  input.addEventListener('input', () => {
+    const next = +input.value;
+    valueEl.textContent = next;
+    if (stateKey === 'stampEngraveVal') stampEngraveVal = next;
+    else if (stateKey === 'stampInkVal') stampInkVal = next;
+    else if (stateKey === 'stampDetailVal') stampDetailVal = next;
+    else if (stateKey === 'stampPaperVal') stampPaperVal = next;
+    saveSettings();
+  });
+});
+document.querySelectorAll('.stamp-btn[data-stamppal]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    stampPaletteMode = btn.dataset.stamppal || 'POSTAL';
+    document.querySelectorAll('.stamp-btn[data-stamppal]').forEach(b =>
+      b.classList.toggle('active', b.dataset.stamppal === stampPaletteMode));
+    saveSettings();
+  });
+});
+document.querySelectorAll('.stamp-btn[data-stampframe]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    stampFrameMode = btn.dataset.stampframe || 'ON';
+    document.querySelectorAll('.stamp-btn[data-stampframe]').forEach(b =>
+      b.classList.toggle('active', b.dataset.stampframe === stampFrameMode));
     saveSettings();
   });
 });
@@ -5962,6 +6206,7 @@ function _applyEditAdj(r, g, b) {
   return [r|0, g|0, b|0];
 }
 
+let diffusionErrors;
 function _renderDitheredCore(source, srcW, srcH, targetCtx, mirror, autoLevels, applyEdits, palOverride, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
@@ -6000,8 +6245,10 @@ function _renderDitheredCore(source, srcW, srcH, targetCtx, mirror, autoLevels, 
   const range = autoLevels ? (maxG - minG || 1) : 255;
   const base  = autoLevels ? minG : 0;
 
-  if (legacyMode) {
-    const fsErr = new Float32Array(sampleW * sampleH);
+  if (renderingProfile ? renderingProfile.variant === 'LGCY' : legacyMode) {
+    if (diffusionErrors?.length !== sampleW * sampleH) diffusionErrors = new Float32Array(sampleW * sampleH);
+    else diffusionErrors.fill(0);
+    const fsErr = diffusionErrors;
     for (let y = 0; y < sampleH; y++) {
       for (let x = 0; x < sampleW; x++) {
         const idx = y * sampleW + x, i = idx << 2;
@@ -6164,7 +6411,7 @@ function _renderDolphinCore(source, srcW, srcH, targetCtx, mirror, options = {})
   const COLS_LGCY_AQUA = [[0,6,18],[10,30,70],[60,110,180],[178,210,255]];
   const COLS_LGCY_WARM = [[10,6,0],[60,28,4],[160,82,18],[220,175,100]];
 
-  const isLgcy = (camVariant === 'LGCY');
+  const isLgcy = (renderVariant() === 'LGCY');
   let COLS;
   if      (!isLgcy && dlpColorMode !== 'WARM') COLS = COLS_STD_AQUA;
   else if (!isLgcy && dlpColorMode === 'WARM') COLS = COLS_STD_WARM;
@@ -6258,6 +6505,11 @@ function _mixRGB(a, b, t) {
   ];
 }
 
+// ════════════════════════════════════════════════════════════════════
+// STAMP RENDER — engraved postal print / issued object
+// Hybrid approach: tonal simplification + directional hatch + stipple
+// + paper/ink materialization. Frame is optional and not the core look.
+// ════════════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════════════
 // CASKIA RENDER — LCD retro + E-INK reflectivo
 // ════════════════════════════════════════════════════════════════════
@@ -6527,7 +6779,7 @@ function _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror, options = {}) 
   const { data: src } = sampleCtx.getImageData(0, 0, sampleW, sampleH);
   const lum = _fillCamLumBuf(src, sampleW, sampleH);
 
-  if (camVariant !== 'E-INK') {
+  if (renderVariant() !== 'E-INK') {
     for (let y = 0; y < sampleH; y++) {
       for (let x = 0; x < sampleW; x++) {
         const idx = y * sampleW + x;
@@ -6589,172 +6841,103 @@ function _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror, options = {}) 
 }
 
 function renderCaskia(source, srcW, srcH, targetCtx, mirror) {
+  if (renderVariant() !== 'SEIKO') return _renderCaskiaCore(source, srcW, srcH, targetCtx, mirror);
+  const { width, height } = targetCtx.canvas;
   const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
   ctxS.save();
   if (mirror) { ctxS.translate(DSI_W, 0); ctxS.scale(-1, 1); }
   ctxS.drawImage(source, sx, sy, sw, sh, 0, 0, DSI_W, DSI_H);
   ctxS.restore();
-  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
 
-  if (camVariant === 'SEIKO') {
-    const { gridW, gridH } = _ensureCaskiaSeikoBuffers();
-    const soft = caskiaSeikoSoftnessVal / 100;
-    const ghost = caskiaSeikoGhostVal / 100;
-    const ditherAmt = caskiaSeikoDitherVal / 100;
-    const contrast = caskiaSeikoContrastVal / 100;
-    const palette = _getCaskiaSeikoPalette();
-    _caskiaSeikoGridCtx.save();
-    _caskiaSeikoGridCtx.clearRect(0, 0, gridW, gridH);
-    _caskiaSeikoGridCtx.imageSmoothingEnabled = true;
-    _caskiaSeikoGridCtx.imageSmoothingQuality = 'high';
-    const preBlur = 0.03 + soft * 0.30;
-    _caskiaSeikoGridCtx.filter = preBlur > 0.12 ? `blur(${preBlur.toFixed(2)}px)` : 'none';
-    _caskiaSeikoGridCtx.drawImage(small, 0, 0, gridW, gridH);
-    _caskiaSeikoGridCtx.filter = 'none';
-    _caskiaSeikoGridCtx.restore();
 
-    const frame = _caskiaSeikoGridCtx.getImageData(0, 0, gridW, gridH);
-    const data = frame.data;
-    let minL = 1;
-    let maxL = 0;
-    let sumL = 0;
-    for (let idx = 0, p = 0; idx < _caskiaSeikoLum.length; idx++, p += 4) {
-      const l = (data[p] * 77 + data[p + 1] * 150 + data[p + 2] * 29) / (255 * 256);
-      _caskiaSeikoLum[idx] = l;
-      if (l < minL) minL = l;
-      if (l > maxL) maxL = l;
-      sumL += l;
-    }
-    const sceneMean = sumL / (_caskiaSeikoLum.length || 1);
-    const sceneRange = Math.max(0.11, maxL - minL);
-    const phase = ((performance.now() / 1000) * 60) | 0;
-    const persist = 0.08 + ghost * 0.24;
-    const decay = 0.72 + ghost * 0.22;
-    const reflectivity = 0.62 + sceneMean * 0.24;
-    const ambient = 0.82 + sceneMean * 0.16;
-    const scenePalette = palette.map(([r, g, b]) => [
-      Math.max(0, Math.min(255, Math.round(r * ambient))),
-      Math.max(0, Math.min(255, Math.round(g * ambient))),
-      Math.max(0, Math.min(255, Math.round(b * ambient))),
-    ]);
-    const levelMax = scenePalette.length - 1;
+  const { gridW, gridH } = _ensureCaskiaSeikoBuffers();
+  const soft = caskiaSeikoSoftnessVal / 100;
+  const ghost = caskiaSeikoGhostVal / 100;
+  const ditherAmt = caskiaSeikoDitherVal / 100;
+  const contrast = caskiaSeikoContrastVal / 100;
+  const palette = _getCaskiaSeikoPalette();
+  _caskiaSeikoGridCtx.save();
+  _caskiaSeikoGridCtx.clearRect(0, 0, gridW, gridH);
+  _caskiaSeikoGridCtx.imageSmoothingEnabled = true;
+  _caskiaSeikoGridCtx.imageSmoothingQuality = 'high';
+  const preBlur = 0.03 + soft * 0.30;
+  _caskiaSeikoGridCtx.filter = preBlur > 0.12 ? `blur(${preBlur.toFixed(2)}px)` : 'none';
+  _caskiaSeikoGridCtx.drawImage(small, 0, 0, gridW, gridH);
+  _caskiaSeikoGridCtx.filter = 'none';
+  _caskiaSeikoGridCtx.restore();
 
-    for (let y = 0; y < gridH; y++) {
-      for (let x = 0; x < gridW; x++) {
-        const idx = y * gridW + x;
-        const p = idx << 2;
-        const base = (_caskiaSeikoLum[idx] - minL) / sceneRange;
-        const left = x ? _caskiaSeikoLum[idx - 1] : _caskiaSeikoLum[idx];
-        const up = y ? _caskiaSeikoLum[idx - gridW] : _caskiaSeikoLum[idx];
-        const edge = (Math.abs(_caskiaSeikoLum[idx] - left) + Math.abs(_caskiaSeikoLum[idx] - up)) * 0.5;
-        let shaped = 0.5 + (base - 0.5) * (0.62 + contrast * 0.34);
-        shaped += edge * (0.02 + contrast * 0.06);
-        shaped = 0.5 + (shaped - 0.5) * reflectivity;
-        const highlight = Math.max(0, shaped - 0.74);
-        shaped -= highlight * 0.10;
-        shaped = _clamp01(shaped);
-
-        const prev = _caskiaSeikoPrimed ? _caskiaSeikoMemory[idx] : shaped;
-        const driven = prev * persist + shaped * (1 - persist);
-        _caskiaSeikoMemory[idx] = prev * decay + shaped * (1 - decay);
-
-        const ordered = (CASKIA_SEIKO_DITHER_8X8[((y & 7) << 3) | (x & 7)] / 63 - 0.5) * (0.012 + ditherAmt * 0.055);
-        const field = ((((x * 5 + y * 3 + phase) & 3) - 1.5) / 1.5) * (0.002 + ditherAmt * 0.004);
-        const quant = _clamp01(0.03 + driven * 0.94 + ordered + field);
-        const band = Math.max(0, Math.min(levelMax, Math.round(quant * levelMax)));
-        const c = scenePalette[band];
-        data[p] = c[0];
-        data[p + 1] = c[1];
-        data[p + 2] = c[2];
-        data[p + 3] = 255;
-      }
-    }
-    _caskiaSeikoPrimed = true;
-    _caskiaSeikoGridCtx.putImageData(frame, 0, 0);
-    targetCtx.clearRect(0, 0, OUT_W, OUT_H);
-    targetCtx.fillStyle = `rgb(${scenePalette[0][0]},${scenePalette[0][1]},${scenePalette[0][2]})`;
-    targetCtx.fillRect(0, 0, OUT_W, OUT_H);
-    targetCtx.save();
-    targetCtx.imageSmoothingEnabled = true;
-    targetCtx.imageSmoothingQuality = 'high';
-    const outBlur = 0.02 + soft * 0.26;
-    targetCtx.filter = outBlur > 0.12 ? `blur(${outBlur.toFixed(2)}px)` : 'none';
-    targetCtx.globalAlpha = 0.985;
-    targetCtx.drawImage(_caskiaSeikoGridCvs, 0, 0, OUT_W, OUT_H);
-    targetCtx.filter = 'none';
-    targetCtx.globalAlpha = 1;
-    targetCtx.restore();
-    targetCtx.drawImage(_caskiaSeikoOverlayCvs, 0, 0);
-    return;
+  const frame = _caskiaSeikoGridCtx.getImageData(0, 0, gridW, gridH);
+  const data = frame.data;
+  let minL = 1;
+  let maxL = 0;
+  let sumL = 0;
+  for (let idx = 0, p = 0; idx < _caskiaSeikoLum.length; idx++, p += 4) {
+    const l = (data[p] * 77 + data[p + 1] * 150 + data[p + 2] * 29) / (255 * 256);
+    _caskiaSeikoLum[idx] = l;
+    if (l < minL) minL = l;
+    if (l > maxL) maxL = l;
+    sumL += l;
   }
+  const sceneMean = sumL / (_caskiaSeikoLum.length || 1);
+  const sceneRange = Math.max(0.11, maxL - minL);
+  const phase = ((performance.now() / 1000) * 60) | 0;
+  const persist = 0.08 + ghost * 0.24;
+  const decay = 0.72 + ghost * 0.22;
+  const reflectivity = 0.62 + sceneMean * 0.24;
+  const ambient = 0.82 + sceneMean * 0.16;
+  const scenePalette = palette.map(([r, g, b]) => [
+    Math.max(0, Math.min(255, Math.round(r * ambient))),
+    Math.max(0, Math.min(255, Math.round(g * ambient))),
+    Math.max(0, Math.min(255, Math.round(b * ambient))),
+  ]);
+  const levelMax = scenePalette.length - 1;
 
-  const lum = _fillCamLumBuf(src);
-  if (camVariant !== 'E-INK') {
-    for (let y = 0; y < DSI_H; y++) {
-      for (let x = 0; x < DSI_W; x++) {
-        const idx = y * DSI_W + x;
-        const i = idx << 2;
-        const bayer = CASKIA_DITHER_4X4[((y & 3) << 2) | (x & 3)];
-        const ditLum = Math.max(0, Math.min(255, lum[idx] + (bayer >> 2) - 32));
-        let band;
-        if      (ditLum > 192) band = 0;
-        else if (ditLum > 128) band = 1;
-        else if (ditLum >  64) band = 2;
-        else                   band = 3;
-        const c = CASKIA_LCD_COLS[band];
-        lowBuf[i]   = c[0];
-        lowBuf[i+1] = c[1];
-        lowBuf[i+2] = c[2];
-        lowBuf[i+3] = 255;
-      }
-    }
-    ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
-    targetCtx.imageSmoothingEnabled = false;
-    targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
-    targetCtx.drawImage(_caskiaScanCvs, 0, 0);
-    return;
-  }
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      const idx = y * gridW + x;
+      const p = idx << 2;
+      const base = (_caskiaSeikoLum[idx] - minL) / sceneRange;
+      const left = x ? _caskiaSeikoLum[idx - 1] : _caskiaSeikoLum[idx];
+      const up = y ? _caskiaSeikoLum[idx - gridW] : _caskiaSeikoLum[idx];
+      const edge = (Math.abs(_caskiaSeikoLum[idx] - left) + Math.abs(_caskiaSeikoLum[idx] - up)) * 0.5;
+      let shaped = 0.5 + (base - 0.5) * (0.62 + contrast * 0.34);
+      shaped += edge * (0.02 + contrast * 0.06);
+      shaped = 0.5 + (shaped - 0.5) * reflectivity;
+      const highlight = Math.max(0, shaped - 0.74);
+      shaped -= highlight * 0.10;
+      shaped = _clamp01(shaped);
 
-  const memory = _ensureCaskiaEInkMemory();
-  let minG = 255, maxG = 0;
-  for (let i = 0; i < lum.length; i++) {
-    if (lum[i] < minG) minG = lum[i];
-    if (lum[i] > maxG) maxG = lum[i];
-  }
-  const range = maxG - minG || 1;
+      const prev = _caskiaSeikoPrimed ? _caskiaSeikoMemory[idx] : shaped;
+      const driven = prev * persist + shaped * (1 - persist);
+      _caskiaSeikoMemory[idx] = prev * decay + shaped * (1 - decay);
 
-  for (let y = 0; y < DSI_H; y++) {
-    for (let x = 0; x < DSI_W; x++) {
-      const idx = y * DSI_W + x;
-      const i = idx << 2;
-      const base = ((lum[idx] - minG) * 255 / range) || 0;
-      const left = x ? lum[idx - 1] : lum[idx];
-      const up   = y ? lum[idx - DSI_W] : lum[idx];
-      const edge = Math.abs(lum[idx] - left) * 0.42 + Math.abs(lum[idx] - up) * 0.28;
-      const dry  = Math.max(0, Math.min(255, base * 0.92 + edge - 8));
-      const prev = _caskiaEInkPrimed ? memory[idx] : dry;
-      const dither = (CASKIA_DITHER_4X4[((y & 3) << 2) | (x & 3)] - 128) * 0.08;
-      const paper  = (((x * 13 + y * 7) & 15) - 7.5) * 0.9;
-      const mixed  = Math.max(0, Math.min(255, dry * 0.86 + prev * 0.14 + dither + paper));
-      memory[idx]  = prev * 0.93 + dry * 0.07;
-      let band;
-      if      (mixed > 224) band = 0;
-      else if (mixed > 176) band = 1;
-      else if (mixed > 124) band = 2;
-      else if (mixed >  72) band = 3;
-      else                  band = 4;
-      const c = CASKIA_EINK_COLS[band];
-      lowBuf[i]   = c[0];
-      lowBuf[i+1] = c[1];
-      lowBuf[i+2] = c[2];
-      lowBuf[i+3] = 255;
+      const ordered = (CASKIA_SEIKO_DITHER_8X8[((y & 7) << 3) | (x & 7)] / 63 - 0.5) * (0.012 + ditherAmt * 0.055);
+      const field = ((((x * 5 + y * 3 + phase) & 3) - 1.5) / 1.5) * (0.002 + ditherAmt * 0.004);
+      const quant = _clamp01(0.03 + driven * 0.94 + ordered + field);
+      const band = Math.max(0, Math.min(levelMax, Math.round(quant * levelMax)));
+      const c = scenePalette[band];
+      data[p] = c[0];
+      data[p + 1] = c[1];
+      data[p + 2] = c[2];
+      data[p + 3] = 255;
     }
   }
-  _caskiaEInkPrimed = true;
-  ctxS.putImageData(new ImageData(lowBuf, DSI_W, DSI_H), 0, 0);
-  targetCtx.imageSmoothingEnabled = false;
-  targetCtx.drawImage(small, 0, 0, OUT_W, OUT_H);
-  targetCtx.drawImage(_caskiaEInkOverlayCvs, 0, 0);
+  _caskiaSeikoPrimed = true;
+  _caskiaSeikoGridCtx.putImageData(frame, 0, 0);
+  targetCtx.clearRect(0, 0, width, height);
+  targetCtx.fillStyle = `rgb(${scenePalette[0][0]},${scenePalette[0][1]},${scenePalette[0][2]})`;
+  targetCtx.fillRect(0, 0, width, height);
+  targetCtx.save();
+  targetCtx.imageSmoothingEnabled = true;
+  targetCtx.imageSmoothingQuality = 'high';
+  const outBlur = 0.02 + soft * 0.26;
+  targetCtx.filter = outBlur > 0.12 ? `blur(${outBlur.toFixed(2)}px)` : 'none';
+  targetCtx.globalAlpha = 0.985;
+  targetCtx.drawImage(_caskiaSeikoGridCvs, 0, 0, width, height);
+  targetCtx.filter = 'none';
+  targetCtx.globalAlpha = 1;
+  targetCtx.restore();
+  targetCtx.drawImage(_caskiaSeikoOverlayCvs, 0, 0, width, height);
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -6933,7 +7116,7 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const { data: src } = sampleCtx.getImageData(0, 0, sampleW, sampleH);
   const lum = _fillCamLumBuf(src, sampleW, sampleH);
 
-  if (camVariant === 'THRML') {
+  if (renderVariant() === 'THRML') {
     let minG = 255, maxG = 0;
     for (let i = 0; i < lum.length; i++) {
       if (lum[i] < minG) minG = lum[i];
@@ -7103,7 +7286,7 @@ function _getAuto03Profile() {
     warmHighlights:0.08,
     blackBite:0.05,
   };
-  if (camVariant === 'FLASH') {
+  if (renderVariant() === 'FLASH') {
     cfg.sat = 1.10;
     cfg.redSat = 1.04;
     cfg.greenSat = 0.92;
@@ -7124,7 +7307,7 @@ function _getAuto03Profile() {
     cfg.shadowCool = 0.06;
     cfg.warmHighlights = 0.18;
     cfg.blackBite = 0.10;
-  } else if (camVariant === 'NIGHT') {
+  } else if (renderVariant() === 'NIGHT') {
     cfg.sat = 1.16;
     cfg.redSat = 1.07;
     cfg.greenSat = 0.90;
@@ -7199,6 +7382,22 @@ function _drawAuto03Stamp(targetCtx, outW = OUT_W, outH = OUT_H) {
   targetCtx.fillText(text, Math.round(18 * scale), outH - Math.round(16 * scale));
   targetCtx.restore();
 }
+let auto03Lens;
+function auto03ExposureMap(width, height, cfg) {
+  const key = [width, height, cfg.centerLift, cfg.vignette].join(':');
+  if (auto03Lens?.key === key) return auto03Lens.values;
+  const values = new Float64Array(width * height);
+  for (let y = 0; y < height; y++) {
+    const dy = (y + 0.5) / height - 0.5;
+    for (let x = 0; x < width; x++) {
+      const dx = (x + 0.5) / width - 0.5;
+      const radius = Math.min(1, Math.sqrt(dx * dx + dy * dy) / 0.74);
+      values[y * width + x] = 1 + cfg.centerLift * Math.pow(1 - radius, 2.2) - cfg.vignette * Math.pow(radius, 1.55);
+    }
+  }
+  auto03Lens = { key, values };
+  return values;
+}
 function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
@@ -7216,13 +7415,13 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
   renderTarget.ctx.restore();
   const { data: src } = renderTarget.ctx.getImageData(0, 0, sampleW, sampleH);
   const lum = _fillCamLumBuf(src, sampleW, sampleH);
-  const seed = ((now / 33) | 0) + (camVariant === 'NIGHT' ? 71 : camVariant === 'FLASH' ? 37 : 11);
+  const seed = ((now / 33) | 0) + (renderVariant() === 'NIGHT' ? 71 : renderVariant() === 'FLASH' ? 37 : 11);
+  const lens = auto03ExposureMap(sampleW, sampleH, cfg);
   bloomTarget.buffer.fill(0);
 
   for (let y = 0; y < sampleH; y++) {
     const up = y ? y - 1 : y;
     const dn = y + 1 < sampleH ? y + 1 : y;
-    const yn = (y + 0.5) / sampleH - 0.5;
     for (let x = 0; x < sampleW; x++) {
       const idx = y * sampleW + x;
       const i = idx << 2;
@@ -7240,10 +7439,7 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
       g += micro * 0.94;
       b += micro * 1.14;
 
-      const xn = (x + 0.5) / sampleW - 0.5;
-      const dist = Math.min(1, Math.sqrt(xn * xn + yn * yn) / 0.74);
-      const center = 1 - dist;
-      const exposure = 1 + cfg.centerLift * Math.pow(center, 2.2) - cfg.vignette * Math.pow(dist, 1.55);
+      const exposure = lens[idx];
       r *= exposure;
       g *= exposure;
       b *= exposure;
@@ -7323,11 +7519,11 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
   targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
   targetCtx.globalCompositeOperation = 'screen';
   targetCtx.globalAlpha = 0.09 + cfg.bloom * 0.85;
-  targetCtx.filter = `blur(${camVariant === 'FLASH' ? 2.4 : camVariant === 'NIGHT' ? 2.8 : 1.6}px)`;
+  targetCtx.filter = `blur(${renderVariant() === 'FLASH' ? 2.4 : renderVariant() === 'NIGHT' ? 2.8 : 1.6}px)`;
   targetCtx.drawImage(bloomTarget.canvas, 0, 0, outW, outH);
-  if (camVariant !== 'DAY') {
+  if (renderVariant() !== 'DAY') {
     targetCtx.globalAlpha = 0.04 + cfg.bloom * 0.35;
-    targetCtx.filter = `blur(${camVariant === 'FLASH' ? 4.2 : 4.8}px)`;
+    targetCtx.filter = `blur(${renderVariant() === 'FLASH' ? 4.2 : 4.8}px)`;
     targetCtx.drawImage(bloomTarget.canvas, 0, 0, outW, outH);
   }
   targetCtx.filter = 'none';
@@ -7393,7 +7589,7 @@ function _oscamRGBA(rgb, alpha) {
   return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${Math.max(0, Math.min(1, alpha)).toFixed(3)})`;
 }
 function _oscamGetModeKey() {
-  return camVariant === 'STD' ? 'STD' : oscamLegacyMode;
+  return renderVariant() === 'STD' ? 'STD' : oscamLegacyMode;
 }
 function _oscamColorBasis() {
   return OSCAM_COLOR_BASES[oscamColorMode] || OSCAM_COLOR_BASES.GREEN;
@@ -8787,12 +8983,6 @@ function _renderOscamLegacy(source, srcW, srcH, targetCtx, mirror) {
     _oscamCompose(targetCtx, palette, _oscamPersistCvs, mode, cfg.traceN);
   }
 }
-function _renderOscamLegacyScoped(source, srcW, srcH, targetCtx, mirror, options = {}) {
-  const outW = Math.max(1, Math.round(options.outW || targetCtx.canvas?.width || OUT_W));
-  const outH = Math.max(1, Math.round(options.outH || targetCtx.canvas?.height || OUT_H));
-  const state = _getOscamRenderState(outW, outH, options.path || 'capture');
-  return _withOscamRenderState(state, () => _renderOscamLegacy(source, srcW, srcH, targetCtx, mirror));
-}
 function _oscamDrawOverlayOnly(targetCtx) {
   if (_oscamOverlaySignature !== `${OUT_W}x${OUT_H}:${_oscamGetModeKey()}:${oscamColorMode}:${_oscamGetModeKey() === 'STATIC' ? oscamDefinitionVal : 'base'}`) _buildOscamOverlay();
   targetCtx.drawImage(_oscamOverlayCvs, 0, 0);
@@ -9296,8 +9486,8 @@ const SLHT_GLYPHS = ['-','-','-','-','-','–','–','/','\\','|'];
 const SLHT_NG = SLHT_GLYPHS.length;
 
 // ── MediaPipe URLs (same model as SFLOW tab) ──────────────────────
-const SLHT_MP_WASM  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm';
-const SLHT_MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+const SLHT_MP_WASM  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm';
+const SLHT_MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
 const SLHT_INIT_TIMEOUT_MS = 15000;
 
 function _slhtWithTimeout(task, timeoutMs = SLHT_INIT_TIMEOUT_MS) {
@@ -9315,7 +9505,7 @@ async function _slhtInitSeg() {
   _slhtSegBusy = true;
   try {
     const { ImageSegmenter, FilesetResolver } =
-      await _slhtWithTimeout(import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/+esm'));
+      await _slhtWithTimeout(import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/+esm'));
     const vision = await _slhtWithTimeout(FilesetResolver.forVisionTasks(SLHT_MP_WASM));
     _slhtSeg = await _slhtWithTimeout(ImageSegmenter.createFromOptions(vision, {
       baseOptions: { modelAssetPath: SLHT_MP_MODEL, delegate: 'GPU' },
@@ -9506,7 +9696,7 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
   _slhtEnsureAnas();
 
   // Kick off segmenter init if not started
-  if (!_slhtSegReady && !_slhtSegBusy) _slhtInitSeg();
+  if (!_slhtSegReady && !_slhtSegBusy && !_slhtSegFailedMsg) _slhtInitSeg();
 
   // ── Sample video at analysis resolution ──
   const [asx, asy, asw, ash] = cropCoordsForDims(srcW, srcH, SLHT_AW, SLHT_AH);
@@ -9529,11 +9719,11 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
     try {
       const result = _slhtSeg.segmentForVideo(source, performance.now());
       if (result?.confidenceMasks?.[0]) {
-        rawMask = result.confidenceMasks[0].getAsFloat32Array();
+        rawMask = result.confidenceMasks[0].getAsFloat32Array().slice();
         mW = result.confidenceMasks[0].width;
         mH = result.confidenceMasks[0].height;
-        result.close?.();
       }
+      result?.close?.();
     } catch(_) { /* silently skip on error */ }
 
     if (rawMask && mW > 0 && mH > 0) {
@@ -9832,10 +10022,7 @@ function _getExtAudioSourceFrame(w, h) {
   }
 
   const freqN = _an.frequencyBinCount;
-  const freqData = new Uint8Array(freqN);
-  const timeData = new Uint8Array(_an.fftSize);
-  _an.getByteFrequencyData(freqData);
-  _an.getByteTimeDomainData(timeData);
+  const { freqData, timeData } = sampleAudio(_an);
 
   const bassEnd = Math.max(1, Math.floor(freqN * 0.08));
   const midEnd  = Math.max(bassEnd + 1, Math.floor(freqN * 0.35));
@@ -9959,10 +10146,7 @@ function renderAudioAbstract() {
   }
 
   const freqN = _an.frequencyBinCount;
-  const freqData = new Uint8Array(freqN);
-  const timeData = new Uint8Array(_an.fftSize);
-  _an.getByteFrequencyData(freqData);
-  _an.getByteTimeDomainData(timeData);
+  const { freqData, timeData } = sampleAudio(_an);
 
   // Band energies (0-1)
   const bassEnd = Math.max(1, Math.floor(freqN * 0.08));
@@ -11692,10 +11876,7 @@ function renderASCIIAudio() {
   if (!_an) return;
 
   const freqN    = _an.frequencyBinCount;
-  const freqData = new Uint8Array(freqN);
-  const timeData = new Uint8Array(_an.fftSize);
-  _an.getByteFrequencyData(freqData);
-  _an.getByteTimeDomainData(timeData);
+  const { freqData, timeData } = sampleAudio(_an);
 
   const grad   = ASCII_GRADIENTS[acGradientVal] || ASCII_GRADIENTS.normal;
   const nChars = grad.length;
@@ -11890,7 +12071,18 @@ function _waitForVideoReady(videoEl, timeoutMs = 2600) {
   });
 }
 
-async function startCamera(facing) {
+let cameraRequest = null;
+function startCamera(facing) {
+  if (cameraRequest) {
+    if (cameraRequest.facing === facing) return cameraRequest.promise;
+    return cameraRequest.promise.catch(() => {}).then(() => startCamera(facing));
+  }
+  const promise = openCamera(facing).finally(() => { cameraRequest = null; });
+  cameraRequest = { facing, promise };
+  return promise;
+}
+
+async function openCamera(facing) {
   const nextStream = await navigator.mediaDevices.getUserMedia({
     video:{ facingMode:facing, width:{ideal:1280}, height:{ideal:720} }, audio:false,
   });
@@ -11926,11 +12118,16 @@ async function startCamera(facing) {
   }
   _refreshCamZoomSupport(nextStream.getVideoTracks()[0] || null);
   _resetCamEngineState('preview');
+  if (activeTab === 'cam' && cameraRunning) scheduleFrame(cameraLoop);
+  if (activeTab === 'ascii' && asciiRunning) scheduleFrame(asciiLoop);
+  if (activeTab === 'fusion' && fusionRunning) scheduleFrame(_fusionLoop);
 }
 
 function _toggleCamera() {
-  facingMode = facingMode === 'environment' ? 'user' : 'environment';
-  startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+  if (cameraRequest) return;
+  const next = facingMode === 'environment' ? 'user' : 'environment';
+  startCamera(next).then(() => { facingMode = next; })
+    .catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
 }
 document.getElementById('btnFlip').addEventListener('click', _toggleCamera);
 document.getElementById('btnSwitchCam').addEventListener('click', _toggleCamera);
@@ -11939,6 +12136,7 @@ document.getElementById('btnSwitchCam').addEventListener('click', _toggleCamera)
 // CAM FPS CONTROL
 // ════════════════════════════════════════════════════════════════════
 document.getElementById('camFpsSlider').addEventListener('input', e => {
+  customCameraFps = true;
   camFpsTarget = parseInt(e.target.value);
   document.getElementById('camFpsVal').textContent = camFpsTarget;
 });
@@ -12028,6 +12226,12 @@ let asciiStaticSrc = null, asciiStaticW = 0, asciiStaticH = 0;
 let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
+let customCameraFps = false;
+const cameraCadence = { DSI:8, STAMP:24, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, SLHT:24 };
+function syncCameraCadence() {
+  document.getElementById('camFpsVal').textContent = camFpsTarget;
+  document.getElementById('camFpsSlider').value = camFpsTarget;
+}
 const _isMobile      = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
 const IS_ANDROID     = /Android/i.test(navigator.userAgent);
 const _IS_IOS        = /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -12150,7 +12354,7 @@ function _drawCamStickerShape(ctx, type, cx, cy, r, selected) {
 
 // Render all CAM stickers onto ctx
 // type='zoom' stickers render as magnifier lenses; all others as shapes
-function _renderCamStickerLayer(ctx) {
+function _renderCamStickerLayer(ctx, showSelection = true) {
   if (!camStickers.length) return;
   const W = ctx.canvas.width, H = ctx.canvas.height;
   const scale = Math.min(W, H);
@@ -12160,12 +12364,12 @@ function _renderCamStickerLayer(ctx) {
   for (const s of shapes) {
     const cx = Math.round(s.x * W), cy = Math.round(s.y * H);
     const r  = Math.round(s.size * scale / 100);
-    _drawCamStickerShape(ctx, s.type, cx, cy, r, s.id === camStickerSelId);
+    _drawCamStickerShape(ctx, s.type, cx, cy, r, showSelection && s.id === camStickerSelId);
   }
   for (const s of zooms) {
     const cx = Math.round(s.x * W), cy = Math.round(s.y * H);
     const r  = Math.round(s.size * scale / 100);
-    _renderZoomSticker(ctx, cx, cy, r, s.id === camStickerSelId);
+    _renderZoomSticker(ctx, cx, cy, r, showSelection && s.id === camStickerSelId);
   }
 }
 
@@ -12217,7 +12421,7 @@ function cameraLoop(t) {
       _camVideoReviveT = t;
       try { vid.play().catch(() => {}); } catch (_) {}
     }
-    requestAnimationFrame(cameraLoop);
+    scheduleFrame(cameraLoop);
     return;
   }
   const minInterval = camFpsEnabled ? 1000 / camFpsTarget : 0;
@@ -12258,17 +12462,17 @@ function cameraLoop(t) {
       _renderCamEngineFrame(af, 640, 480, ctxD, false, { path: 'preview', now: t });
     }
     _renderCamStickerLayer(ctxD);
-    camLastFrameMs = t;
+    camLastFrameMs = minInterval ? t - ((t - camLastFrameMs) % minInterval) : t;
     frames++;
   }
   if (t - lastFPSt >= 1000) { fpsEl.textContent = frames + ' fps'; frames = 0; lastFPSt = t; }
-  requestAnimationFrame(cameraLoop);
+  scheduleFrame(cameraLoop);
 }
 
 function asciiLoop(ts) {
   if (!asciiRunning) { _asciiLoopAlive = false; return; }
   _asciiLoopAlive = true;
-  if (asciiUploading) { requestAnimationFrame(asciiLoop); return; }
+  if (asciiUploading) { scheduleFrame(asciiLoop); return; }
   if (_isTypoCamInteractive()) {
     updateTouchReflow();
     const prevTs = asciiLoop._lastGyroTs || ts || performance.now();
@@ -12315,7 +12519,7 @@ function asciiLoop(ts) {
   // FPS cap for mobile preview. Adaptive cap lowers preview cadence before touching image fidelity.
   if (basePreviewCap) {
     const fpsCap = Math.max(IS_ANDROID ? 14 : 18, Math.min(basePreviewCap, _asciiAdaptiveFpsCap || basePreviewCap));
-    if (ts - _asciiAndroidLastT < 1000 / fpsCap) { requestAnimationFrame(asciiLoop); return; }
+    if (ts - _asciiAndroidLastT < 1000 / fpsCap) { scheduleFrame(asciiLoop); return; }
     _asciiAndroidLastT = ts;
   } else {
     _asciiAdaptiveFpsCap = 0;
@@ -12324,7 +12528,7 @@ function asciiLoop(ts) {
   if (asciiVideoEl) {
     if (asciiVideoEl.videoWidth && !asciiVideoEl.paused)
       renderASCII(asciiVideoEl, asciiVideoEl.videoWidth, asciiVideoEl.videoHeight, false);
-    requestAnimationFrame(asciiLoop);
+    scheduleFrame(asciiLoop);
     return;
   }
   if (!asciiStaticSrc && vid.videoWidth)
@@ -12333,10 +12537,10 @@ function asciiLoop(ts) {
     // F5 — paridad móvil: sin cámara, el mic (extMicOnlyMode) también pinta ASCII desde audio.
     const af = _getExtAudioSourceFrame(640, 480);
     renderASCII(af, 640, 480, false);
-    requestAnimationFrame(asciiLoop);
+    scheduleFrame(asciiLoop);
     return;
   }
-  if (!asciiStaticSrc) requestAnimationFrame(asciiLoop);
+  if (!asciiStaticSrc) scheduleFrame(asciiLoop);
 }
 
 function clearAsciiStatic() {
@@ -12344,7 +12548,7 @@ function clearAsciiStatic() {
   if (asciiVideoEl) { asciiVideoEl.pause(); asciiVideoEl.removeAttribute('src'); asciiVideoEl = null; }
   ctxAscii.fillStyle = '#000'; ctxAscii.fillRect(0, 0, OUT_W, OUT_H);
   _syncCamZoomUI();
-  if (asciiRunning) requestAnimationFrame(asciiLoop);
+  if (asciiRunning) scheduleFrame(asciiLoop);
 }
 
 function asciiSettingsChanged() {
@@ -12369,6 +12573,7 @@ function asciiSettingsChanged() {
 // runs the whole TYPO/pythonization/sharpen/edge machinery), this is a
 // simplified, self-contained grid renderer: samples srcCanvas directly,
 // paints straight to targetCtx, no shared state touched.
+let asciiStepSampler;
 function _renderAsciiStep(srcCanvas, targetCtx, params, t) {
   const p = params || {};
   const cols = Math.max(20, Math.min(160, p.cols || 80));
@@ -12377,9 +12582,14 @@ function _renderAsciiStep(srcCanvas, targetCtx, params, t) {
 
   // Sample source at a modest internal resolution for perf.
   const SW = 256, SH = 192;
-  const tmp = document.createElement('canvas');
-  tmp.width = SW; tmp.height = SH;
-  const tctx = tmp.getContext('2d', { willReadFrequently: true });
+  if (!asciiStepSampler) {
+    const canvas = document.createElement('canvas');
+    canvas.width = SW;
+    canvas.height = SH;
+    asciiStepSampler = canvas.getContext('2d', { willReadFrequently: true });
+  }
+  const tctx = asciiStepSampler;
+  tctx.clearRect(0, 0, SW, SH);
   tctx.drawImage(srcCanvas, 0, 0, SW, SH);
   const { data: px } = tctx.getImageData(0, 0, SW, SH);
 
@@ -12405,8 +12615,6 @@ function _renderAsciiStep(srcCanvas, targetCtx, params, t) {
   targetCtx.imageSmoothingEnabled = false;
 
   for (let r = 0; r < rows; r++) {
-    let line = '';
-    const x0s = [], gs = [];
     for (let c = 0; c < cols; c++) {
       let gSum = 0, cnt = 0;
       const x0 = Math.floor(c * sCW), x1 = Math.min(Math.ceil((c + 1) * sCW), SW);
@@ -12477,15 +12685,6 @@ const FLIP_STEP_ENGINES = {
   cam: {
     label: 'CAM',
     renderStep(srcCanvas, targetCtx, params, audio, t) {
-      // params.family: per-frame family override. _createCamEngineFrame already
-      // resolves its profile from `options.family || camFamily` without touching
-      // camFamily/camVariant globals or body classes (that's _applyCamState's job,
-      // which we deliberately do NOT call here) — so this is isolated from the
-      // CAM tab's active family. Caveat: the renderer's *variant* nuance (DSI
-      // LGCY dither, VFD DAY/NIGHT/FLASH, CASKIA SEIKO ghost trail, ...) still
-      // reads the global camVariant/legacyMode directly, so an overridden family
-      // renders with whatever variant is currently active elsewhere rather than
-      // its own default variant. Family-level isolation only, by design.
       const family = (params && params.family && CAM_FAMILIES[params.family]) ? params.family : undefined;
       _renderCamEngineFrame(srcCanvas, srcCanvas.width, srcCanvas.height, targetCtx, false, { path: 'preview', now: t, family });
     },
@@ -12670,7 +12869,13 @@ function runPipeline(steps, sourceCanvas, outCtx, audio, t) {
       if (!_pipeUnknownWarned) { _pipeUnknownWarned = true; console.warn('[pipeline] unknown engine: ' + step.engine); }
       continue;
     }
-    engine.renderStep(curSrc, curDst.getContext('2d'), step.params || {}, audio, t);
+    const layerCtx = curDst.getContext('2d');
+    layerCtx.save();
+    try {
+      engine.renderStep(curSrc, layerCtx, step.params || {}, audio, t);
+    } finally {
+      layerCtx.restore();
+    }
     wrote = true;
     const tmp = curSrc; curSrc = curDst; curDst = tmp;
   }
@@ -12720,8 +12925,19 @@ function _syncScrashHudVisibility() {
   window._scrashResizeCanvas?.();
 }
 
+document.getElementById('modulePicker').addEventListener('change', event => switchTab(event.target.value));
 function switchTab(tab) {
+  if (activeTab === 'cam' && tab !== 'cam') _stopRecorderSafely(recorder);
+  if (activeTab === 'ascii' && tab !== 'ascii') _stopRecorderSafely(asciiRecorder);
+  document.getElementById('modulePicker').value = tab;
   activeTab = tab;
+  for (const button of document.querySelectorAll('.tab-bar .tab')) {
+    const selected = button.id.toLowerCase() === 'tab' + tab;
+    if (selected) {
+      button.setAttribute('aria-current', 'page');
+      button.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    } else button.removeAttribute('aria-current');
+  }
   _syncCamPanels();
   _syncCamThemeClasses();
   _syncPaletteModeUI();
@@ -12830,9 +13046,9 @@ function switchTab(tab) {
   if ((isCam || isAscii || isScrash || isFusion) && !stream && !extAudioMode) startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
   // F5 — paridad móvil: extMicOnlyMode también cuenta como fuente para arrancar estos loops
   // (además de la cámara real o EXT AUDIO clásico de desktop).
-  if (isCam   && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) requestAnimationFrame(cameraLoop);
-  if (isAscii && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser) || asciiStaticSrc)) requestAnimationFrame(asciiLoop);
-  if (isFusion && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) requestAnimationFrame(_fusionLoop);
+  if (isCam   && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) scheduleFrame(cameraLoop);
+  if (isAscii && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser) || asciiStaticSrc)) scheduleFrame(asciiLoop);
+  if (isFusion && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) scheduleFrame(_fusionLoop);
 }
 
 document.getElementById('tabCam'  ).addEventListener('click', () => switchTab('cam'));
@@ -12916,6 +13132,7 @@ function flipToast(message, duration = 3000) {
   if (!container) {
     container = document.createElement('div');
     container.className = 'flip-toast-container';
+    container.setAttribute('role', 'status');
     (window.FLIP_BETA && _flipOsState.appHost ? _flipOsState.appHost : document.body).appendChild(container);
   }
   const toast = document.createElement('div');
@@ -12965,7 +13182,7 @@ const FLIP_NAV_CFG = {
   cam: () => [
     { icon: _navIcon('btnRecord') || '📷', label: 'FOTO',   center: false, click: () => _navClick('btnRecord')      },
     { icon: _navIcon('btnCapture') || '●', label: 'SNAP',    center: true,  click: () => _navClick('btnCapture')     },
-    { icon: _getCamFamilyTriggerLabel(),   label: 'FAMILY', center: false, className:'cam-family-trigger', click: () => _toggleCamFamilyTray() },
+    { icon: _getCamFamilyTriggerLabel(),   label: 'CÁMARAS', center: false, className:'cam-family-trigger', click: () => _toggleCamFamilyTray() },
   ],
   ascii: () => [
     { icon: _navIcon('btnAsciiMode') || '📷', label: 'FOTO',  center: false, click: () => _navClick('btnAsciiMode')    },
@@ -13038,6 +13255,8 @@ function renderFlipNav(mode) {
 
   const nav = document.getElementById('flipBottomNav');
   const cfgFn = FLIP_NAV_CFG[mode];
+  _navObserver?.disconnect();
+  _navObserver = null;
   if (!cfgFn) { nav.classList.remove('visible'); return; }
 
   nav.innerHTML = '';
@@ -13045,6 +13264,10 @@ function renderFlipNav(mode) {
     const btn = document.createElement('button');
     btn.className = 'btn' + (item.center ? ' btn-center' : '') + (item.className ? ' ' + item.className : '');
     btn.innerHTML = `<div class="btn-icon">${item.icon}</div>${item.label ? `<span class="btn-label">${item.label}</span>` : ''}`;
+    if (item.className === 'cam-family-trigger') {
+      btn.setAttribute('aria-controls', 'camFamilyTray');
+      btn.setAttribute('aria-expanded', String(camFamilyTrayOpen || camEditOpen));
+    }
     btn.addEventListener('click', item.click);
     nav.appendChild(btn);
   });
@@ -13052,7 +13275,6 @@ function renderFlipNav(mode) {
 
   // Sync dynamic icons: observe the hidden legacy button for mutations and
   // mirror its .btn-icon text into the corresponding new nav button.
-  if (_navObserver) { _navObserver.disconnect(); _navObserver = null; }
   const _syncPairs = mode === 'cam'    ? [['btnRecord', 0], ['btnCapture', 1]]
                    : mode === 'ascii'  ? [['btnAsciiMode', 0], ['btnAsciiCapture', 1]]
                    : mode === 'scrash' ? [['btnScrashMode', 0], ['btnScrashSnap', 1]]
@@ -14267,8 +14489,13 @@ function _createRecordingCanvasStream(sourceCanvas, fps = 30, options = {}) {
   try { ctx.imageSmoothingQuality = 'high'; } catch (_) {}
   let rafId = 0;
   let stopped = false;
-  const draw = () => {
+  const interval = 1000 / Math.max(1, fps);
+  let nextFrame = 0;
+  const draw = (now = performance.now()) => {
     if (stopped) return;
+    rafId = requestAnimationFrame(draw);
+    if (now + 0.5 < nextFrame) return;
+    nextFrame = now + interval - (Math.max(0, now - nextFrame) % interval);
     if (typeof options.renderFrame === 'function') {
       options.renderFrame({
         ctx,
@@ -14295,7 +14522,6 @@ function _createRecordingCanvasStream(sourceCanvas, fps = 30, options = {}) {
       ctx.clearRect(0, 0, proxy.width, proxy.height);
       ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, proxy.width, proxy.height);
     }
-    rafId = requestAnimationFrame(draw);
   };
   draw();
   const stream = proxy.captureStream(fps);
@@ -15109,61 +15335,41 @@ const btnRec = document.getElementById('btnRecord');
 const btnCap = document.getElementById('btnCapture');
 let recTimer = null;
 let camRecordingJob = null;
-const _camCaptureStageCvs = document.createElement('canvas');
-const _camCaptureStageCtx = _camCaptureStageCvs.getContext('2d', { willReadFrequently:false });
-
-function _ensureCamCaptureStage() {
-  if (_camCaptureStageCvs.width !== OUT_W || _camCaptureStageCvs.height !== OUT_H) {
-    _camCaptureStageCvs.width = OUT_W;
-    _camCaptureStageCvs.height = OUT_H;
-  }
-  return { canvas:_camCaptureStageCvs, ctx:_camCaptureStageCtx };
-}
-
 function _getCamRecordingOptions() {
-  const options = {
-    aspectRatio: _getCurrentAspectId(),
-    resolution: flipAudioSettings?.resolution || 'medium',
+  const options = { aspectRatio: _getCurrentAspectId(), resolution: flipAudioSettings.resolution };
+  if (!vid.videoWidth) return options;
+  options.renderFrame = ({ ctx, width, height, now }) => {
+    // These effects accumulate history on the live canvas; sample the exact presented frame.
+    if (camFamily === 'SLHT' || (camFamily === 'CASKIA' && camVariant !== 'STD')) {
+      ctx.drawImage(display, 0, 0, width, height);
+      return;
+    }
+    _renderCamEngineFrame(vid, vid.videoWidth, vid.videoHeight, ctx, false, {
+      path:'capture', now, resolution:options.resolution, outW:width, outH:height,
+    });
+    _renderCamStickerLayer(ctx, false);
   };
-  if (vid && vid.videoWidth) {
-    options.renderFrame = ({ ctx, width, height, now }) => {
-      const isDirectCapture =
-        camFamily === 'DSI' ||
-        camFamily === 'DLPHN' ||
-        camFamily === 'AUTO03' ||
-        camFamily === 'VFD' ||
-        camFamily === 'OSCAM' ||
-        (camFamily === 'CASKIA' && camVariant !== 'SEIKO');
-      if (isDirectCapture) {
-        _renderCamEngineFrame(vid, vid.videoWidth, vid.videoHeight, ctx, false, {
-          path:'capture',
-          now,
-          resolution: options.resolution,
-          outW: width,
-          outH: height,
-        });
-        return;
-      }
-      const stage = _ensureCamCaptureStage();
-      stage.ctx.clearRect(0, 0, OUT_W, OUT_H);
-      _renderCamEngineFrame(vid, vid.videoWidth, vid.videoHeight, stage.ctx, false, {
-        path:'capture',
-        now,
-        resolution: options.resolution,
-        outW: OUT_W,
-        outH: OUT_H,
-      });
-      ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(stage.canvas, 0, 0, width, height);
-    };
-    options.onStop = () => {
-      _resetCamEngineState('capture');
-      _resetOscamCaptureStates();
-    };
-  }
+  options.onStop = () => {
+    _resetCamEngineState('capture');
+    _resetOscamCaptureStates();
+  };
   return options;
 }
 
+async function cameraPhoto() {
+  const options = _getCamRecordingOptions();
+  if (!options.renderFrame) return _canvasToJpeg(display);
+  const { width, height } = _getFlipRecordDimensions(display, options);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  try {
+    options.renderFrame({ ctx:canvas.getContext('2d'), width, height, now:performance.now() });
+    return await _canvasToJpeg(canvas);
+  } finally {
+    options.onStop();
+  }
+}
 function _syncCamCaptureVisual(recording = false) {
   btnCap.querySelector('.btn-icon').textContent = recording ? '⏹' : (camMode === 'foto' ? '●' : '⏺');
   const label = btnCap.querySelector('.btn-label');
@@ -15204,10 +15410,14 @@ btnRec.addEventListener('click', () => {
 
 // Center button: executes the current mode action
 btnCap.addEventListener('click', async () => {
+  if (!vid.videoWidth && !extAnalyser && !recorder) {
+    flipToast('Activa la cámara o abre EDIT para usar un archivo.');
+    return;
+  }
   if (camMode === 'foto') {
     // Take photo
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    await saveBlob(await _canvasToJpeg(display), _flipName(camFamily === 'SLHT' ? 'slht' : 'cam', 'jpg'));
+    await saveBlob(await cameraPhoto(), _flipName(camFamily === 'SLHT' ? 'slht' : 'cam', 'jpg'));
   } else {
     // Toggle video recording
     if (!recorder || recorder.state === 'inactive') {
@@ -15597,14 +15807,13 @@ async function _bootFromSplash() {
   _splashBooting = true;
   splash.classList.add('hidden');
   try {
+    cameraRunning = activeTab === 'cam';
     await startCamera(facingMode);
-    cameraRunning = true;
-    requestAnimationFrame(cameraLoop);
   } catch (err) {
     // Camera failed (denied / unavailable) — enter the app anyway so
     // non-camera modules (UPLOAD, WMP, GLITCH…) stay usable. switchTab
     // retries startCamera when a camera tab is opened again.
-    flipToast('⚠ ' + (err?.message || 'Camera failed') + ' — usa UPLOAD u otro modo');
+    flipToast('⚠ ' + (err?.message || 'Camera failed') + ' — abre EDIT para usar un archivo');
   } finally {
     _splashBooting = false;
   }
@@ -16307,14 +16516,12 @@ function hslToRgb(h, s, l) {
 }
 
 // ── Audio analysis ───────────────────────────────────────────────────
+const silentWaveform = new Uint8Array(2048).fill(128);
 function analyzeAudio() {
   const _sonoAn = ((extAudioMode || extMicOnlyMode) && extAnalyser) ? extAnalyser : sonoAnalyser;
-  if (!_sonoAn) return { amp:0, pitchNorm:0.1, blowStr:0, bassE:0, midE:0, trebE:0, timeData:new Uint8Array(2048) };
+  if (!_sonoAn) return { amp:0, pitchNorm:0.1, blowStr:0, bassE:0, midE:0, trebE:0, timeData:silentWaveform };
   const N = _sonoAn.frequencyBinCount;
-  const freqData = new Uint8Array(N);
-  _sonoAn.getByteFrequencyData(freqData);
-  const timeData = new Uint8Array(_sonoAn.fftSize);
-  _sonoAn.getByteTimeDomainData(timeData);
+  const { freqData, timeData } = sampleAudio(_sonoAn);
 
   // RMS amplitude
   let rms = 0;
@@ -16325,7 +16532,7 @@ function analyzeAudio() {
   const amp = Math.sqrt(rms / timeData.length);
 
   // Frequency bands: bin width ≈ sampleRate/(2*N)
-  const _activeCtx = (extAudioMode && extAudioCtx) ? extAudioCtx : sonoAudioCtx;
+  const _activeCtx = _sonoAn.context;
   const sr = _activeCtx ? _activeCtx.sampleRate : 44100;
   const binW = sr / (_sonoAn.fftSize);
   const bassEnd = Math.max(1, Math.floor(250 / binW));
@@ -16354,20 +16561,29 @@ function analyzeAudio() {
 }
 
 // ── Audio field generation ────────────────────────────────────────────
+let sonoField, sonoColumns, sonoDiagonals;
 function generateSonoField(amp, pitchNorm, blowStr, t) {
-  const field = new Float32Array(DSI_W * DSI_H);
+  if (!sonoColumns || sonoColumns.length !== DSI_W || sonoField.length !== DSI_W * DSI_H) {
+    sonoField = new Float32Array(DSI_W * DSI_H);
+    sonoColumns = new Float64Array(DSI_W);
+    sonoDiagonals = new Float64Array(DSI_W + DSI_H - 1);
+  }
+  const field = sonoField;
   const sf = 0.035 + pitchNorm * 0.13;    // spatial freq
   const cx = DSI_W / 2, cy = DSI_H / 2;
   const ampScale = 0.25 + amp * 0.75;
+  for (let x = 0; x < DSI_W; x++) sonoColumns[x] = Math.sin(x * sf + t * 2);
+  for (let i = 0; i < sonoDiagonals.length; i++) sonoDiagonals[i] = Math.sin(i * sf * 0.8 - t * 1.9) * 0.55;
 
   for (let y = 0; y < DSI_H; y++) {
+    const rowWave = Math.sin(y * sf * 0.75 + t * 1.4);
     for (let x = 0; x < DSI_W; x++) {
       const dx = x - cx, dy = y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       // Layered sine wave interference
-      let v = Math.sin(x * sf      + t * 2.0) * Math.sin(y * sf * 0.75 + t * 1.4);
-      v +=    Math.sin((x + y) * sf * 0.8     - t * 1.9) * 0.55;
+      let v = sonoColumns[x] * rowWave;
+      v +=    sonoDiagonals[x + y];
       v +=    Math.sin(dist * sf * 1.3         - t * 2.6) * 0.4;
 
       // Blow: concentric expanding rings
@@ -16733,7 +16949,7 @@ function sonoLoop(ts) {
   dot.style.background  = `rgb(${lum},${lum >> 1},0)`;
   dot.style.boxShadow   = lum > 60 ? `0 0 ${lum >> 2}px rgba(255,${lum>>1},0,.7)` : 'none';
 
-  requestAnimationFrame(sonoLoop);
+  scheduleFrame(sonoLoop);
 }
 
 // ── Mic start/stop ────────────────────────────────────────────────────
@@ -16748,7 +16964,7 @@ async function startSonoMic() {
     src.connect(sonoAnalyser); // NOT connected to destination → no feedback
     document.getElementById('sonoPerm').classList.remove('visible');
     sonoRunning = true; sonoLastRAF = 0;
-    requestAnimationFrame(sonoLoop);
+    scheduleFrame(sonoLoop);
     return true;
   } catch(e) {
     flipToast('⚠ Mic access denied: ' + e.message);
@@ -16784,14 +17000,14 @@ function enterSono() {
   if ((extAudioMode || extMicOnlyMode) && extAnalyser) {
     // Ext audio (desktop) or mic-only (mobile) active — use shared extAnalyser, no mic permission needed
     document.getElementById('sonoPerm').classList.remove('visible');
-    if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; requestAnimationFrame(sonoLoop); }
+    if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; scheduleFrame(sonoLoop); }
     return;
   }
   if (sonoMicStream) {
     // Already have mic, just restart loop
     document.getElementById('sonoPerm').classList.remove('visible');
     sonoRunning = true; sonoLastRAF = 0;
-    requestAnimationFrame(sonoLoop);
+    scheduleFrame(sonoLoop);
   } else {
     // Check if permission was already granted this session → auto-start
     // (async: only show the overlay if the user is still on the SONO tab)
@@ -16989,7 +17205,7 @@ async function sonoLoadFile(file) {
 
   if (!sonoRunning) {
     sonoRunning = true; sonoLastRAF = 0;
-    requestAnimationFrame(sonoLoop);
+    scheduleFrame(sonoLoop);
   }
   relayout();
 }
@@ -17043,7 +17259,7 @@ document.getElementById('btnSonoCapture').addEventListener('click', async () => 
     if (sonoAudioEl.paused) {
       await sonoAudioEl.play();
       document.getElementById('btnSonoCapture').querySelector('.btn-icon').textContent = '⏸';
-      if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; requestAnimationFrame(sonoLoop); }
+      if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; scheduleFrame(sonoLoop); }
     } else {
       sonoAudioEl.pause();
       document.getElementById('btnSonoCapture').querySelector('.btn-icon').textContent = '▶';
@@ -17240,7 +17456,7 @@ async function wmpStartMic() {
     wmpAudioCtx.createMediaStreamSource(wmpMicStream).connect(wmpAnalyser);
     wmpBuildGradients();
     document.getElementById('wmpPerm').classList.remove('visible');
-    wmpRunning = true; requestAnimationFrame(wmpLoop);
+    wmpRunning = true; scheduleFrame(wmpLoop);
   } catch(e) {
     document.getElementById('wmpPermErr').textContent = '⚠ ' + e.message;
   }
@@ -17273,7 +17489,7 @@ async function wmpLoadFile(file) {
     document.getElementById('wmpPerm').classList.remove('visible');
     document.body.classList.add('wmp-file');
     relayout();
-    wmpRunning = true; requestAnimationFrame(wmpLoop);
+    wmpRunning = true; scheduleFrame(wmpLoop);
     hideLoadOverlay();
   } catch(e) {
     hideLoadOverlay();
@@ -17292,7 +17508,7 @@ function enterWmp() {
   if ((extAudioMode || extMicOnlyMode) && extAnalyser) {
     // Ext audio (desktop) or mic-only (mobile) active — use shared extAnalyser, no mic permission needed
     document.getElementById('wmpPerm').classList.remove('visible');
-    if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
+    if (!wmpRunning) { wmpRunning = true; scheduleFrame(wmpLoop); }
     return;
   }
   if (!wmpAnalyser) {
@@ -17316,7 +17532,7 @@ function enterWmp() {
       wmpAudioCtx.resume().catch(() => {});
     }
     document.getElementById('wmpPerm').classList.remove('visible');
-    if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
+    if (!wmpRunning) { wmpRunning = true; scheduleFrame(wmpLoop); }
   }
 }
 
@@ -17880,12 +18096,9 @@ function wmpLoop() {
   }
   _wmpLastFrameT = _wmpNow;
   const _wmpAn = ((extAudioMode || extMicOnlyMode) && extAnalyser) ? extAnalyser : wmpAnalyser;
-  if (!_wmpAn) { requestAnimationFrame(wmpLoop); return; }
+  if (!_wmpAn) { scheduleFrame(wmpLoop); return; }
   const N = _wmpAn.frequencyBinCount;
-  const freqData = new Uint8Array(N);
-  const timeData = new Uint8Array(_wmpAn.fftSize);
-  _wmpAn.getByteFrequencyData(freqData);
-  _wmpAn.getByteTimeDomainData(timeData);
+  const { freqData, timeData } = sampleAudio(_wmpAn);
   const sens    = 0.4 + (wmpSensVal / 100) * 1.6;
   const trailsN = wmpTrailsVal / 100;
   wmpAlchemyAngle += 0.010; // global time — used by Fire, Ocean, Alchemy
@@ -17978,7 +18191,7 @@ function wmpLoop() {
     ctxWmp.fillRect(0, 0, WW, WH);
   }
 
-  requestAnimationFrame(wmpLoop);
+  scheduleFrame(wmpLoop);
 }
 
 // ── Controls ──────────────────────────────────────────────────────────
@@ -18050,7 +18263,7 @@ document.getElementById('btnWmpPlayPause').addEventListener('click', () => {
   if (wmpAudioEl.paused) {
     wmpAudioEl.play();
     document.getElementById('btnWmpPlayPause').querySelector('.btn-icon').textContent = '⏸';
-    if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
+    if (!wmpRunning) { wmpRunning = true; scheduleFrame(wmpLoop); }
   } else {
     wmpAudioEl.pause();
     document.getElementById('btnWmpPlayPause').querySelector('.btn-icon').textContent = '▶';
@@ -18336,22 +18549,22 @@ async function startExtAudio(deviceId) {
   if (activeTab === 'cam') {
     display.style.display = 'block';
     cameraRunning = true;
-    requestAnimationFrame(cameraLoop);
+    scheduleFrame(cameraLoop);
   } else if (activeTab === 'ascii') {
     asciiRunning = true;
-    requestAnimationFrame(asciiLoop);
+    scheduleFrame(asciiLoop);
   } else if (activeTab === 'sono') {
     document.getElementById('sonoPerm').classList.remove('visible');
-    if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; requestAnimationFrame(sonoLoop); }
+    if (!sonoRunning) { sonoRunning = true; sonoLastRAF = 0; scheduleFrame(sonoLoop); }
   } else if (activeTab === 'wmp') {
     document.getElementById('wmpPerm').classList.remove('visible');
-    if (!wmpRunning) { wmpRunning = true; requestAnimationFrame(wmpLoop); }
+    if (!wmpRunning) { wmpRunning = true; scheduleFrame(wmpLoop); }
   } else if (activeTab === 'scrash') {
     if (!scrashRunning) { scrashRunning = true; _scrStartT = null; }
     if (!_scrRafId) _scrRafId = requestAnimationFrame(_scrashLoop);
   } else if (activeTab === 'fusion') {
     fusionRunning = true;
-    requestAnimationFrame(_fusionLoop);
+    scheduleFrame(_fusionLoop);
   } else if (activeTab === 'sflow') {
     if (typeof window._sflowStartExtAudio === 'function') window._sflowStartExtAudio();
   }
@@ -18386,17 +18599,17 @@ async function stopExtAudio() {
     await startCamera(facingMode);
     display.style.display = 'block';
     cameraRunning = true;
-    requestAnimationFrame(cameraLoop);
+    scheduleFrame(cameraLoop);
   } else if (activeTab === 'ascii') {
     await startCamera(facingMode);
     asciiRunning = true;
-    requestAnimationFrame(asciiLoop);
+    scheduleFrame(asciiLoop);
   } else if (activeTab === 'scrash') {
     await startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
   } else if (activeTab === 'fusion') {
     await startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
     fusionRunning = true;
-    requestAnimationFrame(_fusionLoop);
+    scheduleFrame(_fusionLoop);
   } else if (activeTab === 'sflow') {
     // Don't force camera — FLOW starts via its own CAM button as usual.
     if (typeof window._sflowStop === 'function') window._sflowStop();
@@ -18473,9 +18686,9 @@ async function startMicOnly() {
   // flag (not just its xRunning flag — cameraRunning/asciiRunning/fusionRunning get forced
   // true by switchTab even when no camera/audio was available to actually kick the rAF
   // chain at that moment) so we never spawn a duplicate chain on top of one already ticking.
-  if (activeTab === 'cam' && !_camLoopAlive) { cameraRunning = true; requestAnimationFrame(cameraLoop); }
-  else if (activeTab === 'ascii' && !_asciiLoopAlive) { asciiRunning = true; requestAnimationFrame(asciiLoop); }
-  else if (activeTab === 'fusion' && !_fusionLoopAlive) { fusionRunning = true; requestAnimationFrame(_fusionLoop); }
+  if (activeTab === 'cam' && !_camLoopAlive) { cameraRunning = true; scheduleFrame(cameraLoop); }
+  else if (activeTab === 'ascii' && !_asciiLoopAlive) { asciiRunning = true; scheduleFrame(asciiLoop); }
+  else if (activeTab === 'fusion' && !_fusionLoopAlive) { fusionRunning = true; scheduleFrame(_fusionLoop); }
 
   _startMicLevelFeedback();
 }
@@ -18768,9 +18981,9 @@ let _ctxScrAudioBuf;
 // Core pixel effect — applies SCRASH effects from srcCtx to dstCtx
 // srcCtx must have pixels already drawn; dstCtx receives result
 // t = elapsed seconds (used for animation)
+let glitchOutput;
 function _applyScrash(srcCtx, dstCtx, w, h, t, audioMod, p) {
-  const { data: px } = srcCtx.getImageData(0, 0, w, h);
-  const out = new Uint8ClampedArray(w * h * 4);
+
 
   // Per-call param base: defaults to the global GLITCH tab sliders (`scr*Val`) unchanged, or
   // an explicit params object `p` (used by EDIT layers so each GLITCH layer is independent —
@@ -18813,6 +19026,20 @@ function _applyScrash(srcCtx, dstCtx, w, h, t, audioMod, p) {
   // waves on top of the primary one (hard cap 3 layers total) — "more waves", not just bigger.
   const extraWaves = !!(A && A.bass > 0.6);
   const hueEff = P.hue + hueSpeedExtra * t;
+  if (!(cOff || waveAmp || crushT || neonT || dripT || hueEff || grainEff || chaosEff) && scrPyPal === 'none') {
+    if (srcCtx !== dstCtx) {
+      dstCtx.clearRect(0, 0, w, h);
+      dstCtx.drawImage(srcCtx.canvas, 0, 0, w, h, 0, 0, w, h);
+    }
+    return;
+  }
+  const { data: px } = srcCtx.getImageData(0, 0, w, h);
+  if (!glitchOutput || glitchOutput.width !== w || glitchOutput.height !== h) {
+    glitchOutput = dstCtx.createImageData(w, h);
+  }
+  const out = glitchOutput.data;
+  const radians = hueEff * Math.PI / 180;
+  const hcos = Math.cos(radians), hsin = Math.sin(radians);
 
   for (let y = 0; y < h; y++) {
     let waveX = 0;
@@ -18866,10 +19093,9 @@ function _applyScrash(srcCtx, dstCtx, w, h, t, audioMod, p) {
 
       // HUE rotation (base slider angle + audio-driven extra spin accumulated over time via t)
       if (hueEff !== 0) {
-        const hrad = hueEff * Math.PI / 180, hcos = Math.cos(hrad), hsin = Math.sin(hrad);
-        const hr = r*(0.213+hcos*0.787-hsin*0.213)+g*(0.213-hcos*0.213+hsin*0.143)+b*(0.213-hcos*0.213-hsin*0.787);
-        const hg = r*(0.715-hcos*0.715-hsin*0.715)+g*(0.715+hcos*0.285+hsin*0.140)+b*(0.715-hcos*0.715+hsin*0.715);
-        const hb = r*(0.072-hcos*0.072+hsin*0.928)+g*(0.072-hcos*0.072-hsin*0.283)+b*(0.072+hcos*0.928+hsin*0.072);
+        const hr = r*(0.213+hcos*0.787-hsin*0.213)+g*(0.715-hcos*0.715-hsin*0.715)+b*(0.072-hcos*0.072+hsin*0.928);
+        const hg = r*(0.213-hcos*0.213+hsin*0.143)+g*(0.715+hcos*0.285+hsin*0.140)+b*(0.072-hcos*0.072-hsin*0.283);
+        const hb = r*(0.213-hcos*0.213-hsin*0.787)+g*(0.715-hcos*0.715+hsin*0.715)+b*(0.072+hcos*0.928+hsin*0.072);
         r=Math.max(0,Math.min(255,hr))|0; g=Math.max(0,Math.min(255,hg))|0; b=Math.max(0,Math.min(255,hb))|0;
       }
       // GRAIN: luminance noise
@@ -18890,7 +19116,7 @@ function _applyScrash(srcCtx, dstCtx, w, h, t, audioMod, p) {
       out[oi] = r; out[oi+1] = g; out[oi+2] = b; out[oi+3] = a;
     }
   }
-  dstCtx.putImageData(new ImageData(out, w, h), 0, 0);
+  dstCtx.putImageData(glitchOutput, 0, 0);
 }
 
 // Reads band energies (bass/mid/treble/rms, each 0..1) off a given AnalyserNode. Shared by
@@ -18914,10 +19140,7 @@ function _scrashComputeBands(freqData, timeData) {
   return { bassE, midE, trebE, rms };
 }
 function _scrashReadAudioBands(an) {
-  const freqData = new Uint8Array(an.frequencyBinCount);
-  const timeData = new Uint8Array(an.fftSize);
-  an.getByteFrequencyData(freqData);
-  an.getByteTimeDomainData(timeData);
+  const { freqData, timeData } = sampleAudio(an);
   return _scrashComputeBands(freqData, timeData);
 }
 
@@ -18929,10 +19152,7 @@ function _scrashReadAudioBands(an) {
 function _renderScrashAudioSource(w, h, t) {
   const an = extAnalyser;
   const freqN = an.frequencyBinCount;
-  const freqData = new Uint8Array(freqN);
-  const timeData = new Uint8Array(an.fftSize);
-  an.getByteFrequencyData(freqData);
-  an.getByteTimeDomainData(timeData);
+  const { freqData, timeData } = sampleAudio(an);
 
   const { bassE, midE, trebE, rms } = _scrashComputeBands(freqData, timeData);
   const react = (typeof FlipAudioReact !== 'undefined') ? FlipAudioReact.read() : null;
@@ -19100,6 +19320,7 @@ function saveSettings() {
       activePal, asciiActivePal, uploadActivePal, vfdActivePal, legacyMode, camFamily, camVariant,
       caskiaSeikoGhostVal, caskiaSeikoDitherVal, caskiaSeikoContrastVal, caskiaSeikoTintVal, caskiaSeikoSoftnessVal,
       auto03ToneMode, auto03SharpMode, auto03NoiseMode, auto03StampMode,
+      stampEngraveVal, stampInkVal, stampDetailVal, stampPaperVal, stampPaletteMode, stampFrameMode,
       dlpColorMode, dlpResonanceVal, dlpContrastVal, oscamIntensityVal, oscamDetailVal, oscamPresenceVal, oscamTraceVal, oscamDefinitionVal, oscamLegacyMode, oscamColorMode,
       slhtDensity, slhtHaloReach, slhtFlowStr, slhtContourLk, slhtMotionR, slhtGlyphSz, slhtNoiseAmt, slhtFillAmt, slhtSmoothAmt,
       sonoPreset, sonoMixVal, sonoChaosVal,
@@ -19110,7 +19331,7 @@ function saveSettings() {
       acBrightVal, acContrastVal, acSatVal, acHueVal, acGrayVal,
       acSepiaVal, acInvertVal, acThreshOn, acThreshVal,
       acSharpOn, acSharpVal, acEdgeOn, acEdgeVal,
-      camFpsTarget, camFpsEnabled, uploadFPS, asciiFont,
+      customCameraFps, camFpsTarget, camFpsEnabled, uploadFPS, asciiFont,
       scrAudioReactVal,
       _sfParams: window._sfParams,
       editPipeline: window._editPipeline,
@@ -19179,6 +19400,34 @@ function loadSettings() {
     if (s.auto03StampMode && ['OFF','SMALL','CLASSIC'].includes(s.auto03StampMode)) {
       auto03StampMode = s.auto03StampMode;
       document.querySelectorAll('.auto03-btn[data-a03stamp]').forEach(b => b.classList.toggle('active', b.dataset.a03stamp === auto03StampMode));
+    }
+    if (s.stampEngraveVal !== undefined) {
+      stampEngraveVal = Math.max(0, Math.min(100, Math.round(s.stampEngraveVal)));
+      const e = document.getElementById('stampEngrave');
+      if (e) { e.value = stampEngraveVal; document.getElementById('vStampEngrave').textContent = stampEngraveVal; }
+    }
+    if (s.stampInkVal !== undefined) {
+      stampInkVal = Math.max(0, Math.min(100, Math.round(s.stampInkVal)));
+      const e = document.getElementById('stampInk');
+      if (e) { e.value = stampInkVal; document.getElementById('vStampInk').textContent = stampInkVal; }
+    }
+    if (s.stampDetailVal !== undefined) {
+      stampDetailVal = Math.max(0, Math.min(100, Math.round(s.stampDetailVal)));
+      const e = document.getElementById('stampDetail');
+      if (e) { e.value = stampDetailVal; document.getElementById('vStampDetail').textContent = stampDetailVal; }
+    }
+    if (s.stampPaperVal !== undefined) {
+      stampPaperVal = Math.max(0, Math.min(100, Math.round(s.stampPaperVal)));
+      const e = document.getElementById('stampPaper');
+      if (e) { e.value = stampPaperVal; document.getElementById('vStampPaper').textContent = stampPaperVal; }
+    }
+    if (s.stampPaletteMode && STAMP_PALETTES[s.stampPaletteMode]) {
+      stampPaletteMode = s.stampPaletteMode;
+      document.querySelectorAll('.stamp-btn[data-stamppal]').forEach(b => b.classList.toggle('active', b.dataset.stamppal === stampPaletteMode));
+    }
+    if (s.stampFrameMode && ['OFF','ON'].includes(s.stampFrameMode)) {
+      stampFrameMode = s.stampFrameMode;
+      document.querySelectorAll('.stamp-btn[data-stampframe]').forEach(b => b.classList.toggle('active', b.dataset.stampframe === stampFrameMode));
     }
     // DLPHN edit params
     if (s.dlpColorMode   && ['AQUA','WARM'].includes(s.dlpColorMode)) {
@@ -19293,7 +19542,11 @@ function loadSettings() {
     if (s.acInvertVal !== undefined) { acInvertVal=s.acInvertVal; const e=document.getElementById('acInvert'); if(e){e.value=acInvertVal;document.getElementById('vInvert').textContent=acInvertVal+'%';} }
     if (s.asciiFont) { asciiFont=s.asciiFont; const e=document.getElementById('acFont'); if(e)e.value=asciiFont; }
     // Camera
-    if (s.camFpsTarget !== undefined) { camFpsTarget=s.camFpsTarget; const e=document.getElementById('camFpsSlider'); if(e){e.value=camFpsTarget;document.getElementById('camFpsVal').textContent=camFpsTarget;} }
+    customCameraFps = s.customCameraFps ?? Number.isFinite(s.camFpsTarget);
+    camFpsTarget = customCameraFps && Number.isFinite(s.camFpsTarget)
+      ? Math.max(1, Math.min(30, Math.round(s.camFpsTarget)))
+      : cameraCadence[camFamily] || 24;
+    syncCameraCadence();
     if (s.camFpsEnabled !== undefined) { camFpsEnabled=s.camFpsEnabled; const e=document.getElementById('camFpsToggle'); if(e)e.checked=camFpsEnabled; }
     // GLITCH — AUDIO REACT master intensity
     if (typeof s.scrAudioReactVal === 'number' && isFinite(s.scrAudioReactVal)) {
@@ -19593,6 +19846,7 @@ if (screen.width > 768) {
   let _sfStream        = null;
   let _sfFacing        = 'user';
   let _sfRafId         = 0;
+  let flowGeneration = 0;
   let _sfActive        = false;
   let _sfColorKey      = 'palette';
   let _sfAuraKey       = 'm';
@@ -19689,8 +19943,8 @@ if (screen.width > 768) {
     b = Math.round(b + (255 - b) * t);
     return `rgb(${r},${g},${b})`;
   }
-  const MEDIAPIPE_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm';
-  const MEDIAPIPE_MODEL= 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+  const MEDIAPIPE_WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm';
+  const MEDIAPIPE_MODEL= 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
 
   // ── Elements ────────────────────────────────────────────────────────
   const sfVid     = document.getElementById('sflowVid');
@@ -19747,7 +20001,7 @@ if (screen.width > 768) {
     _sfBadge('FLOW — loading AI…');
     try {
       const { ImageSegmenter, FilesetResolver } =
-        await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/+esm');
+        await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/+esm');
       const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM);
       _sfSegmenter = await ImageSegmenter.createFromOptions(vision, {
         baseOptions    : { modelAssetPath: MEDIAPIPE_MODEL, delegate: 'GPU' },
@@ -19767,46 +20021,33 @@ if (screen.width > 768) {
   }
 
   // ── Pretext grid (cached per canvas size) ───────────────────────────
-  async function _sfBuildGrid(cw, ch) {
+  function _sfBuildGrid(cw, ch) {
     const fontSize = _sfFontSize();
-    if (_sfPretextCache && _sfPretextCache.cw === cw && _sfPretextCache.ch === ch
-        && _sfPretextCache.fontSize === fontSize) {
+    if (_sfPretextCache?.cw === cw && _sfPretextCache.ch === ch && _sfPretextCache.fontSize === fontSize) {
       return _sfPretextCache;
     }
-    let chars = [];
-    try {
-      const PT = await loadPretext();
-      const prepared = PT.prepare(SF_CHARS.repeat(8), _sfFont());
-      const lines    = PT.layout(prepared, cw);
-      // lines is array of glyph objects with {x,y,char}
-      if (Array.isArray(lines)) {
-        for (const g of lines) {
-          if (g && g.char && g.x != null) chars.push({ ch: g.char, x: g.x, y: g.y || 0 });
-        }
-      }
-    } catch (_) {}
-
-    // Fallback: plain grid
-    if (chars.length < 10) {
-      chars = [];
-      for (let y = fontSize; y < ch; y += fontSize) {
-        for (let x = 0; x < cw; x += fontSize) {
-          chars.push({ ch: SF_CHARS[Math.floor(Math.random() * SF_CHARS.length)], x, y });
-        }
+    const chars = [];
+    for (let y = fontSize, row = 0; y < ch; y += fontSize, row++) {
+      for (let x = 0, col = 0; x < cw; x += fontSize, col++) {
+        const index = ((Math.imul(row + 1, 73856093) ^ Math.imul(col + 1, 19349663)) >>> 0) % SF_CHARS.length;
+        chars.push({ ch: SF_CHARS[index], x, y });
       }
     }
-
     _sfPretextCache = { chars, cw, ch, fontSize };
     return _sfPretextCache;
   }
 
   // ── Chamfer distance + Sobel normal/tangent ──────────────────────────
+  let flowVectors;
   function _sfBuildVectors(mask, W, H, maxDist, threshold) {
     // threshold: 0-1 confidence cutoff for inside/outside (default 0.5).
     // Lower = more generous/inflated silhouette, higher = stricter.
     if (typeof threshold !== 'number' || !isFinite(threshold)) threshold = 0.5;
     // dist[i] = distance to nearest boundary pixel
-    const dist  = new Float32Array(W * H);
+    if (flowVectors?.dist.length !== W * H) {
+      flowVectors = { dist:new Float32Array(W * H), nx:new Float32Array(W * H), ny:new Float32Array(W * H) };
+    }
+    const { dist, nx, ny } = flowVectors;
     const LARGE = 9999;
     dist.fill(LARGE);
 
@@ -19853,8 +20094,8 @@ if (screen.width > 768) {
     }
 
     // Sobel on dist field → outward normal
-    const nx = new Float32Array(W * H);
-    const ny = new Float32Array(W * H);
+    nx.fill(0);
+    ny.fill(0);
     for (let y = 1; y < H - 1; y++) {
       for (let x = 1; x < W - 1; x++) {
         const i = y * W + x;
@@ -19871,7 +20112,7 @@ if (screen.width > 768) {
         ny[i] = -gy / len;
       }
     }
-    return { dist, nx, ny };
+    return flowVectors;
   }
 
   // ── Badge helper ────────────────────────────────────────────────────
@@ -19992,10 +20233,7 @@ if (screen.width > 768) {
     sfCtx.fillRect(0, 0, CW, CH);
 
     // ── Build/use Pretext grid ───────────────────────────────────────
-    let grid;
-    try {
-      grid = await _sfBuildGrid(CW, CH);
-    } catch (_) { sfCtx.restore(); return; }
+    const grid = _sfBuildGrid(CW, CH);
 
     // ── Render aura characters (additive light, no shadowBlur) ───────
     sfCtx.textAlign = 'center';
@@ -20116,8 +20354,14 @@ if (screen.width > 768) {
   // ── RAF render loop ─────────────────────────────────────────────────
   async function _sfLoop() {
     if (!_sfActive) return;
-    _sfRafId = requestAnimationFrame(_sfLoop);
-
+    const generation = flowGeneration;
+    try {
+      await _sfDrawFrame();
+    } finally {
+      if (_sfActive && generation === flowGeneration) _sfRafId = requestAnimationFrame(_sfLoop);
+    }
+  }
+  async function _sfDrawFrame() {
     if (_sfMode === 'audio') { await _sfLoopAudio(); return; }
 
     if (!sfVid.videoWidth || sfVid.readyState < 2) return;
@@ -20129,23 +20373,28 @@ if (screen.width > 768) {
     if (!CW || !CH) return;
 
     // ── Run segmentation ─────────────────────────────────────────────
-    if (!_sfSegmenter) return;
+    if (!_sfSegmenter) {
+      // The user can frame the shot while segmentation loads, or use the camera offline.
+      const [sx, sy, sw, sh] = cropCoordsForDims(VW, VH, CW, CH);
+      sfCtx.drawImage(sfVid, sx, sy, sw, sh, 0, 0, CW, CH);
+      return;
+    }
     let maskRaw = null;
     let maskW   = 0;
     let maskH   = 0;
     try {
       const result = _sfSegmenter.segmentForVideo(sfVid, performance.now());
       if (result?.confidenceMasks?.[0]) {
-        maskRaw = result.confidenceMasks[0].getAsFloat32Array();
+        maskRaw = _sfSmoothMask(result.confidenceMasks[0].getAsFloat32Array(), result.confidenceMasks[0].width, result.confidenceMasks[0].height);
         maskW   = result.confidenceMasks[0].width;
         maskH   = result.confidenceMasks[0].height;
-        result.close?.();
       }
+      result?.close?.();
     } catch (_) { return; }
     if (!maskRaw) return;
 
     _sfUpdateEff();
-    const maskArr = _sfSmoothMask(maskRaw, maskW, maskH);
+    const maskArr = maskRaw;
 
     // ── Compute aura depth in mask px (scale) ───────────────────────
     const scaleX   = maskW / VW;
@@ -20186,10 +20435,7 @@ if (screen.width > 768) {
     sfCtx.globalAlpha = 1;
 
     // ── Build/use Pretext grid ───────────────────────────────────────
-    let grid;
-    try {
-      grid = await _sfBuildGrid(CW, CH);
-    } catch (_) { sfCtx.restore(); return; }
+    const grid = _sfBuildGrid(CW, CH);
 
     // ── Render aura characters (additive light, no shadowBlur) ───────
     sfCtx.textAlign = 'center';
@@ -20306,6 +20552,7 @@ if (screen.width > 768) {
 
   // ── Start (audio-driven, no camera / no MediaPipe) ───────────────────
   function _sfStartAudioMode() {
+    flowGeneration++;
     _sfMode = 'audio';
     if (_sfStream) {
       _sfStream.getTracks().forEach(t => t.stop());
@@ -20328,6 +20575,7 @@ if (screen.width > 768) {
 
   // ── Start camera ────────────────────────────────────────────────────
   async function _sfStart(facing) {
+    const generation = ++flowGeneration;
     if (extAudioMode && extAnalyser) { _sfStartAudioMode(); return; }
     _sfMode = 'cam';
     _sfFacing = facing || _sfFacing;
@@ -20342,18 +20590,23 @@ if (screen.width > 768) {
 
     // Get own stream
     try {
-      _sfStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: _sfFacing, width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
+      const next = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: _sfFacing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false,
       });
-      sfVid.srcObject = _sfStream;
-      await new Promise((res, rej) => {
-        sfVid.onloadedmetadata = res;
-        sfVid.onerror = rej;
-        setTimeout(rej, 8000);
-      });
+      if (generation !== flowGeneration) {
+        next.getTracks().forEach(track => track.stop());
+        return;
+      }
+      _sfStream = next;
+      sfVid.srcObject = next;
       await sfVid.play();
+      await _waitForVideoReady(sfVid);
+      if (generation !== flowGeneration) return;
     } catch (e) {
+      if (generation !== flowGeneration) return;
+      _sfStream?.getTracks().forEach(track => track.stop());
+      _sfStream = null;
+      sfVid.srcObject = null;
       console.warn('SF cam error', e);
       // F5 — móvil: el mic convive con la cámara, no la reemplaza (a diferencia de EXT
       // AUDIO clásico de desktop). Por eso la prioridad se invierte respecto a desktop:
@@ -20364,9 +20617,10 @@ if (screen.width > 768) {
       return;
     }
 
-    // Init segmenter
-    const ok = await _sfInitSegmenter();
-    if (!ok) return;
+    // Begin preview immediately while the model loads.
+    _sfInitSegmenter().then(ok => {
+      if (generation === flowGeneration) _sfBadge(ok ? '' : 'FLOW — cámara sin segmentación');
+    });
 
     _sfResize();
     _sfActive = true;
@@ -20383,7 +20637,9 @@ if (screen.width > 768) {
 
   // ── Stop (exposed globally so switchTab can call it) ────────────────
   window._sflowStop = function _sflowStop() {
+    flowGeneration++;
     _sfActive = false;
+    _stopRecorderSafely(_sfRecorder);
     _sfMode = 'cam';
     cancelAnimationFrame(_sfRafId);
     _sfRafId = 0;
@@ -20554,13 +20810,6 @@ if (screen.width > 768) {
     btnSflowRec.querySelector('.btn-icon').textContent = '⏹';
   });
 
-  // Stop an in-flight recording if the user leaves FLOW / camera stops
-  const _sfPrevStop = window._sflowStop;
-  window._sflowStop = function() {
-    if (_sfRecorder && _sfRecorder.state !== 'inactive') _stopRecorderSafely(_sfRecorder);
-    _sfPrevStop();
-  };
-
   // ── Resize observer ─────────────────────────────────────────────────
   new ResizeObserver(() => {
     clearTimeout(_sfResizeTimer);
@@ -20595,7 +20844,7 @@ function _fusionGetSrcCanvas() {
   if (vid.videoWidth) {
     const fctx = _fusionSrc.getContext('2d');
     fctx.save();
-    fctx.drawImage(vid, 0, 0, w, h);
+    drawCover(fctx, vid, vid.videoWidth, vid.videoHeight, w, h);
     fctx.restore();
     return _fusionSrc;
   }
@@ -20622,7 +20871,7 @@ function _fusionLoop(ts) {
     }
     _fusionLastFrameMs = ts;
   }
-  requestAnimationFrame(_fusionLoop);
+  scheduleFrame(_fusionLoop);
 }
 
 (function _initFusion() {
@@ -20641,6 +20890,7 @@ function _fusionLoop(ts) {
   window._syncFusionFamPills = function () {
     famRow.querySelectorAll('.fusion-fam-pill').forEach(b => {
       b.classList.toggle('active', b.dataset.family === camFamily);
+    b.setAttribute('aria-pressed', String(b.dataset.family === camFamily));
     });
   };
 
@@ -20757,10 +21007,8 @@ let _editPhotoImg = null;   // HTMLImageElement | ImageBitmap, source type:'phot
 let _editLastFrameMs = 0;
 let _editExpandedPanel = null; // { i, kind: 'fam'|'glitch'|'ascii'|'flow' } | null — only one panel open at a time
 const EDIT_MAX_LAYERS = 4;
-const EDIT_CAM_FAMILIES = [
-  ['DSI', 'DSI'], ['AUTO03', 'AUTO 03'], ['DLPHN', 'DLPHN'], ['CASKIA', 'CASKIA'],
-  ['VFD', 'VFD'], ['OSCAM', 'OSCAM'], ['SLHT', 'SLHT'],
-];
+const layerCameraFamilies = Object.entries(CAM_FAMILIES)
+  .map(([id, config]) => [id, config.displayLabel || config.label]);
 // Defaults mirror the GLITCH tab's own slider defaults (see `let scrChromaVal = 0, ...`
 // near _applyScrash) but are a fresh object per layer — never shared.
 function _editDefaultGlitchParams() {
@@ -20810,7 +21058,7 @@ const ctxEdit = editCanvas.getContext('2d');
 const editVideoEl = document.getElementById('editVideoEl');
 
 // cover-fit draw: fills w×h cropping overflow, no stretch distortion.
-function _editDrawCover(ctx, srcEl, sw, sh, w, h) {
+function drawCover(ctx, srcEl, sw, sh, w, h) {
   if (!sw || !sh) return;
   const scale = Math.max(w / sw, h / sh);
   const dw = sw * scale, dh = sh * scale;
@@ -20825,7 +21073,7 @@ function _editGetSrcCanvas() {
   if (editSource.type === 'cam') {
     if (!vid.videoWidth) return null;
     ctx.save();
-    ctx.drawImage(vid, 0, 0, w, h);
+    drawCover(ctx, vid, vid.videoWidth, vid.videoHeight, w, h);
     ctx.restore();
     return _editSrcCanvas;
   }
@@ -20834,13 +21082,13 @@ function _editGetSrcCanvas() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
     const iw = _editPhotoImg.width || _editPhotoImg.naturalWidth;
     const ih = _editPhotoImg.height || _editPhotoImg.naturalHeight;
-    _editDrawCover(ctx, _editPhotoImg, iw, ih, w, h);
+    drawCover(ctx, _editPhotoImg, iw, ih, w, h);
     return _editSrcCanvas;
   }
   if (editSource.type === 'video') {
     if (!editVideoEl.videoWidth) return null;
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
-    _editDrawCover(ctx, editVideoEl, editVideoEl.videoWidth, editVideoEl.videoHeight, w, h);
+    drawCover(ctx, editVideoEl, editVideoEl.videoWidth, editVideoEl.videoHeight, w, h);
     return _editSrcCanvas;
   }
   if (editSource.type === 'audio') {
@@ -20932,7 +21180,7 @@ function _editLoop(ts) {
     }
     _editLastFrameMs = ts;
   }
-  requestAnimationFrame(_editLoop);
+  scheduleFrame(_editLoop);
 }
 
 (function _initEdit() {
@@ -20997,7 +21245,7 @@ function _editLoop(ts) {
   function _editFamPanelHtml(i, step) {
     const active = step.family || camFamily;
     return `<div class="edit-fam-panel" data-i="${i}">` +
-      EDIT_CAM_FAMILIES.map(([id, label]) =>
+      layerCameraFamilies.map(([id, label]) =>
         `<button class="edit-fam-pill${id === active ? ' active' : ''}" data-i="${i}" data-act="setfam" data-fam="${id}">${label}</button>`
       ).join('') +
       `</div>`;
@@ -21180,7 +21428,16 @@ function _editLoop(ts) {
   });
 
   // ── Source pills ─────────────────────────────────────────────────────
+  let editImportRevision = 0;
   function _editSetSourcePill(type) {
+    editImportRevision++;
+    if (type !== 'photo') { _editPhotoImg?.close?.(); _editPhotoImg = null; }
+    if (type !== 'video' && editVideoEl.hasAttribute('src')) {
+      editVideoEl.pause();
+      URL.revokeObjectURL(editVideoEl.src);
+      editVideoEl.removeAttribute('src');
+      editVideoEl.load();
+    }
     document.querySelectorAll('.edit-src-pill').forEach(b => b.classList.toggle('active', b.dataset.editSrc === type));
     const sens = document.getElementById('editAudioSens');
     if (sens) sens.style.display = (type === 'audio' || type === 'sono' || type === 'wmp') ? 'flex' : 'none';
@@ -21220,16 +21477,20 @@ function _editLoop(ts) {
     const file = e.target.files && e.target.files[0];
     e.target.value = '';
     if (!file) return;
+    const revision = ++editImportRevision;
     if (file.type.startsWith('image/')) {
       try {
         let img;
         if (window.createImageBitmap) img = await createImageBitmap(file);
         else img = await new Promise((res, rej) => {
           const im = new Image();
-          im.onload = () => res(im);
-          im.onerror = rej;
-          im.src = URL.createObjectURL(file);
+          const url = URL.createObjectURL(file);
+          im.onload = () => { URL.revokeObjectURL(url); res(im); };
+          im.onerror = err => { URL.revokeObjectURL(url); rej(err); };
+          im.src = url;
         });
+        if (revision !== editImportRevision) { img.close?.(); return; }
+        _editPhotoImg?.close?.();
         _editPhotoImg = img;
         editSource = { type: 'photo' };
         _editSetSourcePill('photo');
@@ -21237,9 +21498,21 @@ function _editLoop(ts) {
       } catch (_) { flipToast('⚠ No se pudo cargar la imagen'); }
     } else if (file.type.startsWith('video/')) {
       editVideoEl.pause();
+      if (editVideoEl.hasAttribute('src')) URL.revokeObjectURL(editVideoEl.src);
       editVideoEl.src = URL.createObjectURL(file);
       editVideoEl.loop = true; editVideoEl.muted = true; editVideoEl.playsInline = true;
-      try { await editVideoEl.play(); } catch (_) {}
+      try { await editVideoEl.play(); }
+      catch (_) {
+        if (revision === editImportRevision) {
+          URL.revokeObjectURL(editVideoEl.src);
+          editVideoEl.removeAttribute('src');
+          editVideoEl.load();
+          if (editSource.type === 'video') { editSource = { type:'cam' }; _editSetSourcePill('cam'); _editSyncPersisted(); }
+          flipToast('No se pudo reproducir este video.');
+        }
+        return;
+      }
+      if (revision !== editImportRevision) return;
       editSource = { type: 'video' };
       _editSetSourcePill('video');
       _editSyncPersisted();
@@ -21356,7 +21629,7 @@ function _editLoop(ts) {
     if (editSource.type === 'cam' && !stream && !extAudioMode) {
       startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
     }
-    requestAnimationFrame(_editLoop);
+    scheduleFrame(_editLoop);
   };
 })();
 
@@ -21381,10 +21654,6 @@ function _editLoop(ts) {
 // reopened (window._stageState — see declaration near saveSettings).
 // ════════════════════════════════════════════════════════════════════
 const STAGE_MAX_LAYERS = 4;
-const STAGE_CAM_FAMILIES = [
-  ['DSI', 'DSI'], ['AUTO03', 'AUTO 03'], ['DLPHN', 'DLPHN'], ['CASKIA', 'CASKIA'],
-  ['VFD', 'VFD'], ['OSCAM', 'OSCAM'], ['SLHT', 'SLHT'],
-];
 function _stageDefaultVhs() {
   return { enabled: false, intensity: 50, tracking: 30, chromaBleed: 40, scanlines: 50, jitter: 20, warble: 15 };
 }
@@ -21498,7 +21767,7 @@ function _stagePipelineForRender(state) {
   function _stageFamPanelHtml(i, step) {
     const active = step.family || camFamily;
     return `<div class="edit-fam-panel" data-i="${i}">` +
-      STAGE_CAM_FAMILIES.map(([id, label]) =>
+      layerCameraFamilies.map(([id, label]) =>
         `<button class="edit-fam-pill${id === active ? ' active' : ''}" data-i="${i}" data-act="setfam" data-fam="${id}">${label}</button>`
       ).join('') + `</div>`;
   }
@@ -21635,7 +21904,7 @@ function _stagePipelineForRender(state) {
       const src = _stagePreviewGetSrc(320, 240);
       runPipeline(_stagePipelineForRender(_stageCtlState), src, ctxStagePreview, null, performance.now());
     }
-    requestAnimationFrame(_stagePreviewLoop);
+    scheduleFrame(_stagePreviewLoop);
   }
 
   // ── OPEN / CLOSE / FULLSCREEN / PHOTO / REC ───────────────────────────
@@ -21649,6 +21918,10 @@ function _stagePipelineForRender(state) {
   document.getElementById('btnStageOpenOut').addEventListener('click', () => {
     if (_stageOutHandle && !_stageOutHandle.closed) { _stageOutHandle.focus(); return; }
     _stageOutHandle = window.open(location.pathname + '#stageout', 'FLIP_STAGE_OUT', 'popup,width=1280,height=720');
+    if (!_stageOutHandle) {
+      _stageSetOutStatus('Permite abrir ventanas para iniciar la salida.');
+      return;
+    }
     _stageSetOutStatus('SALIDA: abriendo…');
     _stageBroadcastNow();
   });
@@ -21678,11 +21951,15 @@ function _stagePipelineForRender(state) {
     if (msg.type === 'ready') {
       _stageSetOutStatus('SALIDA: conectada');
       _stageBroadcastNow();
+    } else if (msg.type === 'sourceError') {
+      flipToast(msg.message);
     } else if (msg.type === 'devices') {
       const sel = document.getElementById('stageAudioDevice');
       if (sel) {
         const cur = _stageCtlState.source.audioDeviceId;
-        sel.innerHTML = (msg.list || []).map(d => `<option value="${d.deviceId}"${d.deviceId === cur ? ' selected' : ''}>${d.label || d.deviceId}</option>`).join('');
+        sel.replaceChildren(...(msg.list || []).map(device =>
+          new Option(device.label || 'Micrófono', device.deviceId, false, device.deviceId === cur)
+        ));
       }
     } else if (msg.type === 'status') {
       _stageRecording = !!msg.recording;
@@ -21695,12 +21972,21 @@ function _stagePipelineForRender(state) {
   if (_stageChan) _stageChan.addEventListener('message', _stageOnChanMessage);
 
   // ── Tab entry/exit hooks — called from switchTab() ────────────────────
+  function releaseControlCamera() {
+    if (activeTab !== 'stage' || !stream) return;
+    stream.getVideoTracks().forEach(track => track.stop());
+    stream = null;
+    vid.srcObject = null;
+    _clearCamZoomSupport();
+  }
   window._stageOnEnter = function () {
+    releaseControlCamera();
+    cameraRequest?.promise.then(releaseControlCamera, () => {});
     _stageSyncSourceUI();
     _stageSyncVhsUI();
     _stageRenderLayers();
     _stagePreviewRunning = true;
-    requestAnimationFrame(_stagePreviewLoop);
+    scheduleFrame(_stagePreviewLoop);
     _stageBroadcastNow();
   };
   window._stageOnExit = function () {
@@ -21731,6 +22017,14 @@ if (IS_STAGE_OUT) (function _initStageOutput() {
   canvas.width = 1280; canvas.height = 960;
   document.body.appendChild(canvas);
   const ctxOut = canvas.getContext('2d');
+  function fullscreenOutput() {
+    const enter = canvas.requestFullscreen || canvas.webkitRequestFullscreen;
+    if (!enter) return;
+    Promise.resolve(enter.call(canvas)).catch(() => chan?.postMessage({
+      type:'sourceError', message:'Haz doble clic en la salida para activar pantalla completa.',
+    }));
+  }
+  canvas.addEventListener('dblclick', fullscreenOutput);
 
   let chan = null;
   try { chan = new BroadcastChannel('flip_stage'); } catch (_) { chan = null; }
@@ -21751,7 +22045,7 @@ if (IS_STAGE_OUT) (function _initStageOutput() {
         outVideo.srcObject = _outCamStream;
         await outVideo.play().catch(() => {});
       } catch (err) {
-        flipToast?.('⚠ ' + (err?.message || 'Camera failed'));
+        chan?.postMessage({type:'sourceError', message:'Cámara de salida: ' + err.message});
       }
     } else if (!want && _outCamStream) {
       _outCamStream.getTracks().forEach(t => t.stop());
@@ -21773,7 +22067,7 @@ if (IS_STAGE_OUT) (function _initStageOutput() {
         chan?.postMessage({ type: 'devices', list });
       } catch (_) {}
     } catch (err) {
-      flipToast?.('⚠ ' + (err?.message || 'Audio failed'));
+      chan?.postMessage({type:'sourceError', message:'Audio de salida: ' + err.message});
     }
   }
 
@@ -21784,7 +22078,7 @@ if (IS_STAGE_OUT) (function _initStageOutput() {
     if (_outSrcCanvas.width !== w || _outSrcCanvas.height !== h) { _outSrcCanvas.width = w; _outSrcCanvas.height = h; }
     const ctx = _outSrcCanvas.getContext('2d');
     if (state.source.cam && outVideo.videoWidth) {
-      ctx.drawImage(outVideo, 0, 0, w, h);
+      drawCover(ctx, outVideo, outVideo.videoWidth, outVideo.videoHeight, w, h);
       return _outSrcCanvas;
     }
     return _getExtAudioSourceFrame(w, h);
@@ -21847,10 +22141,12 @@ if (IS_STAGE_OUT) (function _initStageOutput() {
     if (_outRecorder && _outRecorder.state !== 'inactive') return;
     _outChunks = [];
     const stream = canvas.captureStream(30);
+    for (const track of extMicStream?.getAudioTracks() || []) stream.addTrack(track.clone());
     const { recorder, mime } = _createFlipRecorder(stream, 6_000_000);
     _outRecorder = recorder; _outMime = mime;
     recorder.ondataavailable = e => { if (e.data && e.data.size) _outChunks.push(e.data); };
     recorder.onstop = async () => {
+      stream.getTracks().forEach(track => track.stop());
       _outMime = _resolveRecordedMime(_outMime, _outChunks);
       const blob = new Blob(_outChunks, { type: _outMime });
       await saveBlob(blob, _flipName('stage', _videoExtFromMime(_outMime)));
@@ -21866,25 +22162,30 @@ if (IS_STAGE_OUT) (function _initStageOutput() {
   }
 
   // ── commands from CONTROL ─────────────────────────────────────────────
+  let sourceUpdates = Promise.resolve();
   async function _outApplyState(payload) {
+    const first = !gotFirstState;
+    gotFirstState = true;
     const prevCam = state.source.cam, prevAudio = state.source.audioMode, prevDevice = state.source.audioDeviceId;
     state = _stageClampState(payload);
-    if (state.source.cam !== prevCam) await _outEnsureCam(state.source.cam);
-    if (state.source.audioMode !== prevAudio || state.source.audioDeviceId !== prevDevice) {
-      await _outEnsureAudio(state.source.audioMode, state.source.audioDeviceId);
+    const { cam, audioMode, audioDeviceId } = state.source;
+    if (first || cam !== prevCam || audioMode !== prevAudio || audioDeviceId !== prevDevice) {
+      sourceUpdates = sourceUpdates.then(async () => {
+        if (first || cam !== prevCam) await _outEnsureCam(cam);
+        if (first || audioMode !== prevAudio || audioDeviceId !== prevDevice) await _outEnsureAudio(audioMode, audioDeviceId);
+      }).catch(err => chan?.postMessage({ type: 'sourceError', message: String(err.message || err) }));
     }
   }
   if (chan) chan.addEventListener('message', async e => {
     const msg = e.data;
     if (!msg || !msg.type) return;
     if (msg.type === 'state') {
-      gotFirstState = true;
       await _outApplyState(msg.payload);
     } else if (msg.type === 'cmd') {
       if (msg.cmd === 'photo') _outPhoto();
       else if (msg.cmd === 'recStart') _outStartRec();
       else if (msg.cmd === 'recStop') _outStopRec();
-      else if (msg.cmd === 'fullscreen') { const rf = canvas.requestFullscreen || canvas.webkitRequestFullscreen; if (rf) { try { rf.call(canvas); } catch (_) {} } }
+      else if (msg.cmd === 'fullscreen') fullscreenOutput();
       else if (msg.cmd === 'close') window.close();
     }
   });
@@ -22194,14 +22495,7 @@ function _initFlipOsBoot() {
 _initFlipOsBoot();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=20260415-flip-os-beta-1').then(reg => {
-    reg.update().catch(()=>{});
-    reg.addEventListener('updatefound', () => {
-      reg.installing.addEventListener('statechange', function() {
-        if (this.state === 'activated') location.reload();
-      });
-    });
-  }).catch(()=>{});
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
 </body>

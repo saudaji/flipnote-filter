@@ -92,6 +92,21 @@ async function main() {
     assert.ok(st.queue >= 4 && st.queue <= 16, 'cola de cuadros de cámara: ' + st.queue);
     await hands(FRAME);
     await settle(800);
+    // Con la figura quieta solo se repinta cuando llega un cuadro de cámara (a 30; la pantalla va a 60 o más)…
+    const paint = ms => page.evaluate(ms => new Promise(done => {
+      const real = flipPortal.render, from = flipPortal.status().draws; let ticks = 0;
+      flipPortal.render = function () { ticks++; return real.apply(this, arguments); };
+      setTimeout(() => { flipPortal.render = real; done({ ticks, draws: flipPortal.status().draws - from }); }, ms);
+    }), ms);
+    let load = await paint(1000);
+    assert.ok(load.ticks > 45 && load.draws >= 20 && load.draws < load.ticks * 0.8, 'con la figura quieta no se repinta en cada vuelta: ' + JSON.stringify(load));
+    // …salvo que CAM pinte encima (una pegatina): entonces cada vuelta parte del cuadro limpio, o la
+    // pegatina se pintaría sobre sí misma y la lupa ampliaría lo ya ampliado.
+    await page.evaluate(() => { camStickers.push({ id: 9001, type: 'zoom', x: 0.5, y: 0.15, size: 10 }); });
+    const stuck = await paint(700);
+    assert.equal(stuck.draws, stuck.ticks, 'con pegatinas se repinta en cada vuelta: ' + JSON.stringify(stuck));
+    await page.evaluate(() => { camStickers.length = 0; });
+    await settle(200);
 
     // 4 · La foto es lo que hay en el visor.
     const photo = await page.evaluate(async () => {
@@ -158,6 +173,50 @@ async function main() {
     assert.equal(last.shape, 'corner'); assert.ok(last.amount > 0.9, 'una mano en L abre su esquina: ' + JSON.stringify(last));
     assert.ok(last.area > 0.025 && last.area < 0.04, 'del tamaño de la L: ' + last.area);
     if (out) await page.screenshot({ path: path.join(out, 'portal-una-mano.png') });
+    await hands([]);
+    await settle(700);
+
+    // 8b · El clic fija la figura de antes de mover los dedos. Con un rastreador que tarda como uno de
+    // verdad (90 ms), el pulgar de la derecha se va hacia el anular (de 0,67 a 0,62) y, una décima
+    // después, se tocan: el portal conserva la esquina donde estaba el pulgar antes de moverse.
+    await page.evaluate(([src, frame]) => {
+      const hand = eval(src), made = spec => spec.map(args => hand(...args));
+      const still = made(frame);
+      const moved = made([frame[0], [[0.75, 0.65], [0.75, 0.3], [0.62, 0.65]]]);
+      const touching = made([frame[0], [[0.75, 0.65], [0.75, 0.3], [0.62, 0.65], [0.62, 0.65]]]);
+      const t0 = performance.now() + 800;
+      flipPortal.use(t => t < t0 ? still : t < t0 + 100 ? moved : touching, { lag: 90 });
+    }, [HAND, FRAME]);
+    await page.waitForFunction(() => flipPortal.status().panes === 1, null, { timeout: 6000 });
+    const fixed = (await page.evaluate(() => flipPortal.panes.list()))[0].pts;      // índice izq., índice der., pulgar der., pulgar izq.
+    assert.ok(Math.abs(fixed[4] - 0.67) < 0.012 && Math.abs(fixed[5] - 0.65) < 0.012, 'la esquina del pulgar es la de antes de moverse (0,67), no la del clic (0,62): ' + JSON.stringify(fixed));
+    [[0.25, 0.30], [0.75, 0.30], [0.67, 0.65], [0.33, 0.65]].forEach(([x, y], i) => assert.ok(Math.hypot(fixed[2 * i] - x, fixed[2 * i + 1] - y) < 0.012, 'el portal fijado tiene la esquina ' + i + ' en su yema: ' + JSON.stringify(fixed)));
+    st = await S();
+    assert.ok(st.latency >= 70 && st.latency <= 110 && st.delay >= 90 && st.delay <= 160, 'el visor se retrasa lo que tarda el rastreador: ' + JSON.stringify([st.latency, st.delay]));
+    await page.evaluate(() => flipPortal.panes.clear());
+
+    // 8c · Sin la cola de cuadros (el contexto de WebGL perdido, como al volver de segundo plano) y con
+    // un rastreador lento (200 ms), la ventana no parpadea: se dibuja con la última detección.
+    await page.evaluate(([src, frame]) => { const hand = eval(src), still = frame.map(args => hand(...args)); flipPortal.use(() => still, { lag: 200 }); }, [HAND, FRAME]);
+    await settle(1200);
+    assert.equal((await S()).shape, 'quad');
+    assert.equal(await page.evaluate(() => flipPortal.lose(true)), true, 'se puede simular la pérdida del contexto');
+    await page.waitForFunction(() => flipPortal.status().gl === false, null, { timeout: 4000 });
+    await settle(700);
+    for (let i = 0; i < 12; i++) {
+      await settle(80);
+      const now = await S();
+      assert.ok(now.gl === false && now.hands === 2 && now.shape === 'quad' && now.amount > 0.9, 'sin WebGL la ventana sigue a las manos sin parpadear (muestra ' + i + '): ' + JSON.stringify([now.gl, now.hands, now.shape, now.amount]));
+      corners.forEach(([x, y], k) => assert.ok(Math.hypot(now.figure[2 * k] - x, now.figure[2 * k + 1] - y) < 0.012, 'y cada esquina sigue en su yema: ' + now.figure));
+    }
+    assert.ok(greenness(await zone(INSIDE)) > greenness(plain) + 18, 'y dentro se sigue viendo el emulador');
+    // Al volver el contexto, PORTAL recupera el dibujo acelerado y rehace la cola.
+    await page.evaluate(() => flipPortal.lose(false));
+    await page.waitForFunction(() => { const s = flipPortal.status(); return s.gl === true && s.queue >= 4; }, null, { timeout: 8000 });
+    await settle(600);
+    st = await S();
+    assert.ok(st.shape === 'quad' && st.amount > 0.9, 'con el contexto de vuelta la ventana sigue abierta: ' + JSON.stringify([st.shape, st.amount]));
+    assert.ok(greenness(await zone(INSIDE)) > greenness(plain) + 18, 'y el emulador vuelve a verse dentro');
     await hands([]);
     await settle(700);
 
@@ -248,9 +307,18 @@ async function main() {
     assert.deepEqual([st.active, st.module, st.mode, st.bar], [false, 'cam', false, 'none']);
     assert.notEqual(st.slht, 'none');
 
-    // 13 · El rastreador real arranca (necesita red la primera vez)…
+    // 12b · Al salir se sueltan los estilos pintados para las ventanas.
+    assert.equal(await page.evaluate(() => flipPortal.status().kept), 0, 'fuera de PORTAL no queda ningún estilo guardado');
+
+    // 13 · El rastreador real arranca (necesita red la primera vez)… también si se sale de PORTAL
+    // mientras carga y se vuelve antes de que termine (se quedaba sin rastreador y sin aviso).
     await openModule(page, 'portal');
-    await page.evaluate(() => { flipPortal.use(null); flipPortal.start(); });
+    await page.evaluate(() => {
+      flipPortal.use(null); flipPortal.start();
+      const go = key => { document.getElementById('shellModule').click(); document.querySelector('#shellLauncher [data-module="' + key + '"]').click(); };
+      go('cam'); go('portal');
+    });
+    assert.equal(await page.evaluate(() => flipPortal.active), true, 'de vuelta en PORTAL');
     const real = await page.waitForFunction(() => { const s = flipPortal.status(); return s.phase === 'ready' || s.phase === 'failed' ? s : null; }, null, { timeout: 60000 }).then(h => h.jsonValue());
     if (real.phase !== 'ready') console.log('aviso: el rastreador real no cargó (' + real.error + ')');
     else {

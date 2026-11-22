@@ -188,6 +188,10 @@ async function main() {
     // Los módulos de audio sueltan la cámara; FLOW la recupera y arranca solo, sin pulsar nada.
     await openModule(page, 'sono');
     await page.waitForFunction(() => window.__flipSceneCameraState.live === 0);
+    // Los lienzos auxiliares de SONO se sueltan fuera de su pestaña; al volver tienen su tamaño y
+    // siguen agrandando a píxel duro (devolverles el tamaño reinicia el contexto, suavizado incluido).
+    const sono = await page.evaluate(() => ({ sizes: [sonoFlipCvs, sonoScopeCvs, sonoLegCvs, sonoAscCvs].map(c => c.width * c.height > 0), smooth: [ctxSonoFlip, ctxSonoScope, ctxSonoLeg].map(c => c.imageSmoothingEnabled) }));
+    assert.deepEqual(sono, { sizes: [true, true, true, true], smooth: [false, false, false] }, 'SONO recupera sus lienzos sin suavizado: ' + JSON.stringify(sono));
     await openModule(page, 'sflow');
     await page.waitForFunction(() => window.__flipSceneCameraState.live === 1 && document.getElementById('sflowCanvas').width > 0, null, { timeout: 15000 });
     await page.waitForTimeout(1500);

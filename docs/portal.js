@@ -91,7 +91,10 @@ const flipPortal = (() => {
     if (!keepHands) { tracks.length = 0; trk.raw = []; }
   }
   function start() {
-    if (trk.phase === 'ready' || trk.loading) return trk.loading || Promise.resolve(true);
+    if (trk.phase === 'ready') return Promise.resolve(true);
+    // Se salió mientras cargaba y se vuelve antes de que termine: esa misma carga sirve, y hay que
+    // volver a esperarla. (Sin esto, al terminar se descartaba y PORTAL se quedaba sin rastreador y sin aviso.)
+    if (trk.loading) { if (trk.phase !== 'failed') { trk.phase = 'loading'; trk.message = 'Cargando el seguimiento de manos…'; } return trk.loading; }
     if (trk.provider) { trk.phase = 'ready'; return Promise.resolve(true); }
     trk.phase = 'loading';
     trk.message = 'Cargando el seguimiento de manos…';
@@ -137,7 +140,13 @@ const flipPortal = (() => {
   function push(canvas) {
     if (trk.phase !== 'ready' || !canvas || !canvas.width) return;
     const now = performance.now();
-    if (trk.provider) { if (canvas === state.base) trk.sentShot = state.baseShot; accept(dedupe(trk.provider(now) || []), 0, now); return; }
+    if (trk.provider) {
+      // (Pruebas) Con `lag`, el rastreador simulado contesta como uno de verdad: con las manos de hace `lag` ms.
+      if (canvas === state.base) trk.sentShot = state.baseShot;
+      const shot = now - (trk.providerLag || 0);
+      accept(dedupe(trk.provider(shot) || []), 0, shot);
+      return;
+    }
     const main = trk.main;
     if (!main || main.busy) return;
     if (now - main.sentAt < (awake(now) ? 31 : IDLE_EVERY)) return;          // con manos, 30 por segundo como mucho; sin ellas, de vez en cuando
@@ -211,6 +220,9 @@ const flipPortal = (() => {
   // la cámara un instante por detrás —lo que tarda el rastreador— y colocar cada mano interpolando
   // entre las dos detecciones que rodean al cuadro que se ve. La figura queda cosida a las yemas.
   const SYNC_MIN = 60, SYNC_MAX = 240;
+  // El clic de anular y pulgar fija la figura de este tiempo antes del cuadro en que se vio (ms):
+  // la que había antes de que los dedos empezaran a moverse para tocarse.
+  const PRE_CLICK = 230;
   const sync = { delay: 120, want: 120, latency: 70, period: 60, lastShot: 0, lastT: 0 };
   function syncFeed(shot, now, seen) {
     // Solo cuentan las detecciones con manos: sin ellas el rastreador va despacio a propósito.
@@ -313,7 +325,7 @@ const flipPortal = (() => {
     track.hits = (track.hits || 0) + 1;
     if (track.pinch || track.hits < 2) return;
     track.pinch = true;
-    if (now - (track.openAt || -Infinity) < 1500 && now - track.born > 300) trk.clickAt = now;
+    if (now - (track.openAt || -Infinity) < 1500 && now - track.born > 300) { trk.clickAt = now; trk.clickShot = track.at * 1000; }   // cuándo se vio, y de cuándo era la imagen
   }
 
   // ── El marco recuerda a sus dos manos ─────────────────────────────────────
@@ -508,10 +520,14 @@ const flipPortal = (() => {
     const now = performance.now();
     if (now - state.lockedAt < 500) return false;
     // La figura de un instante antes: acercar el anular al pulgar mueve la esquina que marca el pulgar.
+    // Se toma la que había PRE_CLICK ms antes del cuadro en que el rastreador vio el clic, contando en
+    // la hora de las imágenes (el visor va por detrás del reloj, y el rastreador, por detrás del visor).
     let shot = null;
-    // (La imagen ya va por detrás: solo se retrocede lo que le falte hasta 150 ms.)
-    const back = Math.max(0, 150 - state.delay);
-    if (how === 'clic') for (const past of state.trail) if (now - past.at >= back) shot = past;
+    if (how === 'clic') {
+      const cut = (trk.clickShot || now) - PRE_CLICK;
+      for (const past of state.trail) if (past.shown <= cut) shot = past;
+      if (!shot && state.trail.length) shot = state.trail[0];                 // la figura es más reciente que eso: la primera que hubo
+    }
     if (!shot) shot = state.shape && state.amount > 0.5 ? { pts: state.shape.pts.slice(), w: state.w, h: state.h } : null;
     if (!shot) { hint('Haz primero una figura con las manos', 1800); return false; }
     if (panes.length >= MAX_PANES) { flipToast('Caben ' + MAX_PANES + ' portales. Borra alguno para fijar otro.'); return false; }
@@ -650,8 +666,9 @@ void main() { o = uColor; }`;
     while (gfx.ring.length > gfx.span) { const old = gfx.ring.pop(); if (old) for (const name of ['A', 'U', 'V']) if (old[name]) gl.deleteTexture(old[name]); }
     gfx.head = (gfx.head + 1) % gfx.span;
     let slot = gfx.ring[gfx.head];
-    if (!slot) slot = gfx.ring[gfx.head] = { A: null, U: null, V: null, alloc: {}, shot: -Infinity, kind: 0, src: [1, 1], yuv: null, yuvOff: null };
-    slot.shot = shot;
+    if (!slot) slot = gfx.ring[gfx.head] = { A: null, U: null, V: null, alloc: {}, shot: -Infinity, kind: 0, src: [1, 1], yuv: null, yuvOff: null, mirror: false };
+    // Cada cuadro guarda el espejo de la cámara que lo tomó: al cambiar de cámara, los de la anterior no se voltean.
+    slot.shot = shot; slot.mirror = state.mirror;
     return slot;
   }
   // El cuadro que toca enseñar en el instante `at`: el más reciente que no sea posterior.
@@ -810,7 +827,7 @@ void main() { o = uColor; }`;
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, slot.V || slot.U || slot.A);
       gl.uniform1i(pr.at('uA'), 0); gl.uniform1i(pr.at('uU'), 1); gl.uniform1i(pr.at('uV'), 2);
       gl.uniform4f(pr.at('uFit'), gfx.fit[0], gfx.fit[1], gfx.fit[2], gfx.fit[3]);
-      gl.uniform1f(pr.at('uMirror'), state.mirror ? 1 : 0);
+      gl.uniform1f(pr.at('uMirror'), slot.mirror ? 1 : 0);
       gl.uniform1i(pr.at('uKind'), slot.kind);
       if (slot.yuv) { gl.uniformMatrix3fv(pr.at('uYuv'), false, slot.yuv); gl.uniform3f(pr.at('uYuvOff'), slot.yuvOff[0], slot.yuvOff[1], slot.yuvOff[2]); }
       gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -844,7 +861,8 @@ void main() { o = uColor; }`;
     const bw = Math.max(2, Math.round(w * scale / 2) * 2), bh = Math.max(2, Math.round(h * scale / 2) * 2);
     if (state.bw !== bw || state.bh !== bh) {
       state.bw = bw; state.bh = bh;
-      state.bases.length = 0; state.baseHead = -1; state.base = null; state.styleBase = null; state.baseAt = -Infinity; state.baseShot = 0;
+      for (const slot of state.bases.splice(0)) if (slot) { slot.canvas.width = slot.canvas.height = 0; }
+      state.baseHead = -1; state.base = null; state.styleBase = null; state.baseAt = -Infinity; state.baseShot = 0;
       if (typeof _resetCamEngineState === 'function') _resetCamEngineState('capture');
     }
     state.w = w; state.h = h;
@@ -894,7 +912,8 @@ void main() { o = uColor; }`;
     }
     return (best || oldest || { canvas: state.base }).canvas;
   }
-  function render(cam, ctx, now) {
+  // `force`: quien pinta encima del visor después (las pegatinas de CAM) necesita el cuadro limpio en cada vuelta.
+  function render(cam, ctx, now, force) {
     const w = ctx.canvas.width, h = ctx.canvas.height;
     ensure(w, h);
     const dt = Math.min(100, Math.max(1, now - (state.lastT || now)));
@@ -905,7 +924,10 @@ void main() { o = uColor; }`;
     state.delay = syncStep(now);
     let slot = null;
     if (fast) { uploadCamera(now); slot = slotAt(now - state.delay); }
-    state.shownAt = slot ? slot.shot : now;
+    // Sin cola de cuadros (sin WebGL, o con su contexto perdido al volver de segundo plano) se enseña
+    // la cámara de ahora con la última detección: la mano va algo por detrás, pero no parpadea. Si el
+    // rastreador calla un cuarto de segundo, se da por ida.
+    state.shownAt = slot ? slot.shot : Math.max(sync.lastShot, now - 250);
     // 1 · Manos: un cuadro pequeño al rastreador (a 30 por segundo como mucho) y su posición en el cuadro que se ve.
     // Sin manos, sin ventana y sin portales fijados, el cuadro pequeño solo se renueva cuando el rastreador va a mirar.
     const needed = awake(now) || state.shape || panes.length;
@@ -927,8 +949,9 @@ void main() { o = uColor; }`;
         if (state.shape && state.shape.kind !== shape.kind && state.amount > 0.4) { state.amount = 0.4; state.opened = now; }
         state.shape = shape;
         state.amount += (1 - state.amount) * (1 - Math.exp(-dt / 70));
-        state.trail.push({ pts: shape.pts.slice(), w, h, at: now });
-        while (state.trail.length > 24 || (state.trail.length && now - state.trail[0].at > 600)) state.trail.shift();
+        // El rastro: cada figura con la hora de la imagen sobre la que se dibujó (seis décimas, también a 120 por segundo).
+        state.trail.push({ pts: shape.pts.slice(), w, h, at: now, shown: state.shownAt });
+        while (state.trail.length > 96 || (state.trail.length && now - state.trail[0].at > 600)) state.trail.shift();
         if (click && state.amount > 0.6) lockLive('clic');
       } else {
         state.amount += (0 - state.amount) * (1 - Math.exp(-dt / 90));
@@ -949,8 +972,8 @@ void main() { o = uColor; }`;
       for (let i = 0; i < item.ring.length; i++) sum += item.ring[i] * (1 + (i & 7));
       stamp += '|' + item.style.key + (entry && entry.dirty ? '*' + entry.at : '') + (item.look && item.look.burst > 0.002 ? '!' + now : '') + sum.toFixed(1);
     }
-    if (!fast || stamp !== state.stamp || ctx !== state.stampCtx) {
-      state.stamp = stamp; state.stampCtx = ctx;
+    if (!fast || force || stamp !== state.stamp || ctx !== state.stampCtx) {
+      state.stamp = stamp; state.stampCtx = ctx; state.draws = (state.draws || 0) + 1;
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
@@ -1065,6 +1088,9 @@ void main() { o = uColor; }`;
     gfx.head = -1; gfx.hasCam = false;
     for (const slot of state.bases.splice(0)) if (slot) { slot.canvas.width = slot.canvas.height = 0; }
     state.base = null; state.styleBase = null; state.baseHead = -1; state.baseAt = -Infinity; state.bw = state.bh = 0;
+    // …y los estilos pintados para las ventanas (cada uno, un lienzo y su textura): se rehacen al volver.
+    for (const entry of pool.values()) { if (entry.tex && gfx.gl) gfx.gl.deleteTexture(entry.tex); entry.canvas.width = entry.canvas.height = 0; }
+    pool.clear();
   }
   // Dedo sobre el visor: elegir, mover (dos dedos: escalar y girar), o fijar la ventana viva.
   const grab = { id: -1, pane: -1, moved: false, start: null, last: null, second: null, basePts: null, baseSpan: 0, baseAngle: 0 };
@@ -1135,6 +1161,7 @@ void main() { o = uColor; }`;
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
+  let lost = null;
   return {
     render, enter, exit, start,
     get active() { return state.active; },
@@ -1149,7 +1176,9 @@ void main() { o = uColor; }`;
       panes: panes.length, selected, styles: panes.map(pane => pane.style.key), waiting: state.wait, pinched: state.pinched,
       ms: trk.ms, error: trk.error || '', fxError: state.fxError || '', gl: gfx.ok, path: gfx.path,
       // La imagen va `delay` ms por detrás: lo que tarda el rastreador (latency) más parte de su periodo.
-      delay: Math.round(state.delay), latency: Math.round(sync.latency), period: Math.round(sync.period), queue: gfx.ring.length }),
+      delay: Math.round(state.delay), latency: Math.round(sync.latency), period: Math.round(sync.period), queue: gfx.ring.length,
+      // Para las pruebas: cuántas veces se ha pintado de verdad, y cuántos estilos hay guardados.
+      draws: state.draws || 0, kept: pool.size }),
     // Portales fijados, para las teclas y para las pruebas.
     panes: {
       list: () => panes.map(pane => ({ id: pane.id, style: pane.style.key, pts: Array.from(pane.pts, v => +v.toFixed(4)) })),
@@ -1160,8 +1189,14 @@ void main() { o = uColor; }`;
     // de la última detección, en 0…1 sobre ese cuadro.
     track(canvas) { push(canvas); return { hands: trk.raw, fresh: performance.now() - trk.rawAt < LOST_MS, phase: trk.phase, message: trk.message }; },
     release() { if (!state.active) stop(); },
-    // Sustituye el rastreador por una función (pruebas): recibe el tiempo y devuelve manos como Float32Array(42).
-    use(provider) { stop(!!provider); trk.provider = provider; trk.phase = provider ? 'ready' : 'idle'; },
+    // Sustituye el rastreador por una función (pruebas): recibe la hora de la imagen y devuelve las manos
+    // de ese instante como Float32Array(42). Con `lag` contesta con ese retraso, como un rastreador de verdad.
+    use(provider, options) { stop(!!provider); trk.provider = provider; trk.providerLag = provider && options && options.lag || 0; trk.phase = provider ? 'ready' : 'idle'; },
+    // Pruebas: pierde (o devuelve) el contexto de WebGL, como hace el sistema al volver de segundo plano.
+    lose(on) {
+      if (on) { lost = gfx.gl && gfx.gl.getExtension('WEBGL_lose_context'); if (lost) lost.loseContext(); return !!lost; }
+      const had = !!lost; if (lost) lost.restoreContext(); lost = null; return had;
+    },
     // Pruebas: fuerza la subida directa del vídeo en vez de los planos.
     direct(on) { gfx.direct = !!on; gfx.path = ''; },
     // Ajuste del estimador (para medirlo con vídeo real): devuelve los valores en uso.

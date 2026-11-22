@@ -41,7 +41,7 @@
     }
   })();
   (function () {
-    var done = false, failed = false, errors = [], lastRestart = 0, stumbles = 0, restart = 0, warned = false;
+    var done = false, failed = false, errors = [], lastRestart = 0, stumbles = 0, seen = 0, restart = 0, warned = false;
     function show(reason) {
       if (failed || document.getElementById('flipBootFail')) return;
       failed = true;
@@ -69,23 +69,27 @@
     window.__flipBoot = {
       ok: function () { done = true; },
       fail: function (reason) { show(reason + (errors.length ? '\n' + errors.join('\n') : '')); },
-      state: function () { return { done: done, failed: failed, errors: errors.slice(), stumbles: stumbles }; }
+      state: function () { return { done: done, failed: failed, errors: errors.slice(), stumbles: stumbles, seen: seen }; }
     };
     window.addEventListener('error', function (event) {
       if (!event || !event.message) return;                 // una imagen o una fuente que no carga no impide arrancar
       var line = event.message + ' @ ' + String(event.filename || '').split('/').pop() + ':' + (event.lineno || 0);
       if (!done) { if (errors.length < 6) errors.push(line); return; }
-      // Ya en marcha: si un cuadro falla, el visor no se queda parado. Se reanuda (una vez por segundo
-      // como mucho) y, si el fallo insiste, se avisa una sola vez.
-      stumbles++;
-      if (restart) return;                                  // ya hay una reanudación en camino
+      // Ya en marcha: si el fallo paró el visor, se reanuda (una vez por segundo como mucho) y, si
+      // insiste, se avisa una sola vez. Un error de otra parte, o un aviso inofensivo del navegador
+      // (los hay: «ResizeObserver loop…»), no es un tropiezo del visor: solo se anota.
+      seen++;
+      if (restart) return;                                  // ya hay una comprobación en camino
       var now = Date.now(), wait = Math.max(250, 1000 - (now - lastRestart));
       restart = setTimeout(function () {
-        restart = 0; lastRestart = Date.now();
+        restart = 0;
         try {
-          if (typeof scheduleFrame !== 'function') return;
-          if (typeof cameraLoop === 'function' && typeof activeTab !== 'undefined' && activeTab === 'cam' && typeof cameraRunning !== 'undefined' && cameraRunning) scheduleFrame(cameraLoop);
-        } catch (again) {}
+          if (typeof scheduleFrame !== 'function' || typeof cameraLoop !== 'function') return;
+          // ¿Murió de verdad? Vivo, el bucle de la cámara siempre tiene pedido su próximo cuadro.
+          if (activeTab !== 'cam' || !cameraRunning || pendingFrames.has(cameraLoop)) return;
+          stumbles++; lastRestart = Date.now();
+          scheduleFrame(cameraLoop);
+        } catch (again) { return; }
         if (stumbles >= 8 && !warned && typeof flipToast === 'function') { warned = true; flipToast('FLIP tuvo un tropiezo al dibujar. Si la imagen se queda parada, vuelve a abrir la app.', 6000); }
       }, wait);
     }, true);
@@ -12593,8 +12597,6 @@ function applyCamAspect(aw, ah) {
   for (const set of Object.values(_camLayerSets)) { if (set.parked) continue; set.build(); if (set.drop) set.drop(); }
   if (!_camLayerSets.caskia.parked && typeof _buildCaskiaSeikoOverlay === 'function') _buildCaskiaSeikoOverlay(..._getCaskiaSeikoGridDims());
   if (typeof _ensureCaskiaEInkMemory === 'function') _ensureCaskiaEInkMemory();
-  if (typeof _buildOscamOverlay === 'function') _buildOscamOverlay();
-  if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
   _syncAspectButtonsUI();
   if (typeof flipAudioSettings === 'object' && flipAudioSettings) {
     const nextAspectId = _getCurrentAspectId();
@@ -12884,7 +12886,9 @@ function cameraLoop(t) {
       }
     } else if (vid.videoWidth) {
       const cam = liveCamFrame();
-      if (portalOn) window.flipPortal.render(cam, ctxD, t);
+      // PORTAL solo repinta cuando algo cambia; con pegatinas encima, cada vuelta necesita el cuadro
+      // limpio (si no, se pintarían sobre sí mismas y la lupa ampliaría lo ya ampliado).
+      if (portalOn) window.flipPortal.render(cam, ctxD, t, camStickers.length > 0);
       else _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctxD, false, {
         path:'preview',
         now:t,
@@ -13330,12 +13334,18 @@ window._flipPipeTest = (on) => { _pipeTestOn = !!on; };
 // TABS
 // ════════════════════════════════════════════════════════════════════
 let activeTab = 'cam';
-// Lienzos auxiliares que solo usa un módulo: existen mientras ese módulo está abierto.
+// Lienzos auxiliares que solo usa un módulo: existen mientras ese módulo está abierto. Al devolverle
+// el tamaño a un lienzo su contexto vuelve al estado de fábrica (suavizado incluido): `setup` repone
+// lo que el módulo fijó al crearlo.
 const _moduleCanvases = {};
 function _syncModuleCanvases(tab) {
-  for (const [name, list] of Object.entries(_moduleCanvases)) for (const c of list) {
-    if (name === tab) { if (!c.width && c.__w) { c.width = c.__w; c.height = c.__h; } }
-    else if (c.width) { c.__w = c.width; c.__h = c.height; c.width = 0; c.height = 0; }
+  for (const [name, entry] of Object.entries(_moduleCanvases)) {
+    let woke = false;
+    for (const c of entry.canvases) {
+      if (name === tab) { if (!c.width && c.__w) { c.width = c.__w; c.height = c.__h; woke = true; } }
+      else if (c.width) { c.__w = c.width; c.__h = c.height; c.width = 0; c.height = 0; }
+    }
+    if (woke && entry.setup) entry.setup();
   }
 }
 function _syncScrashHudVisibility() {
@@ -17023,7 +17033,9 @@ ctxSonoLeg.imageSmoothingEnabled = false;
 const sonoAscCvs   = document.createElement('canvas');
 sonoAscCvs.width   = OUT_W; sonoAscCvs.height = OUT_H;
 const ctxSonoAsc   = sonoAscCvs.getContext('2d', { willReadFrequently:false });
-_moduleCanvases.sono = [sonoFlipCvs, sonoScopeCvs, sonoLegCvs, sonoAscCvs];
+_moduleCanvases.sono = { canvases: [sonoFlipCvs, sonoScopeCvs, sonoLegCvs, sonoAscCvs],
+  // FLIP y LEGACY agrandan el cuadro pequeño a píxel duro: sin esto saldrían suavizados.
+  setup: () => { ctxSonoFlip.imageSmoothingEnabled = false; ctxSonoScope.imageSmoothingEnabled = false; ctxSonoLeg.imageSmoothingEnabled = false; } };
 _syncModuleCanvases(activeTab);
 
 // Sono state

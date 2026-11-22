@@ -195,13 +195,8 @@
   // ── Salida ──────────────────────────────────────────────────────────────────
   let ctx = null, bus = null, pending = null;
   const turn = {};
-  // Un contexto de audio en marcha mantiene despierto el hilo de sonido aunque no suene nada: tras
-  // unos segundos sin teclas se suspende, y el siguiente toque lo despierta.
-  let nap = 0;
-  function rest() {
-    clearTimeout(nap);
-    nap = setTimeout(() => { if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {}); }, 9000);
-  }
+  // El contexto de audio se queda en marcha entre toque y toque. Suspenderlo en las pausas ahorra muy
+  // poco y se paga en el tacto: al despertarlo, el primer clic llega tarde o no suena.
   function wake() {
     if (!prefs.sound) return;
     if (!ctx) {
@@ -220,7 +215,6 @@
       build();
     }
     if (ctx.state !== 'running') ctx.resume().catch(() => {});
-    rest();
   }
   function play(sound, gain, x, delay) {
     if (!ctx || !bus || !buffers || !buffers[sound]) return false;

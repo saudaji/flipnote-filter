@@ -541,7 +541,11 @@ function plotOpticalScope(source, srcW, srcH, ctx, mirror, mode, now) {
   if (!state) {
     state = createOpticalScope();
     opticalScopes.set(ctx, state);
-    if (typeof WeakRef === 'function') { opticalScopeRefs.push(new WeakRef(state)); if (opticalScopeRefs.length > 12) opticalScopeRefs.shift(); }
+    if (typeof WeakRef === 'function') {
+      // Los que ya no existen dejan su sitio; uno vivo (el del visor es el más antiguo) no se olvida.
+      if (opticalScopeRefs.length >= 12) for (let i = opticalScopeRefs.length - 1; i >= 0; i--) if (!opticalScopeRefs[i].deref()) opticalScopeRefs.splice(i, 1);
+      opticalScopeRefs.push(new WeakRef(state));
+    }
   }
   if (mode === 'STD') {
     // VECTOR muestrea la escena en celdas cuadradas con la proporción del visor.

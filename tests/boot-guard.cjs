@@ -38,6 +38,13 @@ async function main() {
     await page.locator('#btnSplashOriginal').click();
     await page.waitForFunction(() => vid.videoWidth > 0);
     await page.waitForTimeout(500);
+    // Un aviso inofensivo del navegador (los hay) o un error de otra parte no es un tropiezo del visor:
+    // se anota, pero ni reanuda nada ni acaba en un aviso de «tropiezo al dibujar».
+    await page.evaluate(() => { for (let i = 0; i < 10; i++) window.dispatchEvent(new ErrorEvent('error', { message: 'ResizeObserver loop completed with undelivered notifications.' })); });
+    await page.waitForTimeout(1600);
+    st = await guard(page);
+    assert.deepEqual([st.stumbles, st.seen], [0, 10], 'los avisos inofensivos no cuentan como tropiezos: ' + JSON.stringify(st));
+    assert.equal(await page.evaluate(() => /tropiezo/.test(document.body.innerText)), false, 'ni sale el aviso de tropiezo');
     const resumed = await page.evaluate(() => new Promise(done => {
       const real = _renderCamEngineFrame;
       let thrown = 0, drawn = 0;
@@ -46,7 +53,7 @@ async function main() {
     }));
     assert.equal(resumed.thrown, 3);
     assert.ok(resumed.drawn > 8, 'el visor se reanuda tras los cuadros rotos: ' + JSON.stringify(resumed));
-    assert.ok(resumed.stumbles >= 3);
+    assert.equal(resumed.stumbles, 3, 'cada cuadro roto, una reanudación: ' + JSON.stringify(resumed));
     step('arranque normal y visor que se reanuda', resumed);
     await context.close();
 
@@ -112,7 +119,8 @@ async function main() {
       await page.waitForTimeout(1300);
       const level = await viewfinder();
       assert.ok(level > 30, name + ': el visor pinta (' + level + ')');
-      assert.equal((await guard(page)).stumbles, 0, name + ': ningún cuadro falla');
+      st = await guard(page);
+      assert.deepEqual([st.stumbles, st.seen], [0, 0], name + ': ningún cuadro falla ni salta ningún error');
       await context.close();
     }
     step('navegadores hostiles', hostile.map(h => h[0]));

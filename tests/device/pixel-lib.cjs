@@ -70,6 +70,27 @@ function connect(target) {
           fs.writeFileSync(file, Buffer.from(r.data, 'base64'));
           return file;
         },
+        // Toques de verdad (eventos de entrada del navegador, no clics por código): centro del elemento.
+        async point(selector) {
+          const p = await api.evaluate(`(() => { const n = document.querySelector(${JSON.stringify(selector)}); if (!n) return null; const r = n.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width, r.height]; })()`);
+          if (!p || !p[2] || !p[3]) throw new Error('no se ve ' + selector);
+          return p;
+        },
+        async tap(selector, hold = 70) {
+          const [x, y] = await api.point(selector);
+          await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+          await sleep(hold);
+          await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+          await sleep(160);
+        },
+        async drag(selector, dx, dy, steps = 8) {
+          const [x, y] = await api.point(selector);
+          await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+          for (let i = 1; i <= steps; i++) { await sleep(24); await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + dx * i / steps, y: y + dy * i / steps }] }); }
+          await sleep(30);
+          await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+          await sleep(160);
+        },
         async reload() { await send('Page.reload', { ignoreCache: false }); },
         async navigate(url) { await send('Page.navigate', { url }); },
         close() { try { ws.close(); } catch (_) {} },

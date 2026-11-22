@@ -53,6 +53,8 @@ PIXEL_URL=http://localhost:8760 node tests/device/pixel-silhouette.cjs carpeta/
 | `pixel-sensor.cjs` | Coste de la lectura rápida de cámara y diferencia frente a la conversión del navegador. |
 | `pixel-shot.cjs` | Captura de la pestaña, tras ejecutar una expresión opcional. |
 | `pixel-pair.cjs` | Escena real y resultado de una cámara en el mismo instante, lado a lado. |
+| `pixel-stage.cjs` | STAGE y PORTAL: ritmo real por escena, vía de cámara, tamaño del lienzo, silueta, un emulador como fuente y estado del seguimiento de manos. |
+| `pixel-touch.cjs` | Recorrido con toques de verdad (eventos de entrada, no clics por código): AJUSTES, sonido y vibración de las teclas, bandeja, lanzador, y en STAGE escenas, perillas, cables, grabador y salida limpia. No guarda archivos en el teléfono. |
 
 Solo tocan pestañas de FLIP (`localhost:87xx` o el túnel de prueba); las demás ni se listan.
 LED, penumbra real, temperatura, giro y vuelta del segundo plano siguen pidiendo a una persona

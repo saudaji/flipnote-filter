@@ -4,6 +4,7 @@ const path = require('node:path');
 const P = require('./pixel-lib.cjs');
 const REPO = path.join(__dirname, '..', '..');
 const OUT = (process.argv[2] || '.') + '/';
+require('node:fs').mkdirSync(OUT, { recursive: true });
 (async () => {
   const page = (await P.targets()).find(t => t.type === 'page' && t.url.startsWith('http://localhost:8760'));
   const c = await P.connect(page);

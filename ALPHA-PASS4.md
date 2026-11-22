@@ -124,17 +124,36 @@ pantalla. Dos ajustes (Sonido, Vibración) en FORMATO Y AUDIO.
 - **Paneles de los demás módulos** (SONO, WMP, GLITCH, FUSION, EDIT, ASCII): pasaron de consola
   negra a placa crema con teclas; capturas antes y después.
 
-## 6 · Sin verificar
+## 6 · En un teléfono de verdad
 
-Esta pasada no tuvo teléfono (el Pixel estaba en uso y el Samsung de pruebas no llegó a ofrecer
-depuración por USB). Lo que sigue pide un aparato real delante y no está comprobado:
+Un **Samsung Galaxy SM-S741B** (Android 17, Exynos, Chrome 158, ventana de 384 × 741 px CSS) por
+depuración USB, con su cámara real (720 × 1280, I420). Herramientas en `tests/device/`.
 
-- **Ritmo de STAGE y de PORTAL en un teléfono.** En el ordenador van a 60 fps; la vía de planos
-  nativos está hecha con lo medido en el Pixel en la pasada anterior, pero no medida aquí.
-  `tests/device/pixel-stage.cjs` lo mide en cuanto haya un Android por USB.
-- El **sonido de las teclas a oído** y la vibración en la mano (están medidos —duración, reparto
-  por bandas, patrones— pero no escuchados ni sentidos).
-- **Controlador MIDI real** y **proyector por cable**: el aprendizaje, las notas y el reloj están
-  probados con mensajes inyectados; la salida, con una ventana en el mismo ordenador.
+| Qué | Resultado |
+|---|---|
+| **STAGE**, las ocho escenas | 60 fps en todas, lienzo de 960 × 540, cámara por planos nativos I420; el peor cuadro, 17 ms (un pico de 29 ms en MANDALA) |
+| STAGE con un emulador (DLPHN) como fuente | 60 fps |
+| SILUETA en STAGE | el recorte carga y sigue a la persona |
+| Salida limpia | pantalla completa, gira a horizontal (832 × 384), 60 fps; al salir vuelve la consola en vertical |
+| Grabación de la salida | MP4 (avc1), 2,2 MB en 2 s |
+| Seguimiento de manos (PORTAL y STAGE) | listo; 42–46 ms por inferencia en su worker, la pantalla sigue a 60 fps |
+| **Toques reales**: AJUSTES, bandeja, lanzador, escenas, perillas, cables | 17 de 17 comprobaciones; el teléfono acepta la vibración y cada pieza registra su sonido |
+| **CAM**, las 20 variantes | todas a su cadencia, ningún tirón, pantalla a 60 Hz |
+| SLHT y FLOW | detector listo en worker (31–39 ms), máscara válida, 60 fps |
+| Errores en la consola | ninguno |
+
+Los colores de la cámara por planos (BT.601 de rango completo en este teléfono) se ven naturales.
+
+## 7 · Sin verificar
+
+- **PORTAL con manos delante de un teléfono.** El rastreador carga y corre en el Samsung, y el
+  gesto está probado con el vídeo de referencia en el ordenador; falta una persona haciendo el
+  marco delante del teléfono.
+- **Sonido con micrófono y MIDI en el teléfono.** Sus permisos piden un toque del dueño; no se
+  concedieron por depuración. La reacción al sonido y el MIDI están probados con datos inyectados.
+- El **sonido de las teclas a oído** y la vibración en la mano: registrados y aceptados por el
+  teléfono, no escuchados ni sentidos por una persona.
+- **Controlador MIDI real** y **proyector por cable**.
+- El Pixel 10 (estaba en uso): esta pasada no se midió en él.
 - LED real en FLASH, NIGHT en penumbra real, temperatura y batería en uso largo, giro del
-  teléfono, vuelta del segundo plano (igual que en la pasada anterior).
+  teléfono en CAM, vuelta del segundo plano (igual que en la pasada anterior).

@@ -533,6 +533,7 @@ body[data-tab="cam"].cam-edit-open #palettes { display: flex !important; animati
 #palettes input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--coral); }
 #palettes * { text-shadow: none !important; }
 #palettes [class$="-title"], #palettes .ac-title, #palettes h3, #palettes h4 { color: var(--ink) !important; }
+#palettes .cam-sticker-header { color: var(--ink-dim) !important; font: 700 10.5px/1 var(--font-ui) !important; letter-spacing: .12em !important; border-color: rgba(90, 80, 50, .18) !important; }
 
 .flip-settings-panel *, .flip-settings-panel button { font-family: var(--font-ui) !important; }
 .flip-settings-title { font: 800 13px/1 var(--font-ui) !important; font-stretch: 110%; letter-spacing: .12em !important; color: var(--ink) !important; }

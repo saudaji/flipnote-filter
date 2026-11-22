@@ -82,7 +82,13 @@ function createOpticalScope() {
 //      y reparte su energía: cuanto más recorrido, menos brillo.
 //   5. El fósforo guarda los trazos anteriores y los apaga con una caída rápida y una
 //      cola corta. Lo que sigue quieto acumula luz; lo que se va, se desvanece.
-const VECTOR_COLS = 192;
+// Rejilla de análisis de VECTOR: hasta 320 columnas y unas 92 000 celdas, para que en 9:16 no
+// se dispare el coste. Con 192 columnas se perdían el texto de una pantalla o una rejilla.
+const VECTOR_CELLS = 92000, VECTOR_MAX_COLS = 320;
+function vectorGrid(w, h) {
+  const cols = Math.max(160, Math.min(VECTOR_MAX_COLS, Math.round(Math.sqrt(VECTOR_CELLS * w / h))));
+  return [cols, Math.max(48, Math.round(cols * h / w))];
+}
 
 function createVectorState(cols, rows) {
   const n = cols * rows;
@@ -91,6 +97,7 @@ function createVectorState(cols, rows) {
     smooth: new Float32Array(n), fine: new Float32Array(n), wide: new Float32Array(n),
     tmp: new Float32Array(n), grad: new Float32Array(n),
     seen: new Uint8Array(n), drawn: new Uint8Array(n),
+    blockCols: Math.ceil(cols / 8), blockRows: Math.ceil(rows / 8), local: new Float32Array(Math.ceil(cols / 8) * Math.ceil(rows / 8)), localCount: new Uint16Array(Math.ceil(cols / 8) * Math.ceil(rows / 8)), density: new Uint16Array(Math.ceil(cols / 8) * Math.ceil(rows / 8)),
     px: new Float32Array(2 * n), py: new Float32Array(2 * n), strength: new Float32Array(2 * n),
     linkA: new Int32Array(2 * n).fill(-1), linkB: new Int32Array(2 * n).fill(-1), used: new Uint8Array(2 * n),
     active: [], frames: [], chains: [], primed: false,
@@ -131,9 +138,13 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
   vectorBlur(fine, wide, tmp, cols, rows);
   vectorBlur(wide, wide, tmp, cols, rows);
   // wide pasa a ser la diferencia de gaussianas; su cruce por cero marca el borde.
-  const hist = new Uint32Array(64);
+  const hist = V.hist || (V.hist = new Uint32Array(64));
+  hist.fill(0);
+  const { local, localCount, blockCols } = V;
+  local.fill(0); localCount.fill(0);
   for (let y = 0; y < rows; y++) {
     const up = (y > 0 ? y - 1 : y) * cols, dn = (y < rows - 1 ? y + 1 : y) * cols, row = y * cols;
+    const blockRow = (y >> 3) * blockCols;
     for (let x = 0; x < cols; x++) {
       const p = row + x;
       const gx = fine[row + (x < cols - 1 ? x + 1 : x)] - fine[row + (x > 0 ? x - 1 : x)];
@@ -141,9 +152,12 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
       const g = Math.sqrt(gx * gx + gy * gy) * 0.5;
       grad[p] = g;
       hist[g >= 0.063 ? 63 : (g * 1000) | 0]++;
+      // Media del gradiente por bloques: lo que es textura (un estuco, una tela) tiene borde por todas partes.
+      local[blockRow + (x >> 3)] += g; localCount[blockRow + (x >> 3)]++;
       wide[p] = fine[p] - wide[p];
     }
   }
+  for (let b = 0; b < local.length; b++) if (localCount[b]) local[b] /= localCount[b];
   // Umbral: un suelo absoluto que fija SENSITIVITY y otro relativo a la textura de la escena.
   let acc = 0, median = 0;
   while (median < 63 && (acc += hist[median]) < n / 2) median++;
@@ -152,11 +166,15 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
 
   for (const e of V.active) { linkA[e] = -1; linkB[e] = -1; used[e] = 0; }
   const active = V.active; active.length = 0;
+  // Cruces por bloque: donde hay borde por todas partes (estuco, tela, follaje) es textura.
+  const density = V.density;
+  density.fill(0);
   function cross(e) {
     if (linkA[e] !== -1) return;
     const p = e >> 1, q = e & 1 ? p + cols : p + 1;
     const a = wide[p], b = wide[q], t = a / (a - b);
     const x = p % cols, y = (p / cols) | 0;
+    density[(y >> 3) * blockCols + (x >> 3)]++;
     if (e & 1) { px[e] = x; py[e] = y + t; } else { px[e] = x + t; py[e] = y; }
     strength[e] = grad[p] + (grad[q] - grad[p]) * t;
     active.push(e);
@@ -187,49 +205,104 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
   }
   // Recorre las cadenas: primero las abiertas desde un extremo, después los lazos.
   const chains = [];
-  const minLength = 5 + (1 - detail) * 9;
+  const scale = cols / 192;
+  const minLength = (5 + (1 - detail) * 9) * scale;
+  const minDetail = (2.6 + (1 - detail) * 5) * scale;
   const { seen, drawn } = V;
   function walk(start, closed) {
     const points = [];
     let e = start, length = 0, peak = 0, sum = 0, kept = 0, lastX = 0, lastY = 0;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, textured = 0, alongC = 0, alongS = 0;
     while (e !== -1 && !used[e]) {
       used[e] = 1;
       const x = px[e], y = py[e];
-      if (points.length) length += Math.hypot(x - lastX, y - lastY);
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+      if (points.length) {
+        const dx = x - lastX, dy = y - lastY, step = Math.hypot(dx, dy);
+        if (step > 1e-6) { length += step; alongC += (dx * dx - dy * dy) / step; alongS += (2 * dx * dy) / step; }
+      }
       points.push(x, y); lastX = x; lastY = y;
       const s = strength[e];
       sum += s; if (s > peak) peak = s;
       if (drawn[(y | 0) * cols + (x | 0)]) kept++;
+      if (density[((y | 0) >> 3) * blockCols + ((x | 0) >> 3)] > 16) textured++;
       const a = linkA[e], b = linkB[e];
       e = a !== -1 && !used[a] ? a : b !== -1 && !used[b] ? b : -1;
     }
     const count = points.length / 2;
+    if (count < 3) return;
     if (closed) length += Math.hypot(points[0] - lastX, points[1] - lastY);
     // Un contorno que ya estaba en pantalla se mantiene con menos contraste: no parpadea en el umbral.
     const steady = kept > count * 0.45;
-    if (count < 3 || length < minLength || peak < (steady ? high * 0.68 : high)) return;
-    chains.push({ points, closed, length, peak, mean: sum / count, score: length * (sum / count) * (steady ? 1.3 : 1) });
+    const mean = sum / count;
+    // Estructura: bordes largos y firmes. Detalle: trazos cortos o suaves que destacan sobre la
+    // textura que los rodea (el texto de una pantalla, una rejilla, un cable), nunca la textura misma.
+    // Dentro de una textura solo pasa lo que tiene forma limpia: un renglón, un canto, un cable.
+    // El grano mismo da lazos y garabatos que recorren mucho más de lo que abarcan.
+    const reach = Math.hypot(maxX - minX, maxY - minY);
+    const winding = closed ? length / (2 * (maxX - minX + maxY - minY) + 1e-6) : length / (reach + 1e-6);
+    // Excepción: los trazos que van todos en la misma dirección (renglones de texto, una rejilla,
+    // un rayado) son dibujo, no grano, aunque serpenteen de un renglón al siguiente.
+    const aligned = Math.hypot(alongC, alongS) / (length + 1e-6);
+    const inTexture = textured > count * 0.4;
+    if (inTexture && !(mean > high * 1.8 && length > 40 * scale)) {
+      if ((closed ? winding > 1.18 : winding > 1.45) && aligned < 0.5) return;
+    }
+    // Estructura: largo, firme en todo su recorrido (no por un solo punto fuerte) y sin enmarañar.
+    const firm = mean >= high * (steady ? 0.75 : 1);
+    const structure = length >= minLength && peak >= (steady ? high * 0.68 : high) && firm && (closed || winding < 4.2);
+    let level = 0;
+    if (!structure) {
+      if (length < minDetail || peak < high * (steady ? 0.36 : 0.5)) return;
+      let around = 0;
+      for (let i = 0; i < count; i += 4) around += local[((points[2 * i + 1] | 0) >> 3) * V.blockCols + ((points[2 * i] | 0) >> 3)];
+      around /= Math.ceil(count / 4);
+      // Un trazo largo y alineado con los suyos (un renglón entre renglones) no tiene que destacar
+      // sobre lo que lo rodea: lo que lo rodea es el mismo dibujo.
+      const stroke = aligned >= 0.5 && length >= 12 * scale;
+      if (!stroke && mean < around * (steady ? 1.45 : 1.9) + high * 0.12) return;
+      // Un garabato (el grano de una pared) recorre mucho para lo poco que abarca; un renglón,
+      // un cable o el canto de un objeto abarcan casi todo lo que recorren.
+      if ((closed ? winding > 1.4 : winding > (steady ? 2.4 : 2.0)) && aligned < 0.5) return;
+      level = 1;
+    }
+    chains.push({ points, closed, length, peak, mean, level, texture: textured / count, reach, aligned, box: [minX, minY, maxX, maxY], score: length * mean * (steady ? 1.3 : 1) * (level ? 0.75 : 1) });
   }
   for (const e of active) if (!used[e] && linkB[e] === -1) walk(e, false);
   for (const e of active) if (!used[e]) walk(e, true);
 
   // Presupuesto del haz: primero lo más largo y contrastado.
   chains.sort((a, b) => b.score - a.score);
-  const budget = 900 + detail * 2600;
-  let total = 0, keep = 0;
-  while (keep < chains.length && keep < 260 && total + chains[keep].length <= budget) total += chains[keep++].length;
+  const budget = (1500 + detail * 6200) * scale;
+  let total = 0, keep = 0, structureLength = 0;
+  while (keep < chains.length && keep < 900 && total + chains[keep].length <= budget) { total += chains[keep].length; if (!chains[keep].level) structureLength += chains[keep].length; keep++; }
   chains.length = keep;
   seen.fill(0);
   for (const chain of chains) {
     const pts = chain.points, count = pts.length / 2;
-    // Suaviza las facetas de la rejilla; el ancho de banda de la deflexión redondea igual.
-    for (let pass = 0; pass < 2; pass++) {
+    // Suaviza el temblor de la rejilla sin redondear las esquinas: un punto donde el trazo gira
+    // de verdad (mirando tres puntos a cada lado) se queda en su sitio.
+    const pinned = V.pinned && V.pinned.length >= count ? V.pinned : (V.pinned = new Uint8Array(Math.max(256, count * 2)));
+    const span = 3;
+    for (let i = 0; i < count; i++) {
+      let turn = 0;
+      const before = chain.closed ? (i - span + count) % count : i - span, after = chain.closed ? (i + span) % count : i + span;
+      if (before >= 0 && after < count) {
+        const ax = pts[2 * i] - pts[2 * before], ay = pts[2 * i + 1] - pts[2 * before + 1];
+        const bx = pts[2 * after] - pts[2 * i], by = pts[2 * after + 1] - pts[2 * i + 1];
+        turn = (ax * bx + ay * by) / (Math.hypot(ax, ay) * Math.hypot(bx, by) + 1e-6) < 0.72 ? 1 : 0;
+      } else turn = 1;
+      pinned[i] = turn;
+    }
+    for (let pass = 0; pass < 4; pass++) {
       let prevX = pts[chain.closed ? pts.length - 2 : 0], prevY = pts[chain.closed ? pts.length - 1 : 1];
       const firstX = pts[0], firstY = pts[1];
       for (let i = chain.closed ? 0 : 1; i < (chain.closed ? count : count - 1); i++) {
         const x = pts[2 * i], y = pts[2 * i + 1];
-        const nextX = i === count - 1 ? firstX : pts[2 * i + 2], nextY = i === count - 1 ? firstY : pts[2 * i + 3];
-        pts[2 * i] = (prevX + 2 * x + nextX) * 0.25; pts[2 * i + 1] = (prevY + 2 * y + nextY) * 0.25;
+        if (!pinned[i]) {
+          const nextX = i === count - 1 ? firstX : pts[2 * i + 2], nextY = i === count - 1 ? firstY : pts[2 * i + 3];
+          pts[2 * i] = (prevX + 2 * x + nextX) * 0.25; pts[2 * i + 1] = (prevY + 2 * y + nextY) * 0.25;
+        }
         prevX = x; prevY = y;
       }
     }
@@ -273,8 +346,34 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
     beamX = chain.points[end]; beamY = chain.points[end + 1];
     ordered.push(chain);
   }
-  V.high = high; V.total = total;
+  V.high = high; V.total = total; V.structure = structureLength;
   return ordered;
+}
+
+// Quita los puntos que no cambian la forma (Douglas-Peucker): una recta queda en dos puntos
+// y el haz la traza limpia; una curva conserva los que necesita.
+function vectorSimplify(pts, eps) {
+  const count = pts.length / 2;
+  if (count < 4) return pts;
+  const keep = new Uint8Array(count);
+  keep[0] = 1; keep[count - 1] = 1;
+  const stack = [0, count - 1], limit = eps * eps;
+  while (stack.length) {
+    const b = stack.pop(), a = stack.pop();
+    if (b - a < 2) continue;
+    const ax = pts[2 * a], ay = pts[2 * a + 1], dx = pts[2 * b] - ax, dy = pts[2 * b + 1] - ay, len2 = dx * dx + dy * dy;
+    let worst = 0, at = -1;
+    for (let i = a + 1; i < b; i++) {
+      const qx = pts[2 * i] - ax, qy = pts[2 * i + 1] - ay;
+      const cross = qx * dy - qy * dx;
+      const d = len2 < 1e-6 ? qx * qx + qy * qy : (cross * cross) / len2;
+      if (d > worst) { worst = d; at = i; }
+    }
+    if (at > 0 && worst > limit) { keep[at] = 1; stack.push(a, at, at, b); }
+  }
+  const out = [];
+  for (let i = 0; i < count; i++) if (keep[i]) out.push(pts[2 * i], pts[2 * i + 1]);
+  return out;
 }
 
 function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
@@ -288,25 +387,28 @@ function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
   V.chains = chains;
   const sx = w / (cols - 1), sy = h / (rows - 1);
   const core = Math.max(1.1, w / 850) * (0.55 + oscamDetailVal / 65);
-  const path = new Path2D(), dots = new Path2D(), flare = new Path2D();
+  // Dos trazos: la estructura de la escena, firme, y el detalle, más fino y tenue.
+  const path = new Path2D(), detail = new Path2D(), dots = new Path2D(), flare = new Path2D();
   const dot = (x, y, r) => { dots.moveTo(x + r, y); dots.arc(x, y, r, 0, 6.2832); flare.moveTo(x + r * 2.6, y); flare.arc(x, y, r * 2.6, 0, 6.2832); };
   for (const chain of chains) {
     const pts = chain.points, count = pts.length / 2;
-    path.moveTo(pts[0] * sx, pts[1] * sy);
-    for (let i = 1; i < count; i++) path.lineTo(pts[2 * i] * sx, pts[2 * i + 1] * sy);
-    if (chain.closed) path.closePath();
+    const line = vectorSimplify(pts, 0.16), target = chain.level ? detail : path;
+    target.moveTo(line[0] * sx, line[1] * sy);
+    for (let i = 2; i < line.length; i += 2) target.lineTo(line[i] * sx, line[i + 1] * sy);
+    if (chain.closed) target.closePath();
+    if (chain.level) continue;
     // El haz se asienta donde arranca y donde termina; en un giro brusco pierde velocidad.
     dot(pts[0] * sx, pts[1] * sy, core * 0.85);
     if (!chain.closed) dot(pts[pts.length - 2] * sx, pts[pts.length - 1] * sy, core * 0.85);
-    for (let i = 2; i < count - 2; i++) {
-      const ax = pts[2 * i] - pts[2 * i - 4], ay = pts[2 * i + 1] - pts[2 * i - 3];
-      const bx = pts[2 * i + 4] - pts[2 * i], by = pts[2 * i + 5] - pts[2 * i + 1];
+    for (let i = 3; i < count - 3; i++) {
+      const ax = pts[2 * i] - pts[2 * i - 6], ay = pts[2 * i + 1] - pts[2 * i - 5];
+      const bx = pts[2 * i + 6] - pts[2 * i], by = pts[2 * i + 7] - pts[2 * i + 1];
       const cos = (ax * bx + ay * by) / (Math.hypot(ax, ay) * Math.hypot(bx, by) + 1e-6);
-      if (cos < 0.42) { dot(pts[2 * i] * sx, pts[2 * i + 1] * sy, core * 0.68); i += 3; }
+      if (cos < 0.42) { dot(pts[2 * i] * sx, pts[2 * i + 1] * sy, core * 0.68); i += 5; }
     }
   }
   // Energía por unidad de recorrido: una escena cargada se dibuja más tenue.
-  const energy = Math.max(0.5, Math.min(1, Math.sqrt(1000 / Math.max(1, V.total))));
+  const energy = Math.max(0.62, Math.min(1, Math.sqrt((1000 * cols) / 192 / Math.max(1, V.structure || V.total))));
   const tauFast = 18 + oscamPresenceVal * 0.5, tauSlow = 40 + oscamPresenceVal * 1.2;
   const glow = oscamTraceVal / 100;
   const frames = V.frames;
@@ -332,6 +434,10 @@ function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
   pen.strokeStyle = 'rgb(' + base + ')';
   pen.lineWidth = Math.max(core * 0.9, 1.05 / layerScale);
   pen.stroke(path);
+  pen.globalAlpha = 0.6;
+  pen.lineWidth = Math.max(core * 0.56, 0.9 / layerScale);
+  pen.stroke(detail);
+  pen.globalAlpha = 1;
   pen.fillStyle = 'rgba(' + hot + ',0.893)';
   pen.fill(dots);
   frames.push({ time: now, path, dots, energy, layer });
@@ -396,6 +502,9 @@ function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
     ctx.strokeStyle = 'rgba(' + fresh + ',' + Math.min(1, 0.56 * level).toFixed(3) + ')';
     ctx.lineWidth = core;
     ctx.stroke(path);
+    ctx.strokeStyle = 'rgba(' + base + ',' + Math.min(1, 0.44 * level).toFixed(3) + ')';
+    ctx.lineWidth = Math.max(0.8, core * 0.58);
+    ctx.stroke(detail);
     ctx.fillStyle = 'rgba(' + hot + ',' + Math.min(1, 0.5 * level).toFixed(3) + ')';
     ctx.fill(dots);
     ctx.fillStyle = 'rgba(' + base + ',' + Math.min(1, 0.26 * (0.4 + glow) * level).toFixed(3) + ')';
@@ -419,8 +528,8 @@ function plotOpticalScope(source, srcW, srcH, ctx, mirror, mode, now) {
   }
   if (mode === 'STD') {
     // VECTOR muestrea la escena en celdas cuadradas con la proporción del visor.
-    const cols = VECTOR_COLS, rows = Math.max(48, Math.min(384, Math.round((VECTOR_COLS * h) / w)));
-    if (!state.vectorInput || state.vectorInput.canvas.height !== rows) {
+    const [cols, rows] = vectorGrid(w, h);
+    if (!state.vectorInput || state.vectorInput.canvas.height !== rows || state.vectorInput.canvas.width !== cols) {
       const canvas = document.createElement('canvas');
       canvas.width = cols; canvas.height = rows;
       state.vectorInput = canvas.getContext('2d', { willReadFrequently: true });

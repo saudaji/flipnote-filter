@@ -49,6 +49,7 @@ PIXEL_URL=http://localhost:8760 node tests/device/pixel-silhouette.cjs carpeta/
 | `pixel-seg.cjs` | Delegados GPU y CPU del segmentador sobre la misma imagen. |
 | `pixel-sensor.cjs` | Coste de la lectura rápida de cámara y diferencia frente a la conversión del navegador. |
 | `pixel-shot.cjs` | Captura de la pestaña, tras ejecutar una expresión opcional. |
+| `pixel-pair.cjs` | Escena real y resultado de una cámara en el mismo instante, lado a lado. |
 
 Solo tocan pestañas de FLIP (`localhost:87xx` o el túnel de prueba); las demás ni se listan.
 LED, penumbra real, temperatura, giro y vuelta del segundo plano siguen pidiendo a una persona

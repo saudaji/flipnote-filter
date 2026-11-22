@@ -160,6 +160,8 @@ body:not([data-tab="cam"]) #lcd { display: none; }
   left: var(--glass-x) !important; right: var(--glass-x) !important;
   z-index: 3; border-radius: 2px;
 }
+/* El trazo de un osciloscopio no tiene píxeles: se amplía suavizado. */
+body.oscam-mode #display { image-rendering: auto !important; }
 #flash { top: var(--glass-top) !important; bottom: var(--glass-bottom) !important; left: var(--glass-x) !important; right: var(--glass-x) !important; position: fixed !important; z-index: 8 !important; border-radius: 4px; }
 
 /* Datos en pantalla, como el OSD de una videocámara. No salen en la foto ni en el vídeo. */

@@ -54,9 +54,26 @@ Papel con pátina (bordes tostados, motas). Tipos: Cinzel para las romanas, Cant
 
 **Evidencia.** `material-audit.cjs --strict` sigue en verde: 14–16 grises distinguibles, orden tonal 0,99 y visor frente a exportación 0,96–0,98. En el Pixel, STAMP mantiene 24 fps en 9:16.
 
+## 5 · OSCAM VECTOR: definición
+
+**Antes, en el teléfono.** Sobre un escritorio real, 20 trazos: salían los cantos grandes, pero el texto de una pantalla, los cables y los marcos se perdían, y las rectas temblaban. La causa: una rejilla de análisis de 192 columnas y un «presupuesto de haz» que se agotaba con los contornos largos.
+
+**Ahora.**
+- Rejilla de hasta 320 columnas (unas 92 000 celdas, para que 9:16 no se dispare).
+- Dos trazos: **estructura** (bordes largos y firmes en todo su recorrido) y **detalle**, más fino y tenue (un renglón, un cable, una rejilla).
+- El grano no se dibuja: dentro de una zona con borde por todas partes (estuco, tela) solo pasa lo que tiene forma limpia o va alineado con sus vecinos, como los renglones de un texto.
+- Suavizado que respeta las esquinas y simplificación del trazo: una recta queda en dos puntos y el haz la dibuja limpia.
+- El visor de OSCAM se amplía suavizado en vez de por píxeles.
+
+**Evidencia.** En el mismo escritorio, 83 trazos con los renglones de la pantalla legibles como texto. `vector-beam.cjs`: círculo con error radial del 0,35 % (antes 0,65 %), diagonal cubierta al 100 %, fósforo que vuelve al fondo exacto. En el Pixel: 14 ms por cuadro en 4:3 y 17 ms en 9:16, 30 fps, sin tirones. `tests/device/pixel-pair.cjs` saca escena y resultado del mismo instante, lado a lado.
+
+## 6 · El botón AJUSTES no abría
+
+Un manejador antiguo cerraba los paneles de CAM con cualquier toque «fuera»; el toque que abría la hoja nueva contaba como fuera y la cerraba en el acto. Mis capturas la abrían por código y no lo vieron. Corregido: la hoja abre con las ocho cámaras (también las que no tenían ajustes propios: lleva formato, cadencia, zoom y pegatinas), no se cierra al usarla y LISTO la cierra. `alpha-flows.cjs` ahora pulsa el botón en cada cámara y en FLOW; comprobado en el Pixel con toques reales.
+
 ## Estado para la alfa
 
-**Verificado en el Pixel 10 Pro XL:** siluetas de FLOW y SLHT, cadencia y coste por cuadro de las 20 variantes en 4:3 y en 9:16, lectura rápida de la cámara, interfaz nueva con la cámara real.
+**Verificado en el Pixel 10 Pro XL:** siluetas de FLOW y SLHT, cadencia y coste por cuadro de las 20 variantes en 4:3 y en 9:16, lectura rápida de la cámara, interfaz nueva con la cámara real, botón AJUSTES con toques reales y VECTOR sobre una escena real.
 
 **Sin verificar todavía en el teléfono (not verified):** LED real en FLASH, penumbra real en NIGHT, temperatura y autonomía en uso largo, giro del teléfono, y salir a otra app y volver. Lo comprobado ahí sigue siendo de emulación.
 

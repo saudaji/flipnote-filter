@@ -1,6 +1,6 @@
 // Tacto: el sonido y la vibración de las teclas (docs/feel.js).
-// Comprueba la jerarquía (disparador, teclas, botones, interruptor, muescas), que nada suena sin
-// un dedo, que no se pisan y que al grabar las teclas callan.
+// Comprueba que cada sonido es un clic y no una nota, la jerarquía (disparador, teclas, botones,
+// interruptor, muescas), que nada suena sin un dedo, que no se pisan y que al grabar las teclas callan.
 //   FLIP_URL=http://127.0.0.1:8760 node tests/feel.cjs
 'use strict';
 const assert = require('node:assert/strict');
@@ -23,6 +23,47 @@ async function main() {
     await take();
     const kinds = await page.evaluate(() => flipFeel.kinds());
     assert.equal((await page.evaluate(() => flipFeel.state())).built, true, 'los sonidos están sintetizados');
+
+    // 0 · Un clic, no una nota. De cada receta y cada variante se mide: lo afinada que está
+    // (autocorrelación entre 0,15 y 5 ms: una nota da 0,5 o más; una tecla o un obturador reales
+    // grabados, entre 0,1 y 0,3), lo que tarda el golpe en caer 30 dB y cuánta energía se va a los
+    // medios y agudos, que es donde vive el chasquido del plástico.
+    const clicks = await page.evaluate(() => {
+      const rate = 48000, rows = [];
+      for (const name of flipFeel.recipes()) {
+        for (let variant = 0; variant < 3; variant++) {
+          const x = flipFeel.render(name, variant), n = x.length;
+          let peak = 0, at = 0, r0 = 0;
+          for (let i = 0; i < n; i++) { const v = Math.abs(x[i]); r0 += v * v; if (v > peak) { peak = v; at = i; } }
+          let last = at;
+          for (let i = at; i < n; i++) if (Math.abs(x[i]) > peak * 0.0316) last = i;
+          let pitch = 0, crossed = false;
+          for (let lag = 2; lag <= rate * 0.005; lag++) {
+            let r = 0;
+            for (let i = lag; i < n; i++) r += x[i] * x[i - lag];
+            r /= r0;
+            if (r < 0) crossed = true;
+            if (crossed && lag >= rate * 0.00015 && r > pitch) pitch = r;
+          }
+          // Energía por encima de 1 kHz: lo que queda tras un paso alto de un polo.
+          let high = 0, y = 0, prev = 0;
+          const k = Math.exp(-2 * Math.PI * 1000 / rate);
+          for (let i = 0; i < n; i++) { y = k * (y + x[i] - prev); prev = x[i]; high += y * y; }
+          rows.push({ name, variant, peak: +peak.toFixed(2), ring: +((last - at) / rate * 1000).toFixed(1), pitch: +pitch.toFixed(2), high: +(high / r0).toFixed(2), ms: +(n / rate * 1000).toFixed(0) });
+        }
+      }
+      return rows;
+    });
+    for (const c of clicks) {
+      const id = c.name + '#' + c.variant;
+      assert.ok(c.pitch < 0.45, id + ': suena a nota (afinado ' + c.pitch + ')');
+      assert.ok(c.ring <= 32, id + ': el golpe se alarga ' + c.ring + ' ms');
+      assert.ok(c.peak > 0.8 && c.peak <= 0.91, id + ': pico ' + c.peak);
+      assert.ok(c.ms <= 220, id + ': dura ' + c.ms + ' ms');
+    }
+    const key = clicks.find(c => c.name === 'keyDown'), soft = clicks.find(c => c.name === 'softDown');
+    assert.ok(key.high > 0.5, 'la tecla chasquea: ' + key.high + ' de su energía por encima de 1 kHz');
+    assert.ok(soft.high < key.high, 'el botón redondo es más sordo que la tecla');
 
     // 1 · Botón redondo (secundario): baja y sube, sordo, con un pulso corto.
     await press('#deckAdjust');
@@ -139,7 +180,7 @@ async function main() {
       assert.ok(gap >= 21 || kinds[sounded[i].kind].rank > kinds[sounded[i - 1].kind].rank, 'sonidos pisados: ' + JSON.stringify([sounded[i - 1], sounded[i]]));
     }
     assert.deepEqual(errors, []);
-    console.log('PASS · tacto · ' + history.length + ' toques revisados, ' + sounded.length + ' con sonido');
+    console.log('PASS · tacto · ' + history.length + ' toques revisados, ' + sounded.length + ' con sonido · afinado máximo ' + Math.max(...clicks.map(c => c.pitch)) + ', golpe más largo ' + Math.max(...clicks.map(c => c.ring)) + ' ms');
   } finally {
     await browser.close();
   }

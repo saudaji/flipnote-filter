@@ -34,7 +34,7 @@ const SHOTS = [
     shot('caskia-' + v + '-objectLeave', 'CASKIA', v, 'objectLeave', { frames: 60, clip: true }),
   ]),
   // Resto de familias.
-  ...[['DSI', 'STD'], ['DSI', 'LGCY'], ['DLPHN', 'STD'], ['DLPHN', 'LGCY'], ['VFD', 'STD'], ['VFD', 'THRML']].flatMap(([f, v]) =>
+  ...[['DSI', 'STD'], ['DSI', 'LGCY'], ['DLPHN', 'STD'], ['DLPHN', 'LGCY'], ['VFD', 'STD'], ['VFD', 'THRML'], ['VFD', 'CRT']].flatMap(([f, v]) =>
     ['portrait', 'text', 'ramp'].map(s => shot(f.toLowerCase() + '-' + v + '-' + s, f, v, s, { export: s === 'portrait' }))),
 ];
 

@@ -418,6 +418,9 @@
     if (event.key !== 'Escape') return;
     if (viewer.classList.contains('is-open')) openViewer(false);
     else if (launcher.classList.contains('is-open')) openLauncher(false);
+    // Las hojas que suben desde abajo también se cierran con Escape (teclado de escritorio).
+    else if (document.querySelector('.flip-settings-panel.open')) _toggleFlipSettings(false);
+    else if (typeof camEditOpen !== 'undefined' && camEditOpen) _toggleCamEdit(false);
   });
 
   // ── Enganches con el motor ──────────────────────────────────────────────────

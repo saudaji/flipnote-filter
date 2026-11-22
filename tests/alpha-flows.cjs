@@ -256,6 +256,29 @@ async function main() {
     await page.setViewportSize({ width: 395, height: 741 });
     step('rotación y pantalla pequeña', { small: small.visorArea, landscape: landscape.visorArea });
 
+    // ── 10b · Las pantallas sin botones tienen salida: WMP a pantalla completa llena la pantalla
+    // y un toque devuelve los mandos; las hojas de ajustes se cierran también con Escape ──
+    await openModule(page, 'wmp');
+    await page.waitForTimeout(700);
+    await page.locator('#flipBottomNav button', { hasText: 'FULL' }).click();
+    await page.waitForFunction(() => !!document.fullscreenElement, null, { timeout: 5000 });
+    await page.waitForTimeout(300);
+    const full = await page.evaluate(() => { const r = document.getElementById('wmpCanvas').getBoundingClientRect(); return { box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], view: [innerWidth, innerHeight] }; });
+    assert.deepEqual(full.box, [0, 0, full.view[0], full.view[1]], 'el visualizador llena la pantalla');
+    await page.mouse.click(Math.round(full.view[0] / 2), Math.round(full.view[1] / 2));
+    await page.waitForFunction(() => !document.fullscreenElement, null, { timeout: 5000 });
+    await openModule(page, 'cam');
+    await page.waitForFunction(() => activeTab === 'cam' && vid.videoWidth > 0);
+    await page.locator('#shellSettings').click();
+    await page.waitForFunction(() => document.querySelector('.flip-settings-panel').classList.contains('open'));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.flip-settings-panel').classList.contains('open'));
+    await page.locator('#deckAdjust').click();
+    await page.waitForFunction(() => camEditOpen);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !camEditOpen);
+    step('pantalla completa y hojas con salida', { wmp: full.box });
+
     // ── 11 · Salir: ninguna pista viva al cerrar ──
     await page.evaluate(() => { releaseCamera(); });
     state = await cam(page);

@@ -18,7 +18,7 @@ const CADENCE = { DSI: 8, STAMP: 24, AUTO03: 30, DLPHN: 24, CASKIA: 15, VFD: 30,
 const VARIANTS = [
   ['DSI', 'STD'], ['DSI', 'LGCY'], ['STAMP', 'ENGR'], ['STAMP', 'INK'], ['STAMP', 'ISSUE'],
   ['AUTO03', 'DAY'], ['AUTO03', 'FLASH'], ['AUTO03', 'NIGHT'], ['DLPHN', 'STD'], ['DLPHN', 'LGCY'],
-  ['CASKIA', 'STD'], ['CASKIA', 'E-INK'], ['CASKIA', 'SEIKO'], ['VFD', 'STD'], ['VFD', 'THRML'],
+  ['CASKIA', 'STD'], ['CASKIA', 'E-INK'], ['CASKIA', 'SEIKO'], ['VFD', 'STD'], ['VFD', 'THRML'], ['VFD', 'CRT'],
 ];
 
 async function main() {
@@ -88,8 +88,8 @@ async function main() {
     if (process.argv.includes('--strict')) {
       for (const r of rows) {
         const id = r.family + ' ' + r.variant;
-        // THRML es una paleta de falso color: su luminancia no es monótona por diseño.
-        if (id !== 'VFD THRML') assert.ok(r.mono > 0.85, id + ': orden tonal ' + r.mono);
+        // THRML y CRT son de falso color: su luminancia no es monótona por diseño.
+        if (id !== 'VFD THRML' && id !== 'VFD CRT') assert.ok(r.mono > 0.85, id + ': orden tonal ' + r.mono);
         assert.ok(r.levels >= 3, id + ': niveles ' + r.levels);
         assert.ok(r.exportCorr > 0.9, id + ': visor frente a exportación ' + r.exportCorr);
         assert.ok(Math.abs(r.exportDelta) < 14, id + ': nivel de la exportación ' + r.exportDelta);

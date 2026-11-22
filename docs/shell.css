@@ -438,6 +438,9 @@ body:not([data-tab="cam"]) #camBody { background-position: center top; }
   border-radius: 3px;
 }
 #asciiArea, #sonoArea, #wmpArea, #sflowArea, #scrashArea, #fusionArea, #editArea, #stageArea { background: transparent !important; }
+/* WMP a pantalla completa: la imagen llena la pantalla, sin marco (un toque devuelve los mandos). */
+#wmpArea:fullscreen { background: #000 !important; }
+#wmpArea:fullscreen #wmpCanvas { width: 100vw !important; height: 100vh !important; box-shadow: none; border-radius: 0; cursor: pointer; }
 
 /* Deslizadores: ranura oscura y una tapa crema con su raya coral, como un fader. */
 input[type="range"] { -webkit-appearance: none; appearance: none; background: transparent; height: 28px; cursor: pointer; accent-color: var(--coral); }

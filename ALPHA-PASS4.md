@@ -3,7 +3,9 @@
 Rama `fable/public-alpha-pass2`, sobre `582592d`. Cuatro encargos: rehacer el diseño (la dirección
 anterior, policarbonato ahumado y luces de neón, no era la buena), una sección nueva (PORTAL),
 llevar STAGE a central de visuales en vivo, y que las teclas suenen y vibren como un teclado de
-época.
+época. Después, con la app ya en la mano: un modo nuevo de VFD (CRT, apartado 9), el
+sonido de las teclas rehecho como clic de plástico (apartado 4) y la revisión completa antes de
+llevar la rama a `main` (apartado 10).
 
 ## 1 · Diseño: un producto de los 80 hecho en 2027
 
@@ -88,15 +90,36 @@ B · generador (barras, plasma, anillos, rejilla, │→ MEZCLA / CLAVE → BUCL
 
 ## 4 · Tacto: el sonido y la vibración de las teclas
 
-`docs/feel.js`. Todo sintetizado (modos amortiguados más ruido filtrado), sin archivos de audio.
+`docs/feel.js`. Todo sintetizado, sin archivos de audio.
+
+**Rehecho después de oírlo.** La primera versión sumaba resonancias de decenas de
+milisegundos en frecuencias casi a octavas (215, 468, 935, 1760 Hz) más un «muelle» a 4–5 kHz:
+eso es una nota, y sonaba a xilófono de sintetizador. Ahora cada golpe es un impulso seco (lo
+que dura el contacto del plástico) más un soplo de ruido que se apaga, pasados por bandas de más
+de una octava de ancho. Nada resuena lo bastante para dejar una altura: lo agudo dura un
+milisegundo y lo grave, cinco o seis. Una tecla son tres golpes en 11 ms (el contacto, el tope
+con cuerpo y un rebote mínimo); al subir, un tic más fino.
+
+Medido con la misma vara sobre el sonido anterior, el nuevo y dos grabaciones reales (una tecla
+y un obturador mecánico):
+
+| | Antes | Ahora | Grabaciones reales |
+|---|---|---|---|
+| Afinado (autocorrelación máxima entre 0,15 y 5 ms; una nota da 0,5 o más) | 0,49 – 0,73 | 0,12 – 0,23 (la muesca, 0,38 en 6 ms) | 0,12 – 0,26 |
+| Lo que tarda el golpe en caer 30 dB | 11 – 90 ms | 6 – 27 ms | 50 – 100 ms (con su sala) |
+| Energía de la tecla entre 1 y 4 kHz / por encima de 4 kHz | 22 % / 5 % | 57 % / 19 % | 70 % / 12 % |
+
+En el espectrograma, antes cada toque tenía nudos en sus parciales y rayas horizontales (el
+muelle); ahora son líneas verticales lisas. `tests/feel.cjs` lo vigila: suspende si cualquier
+receta vuelve a «sonar a nota», y de hecho suspende con el sonido anterior.
 
 | Pieza | Al bajar | Al subir / actuar | Vibración |
 |---|---|---|---|
-| Disparador | golpe grave de medio recorrido | la cortinilla, en dos tiempos | 14 ms; luego 9 · pausa · 13, al ritmo del sonido |
-| Tecla grande (grabar, SALIDA, entrar) | golpe grave y largo | clac medio | 16 ms |
-| Tecla | clic con cuerpo y el muelle resonando | clac agudo y corto | 9 ms |
-| Botón redondo | sordo, de goma | más sordo aún | 6 ms |
-| Interruptor | el roce y el tope | — | 4 · pausa · 8 |
+| Disparador | golpe sordo y pesado de medio recorrido | la cortinilla: dos chasquidos a 46 ms con el mecanismo entre medias | 14 ms; luego 9 · pausa · 13, al ritmo del sonido |
+| Tecla grande (grabar, SALIDA, entrar) | clac grave, con más caja | tic medio | 16 ms |
+| Tecla | clac de plástico: contacto, tope y rebote | tic fino y corto | 9 ms |
+| Botón redondo | sordo, de plástico blando | más sordo aún | 6 ms |
+| Interruptor | el roce y el encaje | — | 4 · pausa · 8 |
 | Diapositiva / tarjeta | cae en su ranura | — | 3 · pausa · 6 |
 | Muesca de perilla o deslizador | tic mínimo | — | 2 ms, la mitad de las veces si se gira deprisa |
 
@@ -108,8 +131,9 @@ pantalla. Dos ajustes (Sonido, Vibración) en FORMATO Y AUDIO.
 
 ## 5 · Evidencia
 
-- **Batería completa** (`tests/run-all.cjs`): once pruebas, todas pasan. Nuevas en esta pasada:
-  `portal.cjs`, `feel.cjs`, `stage.cjs` (qué comprueba cada una, en `tests/README.md`).
+- **Batería completa** (`tests/run-all.cjs`): doce pruebas, todas pasan. Nuevas en esta pasada:
+  `portal.cjs`, `feel.cjs`, `stage.cjs` y `vfd-crt.cjs`; fuera de la batería, `explore.cjs` y
+  `update-published.cjs` (qué comprueba cada una, en `tests/README.md`).
 - **PORTAL con manos de verdad.** El vídeo de referencia, recortado a la persona, hace de cámara
   (Chrome lo reproduce como dispositivo) y se usa el rastreador real: manos en 73 de 79 muestras,
   ventana abierta en 56, marco y lente, hasta un 16 % del cuadro, 28 ms por inferencia en el Mac.
@@ -196,14 +220,77 @@ en 97 de 101 muestras, ninguna rotura del marco y ningún portal fijado sin quer
 
 ## 8 · Sin verificar
 
-- **El PORTAL nuevo y el sonido de STAGE en un teléfono.** El Samsung se desconectó antes de
-  poder medirlos; lo comprobado en él es lo del apartado 6 (anterior a estos cambios) más el giro
-  de cámara y que el rastreador vuelve a recibir cuadros. Falta medir allí el dibujo a 60 por
-  segundo, el delegado de GPU del rastreador y el clic de anular y pulgar con una mano real.
+- **Nada de lo último en un teléfono.** VFD · CRT, el clic nuevo de las teclas, el PORTAL nuevo y
+  el sonido de STAGE no se han visto en un teléfono: al ir a medirlos, el Samsung estaba enchufado
+  pero con la depuración por USB apagada (el Mac lo veía, la interfaz de depuración no). La prueba
+  queda escrita (`tests/device/pixel-crt.cjs`): elige CRT con el dedo, mide ritmo y coste por
+  cuadro con la cámara real, foto, vídeo, giro de cámara, PORTAL y las teclas. Lo medido allí
+  sigue siendo lo del apartado 6. En el Mac, con la CPU frenada ×4, CRT mantiene su cadencia.
+- **El clic de las teclas a oído** y la vibración en la mano. Las medidas dicen que ya no hay
+  nota y que el reparto es el de una tecla real; si es «hermoso» lo decide un oído.
 - **«Este ordenador» como entrada de sonido**: depende del diálogo de compartir del navegador;
   no se puede automatizar y no se probó a mano.
 - **Controlador MIDI real** y **proyector por cable**: MIDI está probado con mensajes inyectados.
-- El **sonido de las teclas a oído** y la vibración en la mano.
+- El clic de anular y pulgar de PORTAL con una mano real delante de un teléfono.
 - El Pixel 10 (estaba en uso): esta pasada no se midió en él.
 - LED real en FLASH, NIGHT en penumbra real, temperatura y batería en uso largo, giro del
   teléfono en CAM, vuelta del segundo plano (igual que en la pasada anterior).
+
+## 9 · VFD · CRT: un televisor de tubo con colorizador
+
+Variante nueva de VFD (teclas STD · THRML · CRT), hecha a partir de un vídeo de referencia: una
+cámara metida en un televisor de tubo a través de un colorizador analógico. Está en
+`_renderVfdCrt` (`docs/index.html`): lienzo 2D, 256 × 192 puntos de señal, sin nada que cargar.
+
+| En el vídeo | Aquí |
+|---|---|
+| Casi todo negro: solo se enciende lo que tiene borde o mucha luz | El colorizador solo mira la luminancia. Por debajo del percentil 70 del cuadro queda negro de tubo, con su nieve y un velo rojizo y verdoso muy tenue. |
+| Contornos punteados que cambian de color a lo largo de la línea | El tono sale de la orientación del borde, así gira a lo largo de una curva. Los bordes flojos prenden en una línea de cada dos y con huecos. |
+| Manchas azules, violetas y rosas con vetas de otro color | Relleno por luz: del negro al rosa pasando por verde azulado, azul, violeta y magenta, con cuatro franjas finas de otro color que dibujan curvas de nivel y reptan despacio. |
+| Lo más claro, quemado en rosa, con rayas verticales y halo | Por encima del percentil 92: rosa con las rayas de la subportadora (columna sí, columna no) y un resplandor en dos tamaños. |
+| Color corrido y fallos de croma | La croma llega tarde y se corre a la derecha; tramos sueltos saltan de color; cada varios segundos una banda de líneas pierde el sincronismo un instante. |
+| El tubo | Rejilla de fósforo rojo, verde y azul, una línea de barrido por fila de señal, barra de zumbido que baja despacio y esquinas apagadas. |
+
+Decisiones que no se ven:
+
+- **Los niveles se adaptan al cuadro** (percentiles, con un cuarto de segundo de inercia): con
+  cualquier exposición hay algo en negro, algo en color y algo quemado. Probado de la penumbra
+  al foco.
+- **Todo es continuo** en la luz y en esos niveles: una pared lisa que cae justo en un umbral
+  no parpadea.
+- **El azar va atado al reloj del cuadro**: el mismo instante da el mismo cuadro, así que la foto
+  y el vídeo salen como el visor (correlación 0,99 en alta, punto a punto).
+- **Nada parpadea a pantalla completa.** Lo que se mueve es fino: el punteado (cada 100 ms), la
+  nieve y las franjas reptando. Con la escena quieta, el nivel medio no se mueve más de 0,4 de 255.
+- **Coste:** 1,9 ms por cuadro en el Mac; con la CPU frenada ×4 mantiene sus 30 por segundo.
+- Sirve también como estilo de una ventana de PORTAL y como fuente de STAGE.
+
+`tests/vfd-crt.cjs` lo recorre con los mandos reales (nueve pasos) y la auditoría de materiales lo
+incluye (16 variantes). Un fallo propio salió al repasar el código línea a línea: con el
+«desgarro» apagado, las primeras filas quedaban siempre corridas. Corregido, y la prueba suspende
+si vuelve (comprobado reintroduciéndolo).
+
+## 10 · Antes de llevarlo a main
+
+Lo que se corrió sobre el código final:
+
+- **Batería completa:** doce pruebas, todas pasan.
+- **Recorrido exploratorio** (`tests/explore.cjs`, nuevo): entra en los diez módulos y toca al azar
+  todo lo que se puede tocar, además de Escape y toques fuera de los botones. Semillas 7, 11, 23
+  y 31 en el teléfono emulado y 5 en escritorio: unas 2.400 interacciones sin un error de página,
+  de consola ni promesa sin atender. Guarda la traza y sabe repetirla toque a toque (`--replay`).
+- **Actualización desde la app publicada** (`tests/update-published.cjs`, nuevo): instala la
+  versión de `main` anterior (0b13252, caché v73), la usa y guarda ajustes en su formato; publica
+  esta en el mismo origen. La nueva se instala sola, recuerda la cámara elegida, el formato, los
+  efectos de audio y las paletas guardadas, deja una sola caché, funciona (cámara, VFD · CRT,
+  foto, teclas, PORTAL, STAGE a 60) y arranca sin red.
+
+Lo que el recorrido encontró, y qué se hizo:
+
+| Hallazgo | Qué era | Estado |
+|---|---|---|
+| WMP a pantalla completa: sin botones a la vista, la imagen no llenaba la pantalla y asomaba el marco | Fallo real (la única salida era el gesto del sistema) | Arreglado: llena la pantalla y un toque devuelve los mandos. Con prueba. |
+| Las hojas FORMATO Y AUDIO y AJUSTES no se cerraban con Escape | Fallo menor, de teclado de escritorio | Arreglado. Con prueba. |
+| Chrome escribe un error al grabar MP4 con el audio encendido («codec description…») | Aviso del navegador: el archivo sale con una sola cabecera de secuencia y se decodifica entero, con y sin cambios a media toma | Sin cambio; anotado como inofensivo en la prueba. |
+| El audio de los MP4 sale en Opus, no en AAC | Así lo elige Chrome si no se le pide otra cosa (visto en Chrome de escritorio; en Android no se ha mirado). Opus dentro de MP4 es menos compatible que AAC fuera de Chrome y Android: conviene comprobar un vídeo con sonido en un iPhone y en las redes donde se comparta | **Sin tocar.** Pedir AAC es una línea, pero cambia el códec de todas las grabaciones con sonido y hoy no hubo teléfono donde probarlo. |
+| STAGE en salida limpia no tiene botones | Es así a propósito (los toques son gestos de directo; se sale con «atrás», y lo dice al entrar) | Sin cambio. |

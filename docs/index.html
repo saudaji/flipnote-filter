@@ -5012,7 +5012,8 @@ const CAM_FAMILIES = {
   VFD: {
     label:'VFD',
     displayLabel:'VFD',
-    variants:[{ id:'STD', label:'STD' }, { id:'THRML', label:'THRML' }],
+    variants:[{ id:'STD', label:'STD' }, { id:'THRML', label:'THRML' },
+      { id:'CRT', label:'CRT', hint:'CRT · televisor de tubo con colorizador: contornos en arcoíris, luces quemadas en rosa y rejilla de fósforo.' }],
     editMode:'duotone',
     paletteContext:'VFD',
   },
@@ -5234,11 +5235,12 @@ function drawCameraFrame(frame) {
             sampleH: captureDims.sampleH,
             outW: frame.options.outW,
             outH: frame.options.outH,
+            now: frame.now,
           }
         );
         return frame;
       }
-      renderVFD(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
+      renderVFD(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.now);
       return frame;
     case 'oscam':
       if (frame.profile.variant !== 'LGCY') {
@@ -7082,6 +7084,217 @@ function _getVfdCaptureSampleDims() {
   return { sampleW: DSI_W, sampleH: DSI_H };
 }
 const thermalRanges = new WeakMap();
+// ── VFD · CRT: un televisor de tubo con colorizador ─────────────────────────────────────
+// Referencia: una cámara metida en un televisor de tubo a través de un colorizador analógico.
+// El colorizador solo mira la luminancia: lo oscuro y lo plano se hunden en negro; los contornos
+// salen en arcoíris (el tono sale de hacia dónde mira el borde, así cambia a lo largo de la línea)
+// y los flojos, punteados; lo claro se rellena con un tono que gira muy deprisa con la luz, y lo
+// más claro se quema en rosa con las rayas de la subportadora. La croma llega tarde y se corre a
+// la derecha. Encima va el tubo: rejilla de fósforo, líneas de barrido, resplandor, zumbido y viñeta.
+// Todo es continuo en la luz y el azar va atado al reloj del cuadro: la foto sale igual que el visor.
+let _vfdCrtLevel = null;
+const _vfdCrtMaskCache = new Map();
+const _vfdCrtHist = new Uint32Array(256);
+let _vfdCrtGlow = null, _vfdCrtHaze = null;
+const VFD_CRT_HUES = (() => {
+  const table = new Uint8Array(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const h = i / 256 * 6, x = Math.round(255 * (1 - Math.abs(h % 2 - 1)));
+    const c = h < 1 ? [255, x, 0] : h < 2 ? [x, 255, 0] : h < 3 ? [0, 255, x] : h < 4 ? [0, x, 255] : h < 5 ? [x, 0, 255] : [255, 0, x];
+    table[3 * i] = c[0]; table[3 * i + 1] = c[1]; table[3 * i + 2] = c[2];
+  }
+  return table;
+})();
+// El relleno: del negro al rosa por los fríos (verde azulado, azul, violeta, magenta), con cuatro
+// franjas finas de otro color que dibujan curvas de nivel dentro de las zonas lisas.
+const VFD_CRT_FILL = (() => {
+  const stops = [
+    [0, 0, 0, 0], [0.10, 0, 86, 104], [0.22, 18, 54, 255], [0.30, 18, 54, 255], [0.33, 130, 255, 236], [0.36, 50, 36, 255],
+    [0.47, 96, 24, 255], [0.495, 40, 255, 150], [0.52, 116, 20, 255], [0.62, 166, 16, 255],
+    [0.66, 176, 14, 255], [0.69, 226, 255, 54], [0.72, 255, 0, 226],
+    [0.84, 255, 26, 168], [0.88, 255, 26, 168], [0.905, 255, 208, 62], [0.93, 255, 0, 191], [1, 255, 0, 191],
+  ];
+  const table = new Uint8Array(256 * 3);
+  for (let i = 0, k = 0; i < 256; i++) {
+    const f = i / 255;
+    while (k < stops.length - 2 && f > stops[k + 1][0]) k++;
+    const a = stops[k], b = stops[k + 1], t = Math.max(0, Math.min(1, (f - a[0]) / (b[0] - a[0] || 1)));
+    for (let c = 0; c < 3; c++) table[3 * i + c] = Math.round(a[c + 1] + (b[c + 1] - a[c + 1]) * t);
+  }
+  return table;
+})();
+function _vfdCrtNoise(x, y, f) {
+  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(f, 1274126177) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1103515245);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+// La máscara del tubo: franjas de fósforo rojo, verde y azul y una línea de barrido por fila de
+// la señal. Se guarda a su ancho final (las franjas no admiten estirarse) y se estira en alto.
+function _getVfdCrtMask(outW, outH, rows) {
+  const key = outW + 'x' + outH + ':' + rows;
+  let mask = _vfdCrtMaskCache.get(key);
+  if (mask) return mask;
+  if (_vfdCrtMaskCache.size >= 4) _vfdCrtMaskCache.clear();
+  const pitch = Math.max(3, 3 * Math.round(outW / 510)), band = pitch / 3;
+  const tall = Math.max(2, Math.round(outH / rows));
+  const cell = document.createElement('canvas');
+  cell.width = pitch; cell.height = tall;
+  const c = cell.getContext('2d');
+  ['rgb(255,112,112)', 'rgb(112,255,112)', 'rgb(112,112,255)'].forEach((color, i) => { c.fillStyle = color; c.fillRect(i * band, 0, band, tall); });
+  for (let row = 0; row < tall; row++) {                                     // el haz: más luz en el centro de la línea
+    const beam = 0.4 + 0.6 * Math.pow(Math.sin(Math.PI * (row + 0.5) / tall), 0.8);
+    c.fillStyle = 'rgba(0,0,0,' + (1 - beam).toFixed(3) + ')';
+    c.fillRect(0, row, pitch, 1);
+  }
+  mask = document.createElement('canvas');
+  mask.width = outW; mask.height = rows * tall;
+  const m = mask.getContext('2d');
+  m.fillStyle = m.createPattern(cell, 'repeat');
+  m.fillRect(0, 0, mask.width, mask.height);
+  _vfdCrtMaskCache.set(key, mask);
+  return mask;
+}
+function _renderVfdCrt(lum, sampleW, sampleH, renderTarget, targetCtx, outW, outH, now) {
+  const out = renderTarget.buffer, n = sampleW * sampleH;
+  // Niveles por percentiles del cuadro, como el control automático del aparato: con cualquier
+  // exposición hay algo quemado en rosa y algo en color. Un solo estado para visor, foto y vídeo,
+  // con inercia medida en tiempo: un objeto que entra no hace parpadear el resto.
+  const hist = _vfdCrtHist;
+  hist.fill(0);
+  for (let i = 0; i < n; i += 3) hist[lum[i]]++;
+  const total = Math.ceil(n / 3);
+  let acc = 0, p2 = -1, p70 = -1, p92 = -1, p98 = 255;
+  for (let v = 0; v < 256; v++) {
+    acc += hist[v];
+    if (p2 < 0 && acc >= total * 0.02) p2 = v;
+    if (p70 < 0 && acc >= total * 0.70) p70 = v;
+    if (p92 < 0 && acc >= total * 0.92) p92 = v;
+    if (acc >= total * 0.98) { p98 = v; break; }
+  }
+  const wantMid = Math.max(70, Math.min(196, p70));
+  const wantHi = Math.max(wantMid + 34, Math.min(242, p92));
+  const wantGain = Math.min(2, 190 / Math.max(60, p98 - p2));
+  let level = _vfdCrtLevel;
+  const dt = level ? now - level.at : -1;
+  if (!level || dt < 0 || dt > 900 || Math.abs(level.mid - wantMid) > 60 || Math.abs(level.hi - wantHi) > 60) {
+    level = _vfdCrtLevel = { mid: wantMid, hi: wantHi, gain: wantGain, at: now };
+  } else {
+    const k = 1 - Math.exp(-dt / 240);
+    level.mid += (wantMid - level.mid) * k; level.hi += (wantHi - level.hi) * k; level.gain += (wantGain - level.gain) * k;
+    level.at = now;
+  }
+  const mid = level.mid, hi = level.hi, gain = level.gain;
+  const invSpan = 1 / (hi - mid), invBurn = 1 / Math.max(10, (255 - hi) * 0.6);
+  const E0 = 20, invE = 1 / 56;
+  // Manchas de pureza del tubo: un velo rojizo y verdoso muy tenue en lo oscuro.
+  if (!_vfdCrtHaze || _vfdCrtHaze.w !== sampleW || _vfdCrtHaze.h !== sampleH) {
+    _vfdCrtHaze = { w: sampleW, h: sampleH, x: new Float32Array(sampleW), y: new Float32Array(sampleH) };
+    for (let x = 0; x < sampleW; x++) _vfdCrtHaze.x[x] = 0.5 + 0.5 * Math.sin(x / sampleW * 5.1 + 0.7);
+    for (let y = 0; y < sampleH; y++) _vfdCrtHaze.y[y] = 0.5 + 0.5 * Math.sin(y / sampleH * 3.9 + 2.1);
+  }
+  const hazeX = _vfdCrtHaze.x, hazeY = _vfdCrtHaze.y, hues = VFD_CRT_HUES, fill = VFD_CRT_FILL;
+  const frame = Math.floor(now / 33.4), slow = Math.floor(now / 100), drift = (now * 0.03) % 256;
+  const crawl = 36 * Math.sin(now / 1700);                                     // las franjas del relleno reptan
+  // De vez en cuando el sincronismo se va: una banda de líneas se corre unos puntos durante un instante.
+  const slot = Math.floor(now / 170);
+  const tearOn = _vfdCrtNoise(1, 2, slot) < 0.07;
+  const tearTop = tearOn ? Math.floor(_vfdCrtNoise(3, 4, slot) * sampleH) : -1;
+  const tearEnd = tearOn ? tearTop + 4 + Math.floor(_vfdCrtNoise(5, 6, slot) * 16) : -1;
+  const tearBy = 2 + Math.floor(_vfdCrtNoise(7, 8, slot) * 5);
+  for (let y = 0; y < sampleH; y++) {
+    const row = y * sampleW, even = !(y & 1);
+    const shove = y >= tearTop && y < tearEnd ? tearBy : _vfdCrtNoise(7, y, frame) < 0.035 ? 1 : 0;
+    const down = y < sampleH - 1 ? sampleW : 0;
+    // Dos series de azar por línea: la nieve cambia en cada cuadro; el punteado, cada tres.
+    let snow = (_vfdCrtNoise(11, y, frame) * 4294967296) | 0;
+    let dots = (_vfdCrtNoise(13, y, slow) * 4294967296) | 0;
+    let cr = 0, cb = 0, skip = false;
+    for (let x = 0; x < sampleW; x++) {
+      snow = (Math.imul(snow, 1664525) + 1013904223) | 0;
+      dots = (Math.imul(dots, 22695477) + 1) | 0;
+      if (!(x & 7)) skip = _vfdCrtNoise(x >> 3, y >> 1, frame >> 2) < (skip ? 0.5 : 0.014);   // un tramo de croma que salta
+      const sx = x > shove ? x - shove : 0, idx = row + sx, L = lum[idx];
+      const gx = lum[idx + (sx < sampleW - 1 ? 1 : 0)] - L, gy = lum[idx + down] - L;
+      const e = ((gx < 0 ? -gx : gx) + (gy < 0 ? -gy : gy)) * gain;
+      let r = 0, g = 0, b = 0;
+      if (L > mid) {                                                         // relleno: el color sale de la luz
+        const f = L >= hi ? 1 : (L - mid) * invSpan;
+        let at = (f * 255 + crawl * f * (1 - f)) | 0;                        // el reptar se anula en los dos extremos: sin saltos
+        if (skip) at += 72;
+        at = (at > 255 ? at - 256 : at) * 3;
+        const v = f < 0.2 ? f * 5 : 1;
+        r = fill[at] * v; g = fill[at + 1] * v; b = fill[at + 2] * v;
+        if (L > hi) {                                                        // luces: rosa quemado, con las rayas de la subportadora
+          const burn = Math.min(1, (L - hi) * invBurn), s = burn < 0.2 ? burn * 5 : 1;
+          if (x & 1) { g += s * (6 + 34 * burn); b += s * 10 * burn; }
+          else { g += s * (92 + 78 * burn); b += s * (36 + 20 * burn); }
+        }
+      }
+      if (e > E0) {                                                          // contorno en arcoíris
+        const o = e >= E0 + 56 ? 1 : (e - E0) * invE;
+        // Los bordes flojos solo prenden en una línea de cada dos y con huecos: salen punteados.
+        if ((o > 0.6 || even) && (dots >>> 8) < (0.14 + 0.86 * o * o) * 16777216) {
+          // El tono sale de la orientación del borde (el doble del ángulo): los dos lados de un trazo fino comparten color.
+          const h3 = (((Math.atan2(gy, gx) * 81.49 + L * 0.5 + drift) | 0) & 255) * 3;
+          const v = 0.5 + 0.5 * o, white = 34 * o;
+          const er = hues[h3] * v + white, eg = hues[h3 + 1] * v + white, eb = hues[h3 + 2] * v + white;
+          if (er > r) r = er; if (eg > g) g = eg; if (eb > b) b = eb;
+        }
+      }
+      if (r + g + b < 20) {                                                  // negro de tubo, con su nieve y su velo
+        const grain = (snow >>> 24) * 0.035, veil = hazeX[x] * hazeY[y];
+        r = 3 + grain + veil * 24; g = 4 + grain * 0.8 + (1 - veil) * 8; b = 5 + grain + veil * 3;
+        if ((snow & 0x7ff00) === 0) { const h3 = ((snow >>> 20) & 255) * 3; r = hues[h3] * 0.7; g = hues[h3 + 1] * 0.7; b = hues[h3 + 2] * 0.7; }   // una chispa suelta
+      }
+      // La croma llega tarde: la luminancia se queda en su sitio y el color se corre a la derecha.
+      const Y = (r * 77 + g * 150 + b * 29) / 256;
+      cr += (r - Y - cr) * 0.5; cb += (b - Y - cb) * 0.5;
+      const o4 = (row + x) << 2;
+      out[o4] = Y + cr; out[o4 + 1] = Y - 0.509 * cr - 0.194 * cb; out[o4 + 2] = Y + cb; out[o4 + 3] = 255;
+    }
+  }
+  renderTarget.ctx.putImageData(new ImageData(out, sampleW, sampleH), 0, 0);
+  // El tubo. El resplandor sale de una cadena de reducciones a la mitad: no depende de ctx.filter.
+  if (!_vfdCrtGlow) _vfdCrtGlow = [0, 1, 2].map(() => { const canvas = document.createElement('canvas'); return { canvas, ctx: canvas.getContext('2d') }; });
+  let from = renderTarget.canvas;
+  for (let i = 0; i < 3; i++) {
+    const glow = _vfdCrtGlow[i], w = Math.max(4, sampleW >> (i + 1)), h = Math.max(4, sampleH >> (i + 1));
+    if (glow.canvas.width !== w || glow.canvas.height !== h) { glow.canvas.width = w; glow.canvas.height = h; }
+    glow.ctx.globalCompositeOperation = 'copy';
+    glow.ctx.imageSmoothingEnabled = true;
+    glow.ctx.drawImage(from, 0, 0, w, h);
+    from = glow.canvas;
+  }
+  const mask = _getVfdCrtMask(outW, outH, sampleH), ctx = targetCtx;
+  ctx.save();
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
+  ctx.globalCompositeOperation = 'multiply';                                  // rejilla de fósforo y líneas de barrido
+  ctx.drawImage(mask, 0, 0, outW, outH);
+  ctx.globalCompositeOperation = 'lighter';                                   // el fósforo se desborda
+  ctx.globalAlpha = 0.3;
+  ctx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
+  ctx.globalAlpha = 0.34;
+  ctx.drawImage(_vfdCrtGlow[0].canvas, 0, 0, outW, outH);
+  ctx.globalAlpha = 0.3;
+  ctx.drawImage(_vfdCrtGlow[2].canvas, 0, 0, outW, outH);
+  // La barra de zumbido: una franja algo más clara que baja despacio.
+  const bar = ((now * 0.00009) % 1.4 - 0.2) * outH, tall = outH * 0.16;
+  const hum = ctx.createLinearGradient(0, bar, 0, bar + tall);
+  hum.addColorStop(0, 'rgba(210,225,255,0)'); hum.addColorStop(0.5, 'rgba(210,225,255,.05)'); hum.addColorStop(1, 'rgba(210,225,255,0)');
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = hum;
+  ctx.fillRect(0, bar, outW, tall);
+  // El cristal curvo: las esquinas se apagan.
+  ctx.globalCompositeOperation = 'source-over';
+  const shade = ctx.createRadialGradient(outW / 2, outH / 2, Math.min(outW, outH) * 0.36, outW / 2, outH / 2, Math.hypot(outW, outH) * 0.56);
+  shade.addColorStop(0, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(0,0,0,.66)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, outW, outH);
+  ctx.restore();
+  targetCtx.imageSmoothingEnabled = false;
+}
 function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
@@ -7099,6 +7312,10 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const { data: src } = sampleCtx.getImageData(0, 0, sampleW, sampleH);
   const lum = _fillCamLumBuf(src, sampleW, sampleH);
 
+  if (renderVariant() === 'CRT') {
+    _renderVfdCrt(lum, sampleW, sampleH, renderTarget, targetCtx, outW, outH, options.now ?? performance.now());
+    return;
+  }
   if (renderVariant() === 'THRML') {
     let minG = 255, maxG = 0;
     for (let i = 0; i < lum.length; i++) {
@@ -7185,8 +7402,8 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   targetCtx.restore();
   targetCtx.drawImage(_getVfdOverlayCanvas(outW, outH), 0, 0, outW, outH);
 }
-function renderVFD(source, srcW, srcH, targetCtx, mirror) {
-  _renderVfdCore(source, srcW, srcH, targetCtx, mirror);
+function renderVFD(source, srcW, srcH, targetCtx, mirror, now) {
+  _renderVfdCore(source, srcW, srcH, targetCtx, mirror, { now });
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -18520,6 +18737,13 @@ document.addEventListener('fullscreenchange', () => {
 document.addEventListener('webkitfullscreenchange', () => {
   if (!document.webkitFullscreenElement) document.getElementById('btnWmpFull').textContent = '⛶ FULL';
   relayout();
+});
+// A pantalla completa no queda ningún botón a la vista: un toque en la imagen devuelve los mandos.
+document.getElementById('wmpArea').addEventListener('click', () => {
+  const area = document.getElementById('wmpArea');
+  if (document.fullscreenElement === area || document.webkitFullscreenElement === area) {
+    (document.exitFullscreen || document.webkitExitFullscreen || function(){}).call(document);
+  }
 });
 
 // ════════════════════════════════════════════════════════════════════

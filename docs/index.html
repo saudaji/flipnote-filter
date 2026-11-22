@@ -2012,7 +2012,6 @@
       padding:4px 10px; cursor:pointer; transition:.1s;
     }
     #btnSflowReset:active { background:var(--dark); }
-    #sflowVid { display:none; position:absolute; }
     #sflowCanvas {
       display:block; max-width:100%; max-height:100%;
       image-rendering:pixelated; image-rendering:crisp-edges;
@@ -4016,9 +4015,7 @@
      Own video element, own canvas, zero relation to other modes
 ════════════════════════════════════════════════════════════════ -->
 <div id="sflowArea">
-  <div id="sflowStatusBadge">FLOW — press CAM to start</div>
-  <!-- hidden video feeds MediaPipe only -->
-  <video id="sflowVid" playsinline muted autoplay></video>
+  <div id="sflowStatusBadge">FLOW — toca CAM para empezar</div>
   <canvas id="sflowCanvas"></canvas>
 </div>
 
@@ -4243,6 +4240,8 @@
 <script src="./optical-scope.js"></script>
 <script src="./stamp.js"></script>
 <script src="./night-vision.js"></script>
+<script src="./sensor.js"></script>
+<script src="./silhouette.js"></script>
 <script src="./frame-runtime.js"></script>
 <script>
 // ════════════════════════════════════════════════════════════════════
@@ -9496,20 +9495,15 @@ function renderOscam(source, srcW, srcH, targetCtx, mirror) {
 const SLHT_AW = 144;
 const SLHT_AH = 108;
 
-// ── Segmenter (lazy async, owns its own MediaPipe instance) ───────
-let _slhtSeg       = null;
-let _slhtSegReady  = false;
-let _slhtSegBusy   = false;
-let _slhtSegFailedMsg = '';
-const silhouetteInput = document.createElement('canvas');
-const silhouetteInputCtx = silhouetteInput.getContext('2d');
+// ── Segmentador: el detector de siluetas compartido (silhouette.js) ──
+let _slhtMaskSeq = -1;
 const silhouetteMatte = document.createElement('canvas');
 silhouetteMatte.width = SLHT_AW; silhouetteMatte.height = SLHT_AH;
 const silhouetteMatteCtx = silhouetteMatte.getContext('2d');
 const _slhtLocalMatte = new Float32Array(SLHT_AW*SLHT_AH);
 const silhouettePixels = silhouetteMatteCtx.createImageData(SLHT_AW, SLHT_AH);
 let silhouetteGeometry = '', silhouetteLastInference = -Infinity;
-let silhouetteLocal = true, silhouetteInferenceErrors = 0;
+let silhouetteLocal = true;
 // Offscreen canvas for sampling video at analysis resolution
 let _slhtAnasCvs   = null;
 let _slhtAnasCtx   = null;
@@ -9561,57 +9555,6 @@ const SLHT_STROKES = [
   [.52, 0], [.52, 0], [.36, -.4], [.36, .4], [0, .46],
 ];
 const SLHT_NG = SLHT_STROKES.length;
-
-// ── MediaPipe URLs (same model as SFLOW tab) ──────────────────────
-const SLHT_MP_WASM  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm';
-const SLHT_MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
-const SLHT_INIT_TIMEOUT_MS = 15000;
-
-function _slhtWithTimeout(task, timeoutMs = SLHT_INIT_TIMEOUT_MS) {
-  return new Promise((resolve, reject) => {
-    let expired = false;
-    const timer = setTimeout(() => {
-      expired = true;
-      reject(new Error('Segmenter initialization timed out'));
-    }, timeoutMs);
-    task.then(value => {
-      clearTimeout(timer);
-      if (expired) value?.close?.();
-      else resolve(value);
-    }, error => { clearTimeout(timer); reject(error); });
-  });
-}
-
-async function createPersonSegmenter() {
-  const { ImageSegmenter, FilesetResolver } = await _slhtWithTimeout(
-    import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/+esm')
-  );
-  const vision = await _slhtWithTimeout(FilesetResolver.forVisionTasks(SLHT_MP_WASM));
-  const create = delegate => _slhtWithTimeout(ImageSegmenter.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: SLHT_MP_MODEL, delegate },
-    outputCategoryMask: false, outputConfidenceMasks: true, runningMode: 'VIDEO',
-  }));
-  try { return await create('GPU'); }
-  catch (_) { return create('CPU'); }
-}
-
-// ── Segmenter lazy init ───────────────────────────────────────────
-async function _slhtInitSeg() {
-  if (_slhtSegReady || _slhtSegBusy) return;
-  _slhtSegBusy = true;
-  try {
-    _slhtSeg = await createPersonSegmenter();
-    _slhtSegReady = true;
-    _slhtSegFailedMsg = '';
-    _slhtFieldOK  = false;  // rebuild field on first frame with real mask
-  } catch (e) {
-    _slhtSegReady = false;
-    _slhtSeg = null;
-    _slhtSegFailedMsg = 'AI unavailable, tap to retry.';
-    console.warn('[SLHT] segmenter init failed:', e);
-  }
-  _slhtSegBusy = false;
-}
 
 // ── Ensure analysis canvas ────────────────────────────────────────
 function _slhtEnsureAnas() {
@@ -9784,8 +9727,7 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
 
   _slhtEnsureAnas();
 
-  // Kick off segmenter init if not started
-  if (!_slhtSegReady && !_slhtSegBusy && !_slhtSegFailedMsg) _slhtInitSeg();
+  flipSilhouette.start();
 
   // ── Sample video at analysis resolution ──
   const geometry = [CW, CH, srcW, srcH, mirror].join(':');
@@ -9807,34 +9749,19 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
   // ── Motion every frame ──
   _slhtUpdateMotion(imgData);
 
-  // ── Segmentation (throttled) ──
+  // ── Segmentación ──
+  // El detector trabaja en su worker: aquí solo se le ofrece el cuadro y se recoge la última
+  // máscara. Mientras carga, o si falla, un mate local por contraste da una silueta óptica.
   const instant = performance.now();
-  if (!_slhtFieldOK || instant - silhouetteLastInference >= (EARLY_IS_ANDROID ? 80 : 55)) {
+  flipSilhouette.push(source, asx, asy, asw, ash, mirror);
+  const detected = flipSilhouette.latest();
+  const freshMask = !!detected && detected.seq !== _slhtMaskSeq;
+  if (freshMask || (!detected && (!_slhtFieldOK || instant - silhouetteLastInference >= 80))) {
     silhouetteLastInference = instant;
     let rawMask, mW, mH;
-    if (_slhtSegReady && _slhtSeg) {
-      const scale = 320 / Math.max(CW, CH);
-      const iw = Math.max(1, Math.round(CW*scale)), ih = Math.max(1, Math.round(CH*scale));
-      if (silhouetteInput.width !== iw || silhouetteInput.height !== ih) {
-        silhouetteInput.width = iw; silhouetteInput.height = ih;
-      }
-      silhouetteInputCtx.save();
-      if (mirror) { silhouetteInputCtx.translate(iw,0); silhouetteInputCtx.scale(-1,1); }
-      silhouetteInputCtx.drawImage(source,asx,asy,asw,ash,0,0,iw,ih);
-      silhouetteInputCtx.restore();
-      let result;
-      try {
-        result = _slhtSeg.segmentForVideo(silhouetteInput, instant);
-        const mask = result.confidenceMasks[0];
-        rawMask = mask.getAsFloat32Array().slice();
-        mW = mask.width; mH = mask.height;
-        silhouetteInferenceErrors = 0;
-      } catch (err) {
-        if (++silhouetteInferenceErrors >= 3) {
-          _slhtSeg.close(); _slhtSeg = null; _slhtSegReady = false;
-          _slhtSegFailedMsg = 'Toca para reintentar la segmentación';
-        }
-      } finally { result?.close(); }
+    if (detected) {
+      _slhtMaskSeq = detected.seq;
+      rawMask = detected.data; mW = detected.width; mH = detected.height;
     }
     silhouetteLocal = !rawMask;
     if (!rawMask) {
@@ -10032,7 +9959,7 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
   ctx.drawImage(silhouetteMatte,0,0,CW,CH);
   if (silhouetteLocal) {
     ctx.fillStyle='#c6d5ce';ctx.font=Math.max(11,CW/70)+'px monospace';
-    ctx.fillText(_slhtSegFailedMsg ? 'CONTORNO LOCAL · toca para reintentar' : 'CONTORNO LOCAL · cargando IA',CW*.025,CH*.052);
+    ctx.fillText(flipSilhouette.status().phase === 'failed' ? 'CONTORNO LOCAL · toca para reintentar' : 'CONTORNO LOCAL · cargando detector',CW*.025,CH*.052);
   }
   ctx.restore();
 
@@ -10096,7 +10023,7 @@ function renderSlht(source, srcW, srcH, targetCtx, mirror) {
 function _resetSlht() {
   _slhtPInited = false;
   _slhtFieldOK = false;
-  _slhtSegFailedMsg = '';
+  _slhtMaskSeq = -1;
   _slhtPrevMask.fill(0);
   _slhtMask.fill(0);
   _slhtPrevLuma.fill(0);
@@ -10104,9 +10031,8 @@ function _resetSlht() {
   // Keep segmenter alive for fast re-activation
 }
 display.addEventListener('click', () => {
-  if (activeTab !== 'cam' || camFamily !== 'SLHT' || !_slhtSegFailedMsg || _slhtSegBusy) return;
-  _slhtSegFailedMsg = '';
-  _slhtInitSeg();
+  if (activeTab !== 'cam' || camFamily !== 'SLHT' || flipSilhouette.status().phase !== 'failed') return;
+  flipSilhouette.retry();
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -12195,7 +12121,7 @@ function startCamera(facing) {
 // ── Puerta de cámara ──────────────────────────────────────────────
 // Si CAM se queda sin cámara (permiso denegado, cámara ocupada, vuelta del segundo plano)
 // el visor ofrece un botón para activarla y dice qué pasó.
-const CAMERA_TABS = new Set(['cam', 'ascii', 'scrash', 'fusion']);
+const CAMERA_TABS = new Set(['cam', 'ascii', 'scrash', 'fusion', 'sflow']);
 let cameraGateError = null, cameraParked = false, cameraIdle = false;
 function cameraGateMessage(error) {
   if (!error) return ['Cámara apagada', 'FLIP necesita la cámara para este módulo.'];
@@ -12236,6 +12162,7 @@ function releaseCamera() {
   try { stream.getTracks().forEach(track => track.stop()); } catch (_) {}
   stream = null;
   vid.srcObject = null;
+  flipSensor.reset(vid);
   _clearCamZoomSupport();
   _syncCamZoomUI();
 }
@@ -12276,6 +12203,7 @@ async function openCamera(facing) {
   });
   const prevStream = stream;
   stream = nextStream;
+  flipSensor.reset(vid);
   vid.muted = true;
   vid.autoplay = true;
   vid.playsInline = true;
@@ -12602,6 +12530,23 @@ function _renderZoomSticker(ctx, cx, cy, r, selected) {
 // live iteration, false on the single exit path (the !xRunning early return).
 let _camLoopAlive = false, _asciiLoopAlive = false, _fusionLoopAlive = false;
 
+// Fuente de la cámara para las vistas previas: el cuadro reducido del sensor rápido si está al
+// día (sensor.js); si no, el elemento de vídeo, que en Android cuesta ~30 ms por lectura.
+let _camSensorPrimed = false;
+function liveCamFrame(maxAge = 150) {
+  const fast = flipSensor.current(vid, maxAge);
+  return fast
+    ? { source: fast.canvas, srcW: fast.width, srcH: fast.height, fast: true }
+    : { source: vid, srcW: vid.videoWidth, srcH: vid.videoHeight, fast: false };
+}
+// Pide el cuadro siguiente un tic antes de que toque dibujar. Devuelve true si conviene esperar
+// un tic más porque el cuadro pedido aún no ha llegado.
+function awaitCamFrame(due, minInterval) {
+  if (!stream || !vid.videoWidth || !flipSensor.usable(vid)) return false;
+  if (!_camSensorPrimed && due >= minInterval - 20) { flipSensor.prime(vid); _camSensorPrimed = true; }
+  return due >= minInterval && !flipSensor.current(vid, 70) && flipSensor.pending(vid) && due < minInterval + 50;
+}
+
 function cameraLoop(t) {
   if (!cameraRunning) { _camLoopAlive = false; return; }
   _camLoopAlive = true;
@@ -12614,7 +12559,9 @@ function cameraLoop(t) {
     return;
   }
   const minInterval = camFpsEnabled ? 1000 / camFpsTarget : 0;
+  if (!_pipeTestOn && awaitCamFrame(t - camLastFrameMs, minInterval)) { scheduleFrame(cameraLoop); return; }
   if (t - camLastFrameMs >= minInterval) {
+    _camSensorPrimed = false;
     if (_pipeTestOn) {
       // PIPELINE KEYSTONE test path — CAM→GLITCH chained render. Resolves the same
       // sources the normal path uses (video frame or ext-audio frame) into a canvas,
@@ -12640,7 +12587,8 @@ function cameraLoop(t) {
         );
       }
     } else if (vid.videoWidth) {
-      _renderCamEngineFrame(vid, vid.videoWidth, vid.videoHeight, ctxD, false, {
+      const cam = liveCamFrame();
+      _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctxD, false, {
         path:'preview',
         now:t,
       });
@@ -13241,12 +13189,13 @@ function switchTab(tab) {
   if (isFusion && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) scheduleFrame(_fusionLoop);
   // SONO, WMP y FLOW no usan la cámara principal (FLOW abre la suya): se suelta al entrar,
   // así no queda encendida sin motivo ni compite con la de FLOW. EDIT y STAGE la recuperan.
-  if (isSono || isWmp || isSflow) {
+  if (isSono || isWmp) {
     if (stream && !(typeof recorder !== 'undefined' && recorder && recorder.state !== 'inactive')) { cameraIdle = true; releaseCamera(); }
   } else if (cameraIdle) {
     cameraIdle = false;
     if (!stream && !cameraRequest && !extAudioMode) startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
   }
+  if (isSflow && typeof window._sflowAutoStart === 'function') window._sflowAutoStart();
   syncCameraGate();
 }
 
@@ -20117,16 +20066,14 @@ if (screen.width > 768) {
 // ════════════════════════════════════════════════════════════════════
 {
   // ── State ──────────────────────────────────────────────────────────
-  let _sfStream        = null;
-  let _sfFacing        = 'user';
   let _sfRafId         = 0;
   let flowGeneration = 0;
   let _sfActive        = false;
   let _sfColorKey      = 'palette';
   let _sfAuraKey       = 'm';
-  let _sfSegmenter     = null;
-  let _sfSegInitDone   = false;
-  let _sfSegInitBusy   = false;
+  let _sfMaskSeq       = -1;     // última máscara del detector ya incorporada
+  let _sfVectors       = null;   // campo de distancias de esa máscara
+  let _sfVectorsKey    = '';
   let _sfPretextCache  = null;   // {chars:[{ch,x,y}], cw, ch}
   let _sfResizeTimer   = 0;
   let _sfMode          = 'cam';  // 'cam' | 'audio'
@@ -20166,13 +20113,13 @@ if (screen.width > 768) {
   // Temporal smoothing of the raw confidence/binary mask — reallocates on
   // size change. Feeds the distance field so silhouette edges glide instead
   // of jittering frame to frame.
-  function _sfSmoothMask(raw, W, H) {
+  function _sfSmoothMask(raw, W, H, blend = 0.35) {
     const n = W * H;
     if (!_sfMaskSmooth || _sfMaskSmooth.length !== n) {
       _sfMaskSmooth = new Float32Array(raw);
       return _sfMaskSmooth;
     }
-    for (let i = 0; i < n; i++) _sfMaskSmooth[i] += (raw[i] - _sfMaskSmooth[i]) * 0.35;
+    for (let i = 0; i < n; i++) _sfMaskSmooth[i] += (raw[i] - _sfMaskSmooth[i]) * blend;
     return _sfMaskSmooth;
   }
   function _sfFont()     { return `bold ${_sfFontSize()}px monospace`; }
@@ -20220,7 +20167,6 @@ if (screen.width > 768) {
 
 
   // ── Elements ────────────────────────────────────────────────────────
-  const sfVid     = document.getElementById('sflowVid');
   const sfCanvas  = document.getElementById('sflowCanvas');
   const sfBadge   = document.getElementById('sflowStatusBadge');
   const sfCtx     = sfCanvas.getContext('2d', { willReadFrequently: true });
@@ -20263,25 +20209,6 @@ if (screen.width > 768) {
       tctx.globalAlpha = 0.5;
       tctx.drawImage(_sfTrailCanvas, off, off);
       tctx.restore();
-    }
-  }
-
-  // ── MediaPipe init (lazy) ───────────────────────────────────────────
-  async function _sfInitSegmenter() {
-    if (_sfSegInitDone)  return true;
-    if (_sfSegInitBusy)  return false;
-    _sfSegInitBusy = true;
-    _sfBadge('FLOW — loading AI…');
-    try {
-      _sfSegmenter = await createPersonSegmenter();
-      _sfSegInitDone = true;
-      _sfSegInitBusy = false;
-      return true;
-    } catch (e) {
-      console.warn('SF segmenter init failed', e);
-      _sfBadge('FLOW — AI unavailable');
-      _sfSegInitBusy = false;
-      return false;
     }
   }
 
@@ -20629,43 +20556,51 @@ if (screen.width > 768) {
   async function _sfDrawFrame() {
     if (_sfMode === 'audio') { await _sfLoopAudio(); return; }
 
-    if (!sfVid.videoWidth || sfVid.readyState < 2) return;
+    if (!vid.videoWidth || vid.readyState < 2) return;
 
-    const VW = sfVid.videoWidth;
-    const VH = sfVid.videoHeight;
+    // FLOW usa la cámara de la app, no una propia: el cuadro llega por la vía rápida
+    // (sensor.js) y solo si no existe se dibuja el elemento de vídeo.
+    flipSensor.prime(vid);
+    const fast = flipSensor.current(vid, 150);
+    if (!fast && flipSensor.usable(vid) && flipSensor.pending(vid)) return;
+    const camSrc = fast ? fast.canvas : vid;
+    const VW = fast ? fast.width : vid.videoWidth;
+    const VH = fast ? fast.height : vid.videoHeight;
     const CW = sfCanvas.width;
     const CH = sfCanvas.height;
     if (!CW || !CH) return;
 
-    // ── Run segmentation ─────────────────────────────────────────────
-    if (!_sfSegmenter) {
-      // The user can frame the shot while segmentation loads, or use the camera offline.
+    // ── Silueta ──────────────────────────────────────────────────────
+    // El detector compartido infiere en su worker; aquí se le ofrece el cuadro y se usa la
+    // última máscara. Sin máscara todavía (cargando o sin red) se ve la cámara tal cual.
+    flipSilhouette.push(camSrc, 0, 0, VW, VH, false);
+    const detected = flipSilhouette.latest();
+    if (!detected) {
       const [sx, sy, sw, sh] = cropCoordsForDims(VW, VH, CW, CH);
-      sfCtx.drawImage(sfVid, sx, sy, sw, sh, 0, 0, CW, CH);
+      sfCtx.drawImage(camSrc, sx, sy, sw, sh, 0, 0, CW, CH);
+      const phase = flipSilhouette.status();
+      if (phase.phase === 'failed') _sfBadge('FLOW — ' + phase.message);
+      else if (phase.phase === 'loading') _sfBadge('FLOW — cargando el detector de siluetas…');
       return;
     }
-    let maskRaw = null;
-    let maskW   = 0;
-    let maskH   = 0;
-    try {
-      const result = _sfSegmenter.segmentForVideo(sfVid, performance.now());
-      if (result?.confidenceMasks?.[0]) {
-        maskRaw = _sfSmoothMask(result.confidenceMasks[0].getAsFloat32Array(), result.confidenceMasks[0].width, result.confidenceMasks[0].height);
-        maskW   = result.confidenceMasks[0].width;
-        maskH   = result.confidenceMasks[0].height;
-      }
-      result?.close?.();
-    } catch (_) { return; }
-    if (!maskRaw) return;
+    if (sfBadge.textContent) _sfBadge('');
+    const maskW = detected.width;
+    const maskH = detected.height;
 
     _sfUpdateEff();
-    const maskArr = maskRaw;
-
     // ── Compute aura depth in mask px (scale) ───────────────────────
     const auraDepth = SF_AURA_DEPTH[_sfAuraKey] || SF_AURA_DEPTH.m;
 
-    // Build vectors from mask
-    const { dist, nx, ny } = _sfBuildVectors(maskArr, maskW, maskH, auraDepth, _sfEff.thresh / 100);
+    // El campo de distancias solo se rehace cuando llega una máscara nueva o cambia un ajuste.
+    const vectorsKey = auraDepth + ':' + Math.round(_sfEff.thresh);
+    if (detected.seq !== _sfMaskSeq || vectorsKey !== _sfVectorsKey || !_sfVectors) {
+      if (detected.seq !== _sfMaskSeq) _sfSmoothMask(detected.data, maskW, maskH, 0.6);
+      _sfMaskSeq = detected.seq;
+      _sfVectorsKey = vectorsKey;
+      _sfVectors = _sfBuildVectors(_sfMaskSmooth, maskW, maskH, auraDepth, _sfEff.thresh / 100);
+    }
+    const maskArr = _sfMaskSmooth;
+    const { dist, nx, ny } = _sfVectors;
 
     // ── Colour ──────────────────────────────────────────────────────
     let inkHex;
@@ -20696,7 +20631,7 @@ if (screen.width > 768) {
     // Each glyph samples the same point in the full camera frame as the cover crop.
     const scaleX = maskW / dw, scaleY = maskH / dh;
     sfCtx.globalAlpha = _sfEff.dim / 100;
-    sfCtx.drawImage(sfVid, dx, dy, dw, dh);
+    sfCtx.drawImage(camSrc, dx, dy, dw, dh);
     sfCtx.globalAlpha = 1;
 
     // ── Build/use Pretext grid ───────────────────────────────────────
@@ -20819,11 +20754,6 @@ if (screen.width > 768) {
   function _sfStartAudioMode() {
     flowGeneration++;
     _sfMode = 'audio';
-    if (_sfStream) {
-      _sfStream.getTracks().forEach(t => t.stop());
-      _sfStream = null;
-    }
-    sfVid.srcObject = null;
     _sfResize();
     _sfAudioStartT = performance.now();
     _sfActive = true;
@@ -20839,53 +20769,33 @@ if (screen.width > 768) {
   };
 
   // ── Start camera ────────────────────────────────────────────────────
+  // FLOW comparte la cámara de la app. Con una cámara propia, en Android había que cerrar una
+  // y abrir otra al entrar y al salir del módulo, y la segunda apertura podía fallar.
   async function _sfStart(facing) {
     const generation = ++flowGeneration;
     if (extAudioMode && extAnalyser) { _sfStartAudioMode(); return; }
     _sfMode = 'cam';
-    _sfFacing = facing || _sfFacing;
     _sfMaskSmooth = null;
-    _sfBadge('FLOW — starting…');
-
-    // Stop any existing stream
-    if (_sfStream) {
-      _sfStream.getTracks().forEach(t => t.stop());
-      _sfStream = null;
-    }
-    sfVid.srcObject = null;
-
-    // Get own stream
+    _sfMaskSeq = -1;
+    _sfVectors = null;
+    _sfBadge('FLOW — iniciando cámara…');
     try {
-      const next = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: _sfFacing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false,
-      });
-      if (generation !== flowGeneration) {
-        next.getTracks().forEach(track => track.stop());
-        return;
-      }
-      _sfStream = next;
-      sfVid.srcObject = next;
-      await sfVid.play();
-      await _waitForVideoReady(sfVid);
+      if (facing && facing !== facingMode) { await startCamera(facing); facingMode = facing; }
+      else if (!stream) await startCamera(facingMode);
       if (generation !== flowGeneration) return;
     } catch (e) {
       if (generation !== flowGeneration) return;
-      _sfStream?.getTracks().forEach(track => track.stop());
-      _sfStream = null;
-      sfVid.srcObject = null;
       console.warn('SF cam error', e);
-      // F5 — móvil: el mic convive con la cámara, no la reemplaza (a diferencia de EXT
-      // AUDIO clásico de desktop). Por eso la prioridad se invierte respecto a desktop:
-      // acá SIEMPRE se intenta cámara primero (arriba); solo si falla/no está disponible
-      // caemos al blob de audio del mic como fallback.
+      // F5 — móvil: el mic convive con la cámara; solo si la cámara no está disponible se cae
+      // al blob de audio del mic.
       if (extMicOnlyMode && extAnalyser) { _sfStartAudioMode(); return; }
-      _sfBadge('FLOW — camera denied');
+      _sfBadge('FLOW — sin cámara');
       return;
     }
 
-    // Begin preview immediately while the model loads.
-    _sfInitSegmenter().then(ok => {
-      if (generation === flowGeneration) _sfBadge(ok ? '' : 'FLOW — cámara sin segmentación');
+    // La vista previa empieza ya; el detector de siluetas se carga mientras tanto.
+    flipSilhouette.start().then(ok => {
+      if (generation === flowGeneration && !ok) _sfBadge('FLOW — ' + flipSilhouette.status().message);
     });
 
     _sfResize();
@@ -20894,11 +20804,18 @@ if (screen.width > 768) {
     cancelAnimationFrame(_sfRafId);
     _sfRafId = requestAnimationFrame(_sfLoop);
   }
+  // Al entrar en el módulo arranca solo; ya no hace falta pulsar CAM.
+  window._sflowAutoStart = function() {
+    if (!_sfActive) _sfStart();
+  };
+  sfCanvas.addEventListener('click', () => {
+    if (flipSilhouette.status().phase === 'failed') { _sfBadge('FLOW — cargando el detector de siluetas…'); flipSilhouette.retry(); }
+  });
 
   // Exposed so startMicOnly() can re-acquire FLOW's own camera stream when iOS
   // kills it after a second getUserMedia(audio) call (see F4 mic móvil).
   window._sflowRestartCam = function() {
-    if (_sfActive && _sfMode === 'cam') { _sfStart(_sfFacing); }
+    if (_sfActive && _sfMode === 'cam' && !stream) startCamera(facingMode).catch(() => {});
   };
 
   // ── Stop (exposed globally so switchTab can call it) ────────────────
@@ -20909,15 +20826,10 @@ if (screen.width > 768) {
     _sfMode = 'cam';
     cancelAnimationFrame(_sfRafId);
     _sfRafId = 0;
-    if (_sfStream) {
-      _sfStream.getTracks().forEach(t => t.stop());
-      _sfStream = null;
-    }
-    sfVid.srcObject = null;
     // Clear canvas
     sfCtx.clearRect(0, 0, sfCanvas.width, sfCanvas.height);
     if (_sfTrailCanvas) _sfTrailCtx.clearRect(0, 0, _sfTrailCanvas.width, _sfTrailCanvas.height);
-    _sfBadge('FLOW — press CAM to start');
+    _sfBadge('FLOW — toca CAM para empezar');
   }
 
   // ── Button: CAM ─────────────────────────────────────────────────────
@@ -20925,18 +20837,14 @@ if (screen.width > 768) {
     if (_sfActive) {
       _sflowStop();
     } else {
-      _sfStart(_sfFacing);
+      _sfStart();
     }
   });
 
   // ── Button: FLIP ────────────────────────────────────────────────────
   document.getElementById('btnSflowFlip').addEventListener('click', () => {
-    const next = _sfFacing === 'user' ? 'environment' : 'user';
-    if (_sfActive) {
-      _sfStart(next);
-    } else {
-      _sfFacing = next;
-    }
+    if (_sfActive && _sfMode === 'cam') _sfStart(facingMode === 'user' ? 'environment' : 'user');
+    else _toggleCamera();
   });
 
   // ── Color picker ────────────────────────────────────────────────────

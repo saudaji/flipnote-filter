@@ -280,7 +280,8 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
 function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
   let V = state.vector;
   if (!V || V.cols !== cols || V.rows !== rows) V = state.vector = createVectorState(cols, rows);
-  if (reset) { V.frames.length = 0; V.drawn.fill(0); V.primed = false; }
+  if (!V.pool) V.pool = [];
+  if (reset) { for (const old of V.frames) V.pool.push(old.layer); V.frames.length = 0; V.drawn.fill(0); V.primed = false; }
   const palette = _oscamColorBasis();
   const chains = vectorContours(V, luma, oscamIntensityVal / 100, oscamDefinitionVal / 100, !V.primed);
   V.primed = true;
@@ -311,7 +312,29 @@ function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
   const frames = V.frames;
   // Una toma suelta (foto) no tiene historia: se le da la luz acumulada de un trazo quieto.
   const settled = frames.length ? 1 : 2;
-  frames.push({ time: now, path, dots, energy });
+  const base = palette.base.join(','), hot = palette.hot.join(',');
+  // Cada cuadro se traza una sola vez en su propia capa; el resplandor de los cuadros anteriores
+  // se compone con imágenes. Volver a trazar toda la historia en cada cuadro (ocho trazos de
+  // miles de segmentos) dejaba la pantalla de un Pixel 10 en 20 fps. Las capas se reducen en
+  // lienzos grandes para acotar la memoria; el trazo no baja de un píxel de capa.
+  const layerScale = Math.min(1, Math.sqrt(520000 / (w * h)));
+  const lw = Math.max(1, Math.round(w * layerScale)), lh = Math.max(1, Math.round(h * layerScale));
+  const layer = V.pool.pop() || document.createElement('canvas');
+  if (layer.width !== lw || layer.height !== lh) { layer.width = lw; layer.height = lh; }
+  const pen = layer.getContext('2d');
+  pen.setTransform(lw / w, 0, 0, lh / h, 0, 0);
+  pen.globalCompositeOperation = 'source-over';
+  pen.globalAlpha = 1;
+  pen.clearRect(0, 0, w, h);
+  pen.globalCompositeOperation = 'lighter';
+  pen.lineCap = 'round';
+  pen.lineJoin = 'round';
+  pen.strokeStyle = 'rgb(' + base + ')';
+  pen.lineWidth = Math.max(core * 0.9, 1.05 / layerScale);
+  pen.stroke(path);
+  pen.fillStyle = 'rgba(' + hot + ',0.893)';
+  pen.fill(dots);
+  frames.push({ time: now, path, dots, energy, layer });
 
   ctx.save();
   ctx.globalAlpha = 1;
@@ -330,38 +353,55 @@ function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
   ctx.stroke();
 
   ctx.globalCompositeOperation = 'lighter';
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  const base = palette.base.join(','), hot = palette.hot.join(',');
   // El trazo nuevo es del color del fósforo; el blanco del núcleo sale de la luz que se acumula.
   const fresh = palette.base.map((v, k) => Math.round(v + (palette.hot[k] - v) * 0.35)).join(',');
   let first = 0;
-  for (let i = 0; i < frames.length; i++) {
+  const smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = true;
+  for (let i = 0; i < frames.length - 1; i++) {
     const frame = frames[i], age = now - frame.time;
     const weight = age <= 0 ? 1 : 0.8 * Math.exp(-age / tauFast) + 0.2 * Math.exp(-age / tauSlow);
     if (weight < 0.02) { first = i + 1; continue; }
-    const current = i === frames.length - 1;
-    const level = weight * frame.energy * (current ? settled : 1);
-    if (current && glow > 0) {
-      // Halo del vidrio y dispersión del fósforo: ancho y tenue alrededor del núcleo.
-      ctx.strokeStyle = 'rgba(' + base + ',' + Math.min(1, 0.05 * glow * level * 2).toFixed(3) + ')';
-      ctx.lineWidth = core * 7.5;
-      ctx.stroke(frame.path);
-      ctx.strokeStyle = 'rgba(' + base + ',' + Math.min(1, 0.2 * glow * level * 2).toFixed(3) + ')';
-      ctx.lineWidth = core * 2.8;
-      ctx.stroke(frame.path);
-    }
-    ctx.strokeStyle = 'rgba(' + (current ? fresh : base) + ',' + Math.min(1, 0.56 * level).toFixed(3) + ')';
-    ctx.lineWidth = current ? core : core * 0.9;
-    ctx.stroke(frame.path);
-    ctx.fillStyle = 'rgba(' + hot + ',' + Math.min(1, 0.5 * level).toFixed(3) + ')';
-    ctx.fill(frame.dots);
-    if (current) {
-      ctx.fillStyle = 'rgba(' + base + ',' + Math.min(1, 0.26 * (0.4 + glow) * level).toFixed(3) + ')';
-      ctx.fill(flare);
-    }
+    ctx.globalAlpha = Math.min(1, 0.56 * weight * frame.energy);
+    ctx.drawImage(frame.layer, 0, 0, w, h);
   }
-  if (first) frames.splice(0, first);
+  ctx.imageSmoothingEnabled = smooth;
+  ctx.globalAlpha = 1;
+  {
+    const level = energy * settled;
+    if (glow > 0) {
+      // Halo del vidrio y dispersión del fósforo: la capa del cuadro, reducida a la mitad tres
+      // veces y devuelta a su tamaño. Dos trazos anchos costaban más que todo lo demás.
+      const bloom = V.bloom || (V.bloom = [0, 1, 2].map(() => document.createElement('canvas')));
+      let from = layer, bw = lw, bh = lh;
+      for (const small of bloom) {
+        bw = Math.max(1, bw >> 1); bh = Math.max(1, bh >> 1);
+        if (small.width !== bw || small.height !== bh) { small.width = bw; small.height = bh; }
+        const g = small.getContext('2d');
+        g.globalCompositeOperation = 'copy';
+        g.imageSmoothingEnabled = true;
+        g.drawImage(from, 0, 0, bw, bh);
+        from = small;
+      }
+      const soft = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = true;
+      ctx.globalAlpha = Math.min(1, 0.67 * glow * level);
+      ctx.drawImage(bloom[2], 0, 0, w, h);
+      ctx.drawImage(bloom[0], 0, 0, w, h);
+      ctx.globalAlpha = 1;
+      ctx.imageSmoothingEnabled = soft;
+    }
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(' + fresh + ',' + Math.min(1, 0.56 * level).toFixed(3) + ')';
+    ctx.lineWidth = core;
+    ctx.stroke(path);
+    ctx.fillStyle = 'rgba(' + hot + ',' + Math.min(1, 0.5 * level).toFixed(3) + ')';
+    ctx.fill(dots);
+    ctx.fillStyle = 'rgba(' + base + ',' + Math.min(1, 0.26 * (0.4 + glow) * level).toFixed(3) + ')';
+    ctx.fill(flare);
+  }
+  if (first) for (const old of frames.splice(0, first)) V.pool.push(old.layer);
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = 'rgb(' + hot + ')';
   ctx.font = Math.max(11, w / 57) + 'px monospace';

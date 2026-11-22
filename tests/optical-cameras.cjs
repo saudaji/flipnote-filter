@@ -92,11 +92,8 @@ async function main() {
     await page.evaluate(() => {
       const mask = new Float32Array(64 * 64);
       for (let row = 18; row < 46; row++) mask.fill(1, row * 64 + 24, row * 64 + 40);
-      createPersonSegmenter = async () => ({
-        segmentForVideo: () => ({
-          confidenceMasks: [{ width: 64, height: 64, getAsFloat32Array: () => mask }],
-        }),
-      });
+      // Máscara conocida en lugar del detector de siluetas.
+      flipSilhouette.use(() => ({ data: mask, width: 64, height: 64 }));
       window._sfParams.trail = 0;
       window.flowGlyphs = [];
       const ctx = document.getElementById('sflowCanvas').getContext('2d');
@@ -107,8 +104,8 @@ async function main() {
         originalText(ch, x, y);
       };
     });
+    // FLOW arranca solo al entrar en el módulo.
     await page.locator('#modulePicker').selectOption('sflow');
-    await page.locator('#btnSflowCam').click();
     await page.waitForFunction(() => window.flowGlyphs.length >= 5);
     const center = await page.evaluate(
       () => flowGlyphs.reduce((a, b) => a + b, 0) / flowGlyphs.length,

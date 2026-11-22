@@ -55,6 +55,8 @@ async function main() {
     const output = await popup;
     output.on('pageerror', error => errors.push(error.message));
     await hasImage(output, 'stageOutCanvas');
+    await page.locator('#stageSrcAudioMic').click();
+    await output.waitForFunction(() => extMicStream?.getAudioTracks().length > 0);
     await output.close();
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.context().setOffline(true);

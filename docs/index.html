@@ -2150,7 +2150,11 @@
        (#stageout) builds its own minimal CSS/canvas at runtime — see
        IS_STAGE_OUT near the top of the script.
     ══════════════════════════════════════════════════ */
-    #stageArea { display:none; padding:8px 10px 4px; }
+    #stageArea {
+      display:none; position:fixed; inset:40px 0 88px; overflow:auto;
+      padding:16px max(64px, calc((100vw - 820px) / 2)) 24px;
+    }
+    @media (max-width:780px) { #stageArea { padding:12px 62px 18px 12px; } }
     #stageArea.visible { display:block; }
     .stage-ctl-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:6px 0; }
     .stage-ctl-select { width:100%; background:#111; color:#fff; border:1px solid var(--dark); font-family:monospace; font-size:11px; padding:6px; }
@@ -2158,7 +2162,13 @@
     #stagePreviewLabel { color:var(--mid); font-size:9px; letter-spacing:1px; max-width:140px; }
     #stageOutStatus { color:var(--mid); font-size:10px; letter-spacing:1px; }
     #barStage { display:none; }
-    #barStage.visible { display:flex; }
+    #barStage.visible {
+      display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); align-items:center;
+      position:fixed; inset:auto 0 0; min-height:80px; padding:4px 6px;
+      border-top:2px solid var(--dark); background:var(--ink); z-index:12;
+    }
+    #barStage .btn { min-width:0; }
+    #barStage .btn-label { white-space:normal; text-align:center; }
     #btnStageRec.recording .btn-icon { background:#bb0000; border-color:#ff4444; animation:pulse 1s ease-in-out infinite; }
     /* ── OUTPUT window (#stageout) — hides all normal chrome, shows only
        the fullscreen output canvas created dynamically in JS. ── */
@@ -4092,7 +4102,7 @@
     <button class="edit-src-pill" id="stageSrcAudioMic" data-stage-audio="mic">🎙 MIC</button>
     <button class="edit-src-pill" id="stageSrcAudioExt" data-stage-audio="ext">🎚 EXT</button>
   </div>
-  <select id="stageAudioDevice" class="stage-ctl-select" style="display:none;"></select>
+  <select id="stageAudioDevice" aria-label="Entrada de audio de STAGE" class="stage-ctl-select" style="display:none;"></select>
   <div id="stageLayersList"></div>
   <div class="edit-add-row">
     <button class="edit-add-btn" id="btnStageAddCam">+ CAPA CAM</button>
@@ -4113,7 +4123,7 @@
   </div>
   <div class="stage-ctl-row">
     <canvas id="stagePreviewCanvas" width="320" height="240"></canvas>
-    <div id="stagePreviewLabel">PREVIEW (no es espejo exacto de la SALIDA)</div>
+    <div id="stagePreviewLabel">Vista previa de las capas</div>
   </div>
   <div class="stage-ctl-row">
     <span id="stageOutStatus">SALIDA: cerrada</span>

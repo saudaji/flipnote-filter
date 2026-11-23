@@ -4,9 +4,11 @@ Rama `fable/public-alpha-pass2`, sobre `1ebfa47` (lo publicado en `main`). Tres 
 usar la versión publicada en un teléfono: se calienta muy rápido; PORTAL reconoce mal los dedos
 («muy torpe, no hace bien las figuras»); y en un iPhone la app se queda en blanco.
 
-Todo lo de abajo está medido en el Mac (Chrome y WebKit de Playwright). **Nada de esta pasada se
-ha medido en un teléfono**: el de pruebas estaba enchufado con la depuración por USB apagada, y
-del iPhone no hay modelo ni versión. Qué falta, en el apartado 6.
+Casi todo está medido en el Mac (Chrome y WebKit de Playwright). Al final de la pasada se pudo
+usar un teléfono de verdad (un Samsung Galaxy, Chrome 158): ahí se midió el calor, con la versión
+publicada y con esta, y PORTAL con manos reales (apartado 6). Lo que salió de esa prueba cambió
+el clic de PORTAL y trajo dos cosas nuevas: fijar dejando el marco quieto y elegir la forma de la
+ventana. Del iPhone sigue sin haber modelo ni versión. Qué falta, en el apartado 7.
 
 Antes de publicar, el diff se repasó línea a línea dos veces (una lectura propia y otra
 independiente). Salieron fallos que las pruebas no veían, algunos metidos por esta misma pasada;
@@ -101,9 +103,8 @@ teclas sigue como en la versión publicada.
 | Detecciones del rastreador sin manos delante | sin límite (30 o más por segundo, y el doble calibrando) | 5,7 por segundo |
 
 CAM ya gastaba poco en el Mac; lo que le toca en un teléfono es la cámara a 30 en vez de a 60,
-que aquí no se ve (la cámara simulada no tiene sensor). **La temperatura no se ha medido**: para
-eso está `tests/device/pixel-heat.cjs`, que lee del teléfono por adb (batería, piel, chip, estado
-térmico y CPU de Chrome por módulo) y aún no se ha podido correr.
+que aquí no se ve (la cámara simulada no tiene sensor). Lo medido en un teléfono, con
+temperaturas, está en el apartado 6.
 
 ## 3 · El iPhone en blanco
 
@@ -175,6 +176,8 @@ teclas no funcionaba allí; ahora se sujeta la referencia.
   original y desde lo publicado (73 archivos, todos de la versión nueva; de lo publicado a esta se
   descargan 8 y los otros 65 solo se comprueban); con el service worker anterior, falla.
 - Recorrido exploratorio (`explore.cjs`), semillas 7 y 41: sin errores.
+- `portal.cjs` cubre además las tres formas con su tecla, el «quieto» (fija, no repite en el
+  sitio, no fija un marco que se mueve) y el clic con una mano simulada de dedo medio recogido.
 - Herramientas nuevas: `tests/energy.cjs` (consumo por módulo), `tests/old-safari-css.cjs` (qué
   pinta la app sin el CSS que un Safari antiguo no entiende) y, para el teléfono,
   `tests/device/pixel-heat.cjs` y `pixel-crt.cjs`.
@@ -200,18 +203,79 @@ Para probar el clic y el camino sin WebGL como en un teléfono, el rastreador si
 pruebas puede contestar con retraso (las manos de hace 90 o 130 ms), y se puede perder y devolver
 el contexto de WebGL.
 
-## 6 · Sin verificar
+## 6 · En un teléfono de verdad
 
-- **Todo esto en un teléfono.** Ni la temperatura, ni el PORTAL nuevo con manos reales, ni la
-  cámara a 30. Con el teléfono por USB y la depuración activa:
-  `node tests/device/pixel-open.cjs && node tests/device/pixel-heat.cjs 90` (con la app publicada
-  y con esta, dejando enfriar entre medias) y `node tests/device/pixel-crt.cjs`.
+Un Samsung Galaxy con Chrome 158, por USB (`tests/device/`). La app arranca sin tropiezos, la
+cámara entrega 30 cuadros por segundo (29,5 medidos) y PORTAL sube la cámara por planos (I420) con
+dibujo acelerado.
+
+### Calor
+
+`pixel-heat.cjs`: 40 segundos por módulo, con la versión publicada y con esta en el mismo origen,
+y tres minutos de enfriado entre una y otra. CPU en tanto por ciento de un núcleo (los procesos de
+Chrome: página y gráficos).
+
+| | Publicada | Esta |
+|---|---|---|
+| Cámara, en todos los módulos | 60 cuadros por segundo | 30 |
+| PORTAL sin manos · CPU página + gráficos | 166 % + 58 % | 79 % + 38 % |
+| PORTAL sin manos · detecciones por segundo | 15 | 6 |
+| PORTAL sin manos · el chip, en 40 s | 38,0 → 44,5 °C | 36,4 → 38,3 °C |
+| PORTAL sin manos · la batería, en 40 s | 32,1 → 34,1 °C | 32,5 → 32,9 °C |
+| FLOW · CPU página + gráficos | 147 % + 73 % | 115 % + 58 % |
+| CAM (DSI, VFD · CRT, STAMP) | 42–69 % + 18–26 % | 38–67 % + 16–25 % |
+| STAGE · DIRECTO | 59 % + 54 % | 60 % + 55 % |
+
+El estado térmico del teléfono no pasó de «normal» en ninguna de las dos (son tramos cortos). En
+CAM lo que gasta Chrome casi no cambia: lo que se ahorra ahí es la cámara a 30 en vez de a 60, que
+trabaja fuera de esos dos procesos y esta medida no ve. El ahorro de PORTAL es sin manos delante
+(o con portales fijados y nadie delante); con manos, el rastreador va al máximo que da el teléfono
+en las dos versiones, y eso no se ha medido.
+
+### PORTAL con manos reales
+
+Cámara frontal y cuatro tandas de medio minuto, apuntando el estado diez veces por segundo y una
+captura cada dos segundos y medio (evidencia local).
+
+- **La figura va cosida a las yemas.** En las doce capturas de la primera tanda las cuatro
+  esquinas caen sobre índices y pulgares (rectángulo, figura cruzada, inclinada, pinza cerrada).
+  Con las dos manos a la vista la ventana estuvo abierta el 98 % del tiempo, sin cierres bruscos.
+- Rastreador (delegado de CPU): de 12 a 18 detecciones por segundo, de 47 a 79 ms cada una. La
+  imagen va entre 100 y 160 ms por detrás.
+- **El clic de anular y pulgar casi no entraba**, y no por lo que arregló el repaso. Con los
+  dedos tocándose, las dos yemas coinciden en la imagen (0,2–0,35 tamaños de mano, frente a
+  0,9–1,1 en reposo), pero la distancia en 3D que estima el modelo se queda en 1,7–1,9 veces el
+  umbral, y da el índice por pegado al pulgar. Solo entró pellizcando con las dos manos a la vez.
+  Ahora se decide en la imagen y el 3D queda de freno; vale el anular o el medio; y un clic es un
+  acercamiento nuevo (350 ms sin tocar antes), sin depender de la postura de reposo de cada mano.
+  En la tanda siguiente entraron los tres toques hechos con el índice estirado, y después quien
+  probaba fijó ocho más. Si el índice se va con los otros dedos hasta el pulgar, no cuenta: esa
+  pinza es la que cierra la L.
+- **Quieto para fijar** (nuevo). Sostener el marco lo mueve entre un 1,6 y un 2,3 % del lado
+  corto del visor en un segundo; moverlo con normalidad, del 10 al 40 %. Con el marco quieto
+  (tolerancia: 3 %), a los 0,3 s aparece un anillo que se llena en 0,8 s y fija el portal. Moverse
+  lo cancela, y tras fijar hay que mover el marco para rearmarlo.
+- **Selector de forma** (nuevo). Una tecla junto a FIJAR pasa de cuadro a círculo (el óvalo que
+  pasa por el centro de los cuatro lados) y a triángulo (la punta entre los índices, la base en los
+  pulgares). Cambia la ventana viva y el portal elegido, y se recuerda de una visita a otra.
+
+En el teléfono y con manos simuladas, las tres formas cambian con su tecla, el anillo se ve
+mientras cuenta y el portal fijado conserva su forma.
+
+## 7 · Sin verificar
+
+- **«Quieto para fijar» y las formas, con manos reales.** En el teléfono solo se han visto con
+  manos simuladas: falta juzgar a mano si el segundo de espera se queda corto o largo y si fija
+  portales sin querer.
+- **Otros teléfonos y otras manos.** Las cifras son de un Samsung Galaxy y el clic está afinado
+  con las manos de una persona. El teléfono de quien avisó del calor es otro modelo.
+- **PORTAL con manos delante, en consumo.** Medido solo sin manos.
 - **El iPhone.** No se sabe el modelo, la versión de iOS, ni si se queda en blanco al abrir, al
-  encender la cámara o en un módulo. Las tres causas de arriba están arregladas o reducidas, pero
+  encender la cámara o en un módulo. Las causas del apartado 3 están arregladas o reducidas, pero
   ninguna está confirmada como la suya. Si vuelve a pasar, la pantalla de aviso dirá el motivo.
 - **El retraso del visor de PORTAL a ojo**: si una o dos décimas por detrás se sienten bien.
-- **El clic de anular y pulgar con manos reales**: los 230 ms salen de cómo se comportaba la
-  versión publicada; en el vídeo de referencia no hay clics con los que afinarlo.
-- Si un teléfono concreto ignora la petición de 30 cuadros por segundo.
+- Los 230 ms que retrocede el clic para fijar la figura de antes salen de cómo se comportaba la
+  versión publicada: no se han afinado con manos reales.
+- Si algún teléfono ignora la petición de 30 cuadros por segundo (el Samsung la respeta).
 - Lo que ya estaba pendiente: el clic de las teclas a oído, «este ordenador» como entrada de
   sonido, un controlador MIDI real, el audio de los MP4 en Opus.

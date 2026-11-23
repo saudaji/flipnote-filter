@@ -108,13 +108,14 @@ térmico y CPU de Chrome por módulo) y aún no se ha podido correr.
 ## 3 · El iPhone en blanco
 
 No se reproduce en WebKit actual (el motor de Safari, con forma de iPhone): la portada carga, las
-22 cámaras pintan y PORTAL y STAGE abren. Sí se reproducen, forzándolas, dos causas reales de
-pantalla vacía, y hay una tercera probable:
+22 cámaras pintan y PORTAL y STAGE abren. Sí se reproducen, forzándolas, tres causas reales de
+app rota o pantalla vacía, y hay una cuarta probable:
 
 | Causa | Qué pasaba | Estado |
 |---|---|---|
 | **Almacenamiento bloqueado** (Safari con «Bloquear todas las cookies», o un navegador dentro de otra app): solo nombrar `localStorage` lanza un error | El guion principal se cortaba al cargar: la app no arrancaba | Arreglado: se usa una copia en memoria (los ajustes no se recuerdan entre visitas, la cámara funciona). Con prueba |
 | **Un módulo que falla al iniciarse** (PORTAL, STAGE) deja su nombre declarado y sin valor | El bucle de la cámara preguntaba por él en cada cuadro, lanzaba, y el visor quedaba vacío | Arreglado: se pregunta por `window.flipPortal`. Con prueba |
+| **Una actualización a medias.** El service worker llenaba su caché pasando por la caché HTTP del navegador, y GitHub Pages da cada archivo por válido diez minutos | Quien había abierto la app poco antes de una publicación se quedaba con archivos de la versión vieja guardados con el nombre de la nueva: la página vieja o, peor, una mezcla de página vieja y piezas nuevas, que puede no arrancar. Y así hasta la siguiente publicación, porque la app se sirve siempre de esa caché | Arreglado: cada archivo se comprueba con el servidor (lo que no cambió no se vuelve a descargar). Con prueba (`tests/update-cache.cjs`, con las cabeceras de GitHub Pages): antes quedaban viejos `index.html` y siete piezas; ahora, ninguno de los 73 |
 | **Memoria de lienzos.** iOS limita el total de lienzos de una página; al pasarse, los nuevos salen vacíos sin error | La app mantenía vivas las capas de todas las cámaras y módulos a la vez: 72 MB con solo la portada, 214 MB en vertical con fotos en alta | Reducido a menos de la mitad (tabla). Sin confirmar que fuera esto |
 
 | Megas de lienzos vivos | Publicado | Ahora |
@@ -129,6 +130,11 @@ pantalla vacía, y hay una tercera probable:
 pinta, y se sueltan a los seis segundos; la rejilla del CRT es un patrón y no un lienzo del
 tamaño de la foto; STAMP guarda dos marcos en vez de seis; los lienzos auxiliares de SONO solo
 existen con SONO abierto; PORTAL suelta sus colas y los estilos de sus ventanas al salir.)
+
+La actualización a medias encaja con «en un iPhone se queda en blanco y en otros teléfonos va
+bien», pero no está confirmado que fuera eso. Si lo era, esta versión lo cura sola: el service
+worker nuevo se instala aunque la página esté rota, y a la siguiente apertura sirve la versión
+entera.
 
 Y para que no vuelva a quedarse en blanco sin decir nada, **un vigía de arranque**:
 
@@ -165,6 +171,9 @@ teclas no funcionaba allí; ahora se sujeta la referencia.
   `webkit-smoke.cjs`; `portal.cjs` comprueba la figura por las cuatro yemas, el triángulo, la
   figura cruzada, el retraso de imagen y el descanso del rastreador.
 - Actualización desde la versión publicada antes de la alfa (`update-published.cjs`): pasa.
+- Actualización con la caché HTTP de por medio (`update-cache.cjs`, nueva): pasa desde la app
+  original y desde lo publicado (73 archivos, todos de la versión nueva; de lo publicado a esta se
+  descargan 8 y los otros 65 solo se comprueban); con el service worker anterior, falla.
 - Recorrido exploratorio (`explore.cjs`), semillas 7 y 41: sin errores.
 - Herramientas nuevas: `tests/energy.cjs` (consumo por módulo), `tests/old-safari-css.cjs` (qué
   pinta la app sin el CSS que un Safari antiguo no entiende) y, para el teléfono,
@@ -183,6 +192,7 @@ Dos lecturas del diff completo, línea a línea. Lo que salió y cómo quedó:
 | El primer clic de tecla tras una pausa llegaba tarde o no sonaba | De suspender el audio en las pausas | Medida retirada |
 | Salir de PORTAL mientras cargaba el seguimiento y volver lo dejaba sin rastreador | Anterior a esta pasada | La carga en curso se vuelve a esperar |
 | El vigía contaba como «tropiezo al dibujar» cualquier error, también los avisos inofensivos del navegador | Del vigía | Solo cuenta si el visor se paró de verdad |
+| Tras publicar, el service worker nuevo podía guardar archivos de la versión vieja (salió al ver una copia vieja de la app en un navegador de pruebas) | Anterior a esta pasada: de llenar la caché fiándose de la caché HTTP | Cada archivo se comprueba con el servidor |
 | Al cambiar de formato, las capas de OSCAM se reservaban aunque no se usaran; tras doce fotos de OSCAM, las suyas dejaban de soltarse; los estilos de las ventanas de PORTAL seguían en memoria al salir | De las capas a demanda (lo último, anterior) | Corregido |
 
 Cada arreglo tiene su prueba, y cada prueba se comprobó deshaciendo el arreglo: sin él, falla.

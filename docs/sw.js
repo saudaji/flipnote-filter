@@ -1,4 +1,4 @@
-const CACHE = 'flipnote-filter-v83-portal-calor-iphone';
+const CACHE = 'flipnote-filter-v84-portal-calor-iphone';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './frame-runtime.js', './stamp.js', './optical-scope.js', './night-vision.js', './sensor.js',
   './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './feel.js', './portal.js', './stage.js', './stage.css', './stage-out.html', './hands-worker.js', './pretext.js', './enochian.ttf',
@@ -27,8 +27,15 @@ const VISION = /^https:\/\/(cdn\.jsdelivr\.net\/npm\/@mediapipe\/tasks-vision@|s
 
 // Una alfa nueva sustituye a la anterior en cuanto termina de descargarse: quien llega con
 // la versión vieja instalada no tiene que cerrar todas las pestañas para recibirla.
+// Cada archivo se comprueba con el servidor, sin fiarse de la caché HTTP del navegador. GitHub
+// Pages los da por válidos diez minutos: fiándose de ella, quien abrió la app hace poco guardaría
+// archivos de la versión vieja con el nombre de la nueva —o una mezcla de las dos, que puede no
+// arrancar— y se quedaría así hasta la siguiente publicación, porque la app se sirve siempre de
+// esta caché. («no-cache» pregunta siempre; lo que no ha cambiado no se vuelve a descargar.)
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE)
+    .then(cache => cache.addAll(ASSETS.map(url => new Request(url, { cache: 'no-cache' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {

@@ -161,11 +161,11 @@ async function main() {
       await page.locator('#deckLooks [data-family="' + family + '"]').click();
       await page.locator('#deckAdjust').click();
       assert.ok(await sheetOpen(), 'AJUSTES no abre la hoja en ' + family);
-      // Tocar dentro de la hoja (título y primer deslizador a la vista) no la cierra.
-      await page.locator('#camEditTitle').click();
-      const slider = page.locator('#palettes input[type="range"]:visible').first();
-      if (await slider.count()) await slider.click();
-      assert.ok(await sheetOpen(), 'la hoja de ' + family + ' se cierra al usarla');
+      // Tocar dentro de la consola (otra sección y su primera perilla) no la cierra.
+      await page.locator('#csSections [data-sec="frame"]').click();
+      const knob = page.locator('#palettes .cs-knob:visible').first();
+      if (await knob.count()) await knob.click();
+      assert.ok(await sheetOpen(), 'la consola de ' + family + ' se cierra al usarla');
       await page.locator('#btnCamEditClose').click();
       assert.equal(await sheetOpen(), false, 'LISTO no cierra la hoja en ' + family);
       opened.push(family);

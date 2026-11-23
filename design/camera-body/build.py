@@ -32,7 +32,7 @@ def srgb(hexcode):
 
 
 PALETTE = {
-    'cream': '#E7E0CF', 'cream_hi': '#F0EBDE', 'cream_lo': '#CFC7B3', 'well': '#8D8572',
+    'cream': '#E7E0CF', 'cream_hi': '#F0EBDE', 'cream_lo': '#CFC7B3', 'well': OPTS.get('well', '#8D8572'),
     'key': '#EEE9DC', 'gray': '#B5AFA2', 'coral': '#EC5B45', 'slate': '#566679',
     'mustard': '#F0AE2B', 'blue': '#2F78DC', 'mint': '#33B09F', 'lilac': '#8B79D6',
     'orange': '#F08A2D', 'green': '#3CA956', 'graphite': '#3B3C3F', 'white': '#F4F1EA',
@@ -126,6 +126,34 @@ def lights(scene):
     area('key', (-560, 640, 880), (1000, 700), 2.4e7 * key)
     area('fill', (620, -560, 760), (900, 900), 6.5e6 * key, (1.0, 0.96, 0.9))
     softbox(scene)
+    strip(scene)
+
+
+def strip(scene):
+    """Ventana de luz que solo existe en los reflejos: pone en teclas y botones el brillo nítido de
+    una foto de producto (strip=fuerza; strip_at=x,y; strip_size=ancho,alto). Sin strip, no hay."""
+    power = float(OPTS.get('strip', 0))
+    if power <= 0:
+        return
+    cx, cy = (float(v) for v in OPTS.get('strip_at', '-330,250').split(','))
+    w, h = (float(v) / 2 for v in OPTS.get('strip_size', '420,170').split(','))
+    mesh = bpy.data.meshes.new('strip')
+    mesh.from_pydata([(-w, -h, 0), (w, -h, 0), (w, h, 0), (-w, h, 0)], [], [(0, 3, 2, 1)])
+    obj = bpy.data.objects.new('strip', mesh)
+    obj.location = (cx, cy, 1480)
+    scene.collection.objects.link(obj)
+    obj.visible_camera = False
+    obj.visible_diffuse = False
+    obj.visible_shadow = False
+    mat = bpy.data.materials.new('strip')
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new('ShaderNodeOutputMaterial')
+    emit = nt.nodes.new('ShaderNodeEmission')
+    emit.inputs['Strength'].default_value = power
+    nt.links.new(emit.outputs['Emission'], out.inputs['Surface'])
+    obj.data.materials.append(mat)
 
 
 def softbox(scene):
@@ -223,8 +251,8 @@ def gloss(color):
     """Botón de caramelo: plástico lustroso con una capa de barniz."""
     key = ('gloss', color)
     if key not in MATS:
-        MATS[key] = principled('gloss_' + color, **{'Base Color': srgb(PALETTE.get(color, color)) + (1,), 'Roughness': 0.26, 'Coat Weight': 1.0,
-                                                    'Coat Roughness': 0.05, 'Subsurface Weight': 0.1, 'Subsurface Radius': (2.5, 1.2, 0.8), 'Subsurface Scale': 2.5})
+        MATS[key] = principled('gloss_' + color, **{'Base Color': srgb(PALETTE.get(color, color)) + (1,), 'Roughness': float(OPTS.get('gloss_rough', 0.26)), 'Coat Weight': 1.0,
+                                                    'Coat Roughness': float(OPTS.get('coat_rough', 0.05)), 'Subsurface Weight': 0.1, 'Subsurface Radius': (2.5, 1.2, 0.8), 'Subsurface Scale': 2.5})
     return MATS[key]
 
 
@@ -393,14 +421,15 @@ def keycap(x, y, w, h, color='key', pressed=False, radius=7.0):
     """Tecla de teclado mecánico vista desde arriba: faldón inclinado, canto suave y tapa algo cóncava."""
     travel = -2.6 if pressed else 0.0
     height, inset = 9.0, 4.6
-    well = loft('well', [(loop_points(w + 3.0, h + 3.0, radius + 1.2), -0.2), (loop_points(w + 3.0, h + 3.0, radius + 1.2), 0.25)], plastic('well', 0.7, 0), cap_top=0.0)
+    gap = float(OPTS.get('gap', 1.5))
+    well = loft('well', [(loop_points(w + gap * 2, h + gap * 2, radius + gap * 0.8), -0.2), (loop_points(w + gap * 2, h + gap * 2, radius + gap * 0.8), 0.25)], plastic('well', 0.7, 0), cap_top=0.0)
     cap = loft('keycap', [
         (loop_points(w, h, radius), 0.3 + travel),
         (loop_points(w - 1.0, h - 1.0, radius - 0.3), 2.0 + travel),
         (loop_points(w - inset * 1.7, h - inset * 1.7, max(2.0, radius - 2.2)), height - 1.1 + travel),
         (loop_points(w - inset * 2.0, h - inset * 2.0, max(1.8, radius - 2.6)), height - 0.25 + travel),
         (loop_points(w - inset * 2.5, h - inset * 2.5, max(1.5, radius - 3.0)), height + travel),
-    ], plastic(color, 0.46, 0.55), cap_top=0.7)
+    ], plastic(color, float(OPTS.get('key_rough', 0.46)), 0.55, float(OPTS.get('key_coat', 0.0))), cap_top=0.7)
     for part in (well, cap):
         place(part, x, y)
     return [well, cap]
@@ -410,7 +439,7 @@ def candy(x, y, radius=24, color='coral', pressed=False):
     """Botón redondo lustroso asentado en su hueco."""
     travel = -1.7 if pressed else 0.0
     parts = [
-        lathe('seat', [(0, 0.2), (radius + 1.6, 0.2), (radius + 1.6, -0.2)], 0, plastic('well', 0.7, 0)),
+        lathe('seat', [(0, 0.2), (radius + float(OPTS.get('gap', 1.6)), 0.2), (radius + float(OPTS.get('gap', 1.6)), -0.2)], 0, plastic('well', 0.7, 0)),
         dome('candy', radius, 6.0, 1.9, 2.2, 0.4 + travel, gloss(color)),
     ]
     for part in parts:
@@ -423,7 +452,7 @@ def shutter(x, y, video=False, pressed=False):
     travel = -2.4 if pressed else 0.0
     alu = metal('alu', (0.83, 0.84, 0.86), 0.3, aniso=0.7, radial=True)
     parts = [
-        lathe('sh_seat', [(0, 0.2), (51, 0.2), (51, -0.2)], 0, plastic('well', 0.7, 0)),
+        lathe('sh_seat', [(0, 0.2), (49.5 + float(OPTS.get('gap', 1.5)), 0.2), (49.5 + float(OPTS.get('gap', 1.5)), -0.2)], 0, plastic('well', 0.7, 0)),
         ring('sh_ring', 49.5, 40.5, 5.5, 1.8, 0.3, alu),
         lathe('sh_gap', [(0, 0.6), (40.6, 0.6), (40.6, 0.2)], 0, plastic('graphite', 0.6, 0)),
         dome('sh_cap', 38.0, 8.5, 3.4, 3.2, 1.0 + travel, gloss('coral' if video else 'white')),
@@ -591,4 +620,5 @@ def main():
     print('RENDER_OK', OUT)
 
 
-main()
+if __name__ == '__main__':
+    main()

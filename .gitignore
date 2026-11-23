@@ -5,3 +5,4 @@
 *.nds
 *.mp4
 *.MP4
+__pycache__/

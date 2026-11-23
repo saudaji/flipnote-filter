@@ -102,17 +102,19 @@ async function main() {
     // 6 · Muescas: como mucho una cada 30 ms por mucho que se pida.
     assert.equal(await page.evaluate(() => { let n = 0; for (let i = 0; i < 40; i++) if (flipFeel.detent(120)) n++; return n; }), 1);
     await take();
-    // …y un deslizador marca las suyas al arrastrarlo.
+    // …y una perilla marca las suyas al girarla (la de la cadencia, en la sección CUADRO de la consola).
     await press('#deckAdjust');
+    await page.evaluate(() => { flipConsole.section('frame'); const fps = document.getElementById('camFpsSlider'); fps.value = '24'; fps.dispatchEvent(new Event('input', { bubbles: true })); });
     await take();
-    const slider = page.locator('#palettes input[type="range"]:visible').first();
-    const box = await slider.boundingBox();
-    await page.mouse.move(box.x + 6, box.y + box.height / 2); await page.mouse.down();
-    for (let step = 1; step <= 14; step++) { await page.mouse.move(box.x + 6 + (box.width - 12) * step / 14, box.y + box.height / 2); await page.waitForTimeout(45); }
+    const box = await page.locator('#camFpsCtrl .cs-knob').boundingBox();
+    const kx = box.x + box.width / 2, ky = box.y + box.height / 2;
+    await page.mouse.move(kx, ky); await page.mouse.down();
+    for (let step = 1; step <= 14; step++) { await page.mouse.move(kx, ky + 8 * step); await page.waitForTimeout(45); }
     await page.mouse.up(); await page.waitForTimeout(120);
     got = await take();
     const ticks = got.log.filter(e => e.kind === 'tick');
-    assert.ok(ticks.length >= 4 && ticks.length <= 22, 'muescas del deslizador: ' + ticks.length);
+    assert.ok(ticks.length >= 4 && ticks.length <= 22, 'muescas de la perilla: ' + ticks.length);
+    assert.equal(got.log.some(e => e.kind === 'key' || e.kind === 'soft'), false, 'girar una perilla no suena a tecla');
     for (let i = 1; i < ticks.length; i++) assert.ok(ticks[i].at - ticks[i - 1].at >= 29, 'muescas espaciadas');
     assert.ok(ticks.every(e => e.gain <= kinds.tick.down.gain + 0.001), 'una muesca es lo más discreto');
     await press('#btnCamEditClose');

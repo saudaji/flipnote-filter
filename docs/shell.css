@@ -47,6 +47,18 @@ html, body {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background: var(--cream) url('./body/body.webp') center bottom / 100% auto no-repeat;
 }
+/* El plástico no es un color liso: lleva el grano del molde, la luz le cae desde arriba a la
+   izquierda y el canto de la carcasa la recoge. */
+#camBody::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    linear-gradient(158deg, rgba(255, 255, 255, .2) 0%, rgba(255, 255, 255, 0) 34%, rgba(74, 60, 30, 0) 58%, rgba(74, 60, 30, .13) 100%),
+    url('./body/grain.webp') 0 0 / 112px 112px repeat;
+}
+#camBody::after {
+  content: ''; position: absolute; inset: 0;
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .85), inset 1.5px 0 0 rgba(255, 255, 255, .5), inset -1.5px 0 0 rgba(90, 76, 44, .22), inset 0 -2px 0 rgba(90, 76, 44, .3), inset 0 0 26px rgba(90, 76, 44, .12);
+}
 .tab-bar { display: none !important; }
 
 /* ── Piezas ──────────────────────────────────────────────────────────────── */
@@ -61,25 +73,28 @@ html, body {
   color: var(--ink);
   transition: transform .07s ease-out, color .12s;
 }
-.hw-keycap::before {
+.hw-keycap::before, .hw-keycap::after {
   content: ''; position: absolute; inset: -5px; z-index: -1; pointer-events: none;
-  border-style: solid; border-width: 17px; border-color: transparent;
-  border-image: url('./body/keycap-key.webp') 51 fill / 17px stretch;
+  border-style: solid; border-width: var(--bw17, 17px); border-color: transparent;
+  border-image: url('./body/keycap-key.webp') 68 fill / var(--bw17, 17px) stretch;
 }
+/* La misma tecla otra vez, cortada un poco más adentro: en la junta entre dos cortes el navegador
+   deja pasar una raya del fondo, y así bajo cada junta de una capa está la otra, entera. */
+.hw-keycap::after { border-width: var(--bw21, 21px); border-image-slice: 84 fill; border-image-width: var(--bw21, 21px); }
 .hw-keycap > svg { width: 15px; height: 15px; flex: 0 0 auto; }
 .hw-keycap > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; line-height: 1.7; }
 .hw-keycap:active { transform: translateY(1.5px); }
-.hw-keycap:active::before { border-image-source: url('./body/keycap-key-down.webp'); }
+.hw-keycap:active::before, .hw-keycap:active::after { border-image-source: url('./body/keycap-key-down.webp'); }
 .hw-keycap.is-on, .hw-keycap[data-color="coral"] { color: #fff; }
-.hw-keycap.is-on::before, .hw-keycap[data-color="coral"]::before { border-image-source: url('./body/keycap-coral.webp'); }
-.hw-keycap.is-on:active::before, .hw-keycap[data-color="coral"]:active::before { border-image-source: url('./body/keycap-coral-down.webp'); }
+.hw-keycap.is-on::before, .hw-keycap.is-on::after, .hw-keycap[data-color="coral"]::before, .hw-keycap[data-color="coral"]::after { border-image-source: url('./body/keycap-coral.webp'); }
+.hw-keycap.is-on:active::before, .hw-keycap.is-on:active::after, .hw-keycap[data-color="coral"]:active::before, .hw-keycap[data-color="coral"]:active::after { border-image-source: url('./body/keycap-coral-down.webp'); }
 .hw-keycap[data-color="slate"] { color: #fff; }
-.hw-keycap[data-color="slate"]::before { border-image-source: url('./body/keycap-slate.webp'); }
-.hw-keycap[data-color="slate"]:active::before { border-image-source: url('./body/keycap-slate-down.webp'); }
-.hw-keycap[data-color="gray"]::before { border-image-source: url('./body/keycap-gray.webp'); }
-.hw-keycap[data-color="gray"]:active::before { border-image-source: url('./body/keycap-gray-down.webp'); }
-.hw-keycap[data-color="mustard"]::before { border-image-source: url('./body/keycap-mustard.webp'); }
-.hw-keycap[data-color="mustard"]:active::before { border-image-source: url('./body/keycap-mustard-down.webp'); }
+.hw-keycap[data-color="slate"]::before, .hw-keycap[data-color="slate"]::after { border-image-source: url('./body/keycap-slate.webp'); }
+.hw-keycap[data-color="slate"]:active::before, .hw-keycap[data-color="slate"]:active::after { border-image-source: url('./body/keycap-slate-down.webp'); }
+.hw-keycap[data-color="gray"]::before, .hw-keycap[data-color="gray"]::after { border-image-source: url('./body/keycap-gray.webp'); }
+.hw-keycap[data-color="gray"]:active::before, .hw-keycap[data-color="gray"]:active::after { border-image-source: url('./body/keycap-gray-down.webp'); }
+.hw-keycap[data-color="mustard"]::before, .hw-keycap[data-color="mustard"]::after { border-image-source: url('./body/keycap-mustard.webp'); }
+.hw-keycap[data-color="mustard"]:active::before, .hw-keycap[data-color="mustard"]:active::after { border-image-source: url('./body/keycap-mustard-down.webp'); }
 
 /* Botón redondo lustroso. */
 .hw-candy {
@@ -129,8 +144,8 @@ html, body {
 }
 .hw-lcd::before {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  border-style: solid; border-width: 9px; border-color: transparent;
-  border-image: url('./body/lcd.webp') 27 / 9px stretch;
+  border-style: solid; border-width: var(--bw9, 9px); border-color: transparent;
+  border-image: url('./body/lcd.webp') 27 / var(--bw9, 9px) stretch;
 }
 .hw-lcd::after {
   content: ''; position: absolute; inset: 7px; z-index: -2; border-radius: 3px;
@@ -144,15 +159,15 @@ html, body {
 
 /* Interruptor deslizante de dos posiciones. */
 .hw-switch {
-  position: relative; width: 62px; height: 29px; flex: 0 0 auto;
-  background: url('./body/switch.webp') center / 100% 100% no-repeat;
+  position: relative; width: 62px; height: 33px; flex: 0 0 auto;
+  background: url('./body/console-slide.webp') center / 100% 100% no-repeat;
 }
 .hw-switch i {
-  position: absolute; left: 0; top: 0; width: 34px; height: 29px; pointer-events: none;
-  background: url('./body/nub.webp') center / 100% 100% no-repeat;
-  transform: translateX(2px); transition: transform .16s var(--spring);
+  position: absolute; inset: 0; pointer-events: none;
+  background: url('./body/console-nub.webp') center / 100% 100% no-repeat;
+  transform: translateX(-10.7px); transition: transform .16s var(--spring);
 }
-.hw-switch[aria-checked="true"] i { transform: translateX(26px); }
+.hw-switch[aria-checked="true"] i { transform: translateX(10.7px); }
 
 /* Perilla de aluminio: la pieza no gira (su brillo es fijo); gira la marca. */
 .hw-knob {
@@ -188,12 +203,13 @@ body.is-recording #lcdLook { display: none; }
 #lcd {
   position: fixed; z-index: 2; pointer-events: none;
   top: var(--shell-top); left: var(--lcd-gap); right: var(--lcd-gap); bottom: calc(var(--deck-h) + 2px);
-  border-style: solid; border-width: 22px; border-color: transparent;
-  border-image: url('./body/bezel.webp') 66 / 22px stretch;
+  border-style: solid; border-width: var(--bw22, 22px); border-color: transparent;
+  border-image: url('./body/bezel.webp') 66 / var(--bw22, 22px) stretch;
 }
 #lcd::before {
-  /* El cristal, detrás de la imagen. */
-  content: ''; position: absolute; inset: -8px; border-radius: 6px; z-index: -1;
+  /* El cristal, detrás de la imagen. Llega hasta debajo del aro oscuro del marco: en las juntas de
+     los cortes del marco asomaría, si no, una raya de la carcasa clara. */
+  content: ''; position: absolute; inset: -11.5px; border-radius: 7.5px; z-index: -1;
   background: radial-gradient(120% 90% at 30% 10%, #1a1c1f, var(--glass) 60%);
 }
 #lcd::after {
@@ -288,8 +304,8 @@ body[data-tab="cam"] #camDeck { display: flex; }
 /* Bandeja de diapositivas: cada cámara es una diapositiva con su muestra y su rótulo. */
 .deck-looks {
   position: relative; height: 76px;
-  border-style: solid; border-width: 12px; border-color: transparent;
-  border-image: url('./body/tray.webp') 36 / 12px stretch;
+  border-style: solid; border-width: var(--bw12, 12px); border-color: transparent;
+  border-image: url('./body/tray.webp') 36 / var(--bw12, 12px) stretch;
 }
 .deck-looks::before { content: ''; position: absolute; inset: -6px; border-radius: 7px; background: linear-gradient(180deg, #c9c1ac, #d6cfbc); box-shadow: inset 0 2px 5px rgba(70, 60, 30, .35); z-index: -1; }
 .deck-looks-track {
@@ -301,16 +317,29 @@ body[data-tab="cam"] #camDeck { display: flex; }
 }
 .deck-looks-track::-webkit-scrollbar { display: none; }
 .look {
-  position: relative; flex: 0 0 64px; height: 100%; border-radius: 5px; scroll-snap-align: center;
-  background: var(--cream-hi); padding: 4px 4px 0;
+  position: relative; isolation: isolate; flex: 0 0 64px; height: 100%; scroll-snap-align: center;
+  background: none; padding: 5px 5px 1px;
   display: flex; flex-direction: column; align-items: stretch; gap: 0;
-  box-shadow: 0 1px 0 #fff inset, 0 2px 0 var(--cream-deep), 0 4px 7px rgba(70, 60, 30, .28);
-  transition: transform .18s var(--spring), box-shadow .15s;
+  transition: transform .09s ease-out;
 }
-.look i { flex: 1; min-height: 0; border-radius: 2.5px; background: #1a1b1d center / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35); }
+.look::before, .look::after {
+  content: ''; position: absolute; inset: -6px; z-index: -1; pointer-events: none;
+  border-style: solid; border-width: var(--bw18, 18px); border-color: transparent;
+  border-image: url('./body/look-key.webp') 72 fill / var(--bw18, 18px) stretch;
+}
+.look::after { border-width: var(--bw22, 22px); border-image-slice: 88 fill; border-image-width: var(--bw22, 22px); }   /* la segunda capa tapa las juntas de la primera */
+.look i {
+  position: relative; flex: 1; min-height: 0; border-radius: 2.5px; background: #1a1b1d center / cover no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55), inset 0 2px 3px rgba(0, 0, 0, .5), 0 1px 0 rgba(255, 255, 255, .55);
+}
+.look i::after {                      /* el cristal de la muestra recoge la luz */
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(142deg, rgba(255, 255, 255, .3) 0%, rgba(255, 255, 255, .06) 30%, rgba(255, 255, 255, 0) 31%);
+}
 .look span { flex: 0 0 15px; display: grid; place-items: center; font: 800 8.5px/1 var(--font-ui); font-stretch: 85%; letter-spacing: .06em; color: var(--ink); }
-.look:active { transform: translateY(1px) scale(.97); }
-.look.is-on { transform: translateY(-3px); background: var(--coral); box-shadow: 0 1px 0 rgba(255, 255, 255, .45) inset, 0 3px 0 #a8372a, 0 9px 12px rgba(120, 40, 20, .35); }
+.look:active { transform: translateY(1px); }
+.look:active::before, .look:active::after { border-image-source: url('./body/look-key-down.webp'); }
+.look.is-on::before, .look.is-on::after { border-image-source: url('./body/look-key-on.webp'); }
 .look.is-on span { color: #fff; }
 .look[hidden] { display: none; }
 
@@ -341,9 +370,13 @@ body.is-recording #deckShutter i { opacity: 1; transform: none; }
 #deckGallery {
   position: relative; width: 54px; height: 54px; flex: 0 0 auto;
   border-style: solid; border-width: 11px; border-color: transparent;
-  border-image: url('./body/tray.webp') 36 / 12px stretch;
+  border-image: url('./body/tray.webp') 36 / var(--bw12, 12px) stretch;
 }
 #deckGallery b { position: absolute; inset: -6px; border-radius: 6px; background: #17181a center / cover no-repeat; display: grid; place-items: center; color: rgba(255, 255, 255, .4); box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6); }
+#deckGallery b::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(142deg, rgba(255, 255, 255, .2) 0%, rgba(255, 255, 255, .04) 33%, rgba(255, 255, 255, 0) 34%);
+}
 #deckGallery b svg { width: 18px; height: 18px; }
 #deckGallery.has-shot b svg { display: none; }
 #deckGallery.is-video b::after { content: ''; width: 0; height: 0; border-left: 11px solid #fff; border-top: 7px solid transparent; border-bottom: 7px solid transparent; filter: drop-shadow(0 1px 3px #000); }
@@ -457,86 +490,67 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: #26272a; }
 input[type="range"]::-moz-range-thumb { width: 26px; height: 20px; border-radius: 5px; border: 0; background: linear-gradient(90deg, transparent 11px, #ec5b45 11px, #ec5b45 15px, transparent 15px), linear-gradient(180deg, #fbf8f1, #ddd5c3); }
 
-/* ── Hojas: un cajón crema que sale de la carcasa ────────────────────────── */
-body[data-tab="cam"] #palettes, .flip-settings-panel {
+/* ── Hojas: un cajón crema que sale de la carcasa ──────────────────────────
+   (Los ajustes de cada cámara ya no son una hoja: son la consola de console.css.) */
+.flip-settings-panel {
   background: linear-gradient(180deg, #f1ece0, #e6dfce) !important; color: var(--ink) !important; font-family: var(--font-ui) !important;
   border: 0 !important; box-shadow: 0 -1px 0 #fff inset, 0 1px 0 #fff, 0 -14px 44px rgba(60, 50, 25, .38), 0 0 0 1px rgba(120, 110, 80, .28) !important;
 }
-body[data-tab="cam"] #palettes {
-  position: fixed !important; z-index: 40 !important;
-  left: calc(8px + env(safe-area-inset-left, 0px)) !important; right: calc(8px + env(safe-area-inset-right, 0px)) !important;
-  bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important; top: auto !important;
-  width: auto !important; max-width: none !important; margin: 0 !important;
-  max-height: min(64dvh, calc(100dvh - var(--shell-top) - 150px)) !important; overflow-y: auto !important; overscroll-behavior: contain;
-  padding: 0 14px 14px !important; border-radius: 18px !important;
-  display: none !important; flex-direction: column !important; gap: 10px; transform: none !important;
-}
-body[data-tab="cam"].cam-edit-open #palettes { display: flex !important; animation: sheet-up .34s var(--spring); }
 @keyframes sheet-up { from { transform: translateY(40px); opacity: 0; } }
-#camEditHeader {
-  position: sticky; top: 0; z-index: 2; display: flex !important; align-items: center; justify-content: space-between;
-  margin: 0 -14px; padding: 14px 14px 10px; background: linear-gradient(180deg, #f1ece0 72%, rgba(241, 236, 224, 0));
-}
-#camEditTitle { font: 800 13px/1 var(--font-ui) !important; font-stretch: 110%; letter-spacing: .12em !important; color: var(--ink) !important; }
-#btnCamEditClose {
-  min-height: 34px; padding: 0 16px !important; border-radius: 9px !important; border: 0 !important; cursor: pointer;
-  background: var(--coral) !important; color: #fff !important; box-shadow: 0 3px 0 #b33a28 !important;
-  font: 800 11px/1 var(--font-ui) !important; letter-spacing: .1em !important;
-}
-#btnCamEditClose:active { transform: translateY(2px); box-shadow: 0 1px 0 #b33a28 !important; }
-#palettes .auto03-note { color: var(--ink-dim) !important; font: 500 12px/1.45 var(--font-ui) !important; }
+/* Fuera de CAM (#palettes también es la paleta de UPLOAD) siguen valiendo estas reglas; en CAM manda console.css. */
+body:not([data-tab="cam"]) #palettes .auto03-note { color: var(--ink-dim) !important; font: 500 12px/1.45 var(--font-ui) !important; }
 
-#palettes [class$="-ctrl-row"], #palettes .ac-row, #sflowHUD .sflow-hud-row {
+body:not([data-tab="cam"]) #palettes [class$="-ctrl-row"], body:not([data-tab="cam"]) #palettes .ac-row, #sflowHUD .sflow-hud-row {
   display: grid !important; grid-template-columns: 1fr auto; align-items: center; gap: 0 10px;
   padding: 5px 0 !important; margin: 0 !important; min-height: 0; border: 0 !important; background: none !important;
 }
-#palettes [class$="-ctrl-row"] > [class$="-lbl"], #palettes .ac-row > .ac-lbl, #sflowHUD .sfh-lbl {
+body:not([data-tab="cam"]) #palettes [class$="-ctrl-row"] > [class$="-lbl"], body:not([data-tab="cam"]) #palettes .ac-row > .ac-lbl, #sflowHUD .sfh-lbl {
   grid-column: 1; grid-row: 1; width: auto !important; min-width: 0 !important; text-align: left !important;
   font: 700 10.5px/1.2 var(--font-ui) !important; letter-spacing: .1em !important; text-transform: uppercase;
 }
-#palettes [class$="-ctrl-row"] > [class$="-lbl"], #palettes .ac-row > .ac-lbl { color: var(--ink) !important; }
+body:not([data-tab="cam"]) #palettes [class$="-ctrl-row"] > [class$="-lbl"], body:not([data-tab="cam"]) #palettes .ac-row > .ac-lbl { color: var(--ink) !important; }
 #sflowHUD .sfh-lbl { color: #f4f1ea !important; }
-#palettes [class$="-ctrl-row"] > [class$="-val"], #palettes .ac-row > .ac-val, #sflowHUD .sfh-val {
+body:not([data-tab="cam"]) #palettes [class$="-ctrl-row"] > [class$="-val"], body:not([data-tab="cam"]) #palettes .ac-row > .ac-val, #sflowHUD .sfh-val {
   grid-column: 2; grid-row: 1; width: auto !important; min-width: 0 !important; text-align: right !important;
   font: 800 13px/1.2 var(--font-dot) !important; letter-spacing: .04em;
 }
-#palettes [class$="-ctrl-row"] > [class$="-val"], #palettes .ac-row > .ac-val { color: var(--coral) !important; }
+body:not([data-tab="cam"]) #palettes [class$="-ctrl-row"] > [class$="-val"], body:not([data-tab="cam"]) #palettes .ac-row > .ac-val { color: var(--coral) !important; }
 #sflowHUD .sfh-val { color: var(--mustard) !important; }
-#palettes [class$="-ctrl-row"] > input[type="range"], #palettes .ac-row > input[type="range"], #sflowHUD .sflow-hud-row > input[type="range"] {
+body:not([data-tab="cam"]) #palettes [class$="-ctrl-row"] > input[type="range"], body:not([data-tab="cam"]) #palettes .ac-row > input[type="range"], #sflowHUD .sflow-hud-row > input[type="range"] {
   grid-column: 1 / -1; grid-row: 2; width: 100% !important; margin: 0 !important; flex: none !important;
 }
-#palettes input[type="range"], #sflowHUD input[type="range"], #sonoHUD input[type="range"], #wmpHUD input[type="range"], #fusionHUD input[type="range"], #editHUD input[type="range"], #asciiPanel input[type="range"] {
+body:not([data-tab="cam"]) #palettes input[type="range"], #sflowHUD input[type="range"], #sonoHUD input[type="range"], #wmpHUD input[type="range"], #fusionHUD input[type="range"], #editHUD input[type="range"], #asciiPanel input[type="range"] {
   height: 30px !important; background: transparent !important; border: 0 !important; padding: 0 !important;
 }
-#palettes [class$="-row"]:not([class$="-ctrl-row"]):not(.ac-row), #palettes [class$="-group"] { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-#palettes [class$="-group"] > [class$="-lbl"], #palettes .stamp-row > .stamp-lbl { flex: 0 0 100%; font: 700 10.5px/1.2 var(--font-ui) !important; letter-spacing: .1em !important; color: var(--ink-dim) !important; text-align: left !important; }
+body:not([data-tab="cam"]) #palettes [class$="-row"]:not([class$="-ctrl-row"]):not(.ac-row), body:not([data-tab="cam"]) #palettes [class$="-group"] { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+body:not([data-tab="cam"]) #palettes [class$="-group"] > [class$="-lbl"], body:not([data-tab="cam"]) #palettes .stamp-row > .stamp-lbl { flex: 0 0 100%; font: 700 10.5px/1.2 var(--font-ui) !important; letter-spacing: .1em !important; color: var(--ink-dim) !important; text-align: left !important; }
 /* Opciones: teclas pequeñas; la elegida, coral. */
-#palettes button:not(#btnCamEditClose), #palettes label.asp-btn, .flip-settings-panel button {
+body:not([data-tab="cam"]) #palettes button:not(#btnCamEditClose), body:not([data-tab="cam"]) #palettes label.asp-btn, .flip-settings-panel button {
   min-height: 38px; padding: 0 12px !important; border-radius: 8px !important; cursor: pointer;
   border: 0 !important; background: linear-gradient(180deg, #fbf8f1, #ebe5d7) !important; color: var(--ink) !important;
   box-shadow: 0 3px 0 var(--cream-deep), 0 4px 8px rgba(70, 60, 30, .18), inset 0 1px 0 #fff !important;
   font: 700 10.5px/1 var(--font-ui) !important; letter-spacing: .08em !important; text-transform: uppercase;
   flex: 1 1 auto; transition: transform .06s;
 }
-#palettes button:not(#btnCamEditClose):active, .flip-settings-panel button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--cream-deep), inset 0 1px 0 #fff !important; }
-#palettes button.active:not(#btnCamEditClose), #palettes .asp-btn.active,
+body:not([data-tab="cam"]) #palettes button:not(#btnCamEditClose):active, .flip-settings-panel button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--cream-deep), inset 0 1px 0 #fff !important; }
+body:not([data-tab="cam"]) #palettes button.active:not(#btnCamEditClose), body:not([data-tab="cam"]) #palettes .asp-btn.active,
 .flip-settings-panel button.active, .flip-settings-tile.active, .flip-settings-pill.active, #flipSegFormat.active, #flipSegAudio.active {
   background: linear-gradient(180deg, #f2705b, #e4513b) !important; color: #fff !important;
   box-shadow: 0 3px 0 #a8372a, 0 4px 10px rgba(160, 50, 30, .3), inset 0 1px 0 rgba(255, 255, 255, .4) !important;
 }
 .flip-settings-tile.active *, .flip-settings-pill.active * { color: #fff !important; border-color: #fff !important; }
-#palettes .cam-stk-btn, #palettes .pcs-slot { flex: 0 0 38px !important; width: 38px; padding: 0 !important; }
-#palettes #camMobileUtilityDock { display: flex; flex-direction: column; gap: 9px; padding-bottom: 10px; border-bottom: 1px solid rgba(90, 80, 50, .18); }
-#palettes #camAspect { display: flex !important; gap: 7px; position: static !important; }
-#palettes #camFpsCtrl, #palettes #camZoomCtrl { position: static !important; display: flex !important; align-items: center; gap: 10px; background: none !important; border: 0 !important; padding: 0 !important; width: auto !important; }
-#palettes #camFpsCtrl input[type="range"], #palettes #camZoomCtrl input[type="range"] { flex: 1; }
-#palettes .fps-toggle, #palettes .zoom-meta { display: flex; align-items: center; gap: 8px; font: 700 10.5px/1 var(--font-ui); letter-spacing: .1em; color: var(--ink); }
-#palettes .fps-toggle label { color: var(--ink) !important; }
-#palettes .fps-val, #palettes .zoom-val { font: 800 13px/1 var(--font-dot); color: var(--coral); min-width: 2.2em; text-align: right; }
-#palettes input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--coral); }
-#palettes * { text-shadow: none !important; }
-#palettes [class$="-title"], #palettes .ac-title, #palettes h3, #palettes h4 { color: var(--ink) !important; }
-#palettes .cam-sticker-header { color: var(--ink-dim) !important; font: 700 10.5px/1 var(--font-ui) !important; letter-spacing: .12em !important; border-color: rgba(90, 80, 50, .18) !important; }
+body:not([data-tab="cam"]) #palettes .cam-stk-btn, body:not([data-tab="cam"]) #palettes .pcs-slot { flex: 0 0 38px !important; width: 38px; padding: 0 !important; }
+body:not([data-tab="cam"]) #palettes #camMobileUtilityDock { display: flex; flex-direction: column; gap: 9px; padding-bottom: 10px; border-bottom: 1px solid rgba(90, 80, 50, .18); }
+body:not([data-tab="cam"]) #palettes #camAspect { display: flex !important; gap: 7px; position: static !important; }
+body:not([data-tab="cam"]) #palettes #camFpsCtrl, body:not([data-tab="cam"]) #palettes #camZoomCtrl { position: static !important; display: flex !important; align-items: center; gap: 10px; background: none !important; border: 0 !important; padding: 0 !important; width: auto !important; }
+body:not([data-tab="cam"]) #palettes #camFpsCtrl input[type="range"], body:not([data-tab="cam"]) #palettes #camZoomCtrl input[type="range"] { flex: 1; }
+body:not([data-tab="cam"]) #palettes .fps-toggle, body:not([data-tab="cam"]) #palettes .zoom-meta { display: flex; align-items: center; gap: 8px; font: 700 10.5px/1 var(--font-ui); letter-spacing: .1em; color: var(--ink); }
+body:not([data-tab="cam"]) #palettes .fps-toggle label { color: var(--ink) !important; }
+body:not([data-tab="cam"]) #palettes .fps-val, body:not([data-tab="cam"]) #palettes .zoom-val { font: 800 13px/1 var(--font-dot); color: var(--coral); min-width: 2.2em; text-align: right; }
+body:not([data-tab="cam"]) #palettes input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--coral); }
+body:not([data-tab="cam"]) #palettes * { text-shadow: none !important; }
+body:not([data-tab="cam"]) #palettes [class$="-title"], body:not([data-tab="cam"]) #palettes .ac-title, body:not([data-tab="cam"]) #palettes h3, body:not([data-tab="cam"]) #palettes h4 { color: var(--ink) !important; }
+body:not([data-tab="cam"]) #palettes .cam-sticker-header { color: var(--ink-dim) !important; font: 700 10.5px/1 var(--font-ui) !important; letter-spacing: .12em !important; border-color: rgba(90, 80, 50, .18) !important; }
 
 .flip-settings-panel *, .flip-settings-panel button { font-family: var(--font-ui) !important; }
 .flip-settings-title { font: 800 13px/1 var(--font-ui) !important; font-stretch: 110%; letter-spacing: .12em !important; color: var(--ink) !important; }
@@ -547,9 +561,27 @@ body[data-tab="cam"].cam-edit-open #palettes { display: flex !important; animati
 .flip-settings-panel [class*="shape"], .flip-settings-tile i, .flip-settings-tile span { border-color: var(--ink) !important; color: var(--ink) !important; }
 .flip-settings-backdrop.open { background: rgba(60, 50, 25, .32) !important; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 
-#flipExportBar { background: linear-gradient(180deg, #ece6d7, #e3dcc9) !important; border-top: 1px solid #fff !important; box-shadow: 0 -1px 0 rgba(120, 105, 70, .42); }
-.flip-export-primary { background: var(--coral) !important; color: #fff !important; border-radius: 9px !important; font: 800 11.5px/1 var(--font-ui) !important; letter-spacing: .1em !important; box-shadow: 0 3px 0 #a8372a; }
-.flip-export-reset, #flipExportSecondaries button { border-radius: 9px !important; background: #f3efe5 !important; color: var(--ink) !important; border: 0 !important; box-shadow: 0 3px 0 var(--cream-deep); }
+/* La barra de guardar va sobre la carcasa, sin banda propia, y sus botones son teclas de verdad. */
+#flipExportBar { background: none !important; border-top: 0 !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.flip-export-primary, .flip-export-reset, #flipExportSecondaries button, #btnSonoStart {
+  position: relative; isolation: isolate; overflow: visible; min-height: 36px;
+  background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+  color: var(--ink) !important; font: 800 11.5px/1 var(--font-ui) !important; letter-spacing: .1em !important; text-transform: uppercase; opacity: 1 !important;
+}
+.flip-export-primary, #btnSonoStart { color: #fff !important; }
+#btnSonoStart { padding: 0 22px !important; }
+#sonoPerm p { font: 600 14px/1.5 var(--font-ui) !important; letter-spacing: .02em !important; color: #f4f1ea !important; }
+:is(.flip-export-primary, .flip-export-reset, #flipExportSecondaries button, #btnSonoStart)::before, :is(.flip-export-primary, .flip-export-reset, #flipExportSecondaries button, #btnSonoStart)::after {
+  content: ''; position: absolute; inset: -5px; z-index: -1; pointer-events: none;
+  border-style: solid; border-width: var(--bw17, 17px); border-color: transparent;
+  border-image: url('./body/keycap-key.webp') 68 fill / var(--bw17, 17px) stretch;
+}
+:is(.flip-export-primary, .flip-export-reset, #flipExportSecondaries button, #btnSonoStart)::after { border-width: var(--bw21, 21px); border-image-slice: 84 fill; border-image-width: var(--bw21, 21px); }
+:is(.flip-export-reset, #flipExportSecondaries button):active::before, :is(.flip-export-reset, #flipExportSecondaries button):active::after { border-image-source: url('./body/keycap-key-down.webp'); }
+:is(#flipExportBar .flip-export-primary, #btnSonoStart)::before, :is(#flipExportBar .flip-export-primary, #btnSonoStart)::after { border-image-source: url('./body/keycap-coral.webp'); }
+:is(#flipExportBar .flip-export-primary, #btnSonoStart):active::before, :is(#flipExportBar .flip-export-primary, #btnSonoStart):active::after { border-image-source: url('./body/keycap-coral-down.webp'); }
+:is(.flip-export-primary, .flip-export-reset, #flipExportSecondaries button, #btnSonoStart):active { transform: translateY(1.5px) !important; }
+.flip-export-primary:disabled { opacity: .45 !important; }
 
 /* ── FLOW ────────────────────────────────────────────────────────────────── */
 #barSflow {
@@ -701,9 +733,9 @@ body.portal-mode #osdHint { bottom: 52px; }
 #splash > .splash-title, #splash > .splash-tag, #splash > .splash-doors { position: relative; }
 .splash-hero {
   position: absolute !important; left: 22px; right: 22px; top: calc(26px + env(safe-area-inset-top, 0px)); bottom: 330px; min-height: 150px;
-  border-style: solid; border-width: 22px; border-color: transparent; border-image: url('./body/bezel.webp') 66 / 22px stretch;
+  border-style: solid; border-width: var(--bw22, 22px); border-color: transparent; border-image: url('./body/bezel.webp') 66 / var(--bw22, 22px) stretch;
 }
-.splash-hero::before { content: ''; position: absolute; inset: -8px; border-radius: 6px; background: radial-gradient(120% 90% at 30% 10%, #1c1e21, #0b0c0d 60%); box-shadow: inset 0 0 24px rgba(0, 0, 0, .7); }
+.splash-hero::before { content: ''; position: absolute; inset: -11.5px; border-radius: 7.5px; background: radial-gradient(120% 90% at 30% 10%, #1c1e21, #0b0c0d 60%); box-shadow: inset 0 0 24px rgba(0, 0, 0, .7); }
 .splash-hero b {
   position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
   font: 900 clamp(46px, 17vw, 76px)/1 var(--font-dot); letter-spacing: .02em; color: #f4f1ea; text-shadow: 0 0 18px rgba(244, 241, 234, .35);

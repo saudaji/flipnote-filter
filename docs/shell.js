@@ -67,6 +67,7 @@
     <div class="hw-lcd" id="shellLcd" role="status" aria-live="off">
       <div id="lcdLine1"><span id="lcdLook">FLIP</span><span id="lcdRec"><i></i><span id="lcdRecTime">REC 00:00</span></span></div>
       <div id="lcdLine2"><span id="lcdFps">-- FPS</span><span id="lcdFormat">4:3 HD</span><span class="lcd-batt" id="lcdBatt" hidden><i></i><i></i><i></i><i></i></span></div>
+      <div id="lcdReadout" aria-hidden="true"><div><span id="lcdParam"></span><span id="lcdValue"></span></div><div id="lcdBar">${'<i></i>'.repeat(16)}</div></div>
     </div>
     <button class="hw hw-candy sm" id="shellMic" type="button" aria-label="Micrófono">${icon('mic')}</button>
     <button class="hw hw-candy sm" id="shellAudio" type="button" aria-label="Entradas de audio">${icon('audio')}</button>
@@ -180,7 +181,29 @@
     if (changed && text) flipToast(text, 4200);
   });
 
+  // Un marco de nueve cortes solo se pinta sin costuras si su ancho cae en píxeles enteros de la
+  // pantalla; con densidades como 2,625 o 3,5 no cae, y entre corte y corte asoma una raya del fondo.
+  function snapEdges() {
+    const dpr = window.devicePixelRatio || 1, root = document.documentElement.style;
+    for (const n of [9, 12, 17, 18, 20, 21, 22]) root.setProperty('--bw' + n, (Math.max(1, Math.round(n * dpr)) / dpr).toFixed(4) + 'px');
+  }
+  snapEdges();
+  addEventListener('resize', snapEdges);
+
   let shownFamily = '';
+  // Mientras se mueve un mando, la pantallita dice cuál es y cuánto vale (y vuelve sola a lo suyo).
+  let readoutTimer = 0;
+  function readout(label, value, ratio) {
+    const box = $('shellLcd');
+    $('lcdParam').textContent = label || '';
+    $('lcdValue').textContent = value == null ? '' : String(value);
+    const cells = $('lcdBar').children, lit = ratio == null ? -1 : Math.round(ratio * cells.length);
+    $('lcdBar').style.visibility = ratio == null ? 'hidden' : '';
+    for (let i = 0; i < cells.length; i++) cells[i].classList.toggle('on', i < lit);
+    box.classList.add('is-readout');
+    clearTimeout(readoutTimer);
+    readoutTimer = setTimeout(() => box.classList.remove('is-readout'), 1600);
+  }
   const lookLabel = { text: null };
   function syncCam() {
     const cfg = _getCamFamilyConfig();
@@ -460,6 +483,6 @@
     // Registra un módulo que vive sobre una pestaña del motor: { tab, enter(), exit() }.
     overlay(key, spec) { overlays[key] = spec; },
     onLook(handler) { lookHandlers.push(handler); },
-    looks, lookLabel,
+    looks, lookLabel, readout,
   };
 })();

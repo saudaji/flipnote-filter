@@ -150,10 +150,11 @@ async function main() {
     assert.ok(by.blanco.mean > 60, 'contra un foco, la pantalla se quema: ' + by.blanco.mean);
     step('de la penumbra al foco', Object.fromEntries(range.map(r => [r.name, r.mean])));
 
-    // ── 5 · Los cuatro formatos, con los botones de la hoja de ajustes ──
+    // ── 5 · Los cuatro formatos, con las teclas de la consola de ajustes (sección CUADRO) ──
     await page.evaluate(() => { cameraRunning = true; requestAnimationFrame(cameraLoop); });
     await page.locator('#deckAdjust').click();
     await page.waitForFunction(() => camEditOpen);
+    await page.locator('#csSections [data-sec="frame"]').click();
     const formats = {};
     for (const [aw, ah] of [[9, 16], [3, 4], [16, 9], [4, 3]]) {
       await page.locator(`#palettes #camAspect .asp-btn[data-aw="${aw}"][data-ah="${ah}"]`).click();

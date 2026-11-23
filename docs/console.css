@@ -1,0 +1,304 @@
+/* ═══ La consola de ajustes ══════════════════════════════════════════════════
+   Los ajustes de cada cámara dejan de ser una hoja con una lista que se desplaza y pasan a ser
+   una consola atornillada bajo el visor: una placa de aluminio con una página por sección, y en
+   cada página, como mucho, una fila de perillas y otra de teclas. Nada se desplaza y nada tapa
+   la imagen que se está ajustando. Las piezas son renders (design/camera-body/panel.py).
+   Todas las medidas van en unidades del diseño (--cu): la placa mide 384 × 240. */
+
+body[data-tab="cam"] #palettes {
+  --cu: 1px;
+  --cs-ink: #e9e3d2;                         /* serigrafía crema sobre el anodizado */
+  position: fixed !important; z-index: 40 !important; inset: auto !important;
+  left: 50% !important; bottom: calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+  width: calc(384 * var(--cu)) !important; height: calc(240 * var(--cu)) !important;
+  max-width: none !important; max-height: none !important; min-height: 0 !important;
+  margin: 0 0 0 calc(-192 * var(--cu)) !important; padding: 0 !important;
+  border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important;
+  overflow: visible !important; transform: none !important; display: none !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important; gap: 0 !important;
+  color: var(--cs-ink) !important; font-family: var(--font-ui) !important;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+}
+body[data-tab="cam"].cam-edit-open #palettes { display: block !important; animation: console-in .3s cubic-bezier(.2, .9, .25, 1); }
+@keyframes console-in { from { transform: translateY(calc(22 * var(--cu))); opacity: 0; } }
+/* La placa, con su margen de sombra. */
+body[data-tab="cam"] #palettes::before {
+  content: '' !important; display: block !important; position: absolute; inset: calc(-10 * var(--cu)); z-index: -1; pointer-events: none;
+  background: url('./body/console-plate.webp') center / 100% 100% no-repeat;
+}
+body[data-tab="cam"] #palettes * { text-shadow: none !important; box-sizing: border-box; }
+/* Con la consola abierta, el pupitre de debajo se retira: ni se ve ni recibe toques. */
+body[data-tab="cam"].cam-edit-open #camDeck { pointer-events: none; }
+body[data-tab="cam"].cam-edit-open #camDeck > * { visibility: hidden; }
+
+/* ── Páginas: solo se ve la de la sección elegida ── */
+body[data-tab="cam"] #palettes > * { display: none !important; }
+body[data-tab="cam"] #palettes > #csSections { display: flex !important; }
+body[data-tab="cam"] #palettes[data-sec="cam"] > .cs-pane[id$="EditPanel"][style*="block"],
+body[data-tab="cam"] #palettes[data-sec="frame"] > #camMobileUtilityDock,
+body[data-tab="cam"] #palettes[data-sec="stickers"] > #camStickerPanel,
+body[data-tab="cam"] #palettes[data-sec="color"] > #palColorTabs { display: flex !important; }
+body[data-tab="cam"] #palettes > .cs-pane {
+  position: absolute !important; left: calc(12 * var(--cu)); right: calc(12 * var(--cu)); top: calc(9 * var(--cu)); height: calc(178 * var(--cu));
+  flex-flow: row wrap !important; justify-content: center; align-content: flex-start; align-items: flex-start; gap: 0 !important;
+  margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; width: auto !important;
+}
+
+/* ── Una perilla y su rótulo ── */
+body[data-tab="cam"] #palettes .cs-slot {
+  order: 1; display: flex !important; flex-direction: column; align-items: center; justify-content: flex-start;
+  flex: 0 0 calc(100% / var(--cs-n, 5)); max-width: calc(100% / var(--cs-n, 5)); height: calc(104 * var(--cu)); min-height: 0;
+  margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; position: relative; gap: 0 !important;
+}
+body[data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] .cs-slot { height: calc(89 * var(--cu)); }
+body[data-tab="cam"] #palettes .cs-slot > input[type="range"],
+body[data-tab="cam"] #palettes .cs-slot input[type="checkbox"] {
+  position: absolute !important; left: 0; top: 0; width: 1px !important; height: 1px !important; margin: 0 !important; opacity: 0; pointer-events: none;
+}
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob {
+  order: 1; flex: none; position: relative; width: calc(var(--cs-k, 74) * var(--cu)); height: calc(var(--cs-k, 74) * var(--cu));
+  background: url('./body/console-knob.webp') center / contain no-repeat; cursor: ns-resize; touch-action: none; outline: 0;
+}
+body[data-tab="cam"] #palettes .cs-pane[data-cs-n="5"] { --cs-k: 69; }
+body[data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] { --cs-k: 62; }
+body[data-tab="cam"] #palettes .cs-pane[data-cs-n="3"], body[data-tab="cam"] #palettes .cs-pane[data-cs-n="4"], body[data-tab="cam"] #palettes #camMobileUtilityDock { --cs-k: 84; }
+body[data-tab="cam"] #palettes .cs-pane[data-cs-n="3"] .cs-slot, body[data-tab="cam"] #palettes .cs-pane[data-cs-n="4"] .cs-slot { height: calc(112 * var(--cu)); }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob[data-cs-kind="sel3"] { background-image: url('./body/console-sel3.webp'); cursor: pointer; }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob[data-cs-kind="sel2"] { background-image: url('./body/console-sel2.webp'); cursor: pointer; }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob > i {
+  position: absolute; inset: 0; pointer-events: none; will-change: transform;
+  background: url('./body/console-mark.webp') center / contain no-repeat; transform: rotate(var(--turn, 0deg));
+}
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob.is-held > i { transition: none; }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob:focus-visible { filter: drop-shadow(0 0 calc(3 * var(--cu)) rgba(240, 174, 43, .9)); }
+/* Serigrafía: el nombre del mando, y su valor en ámbar como en un visor de siete segmentos. */
+body[data-tab="cam"] #palettes .cs-slot > [class$="-lbl"], body[data-tab="cam"] #palettes .cs-slot > .cs-lbl, body[data-tab="cam"] #palettes .cs-cell > .cs-lbl,
+body[data-tab="cam"] #palettes .cs-slot .zoom-meta > :first-child, body[data-tab="cam"] #palettes .cs-slot .fps-toggle > label {
+  order: 2; display: block !important; width: auto !important; min-width: 0 !important; margin: calc(-2 * var(--cu)) 0 0 !important; padding: 0 !important;
+  font: 700 calc(8.2 * var(--cu)) / 1 var(--font-ui) !important; font-stretch: 84%; letter-spacing: .1em !important; text-transform: uppercase;
+  color: var(--cs-ink) !important; opacity: .94; white-space: nowrap; text-align: center !important; grid-column: auto; grid-row: auto;
+}
+body[data-tab="cam"] #palettes .cs-slot > [class$="-val"], body[data-tab="cam"] #palettes .cs-slot > .cs-val,
+body[data-tab="cam"] #palettes .cs-slot .fps-val, body[data-tab="cam"] #palettes .cs-slot .zoom-val {
+  order: 3; display: block !important; width: auto !important; min-width: 0 !important; margin: calc(3.5 * var(--cu)) 0 0 !important;
+  font: 800 calc(10.5 * var(--cu)) / 1 var(--font-dot) !important; letter-spacing: .05em; color: var(--mustard) !important; text-align: center !important;
+  text-shadow: 0 0 calc(5 * var(--cu)) rgba(240, 174, 43, .42) !important; grid-column: auto; grid-row: auto; white-space: nowrap;
+}
+body[data-tab="cam"] #palettes .cs-pane[data-cs-n="5"] .cs-slot > [class$="-lbl"] { font-size: calc(7.3 * var(--cu)) !important; font-stretch: 76%; letter-spacing: .05em !important; }
+body[data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] .cs-slot > [class$="-lbl"] { font-size: calc(7.2 * var(--cu)) !important; font-stretch: 76%; letter-spacing: .05em !important; margin-top: calc(-3 * var(--cu)) !important; }
+body[data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] .cs-slot > [class$="-val"] { font-size: calc(9.2 * var(--cu)) !important; margin-top: calc(2.5 * var(--cu)) !important; }
+
+/* Mandos que solo existen en alguna variante (o si el teléfono tiene zoom). */
+body[data-tab="cam"] #palettes #oscamStaticOnlyRow:not(.visible), body[data-tab="cam"] #palettes #oscamLegacyRow:not(.visible),
+body[data-tab="cam"] #palettes #camZoomCtrl[style*="none"] { display: none !important; }
+
+/* ── Interruptor deslizante: la ranura es fija y el botón corre a un lado u otro ── */
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-toggle {
+  order: 1; flex: none; position: relative; width: calc(60 * var(--cu)); height: calc(32 * var(--cu));
+  margin: calc((var(--cs-k, 74) - 32) / 2 * var(--cu)) 0;
+  background: url('./body/console-slide.webp') center / contain no-repeat; cursor: pointer; touch-action: none; outline: 0;
+}
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-toggle > i {
+  position: absolute; inset: 0; pointer-events: none; background: url('./body/console-nub.webp') center / contain no-repeat;
+  transform: translateX(calc(-10.4 * var(--cu))); transition: transform .13s cubic-bezier(.3, .8, .3, 1);
+}
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-toggle[aria-checked="true"] > i { transform: translateX(calc(10.4 * var(--cu))); }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-toggle:focus-visible { filter: drop-shadow(0 0 calc(3 * var(--cu)) rgba(240, 174, 43, .9)); }
+/* Las opciones de un interruptor o de un selector no se enseñan como botones: las dice el valor. */
+body[data-tab="cam"] #palettes .cs-slot > [class$="-group"], body[data-tab="cam"] #palettes .cs-slot > button { display: none !important; }
+
+/* ── Teclas ── */
+body[data-tab="cam"] #palettes .cs-keys {
+  order: 5; display: flex !important; flex: 1 1 100%; flex-flow: row nowrap !important; align-items: flex-end; justify-content: center;
+  gap: calc(5 * var(--cu)) !important; height: calc(62 * var(--cu)); min-height: 0; margin: 0 !important; padding: 0 calc(3 * var(--cu)) calc(6 * var(--cu)) !important;
+  border: 0 !important; background: none !important; position: relative; width: auto !important;
+}
+body[data-tab="cam"] #palettes .cs-keys[data-cs-share] { flex: var(--cs-share, 1) 1 0; }
+body[data-tab="cam"] #palettes .cs-keys > [class$="-group"] { display: contents !important; }
+body[data-tab="cam"] #palettes .cs-keys > [class$="-lbl"], body[data-tab="cam"] #palettes .cs-keys::before {
+  position: absolute; left: calc(5 * var(--cu)); top: calc(7 * var(--cu)); width: auto !important; flex: none !important; margin: 0 !important;
+  font: 700 calc(7.6 * var(--cu)) / 1 var(--font-ui) !important; font-stretch: 84%; letter-spacing: .14em !important; text-transform: uppercase;
+  color: var(--cs-ink) !important; opacity: .62; white-space: nowrap;
+}
+body[data-tab="cam"] #palettes .cs-keys[data-cs-label]::before { content: attr(data-cs-label); }
+body[data-tab="cam"] #palettes .cs-keys::after {                      /* un filete serigrafiado que agrupa las teclas */
+  content: ''; position: absolute; left: calc(5 * var(--cu)); right: calc(5 * var(--cu)); top: calc(18.5 * var(--cu)); height: 1px; background: var(--cs-ink); opacity: .16;
+}
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-key, :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-keys button {
+  flex: 1 1 0 !important; min-width: 0 !important; width: auto; height: calc(30 * var(--cu)) !important; min-height: 0 !important;
+  margin: 0 !important; padding: 0 calc(3 * var(--cu)) 0 calc(4 * var(--cu)) !important; cursor: pointer; position: relative; overflow: visible;
+  border: 1px solid transparent !important; border-radius: 0 !important; background: none !important; box-shadow: none !important;
+  border-image: url('./body/console-key.webp') 72 fill / var(--cs-kb, calc(18 * var(--cu))) / var(--cs-ko, calc(6 * var(--cu))) stretch !important;
+  color: var(--cs-ink) !important; font: 700 calc(8.4 * var(--cu)) / 1 var(--font-ui) !important; font-stretch: 84%; letter-spacing: .08em !important;
+  text-transform: uppercase; text-align: center; white-space: nowrap; transition: none !important; transform: none !important; -webkit-appearance: none; appearance: none;
+  display: flex !important; align-items: center; justify-content: center;
+}
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-key:active, :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-keys button:active {
+  border-image-source: url('./body/console-key-down.webp') !important; padding-top: calc(1.5 * var(--cu)) !important; transform: none !important; box-shadow: none !important;
+}
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-key.is-on, :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-key.active, :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-keys button.active, :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-keys button.is-on, :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-keys button[aria-pressed="true"] {
+  border-image-source: url('./body/console-key-on.webp') !important; color: #fff !important; background: none !important; box-shadow: none !important;
+}
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-key.is-on:active, :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-keys button.active:active {
+  border-image-source: url('./body/console-key-down-on.webp') !important;
+}
+/* El piloto encendido tiñe un poco la tapa. */
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-key.is-on::after, :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-key.active::after, :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-keys button.active::after {
+  content: ''; position: absolute; left: calc(2 * var(--cu)); top: calc(1 * var(--cu)); width: calc(13 * var(--cu)); height: calc(13 * var(--cu)); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 70, 40, .55), rgba(255, 60, 30, 0) 68%);
+}
+
+/* ── La fila de abajo: secciones y LISTO ── */
+body[data-tab="cam"] #palettes > #csSections {
+  position: absolute; left: calc(15 * var(--cu)); right: calc(15 * var(--cu)); bottom: calc(13 * var(--cu)); height: calc(30 * var(--cu));
+  align-items: stretch; gap: calc(5 * var(--cu));
+}
+body[data-tab="cam"] #palettes #csSections .cs-key { flex: 1 1 0 !important; }
+body[data-tab="cam"] #palettes #csSections .cs-key[hidden] { display: none !important; }
+body[data-tab="cam"] #palettes #csSections::before {
+  content: ''; position: absolute; left: 0; right: 0; top: calc(-9 * var(--cu)); height: 1px; background: var(--cs-ink); opacity: .16;
+}
+body[data-tab="cam"] #palettes #btnCamEditClose {
+  display: flex !important; flex: 0 0 calc(74 * var(--cu)) !important; margin-left: calc(6 * var(--cu)) !important; color: #fff !important;
+  border-image-source: url('./body/console-key-coral.webp') !important; letter-spacing: .12em !important;
+}
+body[data-tab="cam"] #palettes #btnCamEditClose:active { border-image-source: url('./body/console-key-coral-down.webp') !important; }
+
+/* ── CUADRO: limitar la cadencia (interruptor), cuadros por segundo, zoom y formato ── */
+body[data-tab="cam"] #palettes #camMobileUtilityDock > #camFpsCtrl { flex: 0 0 62%; max-width: 62%; flex-direction: row !important; align-items: flex-start; justify-content: space-around; height: calc(112 * var(--cu)); }
+body[data-tab="cam"] #palettes #camFpsCtrl > .cs-cell { display: flex; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 0; }
+body[data-tab="cam"] #palettes #camFpsCtrl .fps-toggle { order: 2; display: flex !important; flex-direction: column; align-items: center; gap: 0; }
+body[data-tab="cam"] #palettes #camFpsCtrl.is-off .cs-knob { opacity: .4; filter: grayscale(.5); }
+body[data-tab="cam"] #palettes #camFpsCtrl.is-off .fps-val { opacity: .4; }
+body[data-tab="cam"] #palettes #camMobileUtilityDock > #camZoomCtrl { flex: 0 0 31%; max-width: 31%; height: calc(112 * var(--cu)); }
+body[data-tab="cam"] #palettes #camZoomCtrl > .zoom-meta { order: 4; display: flex !important; flex-direction: column; align-items: center; gap: 0; }
+body[data-tab="cam"] #palettes #camMobileUtilityDock > #camAspect { position: relative !important; }
+
+/* ── COLOR: paletas de fábrica o tinta y papel a mano ── */
+body[data-tab="cam"] #palettes > #palColorTabs { flex-flow: row nowrap !important; align-items: stretch; gap: calc(8 * var(--cu)) !important; }
+body[data-tab="cam"] #palettes #palColorTabs > .pal-tab-row { flex: 0 0 calc(66 * var(--cu)); display: flex !important; flex-direction: column; justify-content: center; gap: calc(12 * var(--cu)); padding: 0 !important; margin: 0 !important; }
+body[data-tab="cam"] #palettes #palColorTabs > .pal-tab-row button { flex: 0 0 auto !important; }
+body[data-tab="cam"] #palettes #palSwatches {
+  flex: 1 1 0; display: grid !important; grid-template-columns: repeat(5, 1fr); grid-auto-rows: minmax(calc(40 * var(--cu)), calc(78 * var(--cu))); gap: calc(7 * var(--cu)); align-content: center;
+  margin: 0 !important; padding: calc(8 * var(--cu)) 0 !important; background: none !important; border: 0 !important; max-height: none !important; overflow: visible !important;
+}
+body[data-tab="cam"] #palettes #palSwatches .pal-swatch {
+  width: auto !important; height: auto !important; min-height: calc(40 * var(--cu)); aspect-ratio: auto; margin: 0 !important; border-radius: calc(5 * var(--cu)) !important; cursor: pointer;
+  border: calc(2.5 * var(--cu)) solid #0d0e0f !important; outline: 0 !important;
+  box-shadow: 0 calc(1 * var(--cu)) 0 rgba(255, 255, 255, .14), inset 0 calc(2 * var(--cu)) calc(3 * var(--cu)) rgba(255, 255, 255, .34), inset 0 calc(-3 * var(--cu)) calc(4 * var(--cu)) rgba(0, 0, 0, .34) !important;
+}
+body[data-tab="cam"] #palettes #palSwatches .pal-swatch.active { border-color: var(--mustard) !important; box-shadow: 0 0 calc(9 * var(--cu)) rgba(240, 174, 43, .65), inset 0 calc(2 * var(--cu)) calc(3 * var(--cu)) rgba(255, 255, 255, .34) !important; }
+body[data-tab="cam"] #palettes #palFreeBox { flex: 1 1 0; flex-direction: column; justify-content: center; gap: calc(7 * var(--cu)); margin: 0 !important; padding: 0 !important; background: none !important; border: 0 !important; }
+body[data-tab="cam"] #palettes #palFreeBox[style*="display: flex"], body[data-tab="cam"] #palettes #palFreeBox[style*="display:flex"] { display: flex !important; }
+body[data-tab="cam"] #palettes #palFreeBox[style*="display: none"], body[data-tab="cam"] #palettes #palFreeBox[style*="display:none"],
+body[data-tab="cam"] #palettes #palSwatches[style*="none"] { display: none !important; }
+body[data-tab="cam"] #palettes #palFreeBox .pal-free-grid { display: flex !important; gap: calc(10 * var(--cu)); justify-content: center; align-items: center; color: var(--cs-ink) !important; font: 700 calc(8.2 * var(--cu)) / 1 var(--font-ui) !important; letter-spacing: .1em; }
+body[data-tab="cam"] #palettes #palFreeBox .pal-free-grid * { color: var(--cs-ink) !important; }
+body[data-tab="cam"] #palettes #palFreeBox input[type="color"] { width: calc(46 * var(--cu)); height: calc(30 * var(--cu)); padding: 0; border: calc(2.5 * var(--cu)) solid #0d0e0f; border-radius: calc(5 * var(--cu)); background: none; }
+body[data-tab="cam"] #palettes #palCustomSlots, body[data-tab="cam"] #palettes #palSlotActions { display: flex !important; gap: calc(5 * var(--cu)); justify-content: center; margin: 0 !important; padding: 0 calc(3 * var(--cu)) !important; }
+body[data-tab="cam"] #palettes #palCustomSlots .pcs-slot { flex: 1 1 0 !important; width: auto !important; height: calc(28 * var(--cu)) !important; min-height: 0 !important; border-radius: calc(5 * var(--cu)) !important; border: calc(2.5 * var(--cu)) solid #0d0e0f !important; padding: 0 !important; box-shadow: inset 0 calc(2 * var(--cu)) calc(3 * var(--cu)) rgba(255, 255, 255, .22) !important; }
+body[data-tab="cam"] #palettes #palCustomSlots .pcs-slot.active { border-color: var(--mustard) !important; }
+
+/* ── PEGATINAS ── */
+body[data-tab="cam"] #palettes > #camStickerPanel { align-content: center; }
+body[data-tab="cam"] #palettes #camStickerPanel > .cam-sticker-header { display: none !important; }
+body[data-tab="cam"] #palettes #camStickerToolRow {
+  flex: 0 0 100%; display: grid !important; grid-template-columns: repeat(5, 1fr); gap: calc(11 * var(--cu)) calc(5 * var(--cu)); margin: 0 !important; padding: calc(10 * var(--cu)) calc(3 * var(--cu)) calc(8 * var(--cu)) !important; height: auto; align-items: stretch;
+}
+body[data-tab="cam"] #palettes #camStickerToolRow::before, body[data-tab="cam"] #palettes #camStickerToolRow::after { display: none; }
+body[data-tab="cam"] #palettes #camStickerToolRow button { font-size: calc(13 * var(--cu)) !important; width: auto !important; flex: none !important; }
+body[data-tab="cam"] #palettes #camStickerPanel > .cam-stk-reset-row, body[data-tab="cam"] #palettes #camStickerPanel > #camStickerSelRow { order: 6; height: calc(48 * var(--cu)); padding-bottom: calc(4 * var(--cu)) !important; align-items: center; }
+body[data-tab="cam"] #palettes #camStickerPanel > .cam-stk-reset-row::after, body[data-tab="cam"] #palettes #camStickerSelRow::after { display: none; }
+body[data-tab="cam"] #palettes #camStickerSelRow { flex: 2 1 0; }
+body[data-tab="cam"] #palettes #camStickerSelRow[style*="none"] { display: none !important; }
+body[data-tab="cam"] #palettes #camStickerSelRow > .cam-stk-sel-label { color: var(--cs-ink) !important; font-size: calc(15 * var(--cu)) !important; flex: none; }
+body[data-tab="cam"] #palettes #camStickerSelRow > input[type="range"] { flex: 1 1 auto; height: calc(26 * var(--cu)) !important; }
+body[data-tab="cam"] #palettes #camStickerPanel > .cam-stk-reset-row { flex: 1 1 0; }
+
+/* ── AUTO 03: la nota de la variante, serigrafiada ── */
+body[data-tab="cam"] #palettes #auto03ModeNote {
+  order: 6; display: block !important; flex: 0 0 100%; margin: calc(12 * var(--cu)) calc(8 * var(--cu)) 0 !important; padding: calc(9 * var(--cu)) 0 0 !important;
+  border-top: 1px solid rgba(233, 227, 210, .16); color: var(--cs-ink) !important; opacity: .72;
+  font: 500 calc(9.6 * var(--cu)) / 1.4 var(--font-ui) !important; letter-spacing: .02em; text-align: center;
+}
+
+/* ═══ Las consolas de los demás módulos ═════════════════════════════════════
+   El panel de cada módulo pasa a ser una placa como la de CAM, atornillada entre el visor y los
+   botones: perillas en vez de deslizadores, y nada que desplazar. Los mandos de siempre siguen
+   dentro, ocultos; la placa (console.js, RACKS) los gobierna. */
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls).cs-host {
+  --cu: 1px; --cs-ink: #e9e3d2;
+  background: none !important; border: 0 !important; box-shadow: none !important; gap: 0 !important;
+  padding: 6px 0 9px !important; min-height: 0 !important; max-height: none !important; height: auto !important; overflow: visible !important;
+  flex-direction: column !important; align-items: center !important; justify-content: flex-end !important;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls).cs-host > :not(.cs-rack) { display: none !important; }
+.cs-rack {
+  position: relative; box-sizing: border-box; flex: none; width: calc(384 * var(--cu));
+  padding: calc(10 * var(--cu)) calc(13 * var(--cu)) calc(12 * var(--cu));
+  border: 1px solid transparent;
+  border-image: url('./body/console-plate.webp') 78 fill / var(--cs-pb, calc(26 * var(--cu))) / var(--cs-po, calc(10 * var(--cu))) stretch;
+  color: var(--cs-ink); font-family: var(--font-ui);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+}
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cs-rack * { box-sizing: border-box; text-shadow: none !important; }
+/* Páginas: todas ocupan la misma celda, así la placa mide siempre lo que la más alta. */
+.cs-rack .cr-pages { display: grid; }
+.cs-rack .cr-page { grid-area: 1 / 1; display: flex; flex-direction: column; justify-content: center; visibility: hidden; min-width: 0; }
+.cs-rack .cr-page.is-on { visibility: visible; }
+/* Perillas */
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cr-knobs { display: flex !important; justify-content: center; height: calc(100 * var(--cu)); --cs-k: 74; margin: 0 !important; padding: 0 !important; }
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cr-knobs[data-cs-n="5"] { --cs-k: 69; }
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cr-page.is-tight .cr-knobs { height: calc(88 * var(--cu)); --cs-k: 62; }
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cr-slot {
+  display: flex !important; flex-direction: column; align-items: center; justify-content: flex-start; min-width: 0;
+  flex: 0 0 calc(100% / var(--cs-n, 5)); max-width: calc(100% / var(--cs-n, 5)); margin: 0 !important; padding: 0 !important;
+}
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cr-lbl {
+  order: 2; display: block !important; margin: calc(-2 * var(--cu)) 0 0 !important; padding: 0 !important; min-width: 0 !important; width: auto !important;
+  font: 700 calc(7.4 * var(--cu)) / 1 var(--font-ui) !important; font-stretch: 78%; letter-spacing: .06em !important; text-transform: uppercase;
+  color: var(--cs-ink) !important; opacity: .94; white-space: nowrap; text-align: center !important;
+}
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cr-val {
+  order: 3; display: block !important; margin: calc(3.5 * var(--cu)) 0 0 !important; padding: 0 !important; min-width: 0 !important; width: auto !important;
+  font: 800 calc(10 * var(--cu)) / 1 var(--font-dot) !important; letter-spacing: .05em !important; color: var(--mustard) !important; text-align: center !important;
+  text-shadow: 0 0 calc(5 * var(--cu)) rgba(240, 174, 43, .42) !important; white-space: nowrap; text-transform: uppercase;
+}
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cr-page.is-tight .cr-val { font-size: calc(9 * var(--cu)) !important; margin-top: calc(2.5 * var(--cu)) !important; }
+/* Teclas, con su rótulo y su filete serigrafiados */
+.cs-rack .cr-keys { position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; gap: calc(6 * var(--cu)) calc(5 * var(--cu)); padding: calc(22 * var(--cu)) calc(2 * var(--cu)) calc(6 * var(--cu)); min-width: 0; }
+.cs-rack .cr-keys[data-label]::before {
+  content: attr(data-label); position: absolute; left: calc(4 * var(--cu)); top: calc(6 * var(--cu));
+  font: 700 calc(7.4 * var(--cu)) / 1 var(--font-ui); font-stretch: 84%; letter-spacing: .14em; color: var(--cs-ink); opacity: .62; white-space: nowrap;
+}
+.cs-rack .cr-keys[data-label]::after { content: ''; position: absolute; left: calc(4 * var(--cu)); right: calc(4 * var(--cu)); top: calc(17 * var(--cu)); height: 1px; background: var(--cs-ink); opacity: .16; }
+.cs-rack .cr-keys:not([data-label]) { padding-top: calc(6 * var(--cu)); }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cr-keys[style*="--cr-per"] > .cs-key { flex: 1 1 calc(100% / var(--cr-per) - 5 * var(--cu)) !important; }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-key[hidden] { display: none !important; }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-key:disabled { opacity: .45; }
+/* Fila partida: perillas a la izquierda, teclas a la derecha */
+.cs-rack .cr-split { display: flex; align-items: stretch; gap: calc(8 * var(--cu)); }
+:is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cr-split > .cr-knobs { flex: none; width: calc(var(--cs-n, 1) * 82 * var(--cu)); --cs-k: 74; }
+.cs-rack .cr-split > .cr-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+/* La fila de abajo: pestañas de página a la izquierda, teclas sueltas a la derecha */
+.cs-rack .cr-tabs { position: relative; display: flex; align-items: stretch; gap: calc(5 * var(--cu)); margin-top: calc(8 * var(--cu)); padding: calc(9 * var(--cu)) calc(2 * var(--cu)) calc(2 * var(--cu)); }
+.cs-rack .cr-tabs::before { content: ''; position: absolute; left: calc(2 * var(--cu)); right: calc(2 * var(--cu)); top: 0; height: 1px; background: var(--cs-ink); opacity: .16; }
+.cs-rack .cr-tabs > .cr-gap { flex: 1 1 calc(8 * var(--cu)); }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cr-tabs > .cs-key { flex: 0 1 calc(86 * var(--cu)) !important; }
+/* El piloto de nivel de SONO, en la placa */
+.cs-rack > #sonoAmpDot { display: block !important; position: absolute; right: calc(19 * var(--cu)); top: calc(115 * var(--cu)); width: calc(6 * var(--cu)); height: calc(6 * var(--cu)); margin: 0; border-radius: 50%; outline: calc(1.5 * var(--cu)) solid #0a0a0b; }
+/* El visor de WMP acaba donde empieza su placa (con archivo, la barra de avance va debajo). */
+#wmpArea.visible { bottom: calc(96px + var(--wmpHUD-h, 72px)) !important; }
+body.wmp-file #wmpArea.visible { bottom: calc(156px + var(--wmpHUD-h, 72px)) !important; }
+
+/* La pantallita de arriba dice qué se está moviendo y cuánto. */
+#shellLcd #lcdReadout { display: none; }
+#shellLcd.is-readout > #lcdLine1, #shellLcd.is-readout > #lcdLine2 { display: none; }
+#shellLcd.is-readout > #lcdReadout { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 4px; width: 100%; }
+#lcdReadout > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; white-space: nowrap; }
+#lcdParam { font-size: 13px; line-height: 13px; overflow: hidden; text-overflow: ellipsis; }
+#lcdValue { font-size: 13px; line-height: 13px; }
+#lcdBar { display: flex; align-items: stretch !important; gap: 2px; height: 7px; width: 100%; }
+#lcdBar > i { flex: 1 1 0; background: currentColor; opacity: .16; }
+#lcdBar > i.on { opacity: .82; }

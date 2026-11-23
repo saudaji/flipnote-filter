@@ -6,7 +6,7 @@ tapaba media imagen. La segunda, de aspecto: la carcasa y los botones debían ve
 aparato de verdad, con su luz, su sombra y sus materiales, como las emulaciones de equipo
 analógico, y no como una interfaz plana que se le parece.
 
-Rama `fable/public-alpha-pass2`. Nada de esto está publicado todavía.
+Rama `fable/public-alpha-pass2`, publicada en `main` el 23 de noviembre de 2026 (caché v85).
 
 ## 1 · Los ajustes ya no se desplazan
 

@@ -33,7 +33,7 @@ const flipPortal = (() => {
   const LOST_MS = 300;        // sin detección este tiempo, una mano deja de existir
   const MIN_AREA = 0.004;     // fracción del cuadro a partir de la cual la ventana existe
   const MAX_PANES = 8;
-  const WRIST = 0, THUMB_MCP = 2, THUMB = 4, INDEX_MCP = 5, INDEX = 8, MIDDLE_MCP = 9, RING = 16;
+  const WRIST = 0, THUMB_MCP = 2, THUMB = 4, INDEX_MCP = 5, INDEX = 8, MIDDLE_MCP = 9, MIDDLE = 12, RING = 16;
   const TAU = Math.PI * 2;
   const ANDROID = /Android/i.test(navigator.userAgent);
   const clamp = (v, lo = 0, hi = 1) => (v < lo ? lo : v > hi ? hi : v);
@@ -223,6 +223,14 @@ const flipPortal = (() => {
   // El clic de anular y pulgar fija la figura de este tiempo antes del cuadro en que se vio (ms):
   // la que había antes de que los dedos empezaran a moverse para tocarse.
   const PRE_CLICK = 230;
+  // Fijar dejando el marco quieto: si las esquinas no se apartan más de DWELL_TOL (del lado corto del
+  // visor) de donde estaban, a los DWELL_WAIT ms empieza a llenarse un anillo y DWELL_FILL después el
+  // portal queda fijado. (Con manos de verdad, sostener el marco lo mueve un 2 %; moverlo sin más, del 10 al 40.)
+  const DWELL_WAIT = 300, DWELL_FILL = 800, DWELL_TOL = 0.03;
+  // La forma de la ventana. Las cuatro yemas marcan siempre la figura; la forma dice qué se dibuja con ellas.
+  const FORMS = ['quad', 'round', 'tri'], FORM_NAMES = { quad: 'cuadro', round: 'círculo', tri: 'triángulo' };
+  let form = 'quad';
+  try { const saved = localStorage.getItem('flip.portal.form'); if (FORMS.includes(saved)) form = saved; } catch (_) {}
   const sync = { delay: 120, want: 120, latency: 70, period: 60, lastShot: 0, lastT: 0 };
   function syncFeed(shot, now, seen) {
     // Solo cuentan las detecciones con manos: sin ellas el rastreador va despacio a propósito.
@@ -277,7 +285,7 @@ const flipPortal = (() => {
         if (best.hist.length > HISTORY) best.hist.shift();
         touch(best, points, now);
         next.push(best);
-      } else next.push({ x: Float32Array.from(points), raw: Float32Array.from(points), v: new Float32Array(42), px: new Float32Array(42), hist: [{ t, x: Float32Array.from(points) }], at: t, seen: now, born: now, pinch: false, hits: 0, openAt: 0 });
+      } else next.push({ x: Float32Array.from(points), raw: Float32Array.from(points), v: new Float32Array(42), px: new Float32Array(42), hist: [{ t, x: Float32Array.from(points) }], at: t, seen: now, born: now, pinch: false, hits: 0, near: false });
     }
     // Una mano que falta en una detección no se borra aún: la imagen va por detrás y todavía tiene que verse irse.
     const keep = Math.max(LOST_MS, sync.delay + 220);
@@ -308,24 +316,37 @@ const flipPortal = (() => {
   // El clic: la yema del anular toca la del pulgar con el índice todavía abierto. Se mide en 3D
   // (metros, del modelo de la mano): en 2D dos yemas coinciden por perspectiva sin tocarse. Tiene
   // que venir de abierto y durar dos detecciones: una pose que ya llega cerrada no cuenta.
+  // El clic: la yema del anular (o la del medio) toca la del pulgar, con el índice estirado. Se
+  // decide en la imagen, en tamaños de mano (muñeca–nudillo del medio): al tocarse, las dos yemas
+  // coinciden. La distancia en 3D que estima el modelo no sirve para decidirlo: medido con manos de
+  // verdad en un teléfono, con los dedos tocándose marca 6 cm y da el índice por pegado al pulgar.
+  // Solo se usa de freno, para descartar dos yemas que coinciden en la imagen estando lejos en fondo.
+  const CLICK_NEAR = 0.45, CLICK_FAR = 0.55, CLICK_DEEP = 0.9, CLICK_REST = 350;
   function touch(track, points, now) {
-    let ring, open;
-    if (points.meta) {
-      // Relativo a la palma (muñeca–nudillo del medio): vale igual para una mano grande que para una pequeña.
-      const palm = points.meta[3] || 0.094;
-      ring = points.meta[0] / palm / 0.4; open = points.meta[1] / palm > 0.58 && points.meta[2] / palm > 1.3;
-    }
-    else {                                                                   // sin 3D (pruebas): en píxeles, relativo al tamaño de la mano
-      const W = state.w || 1, H = state.h || 1, far = (a, b) => Math.hypot((points[2 * a] - points[2 * b]) * W, (points[2 * a + 1] - points[2 * b + 1]) * H);
-      const size = far(WRIST, MIDDLE_MCP) || 1;
-      ring = far(RING, THUMB) / size / 0.27; open = far(INDEX, THUMB) / size > 0.5;
-    }
-    if (ring > 2) track.openAt = now;
-    if (track.pinch ? ring > 1.6 : !(ring < 1 && open)) { track.pinch = false; track.hits = 0; return; }
+    const W = state.w || 1, H = state.h || 1, far = (a, b) => Math.hypot((points[2 * a] - points[2 * b]) * W, (points[2 * a + 1] - points[2 * b + 1]) * H);
+    const size = far(WRIST, MIDDLE_MCP) || 1;
+    const viaMiddle = far(MIDDLE, THUMB) < far(RING, THUMB);
+    const flat = (viaMiddle ? far(MIDDLE, THUMB) : far(RING, THUMB)) / size;   // el dedo que toca: el más cercano de los dos
+    const span = far(INDEX, THUMB) / size, reach = far(INDEX, WRIST) / size;
+    // El mismo dedo en 3D, en palmas (sin 3D en las pruebas; un worker antiguo no manda el medio: vale el anular).
+    const deep = points.meta ? (viaMiddle && points.meta.length > 4 ? points.meta[4] : points.meta[0]) / (points.meta[3] || 0.094) : 0;
+    const near = flat < CLICK_NEAR && deep < CLICK_DEEP;
+    // Índice estirado (no es un puño) y el pulgar junto al dedo que toca, no junto al índice (no es la pinza que cierra la L).
+    const open = reach > 1.3 && span > Math.max(0.35, flat * 1.3);
+    track.flat = flat; track.span = span; track.reach = reach; track.deep = deep; track.open = open; track.via = viaMiddle ? 'medio' : 'anular';   // (se enseñan en status())
+    // ¿Toca? Con histéresis, para que el ruido no lo encienda y lo apague.
+    const wasNear = !!track.near;
+    track.near = wasNear ? flat < CLICK_FAR : near;
+    if (!track.near) { if (wasNear || !track.awaySince) track.awaySince = now; track.pinch = false; track.hits = 0; return; }
+    if (!wasNear) track.nearAt = now;                                         // empieza un acercamiento
+    if (track.pinch) return;
+    if (!open) { track.hits = 0; return; }
     track.hits = (track.hits || 0) + 1;
-    if (track.pinch || track.hits < 2) return;
+    if (track.hits < 2) return;
     track.pinch = true;
-    if (now - (track.openAt || -Infinity) < 1500 && now - track.born > 300) { trk.clickAt = now; trk.clickShot = track.at * 1000; }   // cuándo se vio, y de cuándo era la imagen
+    // Un clic es un acercamiento nuevo: la mano llevaba un rato sin tocar (no nace ya en pinza ni rebota).
+    // No depende de lo separados que cada cual tenga los dedos en reposo.
+    if (track.nearAt - (track.awaySince || track.born) >= CLICK_REST && now - track.born > 300) { trk.clickAt = now; trk.clickShot = track.at * 1000; }   // cuándo se vio, y de cuándo era la imagen
   }
 
   // ── El marco recuerda a sus dos manos ─────────────────────────────────────
@@ -445,6 +466,21 @@ const flipPortal = (() => {
     }
     return out;
   }
+  // El contorno de una figura según su forma: el cuadro tal cual (esquinas en las yemas), el óvalo que
+  // pasa por el centro de sus cuatro lados, o el triángulo con la punta entre los dos índices y la
+  // base en los pulgares.
+  function ringOf(pts, shape, grow, radius) {
+    if (shape === 'round') {
+      const cx = (pts[0] + pts[2] + pts[4] + pts[6]) / 4, cy = (pts[1] + pts[3] + pts[5] + pts[7]) / 4;
+      const ux = (pts[2] + pts[4] - pts[0] - pts[6]) / 4, uy = (pts[3] + pts[5] - pts[1] - pts[7]) / 4;   // del lado izquierdo al derecho
+      const vx = (pts[4] + pts[6] - pts[0] - pts[2]) / 4, vy = (pts[5] + pts[7] - pts[1] - pts[3]) / 4;   // del lado de los índices al de los pulgares
+      const out = [];
+      for (let i = 0; i < 56; i++) { const a = i / 56 * TAU, c = Math.cos(a) * grow, k = Math.sin(a) * grow; out.push(cx + ux * c + vx * k, cy + uy * c + vy * k); }
+      return out;
+    }
+    if (shape === 'tri') return outline([(pts[0] + pts[2]) / 2, (pts[1] + pts[3]) / 2, pts[4], pts[5], pts[6], pts[7]], grow, radius);
+    return outline(pts, grow, radius);
+  }
   const inside = (pts, x, y) => { let hit = false; for (let i = 0, n = pts.length / 2, j = n - 1; i < n; j = i++) { const xi = pts[2 * i], yi = pts[2 * i + 1], xj = pts[2 * j], yj = pts[2 * j + 1]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) hit = !hit; } return hit; };
 
   // ── Estilos ───────────────────────────────────────────────────────────────
@@ -533,7 +569,7 @@ const flipPortal = (() => {
     if (panes.length >= MAX_PANES) { flipToast('Caben ' + MAX_PANES + ' portales. Borra alguno para fijar otro.'); return false; }
     const pts = new Float32Array(8);
     for (let i = 0; i < 8; i += 2) { pts[i] = shot.pts[i] / shot.w; pts[i + 1] = shot.pts[i + 1] / shot.h; }
-    panes.push({ id: ++paneId, pts, style: currentStyle(), at: now });
+    panes.push({ id: ++paneId, pts, style: currentStyle(), form, at: now });
     state.lockedAt = now; state.wait = true; state.amount = 0; state.shape = null; state.trail.length = 0;
     select(-1);
     feel('switch', 'down');
@@ -558,9 +594,35 @@ const flipPortal = (() => {
         if (camFamily !== style.family) _setCamFamily(style.family);
         if (camVariant !== style.variant) { camVariant = style.variant; _applyCamState(); }
       }
-      hint('Arrástralo para moverlo · toca otra cámara para cambiar su estilo', 2600);
+      form = FORMS.includes(panes[selected].form) ? panes[selected].form : 'quad';   // y su forma, la del selector
+      hint('Arrástralo para moverlo · toca otra cámara o la forma para cambiarlo', 2600);
     }
     syncBar();
+  }
+  // El selector de forma: cambia la de la ventana viva y la del portal elegido.
+  function setForm(next) {
+    form = FORMS.includes(next) ? next : FORMS[(FORMS.indexOf(form) + 1) % FORMS.length];
+    try { localStorage.setItem('flip.portal.form', form); } catch (_) {}
+    if (selected >= 0 && panes[selected]) panes[selected].form = form;
+    still.ref = null; still.progress = 0;
+    syncBar();
+    hint('Forma: ' + FORM_NAMES[form], 1400);
+    return form;
+  }
+  // Quieto: el anillo se llena mientras la figura no se mueve; al completarse, el portal queda fijado.
+  const still = { on: true, ref: null, since: 0, progress: 0, spent: null };
+  function dwell(shape, w, h, now) {
+    const unit = Math.min(w, h), pts = shape.pts;
+    const apart = ref => { let most = 0; for (let i = 0; i < 8; i += 2) most = Math.max(most, Math.hypot(pts[i] - ref[i], pts[i + 1] - ref[i + 1])); return most / unit; };
+    // Con la figura a medio abrir, en pleno clic, con un portal elegido o con una mano recordada (no vista), no cuenta.
+    const live = still.on && state.amount > 0.9 && !state.pinched && selected < 0 && panes.length < MAX_PANES
+      && state.hands.length >= (shape.kind === 'quad' ? 2 : 1) && !(state.slots && state.slots.some(slot => slot.lostAt));
+    // Tras fijar hay que mover el marco para volver a armarlo: no fija dos veces en el mismo sitio.
+    if (still.spent && live) { if (apart(still.spent) > DWELL_TOL * 2) still.spent = null; }
+    if (!live || still.spent) { still.ref = null; still.progress = 0; return; }
+    if (!still.ref || apart(still.ref) > DWELL_TOL) { still.ref = Float32Array.from(pts); still.since = now; still.progress = 0; return; }
+    still.progress = clamp((now - still.since - DWELL_WAIT) / DWELL_FILL);
+    if (still.progress >= 1) { still.spent = Float32Array.from(pts); still.ref = null; still.progress = 0; lockLive('quieto'); }
   }
   function movePane(pane, dx, dy) {
     let cx = 0, cy = 0;
@@ -801,12 +863,12 @@ void main() { o = uColor; }`;
       const px = new Float32Array(8);
       for (let i = 0; i < 8; i += 2) { px[i] = pane.pts[i] * w; px[i + 1] = pane.pts[i + 1] * h; }
       const burst = Math.max(0, 1 - (now - pane.at) / 420), chosen = index === selected;
-      list.push({ ring: new Float32Array(outline(px, 1, unit * 1.6)), style: pane.style,
+      list.push({ ring: new Float32Array(ringOf(px, pane.form, 1, unit * 1.6)), style: pane.style,
         look: chosen ? { color: [.93, .36, .27], alpha: .95, width: .62 + .12 * Math.sin(now / 160), glow: 1, burst } : { color: [1, 1, 1], alpha: .7, width: .3, glow: 0, burst } });
     });
     if (state.shape && state.amount > 0.01) {
       const grow = 1 - Math.pow(1 - state.amount, 3), burst = Math.max(0, 1 - (now - state.opened) / 420);
-      list.push({ ring: new Float32Array(outline(state.shape.pts, grow, unit * 1.6)), style: currentStyle(), look: { color: [1, 1, 1], alpha: .92, width: .44, glow: 1, burst } });
+      list.push({ ring: new Float32Array(ringOf(state.shape.pts, form, grow, unit * 1.6)), style: currentStyle(), look: { color: [1, 1, 1], alpha: .92, width: .44, glow: 1, burst } });
     }
     return list;
   }
@@ -940,7 +1002,7 @@ void main() { o = uColor; }`;
     if (click) state.clickSeen = trk.clickAt;
     // 2 · La ventana viva.
     if (state.wait && !state.pinched && now - state.lockedAt > 350) state.wait = false;
-    if (state.wait) { state.shape = null; state.amount = 0; }
+    if (state.wait) { state.shape = null; state.amount = 0; still.ref = null; still.progress = 0; }
     else {
       const shape = shapeFrom(frameHands(w, h, dt, now), w, h);
       if (shape && shape.area > MIN_AREA) {
@@ -953,9 +1015,11 @@ void main() { o = uColor; }`;
         state.trail.push({ pts: shape.pts.slice(), w, h, at: now, shown: state.shownAt });
         while (state.trail.length > 96 || (state.trail.length && now - state.trail[0].at > 600)) state.trail.shift();
         if (click && state.amount > 0.6) lockLive('clic');
+        else dwell(shape, w, h, now);
       } else {
         state.amount += (0 - state.amount) * (1 - Math.exp(-dt / 90));
         if (state.amount < 0.01) { state.amount = 0; state.shape = null; state.trail.length = 0; }
+        still.ref = null; still.progress = 0;
       }
     }
     // El portal elegido sigue al estilo que se toque en la bandeja.
@@ -984,7 +1048,7 @@ void main() { o = uColor; }`;
   }
 
   // ── Sobre el cristal: yemas, tecla de fijar, aspa del portal elegido ──────
-  let dots = [], bar = null, drop = null;
+  let dots = [], bar = null, drop = null, ring = null;
   function hint(text, ms) { if (window.flipShell) { state.shown = '·' + text; flipShell.hint(text, ms); state.hintUntil = performance.now() + (ms || 0); } }
   function buildBar() {
     const host = document.getElementById('osd');
@@ -993,6 +1057,7 @@ void main() { o = uColor; }`;
     bar.id = 'portalBar';
     bar.innerHTML = `
       <button class="hw hw-keycap" data-color="mustard" id="portalLock" type="button" aria-label="Fijar la ventana donde está"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>FIJAR</span></button>
+      <button class="hw hw-keycap" id="portalForm" type="button" aria-label="Forma de la ventana"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d=""/></svg></button>
       <span class="hw-lcd" id="portalCount" aria-live="polite"><b>0</b></span>
       <button class="hw hw-keycap" id="portalErase" type="button" aria-label="Borrar el portal elegido o el último"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V4.5h4V7M7 7l.8 12.5h8.4L17 7"/></svg><span>BORRAR</span></button>`;
     host.appendChild(bar);
@@ -1000,7 +1065,12 @@ void main() { o = uColor; }`;
     drop.id = 'portalDrop'; drop.type = 'button'; drop.className = 'hw'; drop.setAttribute('aria-label', 'Borrar este portal');
     drop.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>';
     host.appendChild(drop);
+    ring = document.createElement('i');
+    ring.id = 'portalDwell';
+    ring.innerHTML = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15"/><circle cx="20" cy="20" r="15" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg>';
+    host.appendChild(ring);
     bar.querySelector('#portalLock').addEventListener('click', () => lockLive('tecla'));
+    bar.querySelector('#portalForm').addEventListener('click', () => setForm());
     // BORRAR: un toque quita el elegido (o el último); mantenerla los quita todos.
     const erase = bar.querySelector('#portalErase');
     let hold = 0, swept = false;
@@ -1014,6 +1084,10 @@ void main() { o = uColor; }`;
     bar.querySelector('#portalCount b').textContent = String(panes.length);
     bar.querySelector('#portalErase').classList.toggle('is-dim', !panes.length);
     bar.querySelector('#portalLock').classList.toggle('is-dim', panes.length >= MAX_PANES);
+    const key = bar.querySelector('#portalForm');
+    key.querySelector('path').setAttribute('d', form === 'round' ? 'M12 5a7 7 0 1 0 0 14a7 7 0 1 0 0-14z' : form === 'tri' ? 'M12 5.5 19.5 18.5h-15z' : 'M5.5 6.5h13v11h-13z');
+    key.setAttribute('aria-label', 'Forma de la ventana: ' + FORM_NAMES[form] + '. Toca para cambiarla.');
+    key.dataset.form = form;
   }
   function marks(w, h, now) {
     const host = document.getElementById('osd');
@@ -1032,6 +1106,11 @@ void main() { o = uColor; }`;
       drop.style.display = pane ? 'grid' : 'none';
       if (pane) { let x = 0, y = 1; for (let i = 0; i < 8; i += 2) { if (pane.pts[i] - pane.pts[i + 1] > x - y) { x = pane.pts[i]; y = pane.pts[i + 1]; } } place(drop, clamp(x, .06, .94), clamp(y, .05, .95)); }
     }
+    if (ring) {
+      const on = still.progress > 0 && !!state.shape;
+      ring.style.display = on ? 'block' : 'none';
+      if (on) { ring.firstChild.lastChild.setAttribute('stroke-dashoffset', (100 - 100 * still.progress).toFixed(1)); place(ring, clamp(state.shape.cx / w, .06, .94), clamp(state.shape.cy / h, .06, .94)); }
+    }
     if (now < (state.hintUntil || 0)) return;                                 // un aviso puntual sigue en pantalla
     const seen = state.hands.length;
     const text = trk.phase === 'loading' ? 'Cargando el seguimiento de manos…'
@@ -1039,9 +1118,9 @@ void main() { o = uColor; }`;
       : selected >= 0 ? ''
       : seen === 0 ? (panes.length ? '' : 'Enseña las manos a la cámara')
       : state.amount < 0.2 ? (seen === 1 ? 'Abre el pulgar y el índice en L' : 'Haz un marco con las dos manos y sepáralas')
-      : panes.length < 2 && state.hintLock < 3 ? 'Toca el pulgar con el anular para fijarlo'
+      : panes.length < 2 && state.hintLock < 3 ? (still.on ? 'Déjalo quieto un segundo para fijarlo' : 'Toca el pulgar con el anular para fijarlo')
       : '';
-    if (text !== state.shown) { state.shown = text; if (text.startsWith('Toca el pulgar')) state.hintLock++; if (window.flipShell) flipShell.hint(text, 0); }
+    if (text !== state.shown) { state.shown = text; if (text.startsWith('Déjalo quieto') || text.startsWith('Toca el pulgar')) state.hintLock++; if (window.flipShell) flipShell.hint(text, 0); }
   }
 
   // ── Módulo ────────────────────────────────────────────────────────────────
@@ -1053,7 +1132,7 @@ void main() { o = uColor; }`;
   }
   function enter() {
     Object.assign(state, { active: true, amount: 0, shape: null, hands: [], shown: null, mode: '', slots: null, lensAfter: 0, wait: false, hintUntil: 0 });
-    state.trail.length = 0; trk.strikes = 0;
+    state.trail.length = 0; trk.strikes = 0; still.ref = null; still.progress = 0; still.spent = null;
     // Lo que quedara en las colas es de otra visita: no se enseña.
     for (const slot of gfx.ring) if (slot) slot.shot = -Infinity;
     for (const slot of state.bases) if (slot) slot.shot = 0;
@@ -1080,6 +1159,7 @@ void main() { o = uColor; }`;
     setLook('');
     dots.forEach(dot => { dot.style.display = 'none'; });
     if (drop) drop.style.display = 'none';
+    if (ring) ring.style.display = 'none';
     if (window.flipShell) flipShell.hint('');
     stop();
     state.hands = [];
@@ -1178,10 +1258,13 @@ void main() { o = uColor; }`;
       // La imagen va `delay` ms por detrás: lo que tarda el rastreador (latency) más parte de su periodo.
       delay: Math.round(state.delay), latency: Math.round(sync.latency), period: Math.round(sync.period), queue: gfx.ring.length,
       // Para las pruebas: cuántas veces se ha pintado de verdad, y cuántos estilos hay guardados.
-      draws: state.draws || 0, kept: pool.size }),
+      draws: state.draws || 0, kept: pool.size, form, dwell: +still.progress.toFixed(2),
+      // El clic de cada mano, en tamaños de mano: yema que toca–pulgar, índice–pulgar, índice–muñeca; 3D en palmas; índice abierto, armado.
+      pinch: tracks.map(track => ({ flat: +(track.flat || 0).toFixed(2), span: +(track.span || 0).toFixed(2), reach: +(track.reach || 0).toFixed(2), deep: +(track.deep || 0).toFixed(2), open: !!track.open,
+        via: track.via || '', near: !!track.near, away: track.near ? 0 : Math.round(performance.now() - (track.awaySince || track.born)), hits: track.hits || 0, on: !!track.pinch, age: Math.round(performance.now() - track.born), x: +track.x[0].toFixed(2), at: Math.round(track.at * 1000) })) }),
     // Portales fijados, para las teclas y para las pruebas.
     panes: {
-      list: () => panes.map(pane => ({ id: pane.id, style: pane.style.key, pts: Array.from(pane.pts, v => +v.toFixed(4)) })),
+      list: () => panes.map(pane => ({ id: pane.id, style: pane.style.key, form: pane.form || 'quad', pts: Array.from(pane.pts, v => +v.toFixed(4)) })),
       lock: () => lockLive('tecla'), remove: removePane, select, clear() { panes.length = 0; select(-1); },
       move(index, dx, dy) { if (panes[index]) movePane(panes[index], dx, dy); },
     },
@@ -1200,7 +1283,10 @@ void main() { o = uColor; }`;
     // Pruebas: fuerza la subida directa del vídeo en vez de los planos.
     direct(on) { gfx.direct = !!on; gfx.path = ''; },
     // Ajuste del estimador (para medirlo con vídeo real): devuelve los valores en uso.
-    tune(next) { Object.assign(est, next || {}); if (next && next.delay != null) { sync.want = sync.delay = next.delay; } return { ...est, delay: sync.delay }; },
+    tune(next) { if (next && 'dwell' in next) { still.on = !!next.dwell; still.ref = null; still.progress = 0; next = { ...next }; delete next.dwell; }
+      Object.assign(est, next || {}); if (next && next.delay != null) { sync.want = sync.delay = next.delay; } return { ...est, delay: sync.delay, dwell: still.on }; },
+    // La forma de la ventana: sin argumento pasa a la siguiente (cuadro, círculo, triángulo).
+    form: setForm,
   };
 })();
 // Quien pregunte por PORTAL lo hace por window.flipPortal: si este archivo falla al iniciarse, el nombre

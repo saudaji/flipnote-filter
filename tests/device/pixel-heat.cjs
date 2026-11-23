@@ -74,21 +74,22 @@ function phone() {
   for (const [name, enter] of scenarios) {
     await enter();
     await P.sleep(4000);
-    await c.evaluate('(() => { __heat.render.length = 0; __heat.raf.length = 0; __heat.frames0 = window.flipPortal ? flipPortal.status().frames : 0; __heat.t0 = performance.now(); })()');
+    await c.evaluate('(() => { __heat.render.length = 0; __heat.raf.length = 0; __heat.frames0 = typeof flipPortal !== "undefined" ? flipPortal.status().frames : 0; __heat.t0 = performance.now(); })()');
     const before = phone(), samples = [];
     for (let elapsed = 0; elapsed < seconds; elapsed += 10) { await P.sleep(Math.min(10, seconds - elapsed) * 1000); samples.push(phone()); }
     const page = await c.evaluate(`(() => {
       const H = __heat, dt = (performance.now() - H.t0) / 1000, sort = list => Float64Array.from(list).sort(), at = (list, q) => list.length ? list[Math.min(list.length - 1, Math.floor(q * list.length))] : 0;
-      const s = window.flipStage ? flipStage.status() : null, p = window.flipPortal ? flipPortal.status() : null;
+      const s = typeof flipStage !== 'undefined' ? flipStage.status() : null, p = typeof flipPortal !== 'undefined' ? flipPortal.status() : null;
       return { fps: +(1000 / (at(sort(H.raf), 0.5) || 1000)).toFixed(0), motor: +(H.render.length / dt).toFixed(1), ms: +at(sort(H.render), 0.5).toFixed(1), stage: s && s.active ? s.fps : 0,
-        rastreador: p && p.active ? +((p.frames - H.frames0) / dt).toFixed(1) : 0, delegado: p ? p.delegate : '', camara: stream ? Math.round(stream.getVideoTracks()[0].getSettings().frameRate || 0) : 0 };
+        rastreador: p && p.active ? +((p.frames - H.frames0) / dt).toFixed(1) : 0, delegado: p ? p.delegate : '', camara: stream ? Math.round(stream.getVideoTracks()[0].getSettings().frameRate || 0) : 0,
+        modulo: flipShell.module() + (p && p.active ? ' (PORTAL activo)' : '') };
     })()`);
     const last = samples[samples.length - 1], avg = key => +(samples.reduce((a, s) => a + (s[key] || 0), 0) / samples.length).toFixed(0);
     const row = { name, segundos: seconds, bateria: [before.bateria, last.bateria], piel: [before.piel, last.piel], chip: [before.chip, last.chip], estado: Math.max(...samples.map(s => s.estado || 0)), cpuPagina: avg('cpuPagina'), cpuGraficos: avg('cpuGraficos'), ...page };
     rows.push(row);
     const span = pair => pair[0] == null ? '   —   ' : (pair[0].toFixed(1) + '→' + pair[1].toFixed(1)).padStart(9);
     console.log(name.padEnd(12), span(row.bateria), span(row.piel), span(row.chip), String(row.estado).padStart(6), String(row.cpuPagina + ' %').padStart(11), String(row.cpuGraficos + ' %').padStart(12),
-      String(row.stage || row.motor || row.fps).padStart(10), String(row.ms).padStart(9), String(row.camara).padStart(9), String(row.rastreador + (row.delegado ? ' ' + row.delegado : '')).padStart(12));
+      String(row.stage || row.motor || row.fps).padStart(10), String(row.ms).padStart(9), String(row.camara).padStart(9), String(row.rastreador + (row.delegado ? ' ' + row.delegado : '')).padStart(12), ' ' + row.modulo);
   }
   await c.evaluate(`(() => { _renderCamEngineFrame = __heat.real; delete window.__heat; if (window.__heatLock) { window.__heatLock.release(); delete window.__heatLock; } return true; })()`);
   await go('cam');

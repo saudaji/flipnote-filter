@@ -10,13 +10,15 @@ const { launch, openFlip, openModule } = require('./lib/harness.cjs');
 const out = process.argv[2];
 
 // Una mano en «L»: la esquina (bases del pulgar y del índice), la yema del índice, la del pulgar
-// y, opcional, la del anular (por defecto recogida en la palma). Tamaño de la mano ≈ 0,2 del alto.
+// y, opcional, la del anular (por defecto recogida en la palma, como la del medio). Tamaño de la
+// mano ≈ 0,2 del alto.
 const HAND = `(corner, index, thumb, ring) => { const p = new Float32Array(42);
   for (let i = 0; i < 21; i++) { p[2 * i] = corner[0]; p[2 * i + 1] = corner[1] + 0.05; }
   p[0] = corner[0]; p[1] = corner[1] + 0.22; p[18] = corner[0]; p[19] = corner[1] + 0.02;
   p[4] = corner[0]; p[5] = corner[1]; p[10] = corner[0]; p[11] = corner[1];
   p[8] = thumb[0]; p[9] = thumb[1]; p[16] = index[0]; p[17] = index[1];
   const r = ring || [corner[0], corner[1] + 0.12]; p[32] = r[0]; p[33] = r[1];
+  p[24] = corner[0]; p[25] = corner[1] + 0.12;
   return p; }`;
 
 async function main() {
@@ -43,7 +45,7 @@ async function main() {
 
     // 1 · Entrar por el lanzador: PORTAL vive sobre CAM y dibuja acelerado.
     await openModule(page, 'portal');
-    await page.evaluate(() => { _setCamFamily('DSI'); });
+    await page.evaluate(() => { _setCamFamily('DSI'); flipPortal.tune({ dwell: false }); flipPortal.form('quad'); });
     await hands([]);
     await settle(700);
     let st = await page.evaluate(() => ({ ...flipPortal.status(), tab: activeTab, module: flipShell.module(), slht: getComputedStyle(document.querySelector('.look[data-family="SLHT"]')).display, extra: document.querySelectorAll('.portal-look').length, fast: flipPortal.fast }));
@@ -175,6 +177,56 @@ async function main() {
     if (out) await page.screenshot({ path: path.join(out, 'portal-una-mano.png') });
     await hands([]);
     await settle(700);
+
+    // 8a · La forma de la ventana: las mismas cuatro yemas, otro contorno. El círculo no llega a las
+    // esquinas del cuadro; el triángulo tiene la punta entre los dos índices y deja fuera las esquinas de arriba.
+    await hands(FRAME);
+    await settle(900);
+    const lit = async rect => greenness(await zone(rect)) > greenness(plain) + 18;
+    const CORNER = [0.262, 0.315, 0.035, 0.03], TOPMID = [0.47, 0.315, 0.06, 0.03], CENTER = [0.44, 0.44, 0.12, 0.1];
+    assert.deepEqual([await lit(CORNER), await lit(TOPMID), await lit(CENTER)], [true, true, true], 'el cuadro llega a sus esquinas');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('portalForm')).display !== 'none' && document.getElementById('portalForm').dataset.form), 'quad');
+    await page.locator('#portalForm').click();
+    await settle(500);
+    assert.equal((await S()).form, 'round');
+    assert.deepEqual([await lit(CORNER), await lit(TOPMID), await lit(CENTER)], [false, true, true], 'el círculo no llega a la esquina del cuadro, pero sí al centro de su lado');
+    if (out) await page.screenshot({ path: path.join(out, 'portal-circulo.png') });
+    await page.locator('#portalForm').click();
+    await settle(500);
+    assert.equal((await S()).form, 'tri');
+    assert.deepEqual([await lit(CORNER), await lit(TOPMID), await lit(CENTER)], [false, true, true], 'el triángulo tiene la punta entre los índices');
+    assert.equal(await lit([0.60, 0.33, 0.05, 0.03]), false, 'y deja fuera la esquina de arriba a la derecha');
+    if (out) await page.screenshot({ path: path.join(out, 'portal-triangulo.png') });
+    assert.equal(await page.evaluate(() => localStorage.getItem('flip.portal.form')), 'tri', 'la forma se recuerda');
+    // Quieto para fijar: con el marco parado, un anillo se llena y el portal queda fijado, con su forma.
+    await hands([]);
+    await settle(600);
+    await page.evaluate(() => flipPortal.tune({ dwell: true }));
+    await hands(FRAME);
+    await page.waitForFunction(() => { const s = flipPortal.status(); return s.dwell > 0.15 && s.dwell < 0.95; }, null, { timeout: 4000, polling: 30 });
+    assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('portalDwell')).display), 'block', 'el anillo se ve mientras cuenta');
+    await page.waitForFunction(() => flipPortal.status().panes === 1, null, { timeout: 4000 });
+    let kept = (await page.evaluate(() => flipPortal.panes.list()))[0];
+    assert.equal(kept.form, 'tri', 'el portal fijado conserva la forma');
+    corners.forEach(([x, y], i) => assert.ok(Math.hypot(kept.pts[2 * i] - x, kept.pts[2 * i + 1] - y) < 0.012, 'y sus yemas: ' + JSON.stringify(kept.pts)));
+    // Sin mover el marco no vuelve a fijar; moverlo lo rearma. Y si el marco se mueve, no cuenta.
+    await settle(2200);
+    assert.equal((await S()).panes, 1, 'quieto en el mismo sitio no fija dos veces');
+    await page.evaluate(([src]) => { const hand = eval(src), L = (x, inward, top, bottom) => hand([x, bottom], [x, top], [x + inward, bottom]); const began = performance.now();
+      flipPortal.use(t => { const k = 0.06 * Math.sin((t - began) / 260); return [L(0.25 + k, 0.08, 0.3, 0.65), L(0.75 + k, -0.08, 0.3, 0.65)]; }); }, [HAND]);
+    await settle(2600);
+    st = await S();
+    assert.equal(st.panes, 1, 'un marco que se mueve no se fija solo');
+    assert.equal(st.shape, 'quad');
+    // El portal elegido cambia de forma con el selector.
+    await hands([]);
+    await settle(500);
+    await page.evaluate(() => { flipPortal.tune({ dwell: false }); flipPortal.panes.select(0); });
+    await page.locator('#portalForm').click();
+    kept = (await page.evaluate(() => flipPortal.panes.list()))[0];
+    assert.equal(kept.form, 'quad', 'el selector cambia la forma del portal elegido (triángulo → cuadro)');
+    await page.evaluate(() => { flipPortal.panes.clear(); flipPortal.form('quad'); });
+    await settle(300);
 
     // 8b · El clic fija la figura de antes de mover los dedos. Con un rastreador que tarda como uno de
     // verdad (90 ms), el pulgar de la derecha se va hacia el anular (de 0,67 a 0,62) y, una décima

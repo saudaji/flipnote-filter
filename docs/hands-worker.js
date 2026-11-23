@@ -6,11 +6,12 @@
 //   → { type:'init', lib, wasm, model, delegate:'CPU'|'GPU' }
 //   ← { type:'ready', ms } | { type:'error', stage, message }
 //   → { type:'frame', id, bitmap }                       (el ImageBitmap se transfiere)
-//   ← { type:'hands', id, hands:[{ points: Float32Array(42), meta: Float32Array(4)|null, score }], ms }
+//   ← { type:'hands', id, hands:[{ points: Float32Array(42), meta: Float32Array(5)|null, score }], ms }
 //       points: x,y normalizados (0…1) de los 21 puntos de cada mano, en el espacio de la imagen enviada
 //       meta: distancias reales en metros (del modelo 3D de la mano): anular–pulgar, índice–pulgar,
-//             índice–muñeca y la palma (muñeca–nudillo del medio), para medirlas en palmas y no en
-//             centímetros. En 2D dos yemas pueden coincidir por perspectiva sin tocarse; en 3D no.
+//             índice–muñeca, la palma (muñeca–nudillo del medio, para medirlas en palmas y no en
+//             centímetros) y medio–pulgar. En 2D dos yemas pueden coincidir por perspectiva sin
+//             tocarse; en 3D no. (Pero el 3D se queda corto con los dedos tocándose: solo sirve de freno.)
 'use strict';
 let tracker = null;
 let lastStamp = 0;
@@ -46,7 +47,7 @@ function frame(msg) {
       for (let i = 0; i < 21; i++) { points[2 * i] = landmarks[i].x; points[2 * i + 1] = landmarks[i].y; }
       const w = world[index];
       const far = (a, b) => Math.hypot(w[a].x - w[b].x, w[a].y - w[b].y, w[a].z - w[b].z);
-      const meta = w && w.length >= 21 ? new Float32Array([far(16, 4), far(8, 4), far(8, 0), far(0, 9)]) : null;
+      const meta = w && w.length >= 21 ? new Float32Array([far(16, 4), far(8, 4), far(8, 0), far(0, 9), far(12, 4)]) : null;
       return { points, meta, score: sides[index] && sides[index][0] ? sides[index][0].score : 1 };
     });
     postMessage({ type: 'hands', id: msg.id, hands, ms: performance.now() - started }, hands.map(hand => hand.points.buffer));

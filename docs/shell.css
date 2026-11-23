@@ -623,6 +623,17 @@ body.portal-mode #portalBar { display: flex; }
 #portalBar .hw-keycap svg { width: 14px; height: 14px; }
 #portalBar .hw-keycap.is-dim { opacity: .5; }
 #portalCount { min-width: 36px; height: 32px; display: grid; place-items: center; padding: 1px 9px 0; font-size: 15px; }
+/* El selector de forma: una tecla que enseña la forma elegida y pasa a la siguiente. */
+#portalBar #portalForm { padding: 0 9px 1px; }
+#portalBar #portalForm svg { width: 17px; height: 17px; }
+/* El anillo de «quieto»: se llena mientras el marco no se mueve y, al completarse, fija el portal. */
+#portalDwell {
+  position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; display: none; pointer-events: none; z-index: 2;
+  will-change: transform; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .55));
+}
+#portalDwell svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+#portalDwell circle { fill: none; stroke: rgba(255, 255, 255, .38); stroke-width: 3.2; }
+#portalDwell circle + circle { stroke: var(--mustard); stroke-width: 4; stroke-linecap: round; }
 #portalDrop {
   position: absolute; left: -15px; top: -15px; z-index: 3; width: 30px; height: 30px; border-radius: 50%;
   display: none; place-items: center; pointer-events: auto; color: #fff; text-shadow: none;

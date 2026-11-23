@@ -75,7 +75,7 @@ async function main() {
     await context.close();
 
     // 3 · El guion principal se corta a medias.
-    ({ context, page } = await open(browser, ctx => ctx.route(url => url.pathname === '/' || url.pathname.endsWith('/index.html'), async route => {
+    ({ context, page } = await open(browser, ctx => ctx.route(url => url.pathname.endsWith('/') || url.pathname.endsWith('/index.html'), async route => {   // también si la app vive en una subcarpeta
       const response = await route.fetch();
       const html = (await response.text()).replace('<script src="./frame-runtime.js"></script>\n<script>', '<script src="./frame-runtime.js"></script>\n<script>\nthrow new Error("motor roto de prueba");');
       route.fulfill({ response, body: html });

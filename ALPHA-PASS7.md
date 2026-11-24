@@ -4,7 +4,7 @@ Tres encargos: los vídeos grabados daban error al subirlos a Instagram, la app 
 el teléfono, y la interfaz todavía «se siente medio falsa»: no como un aparato de otra época
 dentro del cristal.
 
-Rama `fable/public-alpha-pass2`. Sin publicar todavía.
+Rama `fable/public-alpha-pass2`, publicada en `main` el 23 de noviembre de 2026 (caché v86).
 
 ## 1 · El vídeo que Instagram no aceptaba
 

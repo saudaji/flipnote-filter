@@ -5,7 +5,7 @@
 #   shell-foot    el pie liso (del render sin detalles) para lanzador y visor
 # Las tapas se desvanecen hacia el centro para casar con la tira sin costura. Así la carcasa vale
 # para cualquier alto de pantalla sin deformar nada.
-#   python3 design/camera-body/shell.py <shell.png> <shell-liso.png> <docs/body> [escala=4]
+#   python3 design/camera-body/shell.py <shell.png> <shell-liso.png> <docs/body> [escala=4] [sufijo]
 # Necesita Pillow y cwebp.
 import os
 import subprocess
@@ -15,6 +15,7 @@ from PIL import Image
 
 src, plain, out = sys.argv[1], sys.argv[2], sys.argv[3]
 scale = int(sys.argv[4]) if len(sys.argv) > 4 else 4
+suffix = sys.argv[5] if len(sys.argv) > 5 else ''          # p. ej. -oscuro
 TOP, BOTTOM, FOOT, FADE, MID = 56, 110, 40, 24, 8        # en píxeles CSS del diseño (406 de ancho)
 
 
@@ -35,7 +36,7 @@ def fade(piece, towards_bottom):
 def save(piece, name):
     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
         piece.save(tmp.name)
-    subprocess.run(['cwebp', '-quiet', '-q', '92', '-alpha_q', '100', '-m', '6', tmp.name, '-o', os.path.join(out, name + '.webp')], check=True)
+    subprocess.run(['cwebp', '-quiet', '-q', '92', '-alpha_q', '100', '-m', '6', tmp.name, '-o', os.path.join(out, name + suffix + '.webp')], check=True)
     os.unlink(tmp.name)
 
 

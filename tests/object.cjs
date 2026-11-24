@@ -71,7 +71,7 @@ const dark = c => c[0] + c[1] + c[2] < 60, cream = c => c[0] > 200 && c[1] > 195
         const m = new DOMMatrix(getComputedStyle(shutter, '::before').transform);
         const icon = candy.querySelector('svg').getBoundingClientRect();
         return { ...flipLight.state(), sprite: +(Math.atan2(m.b, m.a) * 180 / Math.PI).toFixed(1), candy: candy.style.getPropertyValue('--lt'), icon: [Math.round(icon.x * 10), Math.round(icon.y * 10), Math.round(icon.width * 10)],
-          own: getComputedStyle(shutter).backgroundSize, piece: getComputedStyle(shutter, '::before').backgroundImage.includes('shutter-') };
+          own: getComputedStyle(shutter).backgroundSize, piece: getComputedStyle(shutter, '::before').backgroundImage.match(/shutter-|disparador-/) !== null };
       });
     };
     const rest = await tilt(50, 0, 400);
@@ -142,7 +142,7 @@ const dark = c => c[0] + c[1] + c[2] < 60, cream = c => c[0] > 200 && c[1] > 195
     });
     assert.deepEqual(open.blur, [], 'abierta, nada desenfoca la cámara: ' + open.blur);
     assert.equal(open.visible, 'visible');
-    assert.match(open.key, /keycap-coral\.webp/, 'la tecla elegida es la pieza renderizada');
+    assert.match(open.key, /tecla-anil\.webp/, 'la tecla elegida es la pieza renderizada');
     assert.equal(open.flat, 'none', 'sin degradado de CSS debajo');
     await page.locator('#flipSegAudio').click();
     await page.waitForTimeout(250);
@@ -150,7 +150,7 @@ const dark = c => c[0] + c[1] + c[2] < 60, cream = c => c[0] > 200 && c[1] > 195
       const knob = document.querySelector('#flipSettingsPanel .flip-knob'), card = document.querySelector('#flipSettingsPanel .flip-settings-card');
       return { body: getComputedStyle(knob, '::before').backgroundImage, mark: getComputedStyle(knob, '::after').backgroundImage, own: getComputedStyle(knob).transform, plate: getComputedStyle(card).borderImageSource, knobs: document.querySelectorAll('#flipSettingsPanel .flip-knob').length };
     });
-    assert.match(audio.body, /console-knob\.webp/); assert.match(audio.mark, /console-mark\.webp/); assert.match(audio.plate, /console-plate\.webp/);
+    assert.match(audio.body, /perilla-humo\.webp/); assert.match(audio.mark, /perilla-marca\.webp/); assert.match(audio.plate, /console-plate\.webp/);
     assert.equal(audio.own, 'none', 'la perilla no gira entera: gira su marca');
     if (shots) await page.screenshot({ path: path.join(shots, 'hoja-audio.png') });
     await page.keyboard.press('Escape');

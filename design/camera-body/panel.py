@@ -116,9 +116,13 @@ def knob(x, y, radius=24, mark=True, body=True):
     cóncava cepillada en círculo. La raya indicadora va aparte (mark) para que gire en la interfaz."""
     parts = []
     if body:
-        side = metal('kn_side', (0.74, 0.75, 0.76), 0.3, knurl=float(OPTS.get('knurl', 72)))
-        face = metal('kn_face', (0.72, 0.73, 0.745), float(OPTS.get('face_rough', 0.2)), aniso=0.96, radial=True)
-        edge = metal('kn_edge', (0.9, 0.9, 0.91), 0.12)
+        # anod=#hex: aluminio anodizado en ese color (cuerpo y cara); el bisel queda algo más claro,
+        # que es donde el torno deja el metal más vivo.
+        anod = srgb(OPTS['anod']) if 'anod' in OPTS else None
+        lift = lambda c, k: tuple(min(1.0, v * k + 0.02) for v in c)
+        side = metal('kn_side', lift(anod, 1.0) if anod else (0.74, 0.75, 0.76), 0.3, knurl=float(OPTS.get('knurl', 72)))
+        face = metal('kn_face', lift(anod, 1.08) if anod else (0.72, 0.73, 0.745), float(OPTS.get('face_rough', 0.2)), aniso=0.96, radial=True)
+        edge = metal('kn_edge', lift(anod, 1.9) if anod else (0.9, 0.9, 0.91), 0.12)
         parts += [
             lathe('kn_skirt', [(radius + 3.8, 0.0), (radius + 3.8, 1.5), (radius + 2.8, 2.5), (radius - 0.5, 2.7)], 0, principled('kn_skirt', **{'Base Color': (0.016, 0.017, 0.019, 1), 'Roughness': 0.34, 'Coat Weight': 0.4})),
             lathe('kn_body', [(radius, 2.5), (radius, 17.0)], 0, side),
@@ -130,7 +134,7 @@ def knob(x, y, radius=24, mark=True, body=True):
         # Raya indicadora: una ranura fresada en la cara y rellena de pintura coral. El filo oscuro de
         # la ranura la recorta sobre el aluminio, caiga donde caiga el brillo de la cara torneada.
         slot = principled('kn_slot', **{'Base Color': (0.008, 0.008, 0.01, 1), 'Roughness': 0.55})
-        paint = principled('kn_paint', **{'Base Color': srgb('#F2553B') + (1,), 'Roughness': 0.34, 'Coat Weight': 0.5, 'Coat Roughness': 0.1})
+        paint = principled('kn_paint', **{'Base Color': srgb(OPTS.get('mark', '#F2553B')) + (1,), 'Roughness': 0.34, 'Coat Weight': 0.5, 'Coat Roughness': 0.1})
         length = radius - 8.4
         for name, width, grow, z0, z1, mat in (('kn_slot', 4.0, 1.5, 18.35, 18.95, slot), ('kn_mark', 2.5, 0.0, 18.5, 19.2, paint)):
             line = loft(name, [(loop_points(width, length + grow, width / 2 - 0.1), z0), (loop_points(width, length + grow, width / 2 - 0.1), z1)], mat, cap_top=0.0)

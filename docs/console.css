@@ -57,7 +57,7 @@ body[data-tab="cam"] #palettes .cs-slot input[type="checkbox"] {
 }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob {
   order: 1; flex: none; position: relative; width: calc(var(--cs-k, 74) * var(--cu)); height: calc(var(--cs-k, 74) * var(--cu));
-  background: url('./body/console-knob.webp') center / contain no-repeat; cursor: ns-resize; touch-action: none; outline: 0;
+  background: url('./brand/rollo-en-anil/materiales/perilla-humo.webp') center / contain no-repeat; cursor: ns-resize; touch-action: none; outline: 0;
 }
 body[data-tab="cam"] #palettes .cs-pane[data-cs-n="5"] { --cs-k: 69; }
 body[data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] { --cs-k: 62; }
@@ -67,7 +67,7 @@ body[data-tab="cam"] #palettes .cs-pane[data-cs-n="3"] .cs-slot, body[data-tab="
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob[data-cs-kind="sel2"] { background-image: url('./body/console-sel2.webp'); cursor: pointer; }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob > i {
   position: absolute; inset: 0; pointer-events: none; will-change: transform;
-  background: url('./body/console-mark.webp') center / contain no-repeat; transform: rotate(var(--turn, 0deg));
+  background: url('./brand/rollo-en-anil/materiales/perilla-marca.webp') center / contain no-repeat; transform: rotate(var(--turn, 0deg));
 }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob.is-held > i { transition: none; }
 /* Luz viva (light.js): el cuerpo de la perilla gira unos grados con la inclinación del teléfono y
@@ -76,7 +76,7 @@ body[data-tab="cam"] #palettes .cs-pane[data-cs-n="3"] .cs-slot, body[data-tab="
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob:not([data-cs-kind]) { isolation: isolate; background-image: url('./body/console-scale.webp'); }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob:not([data-cs-kind])::before {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: url('./body/console-knob.webp') center / contain no-repeat;
+  background: url('./brand/rollo-en-anil/materiales/perilla-humo.webp') center / contain no-repeat;
   transform: rotate(var(--lt, 0deg)); will-change: transform;
 }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob:focus-visible { filter: drop-shadow(0 0 calc(3 * var(--cu)) rgba(240, 174, 43, .9)); }
@@ -169,9 +169,9 @@ body[data-tab="cam"] #palettes #csSections::before {
 }
 body[data-tab="cam"] #palettes #btnCamEditClose {
   display: flex !important; flex: 0 0 calc(74 * var(--cu)) !important; margin-left: calc(6 * var(--cu)) !important; color: #fff !important;
-  border-image-source: url('./body/console-key-coral.webp') !important; letter-spacing: .12em !important;
+  border-image-source: url('./brand/rollo-en-anil/materiales/tecla-consola-anil.webp') !important; letter-spacing: .12em !important;
 }
-body[data-tab="cam"] #palettes #btnCamEditClose:active { border-image-source: url('./body/console-key-coral-down.webp') !important; }
+body[data-tab="cam"] #palettes #btnCamEditClose:active { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-consola-anil-pulsada.webp') !important; }
 
 /* ── CUADRO: limitar la cadencia (interruptor), cuadros por segundo, zoom y formato ── */
 body[data-tab="cam"] #palettes #camMobileUtilityDock > #camFpsCtrl { flex: 0 0 62%; max-width: 62%; flex-direction: row !important; align-items: flex-start; justify-content: space-around; height: calc(112 * var(--cu)); }

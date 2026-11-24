@@ -52,9 +52,9 @@ html, body {
   --s: calc(100vw / 406);
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    url('./body/shell-top.webp') center top / 100% auto no-repeat,
-    url('./body/shell-bottom.webp') center bottom / 100% auto no-repeat,
-    url('./body/shell-mid.webp') 0 calc(var(--s) * 30) / 100% calc(100% - var(--s) * 114) no-repeat;
+    var(--rollo-shell-top, url('./body/shell-top.webp')) center top / 100% auto no-repeat,
+    var(--rollo-shell-bottom, url('./body/shell-bottom.webp')) center bottom / 100% auto no-repeat,
+    var(--rollo-shell-mid, url('./body/shell-mid.webp')) 0 calc(var(--s) * 30) / 100% calc(100% - var(--s) * 114) no-repeat;
 }
 /* El plástico no es un color liso: lleva el grano del molde y la luz le cae desde arriba a la
    izquierda. */
@@ -81,7 +81,7 @@ html, body {
 .hw-keycap::before, .hw-keycap::after {
   content: ''; position: absolute; inset: -5px; z-index: -1; pointer-events: none;
   border-style: solid; border-width: var(--bw17, 17px); border-color: transparent;
-  border-image: url('./body/keycap-key.webp') 68 fill / var(--bw17, 17px) stretch;
+  border-image: url('./brand/rollo-en-anil/materiales/tecla.webp') 68 fill / var(--bw17, 17px) stretch;
 }
 /* La misma tecla otra vez, cortada un poco más adentro: en la junta entre dos cortes el navegador
    deja pasar una raya del fondo, y así bajo cada junta de una capa está la otra, entera. */
@@ -89,17 +89,17 @@ html, body {
 .hw-keycap > svg { width: 15px; height: 15px; flex: 0 0 auto; }
 .hw-keycap > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; line-height: 1.7; }
 .hw-keycap:active { transform: translateY(1.5px); }
-.hw-keycap:active::before, .hw-keycap:active::after { border-image-source: url('./body/keycap-key-down.webp'); }
+.hw-keycap:active::before, .hw-keycap:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-pulsada.webp'); }
 .hw-keycap.is-on, .hw-keycap[data-color="coral"] { color: #fff; }
-.hw-keycap.is-on::before, .hw-keycap.is-on::after, .hw-keycap[data-color="coral"]::before, .hw-keycap[data-color="coral"]::after { border-image-source: url('./body/keycap-coral.webp'); }
-.hw-keycap.is-on:active::before, .hw-keycap.is-on:active::after, .hw-keycap[data-color="coral"]:active::before, .hw-keycap[data-color="coral"]:active::after { border-image-source: url('./body/keycap-coral-down.webp'); }
+.hw-keycap.is-on::before, .hw-keycap.is-on::after, .hw-keycap[data-color="coral"]::before, .hw-keycap[data-color="coral"]::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-anil.webp'); }
+.hw-keycap.is-on:active::before, .hw-keycap.is-on:active::after, .hw-keycap[data-color="coral"]:active::before, .hw-keycap[data-color="coral"]:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-anil-pulsada.webp'); }
 .hw-keycap[data-color="slate"] { color: #fff; }
-.hw-keycap[data-color="slate"]::before, .hw-keycap[data-color="slate"]::after { border-image-source: url('./body/keycap-slate.webp'); }
-.hw-keycap[data-color="slate"]:active::before, .hw-keycap[data-color="slate"]:active::after { border-image-source: url('./body/keycap-slate-down.webp'); }
+.hw-keycap[data-color="slate"]::before, .hw-keycap[data-color="slate"]::after { border-image-source: url('./brand/rollo-en-anil/materiales/selector-anil.webp'); }
+.hw-keycap[data-color="slate"]:active::before, .hw-keycap[data-color="slate"]:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/selector-anil-pulsado.webp'); }
 .hw-keycap[data-color="gray"]::before, .hw-keycap[data-color="gray"]::after { border-image-source: url('./body/keycap-gray.webp'); }
 .hw-keycap[data-color="gray"]:active::before, .hw-keycap[data-color="gray"]:active::after { border-image-source: url('./body/keycap-gray-down.webp'); }
-.hw-keycap[data-color="mustard"]::before, .hw-keycap[data-color="mustard"]::after { border-image-source: url('./body/keycap-mustard.webp'); }
-.hw-keycap[data-color="mustard"]:active::before, .hw-keycap[data-color="mustard"]:active::after { border-image-source: url('./body/keycap-mustard-down.webp'); }
+.hw-keycap[data-color="mustard"]::before, .hw-keycap[data-color="mustard"]::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-miel.webp'); }
+.hw-keycap[data-color="mustard"]:active::before, .hw-keycap[data-color="mustard"]:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-miel-pulsada.webp'); }
 
 /* Botón redondo lustroso. */
 .hw-candy {
@@ -112,18 +112,18 @@ html, body {
 .hw-candy:active, .hw-candy.is-down { background-image: url('./body/candy-graphite-down.webp'); }
 .hw-candy:active svg { transform: translateY(1px) scale(.96); }
 .hw-candy.sm { width: 40px; height: 40px; }
-.hw-candy[data-color="coral"] { background-image: url('./body/candy-coral.webp'); }
-.hw-candy[data-color="coral"]:active { background-image: url('./body/candy-coral-down.webp'); }
-.hw-candy[data-color="mustard"] { background-image: url('./body/candy-mustard.webp'); color: #3a2a05; }
-.hw-candy[data-color="mustard"]:active { background-image: url('./body/candy-mustard-down.webp'); }
-.hw-candy[data-color="blue"] { background-image: url('./body/candy-blue.webp'); }
-.hw-candy[data-color="blue"]:active { background-image: url('./body/candy-blue-down.webp'); }
-.hw-candy[data-color="mint"], .hw-candy.is-on { background-image: url('./body/candy-mint.webp'); }
-.hw-candy[data-color="mint"]:active, .hw-candy.is-on:active { background-image: url('./body/candy-mint-down.webp'); }
+.hw-candy[data-color="coral"] { background-image: url('./brand/rollo-en-anil/materiales/boton-rec.webp'); }
+.hw-candy[data-color="coral"]:active { background-image: url('./brand/rollo-en-anil/materiales/boton-rec-pulsado.webp'); }
+.hw-candy[data-color="mustard"] { background-image: url('./brand/rollo-en-anil/materiales/boton-mandarina.webp'); color: #3a2a05; }
+.hw-candy[data-color="mustard"]:active { background-image: url('./brand/rollo-en-anil/materiales/boton-mandarina-pulsado.webp'); }
+.hw-candy[data-color="blue"] { background-image: url('./brand/rollo-en-anil/materiales/boton-anil.webp'); }
+.hw-candy[data-color="blue"]:active { background-image: url('./brand/rollo-en-anil/materiales/boton-anil-pulsado.webp'); }
+.hw-candy[data-color="mint"], .hw-candy.is-on { background-image: url('./brand/rollo-en-anil/materiales/boton-lima.webp'); }
+.hw-candy[data-color="mint"]:active, .hw-candy.is-on:active { background-image: url('./brand/rollo-en-anil/materiales/boton-lima-pulsado.webp'); }
 .hw-candy[data-color="lilac"] { background-image: url('./body/candy-lilac.webp'); }
 .hw-candy[data-color="lilac"]:active { background-image: url('./body/candy-lilac-down.webp'); }
-.hw-candy[data-color="slate"] { background-image: url('./body/candy-slate.webp'); }
-.hw-candy[data-color="slate"]:active { background-image: url('./body/candy-slate-down.webp'); }
+.hw-candy[data-color="slate"] { background-image: url('./brand/rollo-en-anil/materiales/boton-anil.webp'); }
+.hw-candy[data-color="slate"]:active { background-image: url('./brand/rollo-en-anil/materiales/boton-anil-pulsado.webp'); }
 .hw-candy[data-color="white"] { background-image: url('./body/candy-white.webp'); color: var(--ink); }
 .hw-candy[data-color="white"]:active { background-image: url('./body/candy-white-down.webp'); }
 .hw-candy[data-color="white"] svg, .hw-candy[data-color="mustard"] svg { filter: none; }
@@ -298,9 +298,9 @@ body.is-recording #osdFrame, body.portal-mode #osdFrame { display: none; }
 #cameraGate button {
   min-height: 46px; padding: 0 22px; border-radius: 10px; border: 0; cursor: pointer;
   font: 800 12px/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase;
-  background: var(--coral); color: #fff; box-shadow: 0 3px 0 #b33a28, 0 8px 18px rgba(0, 0, 0, .4);
+  background: var(--coral); color: #fff; box-shadow: 0 3px 0 #1c2e75, 0 8px 18px rgba(0, 0, 0, .4);
 }
-#cameraGate button:active { transform: translateY(2px); box-shadow: 0 1px 0 #b33a28; }
+#cameraGate button:active { transform: translateY(2px); box-shadow: 0 1px 0 #1c2e75; }
 #cameraGate button.quiet { background: var(--cream-hi); color: var(--ink); box-shadow: 0 3px 0 var(--cream-deep), 0 8px 18px rgba(0, 0, 0, .4); }
 
 /* ── Botonera de CAM ─────────────────────────────────────────────────────── */
@@ -345,7 +345,7 @@ body[data-tab="cam"] #camDeck { display: flex; }
 .look::before, .look::after {
   content: ''; position: absolute; inset: -6px; z-index: -1; pointer-events: none;
   border-style: solid; border-width: var(--bw18, 18px); border-color: transparent;
-  border-image: url('./body/look-key.webp') 72 fill / var(--bw18, 18px) stretch;
+  border-image: url('./brand/rollo-en-anil/materiales/perfil.webp') 72 fill / var(--bw18, 18px) stretch;
 }
 .look::after { border-width: var(--bw22, 22px); border-image-slice: 88 fill; border-image-width: var(--bw22, 22px); }   /* la segunda capa tapa las juntas de la primera */
 .look i {
@@ -358,8 +358,8 @@ body[data-tab="cam"] #camDeck { display: flex; }
 }
 .look span { flex: 0 0 15px; display: grid; place-items: center; font: 800 8.5px/1 var(--font-ui); font-stretch: 85%; letter-spacing: .06em; color: var(--ink); }
 .look:active { transform: translateY(1px); }
-.look:active::before, .look:active::after { border-image-source: url('./body/look-key-down.webp'); }
-.look.is-on::before, .look.is-on::after { border-image-source: url('./body/look-key-on.webp'); }
+.look:active::before, .look:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/perfil-pulsado.webp'); }
+.look.is-on::before, .look.is-on::after { border-image-source: url('./brand/rollo-en-anil/materiales/perfil-anil.webp'); }
 .look.is-on span { color: #fff; }
 .look[hidden] { display: none; }
 
@@ -374,12 +374,12 @@ body[data-tab="cam"] #camDeck { display: flex; }
 /* Disparador: blanco cálido para foto, coral para vídeo, en su aro de aluminio. */
 #deckShutter {
   position: relative; width: 104px; height: 104px; justify-self: center;
-  background: url('./body/shutter-photo.webp') center / 100% 100% no-repeat;
+  background: url('./brand/rollo-en-anil/materiales/disparador-anil.webp') center / 100% 100% no-repeat;
   transition: transform .07s ease-out;
 }
-#deckShutter:active, #deckShutter.is-down { background-image: url('./body/shutter-photo-down.webp'); transform: scale(.985); }
-body.cam-video #deckShutter { background-image: url('./body/shutter-video.webp'); }
-body.cam-video #deckShutter:active, body.cam-video #deckShutter.is-down, body.is-recording #deckShutter { background-image: url('./body/shutter-video-down.webp'); }
+#deckShutter:active, #deckShutter.is-down { background-image: url('./brand/rollo-en-anil/materiales/disparador-anil-pulsado.webp'); transform: scale(.985); }
+body.cam-video #deckShutter { background-image: url('./brand/rollo-en-anil/materiales/disparador-video.webp'); }
+body.cam-video #deckShutter:active, body.cam-video #deckShutter.is-down, body.is-recording #deckShutter { background-image: url('./brand/rollo-en-anil/materiales/disparador-video-pulsado.webp'); }
 #deckShutter i {
   position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px; border-radius: 4px;
   background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .35); opacity: 0; transform: scale(.6); transition: opacity .15s, transform .2s var(--spring);
@@ -422,15 +422,15 @@ body.is-recording #deckShutter i { opacity: 1; transform: none; }
   content: ''; position: absolute; inset: 31%; background: currentColor;
   -webkit-mask: var(--icon, none) center / contain no-repeat; mask: var(--icon, none) center / contain no-repeat;
 }
-#flipBottomNav .btn[data-kind="rec"] .btn-icon, #barSflow .btn[data-kind="rec"] .btn-icon, #barEdit .btn[data-kind="rec"] .btn-icon, #barStage .btn[data-kind="rec"] .btn-icon { background-image: url('./body/candy-coral.webp') !important; }
-#flipBottomNav .btn[data-kind="share"] .btn-icon { background-image: url('./body/candy-blue.webp') !important; }
-#flipBottomNav .btn[data-kind="sliders"] .btn-icon { background-image: url('./body/candy-mustard.webp') !important; color: #3a2a05 !important; }
+#flipBottomNav .btn[data-kind="rec"] .btn-icon, #barSflow .btn[data-kind="rec"] .btn-icon, #barEdit .btn[data-kind="rec"] .btn-icon, #barStage .btn[data-kind="rec"] .btn-icon { background-image: url('./brand/rollo-en-anil/materiales/boton-rec.webp') !important; }
+#flipBottomNav .btn[data-kind="share"] .btn-icon { background-image: url('./brand/rollo-en-anil/materiales/boton-anil.webp') !important; }
+#flipBottomNav .btn[data-kind="sliders"] .btn-icon { background-image: url('./brand/rollo-en-anil/materiales/boton-mandarina.webp') !important; color: #3a2a05 !important; }
 #flipBottomNav .btn[data-kind="timer"] .btn-icon { font: 700 12px/1 var(--font-osd) !important; color: #fff !important; }
 #flipBottomNav .btn[data-kind="timer"] .btn-icon::before { display: none; }
-#flipBottomNav .btn-center .btn-icon, .bar .btn-center .btn-icon { width: 84px !important; height: 84px !important; background-image: url('./body/shutter-photo.webp') !important; }
-#flipBottomNav .btn-center:active .btn-icon { background-image: url('./body/shutter-photo-down.webp') !important; }
+#flipBottomNav .btn-center .btn-icon, .bar .btn-center .btn-icon { width: 84px !important; height: 84px !important; background-image: url('./brand/rollo-en-anil/materiales/disparador-anil.webp') !important; }
+#flipBottomNav .btn-center:active .btn-icon { background-image: url('./brand/rollo-en-anil/materiales/disparador-anil-pulsado.webp') !important; }
 #flipBottomNav .btn-center .btn-icon::before { inset: 37%; color: rgba(58, 56, 51, .55); }
-#flipBottomNav .btn-center[data-kind="rec"] .btn-icon, #flipBottomNav .btn-center.recording .btn-icon, #flipBottomNav .btn-center[data-kind="timer"] .btn-icon { background-image: url('./body/shutter-video.webp') !important; animation: none !important; }
+#flipBottomNav .btn-center[data-kind="rec"] .btn-icon, #flipBottomNav .btn-center.recording .btn-icon, #flipBottomNav .btn-center[data-kind="timer"] .btn-icon { background-image: url('./brand/rollo-en-anil/materiales/disparador-video.webp') !important; animation: none !important; }
 #flipBottomNav .btn-center.recording .btn-icon::before, #flipBottomNav .btn-center[data-kind="rec"] .btn-icon::before { color: #fff; }
 #flipBottomNav .btn.recording .btn-icon { animation: none !important; }
 #flipBottomNav .btn.recording .btn-label { color: var(--hw-rec) !important; }
@@ -476,8 +476,8 @@ body.is-recording #deckShutter i { opacity: 1; transform: none; }
   transform: translateY(2px); box-shadow: 0 0 0 var(--cream-deep), inset 0 1px 0 #fff !important;
 }
 :is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #editHUD, #asciiPanel, #scrashControls, #upPanel, #wmpFileBar) :is(button, label.asp-btn):is(.active, .on, .selected, [aria-pressed="true"], [aria-selected="true"]) {
-  background: linear-gradient(180deg, #f2705b, #e4513b) !important; color: #fff !important;
-  box-shadow: 0 2px 0 #a8372a, 0 3px 8px rgba(160, 50, 30, .28), inset 0 1px 0 rgba(255, 255, 255, .4) !important;
+  background: linear-gradient(180deg, #3b55c4, #273fa8) !important; color: #fff !important;
+  box-shadow: 0 2px 0 #1c2e75, 0 3px 8px rgba(28, 46, 117, .28), inset 0 1px 0 rgba(255, 255, 255, .4) !important;
 }
 :is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #editHUD, #asciiPanel, #scrashControls, #upPanel) button:disabled { opacity: .35; }
 :is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #editHUD, #asciiPanel, #scrashControls, #upPanel) input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--coral); }
@@ -486,7 +486,7 @@ body.is-recording #deckShutter i { opacity: 1; transform: none; }
 #wmpHUD .wmp-lbl { min-width: 0 !important; letter-spacing: .06em !important; }
 /* Fuera de CAM, la carcasa lleva el pie liso: la rejilla y los tornillos de abajo son de la cámara. */
 body:not([data-tab="cam"]) #camBody, body.stage-mode #camBody {
-  background-image: url('./body/shell-top.webp'), url('./body/shell-foot.webp'), url('./body/shell-mid.webp');
+  background-image: var(--rollo-shell-top, url('./body/shell-top.webp')), var(--rollo-shell-foot, url('./body/shell-foot.webp')), var(--rollo-shell-mid, url('./body/shell-mid.webp'));
   background-size: 100% auto, 100% auto, 100% calc(100% - var(--s) * 44);
 }
 #asciiCanvas, #sonoCanvas, #wmpCanvas, #sflowCanvas, #scrashCanvas, #fusionCanvas, #editCanvas, #uploadCanvas {
@@ -511,7 +511,7 @@ input[type="range"]::-webkit-slider-thumb {
   box-shadow: 0 2px 0 #a59c86, 0 4px 6px rgba(0, 0, 0, .35), inset 0 1px 0 #fff !important;
 }
 input[type="range"]::-moz-range-track { height: 6px; border-radius: 3px; background: #26272a; }
-input[type="range"]::-moz-range-thumb { width: 26px; height: 20px; border-radius: 5px; border: 0; background: linear-gradient(90deg, transparent 11px, #ec5b45 11px, #ec5b45 15px, transparent 15px), linear-gradient(180deg, #fbf8f1, #ddd5c3); }
+input[type="range"]::-moz-range-thumb { width: 26px; height: 20px; border-radius: 5px; border: 0; background: linear-gradient(90deg, transparent 11px, #273fa8 11px, #273fa8 15px, transparent 15px), linear-gradient(180deg, #fbf8f1, #ddd5c3); }
 
 /* ── Hojas: un cajón crema que sale de la carcasa ──────────────────────────
    (Los ajustes de cada cámara ya no son una hoja: son la consola de console.css.) */
@@ -558,8 +558,8 @@ body:not([data-tab="cam"]) #palettes button:not(#btnCamEditClose), body:not([dat
 body:not([data-tab="cam"]) #palettes button:not(#btnCamEditClose):active, .flip-settings-panel button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--cream-deep), inset 0 1px 0 #fff !important; }
 body:not([data-tab="cam"]) #palettes button.active:not(#btnCamEditClose), body:not([data-tab="cam"]) #palettes .asp-btn.active,
 .flip-settings-panel button.active, .flip-settings-tile.active, .flip-settings-pill.active, #flipSegFormat.active, #flipSegAudio.active {
-  background: linear-gradient(180deg, #f2705b, #e4513b) !important; color: #fff !important;
-  box-shadow: 0 3px 0 #a8372a, 0 4px 10px rgba(160, 50, 30, .3), inset 0 1px 0 rgba(255, 255, 255, .4) !important;
+  background: linear-gradient(180deg, #3b55c4, #273fa8) !important; color: #fff !important;
+  box-shadow: 0 3px 0 #1c2e75, 0 4px 10px rgba(28, 46, 117, .3), inset 0 1px 0 rgba(255, 255, 255, .4) !important;
 }
 .flip-settings-tile.active *, .flip-settings-pill.active * { color: #fff !important; border-color: #fff !important; }
 body:not([data-tab="cam"]) #palettes .cam-stk-btn, body:not([data-tab="cam"]) #palettes .pcs-slot { flex: 0 0 38px !important; width: 38px; padding: 0 !important; }
@@ -594,14 +594,14 @@ body:not([data-tab="cam"]) #palettes .cam-sticker-header { color: var(--ink-dim)
 .flip-settings-panel button:not(.flip-settings-toggle)::before, .flip-settings-panel button:not(.flip-settings-toggle)::after {
   content: ''; position: absolute; inset: -5px; z-index: -1; pointer-events: none;
   border-style: solid; border-width: var(--bw17, 17px); border-color: transparent;
-  border-image: url('./body/keycap-key.webp') 68 fill / var(--bw17, 17px) stretch;
+  border-image: url('./brand/rollo-en-anil/materiales/tecla.webp') 68 fill / var(--bw17, 17px) stretch;
 }
 .flip-settings-panel button:not(.flip-settings-toggle)::after { border-width: var(--bw21, 21px); border-image-slice: 84 fill; border-image-width: var(--bw21, 21px); }
 .flip-settings-panel button:not(.flip-settings-toggle):active { transform: translateY(1.5px); }
-.flip-settings-panel button:not(.flip-settings-toggle):active::before, .flip-settings-panel button:not(.flip-settings-toggle):active::after { border-image-source: url('./body/keycap-key-down.webp'); }
+.flip-settings-panel button:not(.flip-settings-toggle):active::before, .flip-settings-panel button:not(.flip-settings-toggle):active::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-pulsada.webp'); }
 .flip-settings-panel button.active:not(.flip-settings-toggle), .flip-settings-panel #flipSegFormat.active, .flip-settings-panel #flipSegAudio.active { background: none !important; box-shadow: none !important; color: #fff !important; }
-.flip-settings-panel button.active:not(.flip-settings-toggle)::before, .flip-settings-panel button.active:not(.flip-settings-toggle)::after { border-image-source: url('./body/keycap-coral.webp'); }
-.flip-settings-panel button.active:not(.flip-settings-toggle):active::before, .flip-settings-panel button.active:not(.flip-settings-toggle):active::after { border-image-source: url('./body/keycap-coral-down.webp'); }
+.flip-settings-panel button.active:not(.flip-settings-toggle)::before, .flip-settings-panel button.active:not(.flip-settings-toggle)::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-anil.webp'); }
+.flip-settings-panel button.active:not(.flip-settings-toggle):active::before, .flip-settings-panel button.active:not(.flip-settings-toggle):active::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-anil-pulsada.webp'); }
 /* Efectos de sonido: cada uno es una placa de aluminio anodizado como la de la consola, con sus
    perillas torneadas (gira la marca, no el brillo) y su tecla con piloto. */
 .flip-settings-card {
@@ -616,12 +616,12 @@ body:not([data-tab="cam"]) #palettes .cam-sticker-header { color: var(--ink-dim)
 }
 .flip-knob::before {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: url('./body/console-knob.webp') center / contain no-repeat;
+  background: url('./brand/rollo-en-anil/materiales/perilla-humo.webp') center / contain no-repeat;
   transform: rotate(var(--lt, 0deg)); will-change: transform;
 }
 .flip-knob::after {
   top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; border-radius: 0 !important;
-  background: url('./body/console-mark.webp') center / contain no-repeat !important;
+  background: url('./brand/rollo-en-anil/materiales/perilla-marca.webp') center / contain no-repeat !important;
   transform: rotate(var(--turn, 0deg)) !important;
 }
 .flip-knob-label { font: 700 8.5px/1 var(--font-ui) !important; letter-spacing: .14em !important; color: #c9ccd0 !important; text-shadow: 0 -1px 0 rgba(0, 0, 0, .6); }
@@ -664,12 +664,12 @@ body:not([data-tab="cam"]) #palettes .cam-sticker-header { color: var(--ink-dim)
 :is(.flip-export-primary, .flip-export-reset, #flipExportSecondaries button, #btnSonoStart)::before, :is(.flip-export-primary, .flip-export-reset, #flipExportSecondaries button, #btnSonoStart)::after {
   content: ''; position: absolute; inset: -5px; z-index: -1; pointer-events: none;
   border-style: solid; border-width: var(--bw17, 17px); border-color: transparent;
-  border-image: url('./body/keycap-key.webp') 68 fill / var(--bw17, 17px) stretch;
+  border-image: url('./brand/rollo-en-anil/materiales/tecla.webp') 68 fill / var(--bw17, 17px) stretch;
 }
 :is(.flip-export-primary, .flip-export-reset, #flipExportSecondaries button, #btnSonoStart)::after { border-width: var(--bw21, 21px); border-image-slice: 84 fill; border-image-width: var(--bw21, 21px); }
-:is(.flip-export-reset, #flipExportSecondaries button):active::before, :is(.flip-export-reset, #flipExportSecondaries button):active::after { border-image-source: url('./body/keycap-key-down.webp'); }
-:is(#flipExportBar .flip-export-primary, #btnSonoStart)::before, :is(#flipExportBar .flip-export-primary, #btnSonoStart)::after { border-image-source: url('./body/keycap-coral.webp'); }
-:is(#flipExportBar .flip-export-primary, #btnSonoStart):active::before, :is(#flipExportBar .flip-export-primary, #btnSonoStart):active::after { border-image-source: url('./body/keycap-coral-down.webp'); }
+:is(.flip-export-reset, #flipExportSecondaries button):active::before, :is(.flip-export-reset, #flipExportSecondaries button):active::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-pulsada.webp'); }
+:is(#flipExportBar .flip-export-primary, #btnSonoStart)::before, :is(#flipExportBar .flip-export-primary, #btnSonoStart)::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-anil.webp'); }
+:is(#flipExportBar .flip-export-primary, #btnSonoStart):active::before, :is(#flipExportBar .flip-export-primary, #btnSonoStart):active::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-anil-pulsada.webp'); }
 :is(.flip-export-primary, .flip-export-reset, #flipExportSecondaries button, #btnSonoStart):active { transform: translateY(1.5px) !important; }
 .flip-export-primary:disabled { opacity: .45 !important; }
 
@@ -685,11 +685,11 @@ body:not([data-tab="cam"]) #palettes .cam-sticker-header { color: var(--ink-dim)
 #btnSflowFlip { grid-column: 1; grid-row: 2; }
 #btnSflowSnap { grid-column: 2; grid-row: 2; }
 #btnSflowRec { grid-column: 3; grid-row: 2; }
-#btnSflowFlip .btn-icon { background-image: url('./body/candy-blue.webp') !important; }
-#btnSflowSnap .btn-icon { width: 84px !important; height: 84px !important; background-image: url('./body/shutter-photo.webp') !important; }
-#btnSflowSnap:active .btn-icon { background-image: url('./body/shutter-photo-down.webp') !important; }
+#btnSflowFlip .btn-icon { background-image: url('./brand/rollo-en-anil/materiales/boton-anil.webp') !important; }
+#btnSflowSnap .btn-icon { width: 84px !important; height: 84px !important; background-image: url('./brand/rollo-en-anil/materiales/disparador-anil.webp') !important; }
+#btnSflowSnap:active .btn-icon { background-image: url('./brand/rollo-en-anil/materiales/disparador-anil-pulsado.webp') !important; }
 #btnSflowSnap .btn-icon::before, #btnSflowSnap .btn-label { display: none; }
-#btnSflowRec .btn-icon { background-image: url('./body/candy-coral.webp') !important; }
+#btnSflowRec .btn-icon { background-image: url('./brand/rollo-en-anil/materiales/boton-rec.webp') !important; }
 .sflow-btn {
   width: 30px !important; height: 30px !important; min-width: 0 !important; padding: 0 !important; border-radius: 50% !important; cursor: pointer;
   border: 0 !important; background: linear-gradient(180deg, #2c2d30, #17181a) !important; box-shadow: 0 2px 0 #0b0b0c, 0 3px 6px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .16) !important;
@@ -702,7 +702,7 @@ body:not([data-tab="cam"]) #palettes .cam-sticker-header { color: var(--ink-dim)
 [data-sflow-color="orange"] { color: #ff7a2e !important; }
 #sflowColorWrap .sflow-btn { font-size: 15px !important; }
 .sflow-btn.active { box-shadow: 0 0 0 2.5px var(--coral), 0 2px 0 #0b0b0c !important; }
-#sflowAuraWrap .sflow-btn.active { background: linear-gradient(180deg, #f2705b, #e4513b) !important; color: #fff !important; box-shadow: 0 2px 0 #a8372a !important; }
+#sflowAuraWrap .sflow-btn.active { background: linear-gradient(180deg, #3b55c4, #273fa8) !important; color: #fff !important; box-shadow: 0 2px 0 #1c2e75 !important; }
 #sflowArea { bottom: calc(138px + var(--sflow-hud-h, 0px)) !important; top: calc(var(--shell-top) + 12px) !important; left: 14px !important; right: 14px !important; }
 #sflowHUD { bottom: 138px !important; padding: 10px 14px 12px !important; flex-direction: column; gap: 2px; }
 #sflowHUD button { min-height: 36px; padding: 0 14px !important; border-radius: 8px !important; border: 0 !important; background: #f3efe5 !important; color: var(--ink) !important; font: 700 10.5px/1 var(--font-ui) !important; letter-spacing: .08em !important; box-shadow: 0 3px 0 #7a7362 !important; }
@@ -715,7 +715,7 @@ html.flow-hud-closed #sflowHUD { display: none !important; }
   font: 800 10px/1 var(--font-ui); letter-spacing: .1em;
 }
 #sflowAdjust svg { width: 14px; height: 14px; }
-html:not(.flow-hud-closed) #sflowAdjust { background: var(--coral); color: #fff; box-shadow: 0 3px 0 #a8372a, 0 6px 14px rgba(0, 0, 0, .4); }
+html:not(.flow-hud-closed) #sflowAdjust { background: var(--coral); color: #fff; box-shadow: 0 3px 0 #1c2e75, 0 6px 14px rgba(0, 0, 0, .4); }
 #sflowStatusBadge {
   background: #121314 !important; color: #f4f1ea !important; border: 0 !important; border-radius: 8px !important;
   font: 600 12px/1.35 var(--font-ui) !important; letter-spacing: .01em !important; padding: 8px 12px !important; max-width: 86%; text-align: center; z-index: 5;
@@ -759,11 +759,11 @@ body.portal-mode #portalBar { display: flex; }
 #portalDrop {
   position: absolute; left: -15px; top: -15px; z-index: 3; width: 30px; height: 30px; border-radius: 50%;
   display: none; place-items: center; pointer-events: auto; color: #fff; text-shadow: none;
-  background: linear-gradient(180deg, #f2705b, #e24a35); box-shadow: 0 2px 0 #a8372a, 0 3px 8px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .45);
+  background: linear-gradient(180deg, #3b55c4, #273fa8); box-shadow: 0 2px 0 #1c2e75, 0 3px 8px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .45);
   will-change: transform;
 }
 #portalDrop svg { width: 13px; height: 13px; }
-#portalDrop:active { box-shadow: 0 0 0 #a8372a, inset 0 1px 0 rgba(255, 255, 255, .45); margin-top: 2px; }
+#portalDrop:active { box-shadow: 0 0 0 #1c2e75, inset 0 1px 0 rgba(255, 255, 255, .45); margin-top: 2px; }
 body.portal-mode #osdHint { bottom: 52px; }
 
 /* Las pantallas interiores (lanzador, visor, portada) son el mismo aparato: misma carcasa
@@ -771,9 +771,9 @@ body.portal-mode #osdHint { bottom: 52px; }
 #shellLauncher, #shellViewer, #splash {
   --s: calc(100vw / 406);
   background:
-    url('./body/shell-top.webp') center top / 100% auto no-repeat,
-    url('./body/shell-foot.webp') center bottom / 100% auto no-repeat,
-    url('./body/shell-mid.webp') 0 calc(var(--s) * 30) / 100% calc(100% - var(--s) * 44) no-repeat,
+    var(--rollo-shell-top, url('./body/shell-top.webp')) center top / 100% auto no-repeat,
+    var(--rollo-shell-foot, url('./body/shell-foot.webp')) center bottom / 100% auto no-repeat,
+    var(--rollo-shell-mid, url('./body/shell-mid.webp')) 0 calc(var(--s) * 30) / 100% calc(100% - var(--s) * 44) no-repeat,
     #000 !important;
 }
 #shellLauncher::before, #shellViewer::before, #splash::before {
@@ -807,7 +807,7 @@ body.portal-mode #osdHint { bottom: 52px; }
 .launcher-card em svg { width: 18px; height: 18px; }
 .launcher-card strong { font: 800 14px/1 var(--font-ui); font-stretch: 108%; letter-spacing: .08em; }
 .launcher-card small { font: 500 12px/1.3 var(--font-ui); color: var(--ink-dim); }
-.launcher-card.is-on { box-shadow: 0 0 0 3px var(--coral), 0 4px 0 #a8372a, 0 10px 18px rgba(120, 40, 20, .25), inset 0 1px 0 #fff; }
+.launcher-card.is-on { box-shadow: 0 0 0 3px var(--coral), 0 4px 0 #1c2e75, 0 10px 18px rgba(28, 46, 117, .25), inset 0 1px 0 #fff; }
 .launcher-card u { position: absolute; top: 12px; right: 11px; text-decoration: none; padding: 4px 6px; border-radius: 4px; font: 800 8px/1 var(--font-ui); letter-spacing: .12em; background: var(--ink); color: var(--cream-hi); }
 .launcher-card.is-on u.use { background: var(--coral); color: #fff; }
 
@@ -822,7 +822,7 @@ body.portal-mode #osdHint { bottom: 52px; }
 .viewer-meta { text-align: center; font: 800 12px/1.4 var(--font-dot); letter-spacing: .04em; color: var(--ink-dim); text-transform: uppercase; }
 .viewer-actions { display: flex; gap: 10px; }
 .viewer-actions button { flex: 1; min-height: 50px; border-radius: 11px; border: 0; cursor: pointer; font: 800 12px/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--ink); background: linear-gradient(180deg, #fbf8f1, #ebe5d7); box-shadow: 0 4px 0 var(--cream-deep), inset 0 1px 0 #fff; }
-.viewer-actions button.primary { background: linear-gradient(180deg, #f2705b, #e4513b); color: #fff; box-shadow: 0 4px 0 #a8372a, inset 0 1px 0 rgba(255, 255, 255, .4); }
+.viewer-actions button.primary { background: linear-gradient(180deg, #3b55c4, #273fa8); color: #fff; box-shadow: 0 4px 0 #1c2e75, inset 0 1px 0 rgba(255, 255, 255, .4); }
 .viewer-actions button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--cream-deep); }
 
 /* ── Portada: el aparato saluda ──────────────────────────────────────────── */
@@ -848,7 +848,7 @@ body.portal-mode #osdHint { bottom: 52px; }
   align-self: flex-start; margin: 0 0 6px 2px !important; padding: 7px 13px 6px; border-radius: 7px;
   font: italic 900 30px/1 var(--font-ui) !important; font-stretch: 118%; letter-spacing: .04em !important;
   color: #fff !important; text-shadow: none !important; animation: none !important;
-  background: linear-gradient(180deg, #f2705b, #e4513b); box-shadow: 0 3px 0 #a8372a, inset 0 1px 0 rgba(255, 255, 255, .45);
+  background: linear-gradient(180deg, #3b55c4, #273fa8); box-shadow: 0 3px 0 #1c2e75, inset 0 1px 0 rgba(255, 255, 255, .45);
 }
 .splash-tag { align-self: flex-start; margin: 4px 0 20px 3px; font: 700 8.5px/1.5 var(--font-ui); letter-spacing: .2em; color: var(--ink-dim); text-transform: uppercase; }
 .splash-tag i { display: inline-block; width: 26px; height: 7px; margin-right: 8px; vertical-align: middle; border-radius: 1px; background: linear-gradient(90deg, var(--coral) 0 25%, var(--mustard) 25% 50%, var(--mint) 50% 75%, var(--blue) 75%); }
@@ -861,8 +861,8 @@ body.portal-mode #osdHint { bottom: 52px; }
   transition: transform .07s !important; opacity: 1 !important;
 }
 .splash-door:active { transform: translateY(4px) !important; box-shadow: 0 1px 0 var(--cream-deep), inset 0 1px 0 #fff !important; }
-#btnSplashOriginal { background: linear-gradient(180deg, #f2705b, #e4513b) !important; color: #fff !important; box-shadow: 0 5px 0 #a8372a, 0 12px 22px rgba(160, 50, 30, .3), inset 0 1px 0 rgba(255, 255, 255, .45) !important; }
-#btnSplashOriginal:active { box-shadow: 0 1px 0 #a8372a, inset 0 1px 0 rgba(255, 255, 255, .45) !important; }
+#btnSplashOriginal { background: linear-gradient(180deg, #3b55c4, #273fa8) !important; color: #fff !important; box-shadow: 0 5px 0 #1c2e75, 0 12px 22px rgba(28, 46, 117, .3), inset 0 1px 0 rgba(255, 255, 255, .45) !important; }
+#btnSplashOriginal:active { box-shadow: 0 1px 0 #1c2e75, inset 0 1px 0 rgba(255, 255, 255, .45) !important; }
 .splash-door-label { font: 800 14px/1 var(--font-ui) !important; font-stretch: 108%; letter-spacing: .1em !important; color: inherit !important; text-shadow: none !important; }
 .splash-door-sub { font: 500 12.5px/1.3 var(--font-ui) !important; letter-spacing: .01em !important; color: inherit !important; opacity: .78 !important; text-transform: none !important; }
 
@@ -922,17 +922,17 @@ body.portal-mode #osdHint { bottom: 52px; }
 .launcher-card::before, .launcher-card::after, .splash-door::before, .splash-door::after, .viewer-actions button::before, .viewer-actions button::after {
   content: ''; position: absolute; inset: -5px; z-index: -1; pointer-events: none;
   border-style: solid; border-width: var(--bw17, 17px); border-color: transparent;
-  border-image: url('./body/keycap-key.webp') 68 fill / var(--bw17, 17px) stretch;
+  border-image: url('./brand/rollo-en-anil/materiales/tecla.webp') 68 fill / var(--bw17, 17px) stretch;
 }
 .launcher-card::after, .splash-door::after, .viewer-actions button::after { border-width: var(--bw21, 21px); border-image-slice: 84 fill; border-image-width: var(--bw21, 21px); }
 .launcher-card:active, .splash-door:active, .viewer-actions button:active { transform: translateY(1.5px) !important; }
-.launcher-card:active::before, .launcher-card:active::after, .splash-door:active::before, .splash-door:active::after, .viewer-actions button:active::before, .viewer-actions button:active::after { border-image-source: url('./body/keycap-key-down.webp'); }
+.launcher-card:active::before, .launcher-card:active::after, .splash-door:active::before, .splash-door:active::after, .viewer-actions button:active::before, .viewer-actions button:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-pulsada.webp'); }
 #btnSplashOriginal, #btnSplashOriginal:active { background: none !important; box-shadow: none !important; }
 /* La elegida, coral: el módulo en uso, encender la cámara, compartir. */
 .launcher-card.is-on, #btnSplashOriginal, .viewer-actions button.primary { color: #fff !important; }
 .launcher-card.is-on small { color: rgba(255, 255, 255, .86); }
-.launcher-card.is-on::before, .launcher-card.is-on::after, #btnSplashOriginal::before, #btnSplashOriginal::after, .viewer-actions button.primary::before, .viewer-actions button.primary::after { border-image-source: url('./body/keycap-coral.webp'); }
-.launcher-card.is-on:active::before, .launcher-card.is-on:active::after, #btnSplashOriginal:active::before, #btnSplashOriginal:active::after, .viewer-actions button.primary:active::before, .viewer-actions button.primary:active::after { border-image-source: url('./body/keycap-coral-down.webp'); }
+.launcher-card.is-on::before, .launcher-card.is-on::after, #btnSplashOriginal::before, #btnSplashOriginal::after, .viewer-actions button.primary::before, .viewer-actions button.primary::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-anil.webp'); }
+.launcher-card.is-on:active::before, .launcher-card.is-on:active::after, #btnSplashOriginal:active::before, #btnSplashOriginal:active::after, .viewer-actions button.primary:active::before, .viewer-actions button.primary:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/tecla-anil-pulsada.webp'); }
 
 /* ── Reposo (rest.js) ────────────────────────────────────────────────────── */
 /* La cámara está apagada: el visor se oscurece y una nota lo dice. El velo ocupa toda la pantalla

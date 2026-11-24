@@ -46,6 +46,7 @@
     portal: '<path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><path d="M9 9.5h6v5H9z"/>',
     hand: '<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11m0-1.5V5a1.5 1.5 0 0 1 3 0v6m0-3.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.6a5 5 0 0 1-3.9-1.9L4.5 15a1.6 1.6 0 0 1 2.4-2.1L8 14"/>',
   };
+  if (window.flipRollo) Object.assign(PATHS, flipRollo.paths);
   const icon = (name, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${PATHS[name] || ''}</svg>`;
   const maskCache = {};
   const iconMask = name => maskCache[name] || (maskCache[name] = 'url("data:image/svg+xml;utf8,' + encodeURIComponent(
@@ -59,6 +60,7 @@
     ['sono', 'SONO', 'Ondas de sonido', '#3ca956'], ['wmp', 'WMP', 'Visualizador musical', '#f0ae2b'],
     ['edit', 'EDIT', 'Edición por capas', '#7d7768'], ['stage', 'STAGE', 'Central de visuales en vivo', '#3b3c3f'],
   ];
+  if (window.flipRollo) for (const item of MODULES) item[3] = flipRollo.palette[item[0]][0];
 
   // ── Construcción ────────────────────────────────────────────────────────────
   document.body.prepend(el('div', { id: 'camBody', 'aria-hidden': 'true' }));
@@ -84,19 +86,19 @@
       <div class="deck-left">
         <button class="hw" id="deckGallery" type="button" aria-label="Ver la última toma"><b>${icon('image')}</b></button>
         <div class="deck-mode">
-          <span class="hw-print"><b data-mode-label="foto">FOTO</b><b data-mode-label="video">VIDEO</b></span>
+          <span class="hw-print"><b data-mode-label="foto">FOTO</b><b data-mode-label="video">VÍDEO</b></span>
           <button class="hw hw-switch" id="deckModeSwitch" type="button" role="switch" aria-checked="false" aria-label="Foto o vídeo"><i></i></button>
         </div>
       </div>
       <button class="hw" id="deckShutter" type="button" aria-label="Disparar"><i></i></button>
       <div class="deck-right">
         <div class="hw-labeled"><button class="hw hw-candy" data-color="mustard" id="deckAdjust" type="button" aria-label="Ajustes de esta cámara">${icon('sliders')}</button><span class="hw-print">AJUSTES</span></div>
-        <div class="hw-labeled"><button class="hw hw-candy" data-color="blue" id="deckFlip" type="button" aria-label="Cambiar entre cámara frontal y trasera">${icon('flip')}</button><span class="hw-print">GIRAR</span></div>
+        <div class="hw-labeled"><button class="hw hw-candy" data-color="mint" id="deckFlip" type="button" aria-label="Cambiar entre cámara frontal y trasera">${icon('flip')}</button><span class="hw-print">GIRAR</span></div>
       </div>
     </div>`);
   const launcher = el('div', { id: 'shellLauncher', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Módulos de FLIP' }, `
     <div class="launcher-head"><h2>MÓDULOS</h2><button class="hw hw-candy sm" id="launcherClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
-    <div class="launcher-grid">${MODULES.map(([key, title, sub, tone]) => `<button class="hw launcher-card" type="button" data-module="${key}"><em style="--tone:${tone}">${icon(key)}</em><strong>${title}</strong><small>${sub}</small>${key === 'stage' ? '<u>PRO</u>' : ''}</button>`).join('')}</div>`);
+    <div class="launcher-grid">${MODULES.map(([key, title, sub, tone]) => `<button class="hw launcher-card" type="button" data-module="${key}"><em style="--tone:${tone};--rollo-ico-ink:${window.flipRollo ? flipRollo.palette[key][1] : '#fff'}">${icon(key)}</em><strong>${title}</strong><small>${sub}</small>${key === 'stage' ? '<u>PRO</u>' : ''}</button>`).join('')}</div>`);
   const viewer = el('div', { id: 'shellViewer', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Última toma' }, `
     <div class="launcher-head"><h2>ÚLTIMA TOMA</h2><button class="hw hw-candy sm" id="viewerClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
     <div class="viewer-stage" id="viewerStage"></div>
@@ -109,8 +111,9 @@
   if (splashEl) {
     splashEl.prepend(el('div', { class: 'splash-hero', 'aria-hidden': 'true' }, '<b>hola</b><u>FL-27 · LISTA</u>'));
     const title = splashEl.querySelector('.splash-title');
-    if (title) title.after(el('div', { class: 'splash-tag' }, '<i></i>FL-27 · cámara digital retro'));
+    if (title) title.after(el('div', { class: 'splash-tag' }, '<i></i>FL-27 · cámara digital'));
   }
+  if (window.flipRollo) flipRollo.mount(splashEl, deck, launcher);
 
   // ── Geometría del visor ─────────────────────────────────────────────────────
   // relayout() pregunta aquí cuánto mide el cristal donde va el visor de CAM.
@@ -468,6 +471,7 @@
     return result;
   };
   function syncTab(tab) {
+    if (window.flipRollo && document.body.dataset.tab !== tab) flipRollo.cancelMode($('shellLcd'));
     document.body.dataset.tab = tab;
     const key = currentModule();
     const entry = MODULES.find(m => m[0] === key);

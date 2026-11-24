@@ -1,0 +1,127 @@
+/* Usa los tokens del kit y conserva capas, hitboxes y geometría de la app. */
+body[data-flip="rollo-en-anil"] {
+  --cream: var(--flip-carcasa);
+  --cream-hi: var(--flip-tecla);
+  --cream-lo: #D2C8B9;
+  --cream-deep: #A89A93;
+  --ink: var(--flip-tinta);
+  --ink-dim: var(--flip-tinta-suave);
+  --blue: var(--flip-acento);
+  --mustard: var(--flip-secundario-2);
+  --mint: var(--flip-secundario-3);
+  --lilac: var(--flip-secundario-4);
+  --glass: var(--flip-cristal);
+  --lcd: var(--flip-lcd-fondo);
+  --lcd-ink: var(--flip-lcd-tinta);
+  --hw-accent: var(--flip-acento);
+  --coral: var(--flip-acento);            /* «elegido» y acción principal: añil */
+  --hw-rec: var(--flip-led-grabar);
+  --font-ui: var(--flip-fuente-panel);
+  --font-dot: var(--flip-fuente-lcd);
+  --rollo-shell-top: url('./brand/rollo-en-anil/materiales/shell-top.webp');
+  --rollo-shell-mid: url('./brand/rollo-en-anil/materiales/shell-mid.webp');
+  --rollo-shell-bottom: url('./brand/rollo-en-anil/materiales/shell-bottom.webp');
+  --rollo-shell-foot: url('./brand/rollo-en-anil/materiales/shell-foot.webp');
+  --rollo-pie: url('./marca/placa-fl-27-compacta.svg');
+}
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] {
+  --rollo-shell-top: url('./brand/rollo-en-anil/materiales/shell-top-oscuro.webp');
+  --rollo-shell-mid: url('./brand/rollo-en-anil/materiales/shell-mid-oscuro.webp');
+  --rollo-shell-bottom: url('./brand/rollo-en-anil/materiales/shell-bottom-oscuro.webp');
+  --rollo-shell-foot: url('./brand/rollo-en-anil/materiales/shell-foot-oscuro.webp');
+  --rollo-pie: url('./marca/placa-fl-27-compacta-clara.svg');
+  --cream-deep: #606887;
+}
+body[data-flip="rollo-en-anil"] :is(.hw-keycap,.look span,.launcher-card,.splash-door) { color: var(--flip-tinta-tecla); }
+body[data-flip="rollo-en-anil"] :is(.hw-keycap.is-on,.hw-keycap[data-color="coral"],.hw-keycap[data-color="slate"],.look.is-on span,.launcher-card.is-on) { color: var(--flip-tinta-acento); }
+body[data-flip="rollo-en-anil"] .hw-candy[data-color="white"] { color: var(--flip-tinta-tecla); }
+body[data-flip="rollo-en-anil"] .hw-candy[data-color="mustard"] { color: var(--flip-tinta-secundario-1); }
+body[data-flip="rollo-en-anil"] :is(.hw-candy[data-color="mint"],.hw-candy.is-on) { color: var(--flip-tinta-secundario-3); }
+body[data-flip="rollo-en-anil"] .launcher-card small { color: #62536A; }
+body[data-flip="rollo-en-anil"] .launcher-card.is-on small { color: var(--flip-tinta-acento); }
+body[data-flip="rollo-en-anil"] .launcher-card em { color: var(--rollo-ico-ink, #FFF3DC); background: var(--tone); }
+body[data-flip="rollo-en-anil"] .launcher-card[data-module="stage"] u { background: var(--flip-pro-fondo); color: var(--flip-pro-tinta); }
+body[data-flip="rollo-en-anil"] .splash-title {
+  padding: 7px 12px;
+  background: var(--flip-acento);
+  box-shadow: 0 3px 0 #1C2E75, inset 0 1px 0 #7989DC;
+}
+.rollo-titulo { display: block; width: 114px; height: auto; }
+.rollo-ident {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: block; width: 100%; height: auto; opacity: 0;
+  -webkit-mask-image: radial-gradient(ellipse closest-side, #000 72%, transparent 100%);
+  mask-image: radial-gradient(ellipse closest-side, #000 72%, transparent 100%);
+}
+.rollo-ident-listo .rollo-ident { opacity: 1; }
+.rollo-ident-listo b { display: none; }
+.rollo-ident-listo u { color: #D6E5AA; }
+.rollo-pie {
+  position: absolute; bottom: calc(1px + env(safe-area-inset-bottom, 0px)); left: 50%;
+  transform: translateX(-50%); width: 104px; height: 18px;
+  background: var(--rollo-pie) center / contain no-repeat;
+  pointer-events: none;
+}
+.rollo-matriz {
+  position: absolute; z-index: 3; inset: 4px 5px; display: grid; place-items: center;
+  background: var(--flip-lcd-fondo); color: var(--flip-lcd-tinta); border-radius: 3px;
+  pointer-events: none;
+}
+.rollo-matriz svg { display: block; width: auto; height: 100%; max-width: 100%; }
+.rollo-badge {
+  display: block; width: min(126px, 35vw); height: auto; padding: 1px; flex: none;
+  border-radius: 5px; background: var(--flip-pro-fondo);
+}
+#rolloTema { margin-inline-start: auto; margin-inline-end: 8px; font-size: 9px; }
+body[data-flip="rollo-en-anil"] :is(#cameraGate button:not(.quiet), .action-primary) {
+  background: var(--flip-acento); color: var(--flip-tinta-acento);
+}
+body[data-flip="rollo-en-anil"] :is(#camDeck, #shellTop, #splash, .rig) .hw-print { text-shadow: none; }
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] #camBody::before { opacity: .28; }
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] .rig-panel .hw-print { color: #62536A; }
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] :is(#shellLauncher,#shellViewer,#splash)::before { opacity: .35; }
+@media (min-width: 520px) {
+  body[data-flip="rollo-en-anil"] :is(#camBody,#shellLauncher,#shellViewer,#splash)::before {
+    background-color: var(--flip-carcasa);
+  }
+}
+body[data-flip="rollo-en-anil"] :is(.splash-door-sub,#cameraGate p,.launcher-card small,.rig-note) {
+  font-family: var(--flip-fuente-texto) !important;
+}
+body[data-flip="rollo-en-anil"] .splash-tag i {
+  background: linear-gradient(90deg, #273FA8 0 33%, #F77F50 33% 66%, #90C578 66%);
+}
+body[data-flip="rollo-en-anil"] #btnSplashOriginal .splash-door-sub { opacity: 1 !important; }
+body[data-flip="rollo-en-anil"] #btnSplashStage .splash-door-sub { opacity: 1 !important; }
+body[data-flip="rollo-en-anil"] #rigRec { color: #242646; }
+body[data-flip="rollo-en-anil"] #rigMic.is-on { color: var(--flip-tinta-secundario-3); }
+body[data-flip="rollo-en-anil"] #rigTap { color: var(--flip-tinta-secundario-2); }
+body[data-flip="rollo-en-anil"] #preloader .preloader-glyph { width: 56px; height: 56px; object-fit: contain; }
+@media (orientation: landscape) and (max-height: 540px) {
+  .rollo-pie { display: none; }
+}
+
+/* ── Ajustes de integración (FLIP) ───────────────────────────────────────────────────────────── */
+/* La firma del pie, despegada del canto: es tampografía sobre el plástico, no un adhesivo en el borde. */
+.rollo-pie { bottom: calc(7px + env(safe-area-inset-bottom, 0px)); }
+
+/* ── Carcasa oscura ──────────────────────────────────────────────────────────────────────────── */
+/* Los marcos hundidos (visor, bandeja de cámaras, última toma, pantallita) son del mismo plástico
+   que la carcasa: en la oscura, oscuros. */
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] :is(#lcd, .splash-hero) { border-image-source: url('./materiales/bezel-oscuro.webp'); }
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] :is(.deck-looks, #deckGallery) { border-image-source: url('./materiales/tray-oscuro.webp'); }
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] .hw-lcd::before { border-image-source: url('./materiales/lcd-oscuro.webp'); }
+/* El marco de los visores de los demás módulos y el de la última toma van pintados: su aro, oscuro. */
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] :is(#asciiCanvas, #sonoCanvas, #wmpCanvas, #sflowCanvas, #scrashCanvas, #fusionCanvas, #editCanvas, #uploadCanvas) {
+  box-shadow: 0 0 0 5px #15172a, 0 0 0 6px rgba(0, 0, 0, .45), 0 0 0 13px #1c213c, 0 1px 0 14px #3b4472, 0 2px 0 14px #12152a, 0 10px 22px 8px rgba(0, 0, 0, .35);
+}
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] .viewer-stage { box-shadow: 0 0 0 5px #15172a, 0 0 0 12px #1c213c, 0 2px 0 13px #3b4472, inset 0 0 30px rgba(0, 0, 0, .8); }
+/* Sobre las piezas claras (hoja de ajustes, placa de STAGE, panel de EDIT, teclas) la tinta sigue
+   siendo la oscura: lo que se invierte es la serigrafía que va sobre la carcasa. */
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] :is(.flip-settings-panel, .rig-panel, #editHUD, #sflowAdjust, #asciiPanel, #upPanel, .hw-keycap, .look, .launcher-card, .splash-door, .viewer-actions button, :is(.flip-export-primary, .flip-export-reset, #flipExportSecondaries button)) {
+  --ink: #242646; --ink-dim: #62536A; --flip-tinta: #242646; --flip-tinta-suave: #62536A;
+}
+/* Lo que avisa (el piloto de reposo, la toma armada de STAGE) va en mandarina, no en el añil de «elegido». */
+body[data-flip="rollo-en-anil"] .rest-note i { background: var(--flip-secundario-1); box-shadow: 0 0 7px rgba(247, 127, 80, .8); }
+body[data-flip="rollo-en-anil"] .rig-jack.is-armed .hw-print { color: #C2552B; }
+body[data-flip="rollo-en-anil"][data-tema="oscuro"] .rig-jack.is-armed .hw-print { color: var(--flip-secundario-1); }

@@ -1,0 +1,48 @@
+@font-face {font-family:'Chivo';src:url('../fuentes/chivo.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
+@font-face {font-family:'IBM Plex Sans';src:url('../fuentes/plex.woff2') format('woff2');font-style:normal;font-weight:100 700;font-display:swap}
+@font-face {font-family:'Doto';src:url('../fuentes/doto.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
+
+[data-flip="rollo-en-anil"] {
+  --flip-carcasa: #EDE5D8;
+  --flip-carcasa-oscura: #232946;
+  --flip-tecla: #FFF3DC;
+  --flip-tinta: #242646;
+  --flip-tinta-suave: #62536A;
+  --flip-tinta-inversa: #FFF3DF;
+  --flip-tinta-suave-inversa: #C4C3E0;
+  --flip-tinta-tecla: #242646;
+  --flip-acento: #273FA8;
+  --flip-tinta-acento: #FFF3DC;
+  --flip-lcd-fondo: #D1D9A0;
+  --flip-lcd-tinta: #292E22;
+  --flip-led-grabar: #F54846;
+  --flip-led-aviso: #F0B852;
+  --flip-led-listo: #B1E081;
+  --flip-cristal: #151727;
+  --flip-pro-fondo: #594A8C;
+  --flip-pro-tinta: #FFF3DC;
+  --flip-fuente-panel: "Chivo", system-ui, sans-serif;
+  --flip-peso-panel: 800;
+  --flip-tracking-panel: 0.05em;
+  --flip-tracking-panel-pequeno: 0.06em;
+  --flip-fuente-lcd: "Doto", ui-monospace, monospace;
+  --flip-peso-lcd: 800;
+  --flip-tracking-lcd: 0.03em;
+  --flip-fuente-texto: "IBM Plex Sans", system-ui, sans-serif;
+  --flip-peso-texto: 500;
+  --flip-radio-carcasa: 19px;
+  --flip-radio-tecla: 6px;
+  --flip-secundario-1: #F77F50;
+  --flip-secundario-2: #E9BC4D;
+  --flip-secundario-3: #90C578;
+  --flip-secundario-4: #594A8C;
+  --flip-tinta-secundario-1: #242646;
+  --flip-tinta-secundario-2: #242646;
+  --flip-tinta-secundario-3: #242646;
+  --flip-tinta-secundario-4: #FFF3DC;
+}
+[data-flip="rollo-en-anil"][data-tema="oscuro"] {
+  --flip-carcasa: var(--flip-carcasa-oscura);
+  --flip-tinta: var(--flip-tinta-inversa);
+  --flip-tinta-suave: var(--flip-tinta-suave-inversa);
+}

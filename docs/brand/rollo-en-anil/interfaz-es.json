@@ -1,0 +1,12 @@
+{
+  "permisoCamara": "Activa la cámara para hacer tu primera toma.",
+  "reposo": "La cámara está en reposo. Toca el visor para seguir.",
+  "videoGuardado": "Vídeo guardado.",
+  "errorGrabacion": "Se cortó la grabación. Toca Grabar para intentarlo otra vez.",
+  "bienvenida": "FL-27 lista. Elige una cámara y dispara.",
+  "funcionPro": "Activa PRO para abrir el sintetizador VS-27.",
+  "grabando": "Grabando. Toca Parar para cerrar la toma.",
+  "microfonoApagado": "Micrófono apagado.",
+  "errorGuardar": "La toma sigue en Última toma. Toca Guardar otra vez.",
+  "salidaDisponible": "Salida lista. Ábrela para proyectar."
+}

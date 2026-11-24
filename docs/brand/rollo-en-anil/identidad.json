@@ -1,0 +1,86 @@
+{
+  "propuesta": "Rollo en añil",
+  "colores": {
+    "carcasa": "#EDE5D8",
+    "carcasaOscura": "#232946",
+    "tecla": "#FFF3DC",
+    "tinta": "#242646",
+    "tintaSuave": "#62536A",
+    "acento": "#273FA8",
+    "secundarios": [
+      "#F77F50",
+      "#E9BC4D",
+      "#90C578",
+      "#594A8C"
+    ],
+    "lcdFondo": "#D1D9A0",
+    "lcdTinta": "#292E22",
+    "ledGrabar": "#F54846",
+    "cristal": "#151727"
+  },
+  "tipografia": {
+    "serigrafia": {
+      "familia": "Chivo",
+      "peso": 800,
+      "tracking": "0.05em"
+    },
+    "matriz": {
+      "familia": "Doto",
+      "peso": 800
+    },
+    "texto": {
+      "familia": "IBM Plex Sans",
+      "peso": 500
+    }
+  },
+  "materiales": [
+    {
+      "pieza": "Carcasa",
+      "color": "#EDE5D8",
+      "acabado": "mate",
+      "desgaste": "cuidado"
+    },
+    {
+      "pieza": "Teclas",
+      "color": "#FFF3DC",
+      "acabado": "satinado",
+      "desgaste": "cuidado"
+    },
+    {
+      "pieza": "Botones redondos",
+      "color": "#F77F50",
+      "acabado": "brillo",
+      "desgaste": "estreno"
+    },
+    {
+      "pieza": "Disparador",
+      "color": "#FFF3DC",
+      "acabado": "satinado",
+      "desgaste": "cuidado"
+    },
+    {
+      "pieza": "Perillas",
+      "color": "#6E678B",
+      "acabado": "satinado",
+      "desgaste": "cuidado"
+    },
+    {
+      "pieza": "Placas",
+      "color": "#594A8C",
+      "acabado": "satinado",
+      "desgaste": "cuidado"
+    },
+    {
+      "pieza": "Interruptores",
+      "color": "#C8C5CF",
+      "acabado": "satinado",
+      "desgaste": "cuidado"
+    },
+    {
+      "pieza": "Cristal",
+      "color": "#151727",
+      "acabado": "brillo",
+      "desgaste": "estreno"
+    }
+  ]
+}

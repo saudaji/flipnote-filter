@@ -7,10 +7,16 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Flipnote">
+  <meta name="apple-mobile-web-app-title" content="FLIP">
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="icon-192.png">
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta property="og:title" content="FLIP · Sal a hacer tomas.">
+  <meta property="og:description" content="Una cámara de calle y un sintetizador de visuales dentro de tu teléfono.">
+  <meta property="og:image" content="https://saudaji.github.io/flipnote-filter/brand/rollo-en-anil/comunicacion/enlace.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <link rel="icon" type="image/png" sizes="16x16" href="brand/rollo-en-anil/app/16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="brand/rollo-en-anil/app/32.png">
+  <link rel="apple-touch-icon" href="brand/rollo-en-anil/app/any-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&family=IBM+Plex+Mono:wght@400;600&family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Doto:wght@400..900&family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
@@ -2945,8 +2951,10 @@
   <link rel="stylesheet" href="./shell.css">
 <link rel="stylesheet" href="./console.css">
 <link rel="stylesheet" href="./stage.css">
+<link rel="stylesheet" href="./brand/rollo-en-anil/tema.css">
+<link rel="stylesheet" href="./brand/rollo-en-anil/app.css">
 </head>
-<body>
+<body data-flip="rollo-en-anil">
 
 <div id="decoOverlay" aria-hidden="true">
   <div class="deco-edge deco-top"></div>
@@ -3296,10 +3304,10 @@
   <button id="btnSonoStart">ACTIVAR MICRÓFONO</button>
 </div>
 
-<div id="preloader"><span class="preloader-glyph">Ⅎ</span></div>
+<div id="preloader"><img class="preloader-glyph" src="./brand/rollo-en-anil/app/preloader.svg" alt=""></div>
 
 <div id="splash">
-  <div class="splash-title">FLIP</div>
+  <div class="splash-title"><img class="rollo-titulo" src="./brand/rollo-en-anil/marca/horizontal-clara.svg" alt="FLIP"></div>
   <div class="splash-doors">
     <button class="splash-door" id="btnSplashOriginal">
       <span class="splash-door-label">ENCENDER CÁMARA</span>
@@ -16532,12 +16540,20 @@ async function _bootFromSplash() {
 document.getElementById('btnSplashOriginal').addEventListener('click', e => {
   e.stopPropagation();
   _bootFromSplash();
+  if (window.flipRollo) {
+    flipRollo.showMode(document.getElementById('shellLcd'), 'cam');
+    flipRollo.playBoot();
+  }
 });
 
 document.getElementById('btnSplashStage').addEventListener('click', e => {
   e.stopPropagation();
   splash.classList.add('hidden');
   switchTab('stage');
+  if (window.flipRollo) {
+    flipRollo.showMode(document.getElementById('shellLcd'), 'stage');
+    flipRollo.playBoot();
+  }
 });
 
 // ════════════════════════════════════════════════════════════════════
@@ -22669,6 +22685,7 @@ window.__flipMainReady = true;                              // el guion llegó h
 </script>
 <script src="./mp4-flat.js"></script>
 <script src="./feel.js"></script>
+<script src="./brand/rollo-en-anil/activar.js"></script>
 <script src="./shell.js"></script>
 <script src="./console.js"></script>
 <script src="./light.js"></script>

@@ -1,0 +1,154 @@
+[
+  {
+    "uso": "Rótulo principal / carcasa",
+    "tinta": "#242646",
+    "fondo": "#EDE5D8",
+    "ratio": 11.6612,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo auxiliar / carcasa",
+    "tinta": "#62536A",
+    "fondo": "#EDE5D8",
+    "ratio": 5.6666,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo principal / carcasa oscura",
+    "tinta": "#FFF3DF",
+    "fondo": "#232946",
+    "ratio": 12.9565,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo auxiliar / carcasa oscura",
+    "tinta": "#C4C3E0",
+    "fondo": "#232946",
+    "ratio": 8.2796,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo / tecla en reposo",
+    "tinta": "#242646",
+    "fondo": "#FFF3DC",
+    "ratio": 13.2614,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo / tecla seleccionada",
+    "tinta": "#FFF3DC",
+    "fondo": "#273FA8",
+    "ratio": 8.0864,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo / secundario 1",
+    "tinta": "#242646",
+    "fondo": "#F77F50",
+    "ratio": 5.6267,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo / secundario 2",
+    "tinta": "#242646",
+    "fondo": "#E9BC4D",
+    "ratio": 8.1663,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo / secundario 3",
+    "tinta": "#242646",
+    "fondo": "#90C578",
+    "ratio": 7.249,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo / secundario 4",
+    "tinta": "#FFF3DC",
+    "fondo": "#594A8C",
+    "ratio": 6.8652,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo / LCD",
+    "tinta": "#292E22",
+    "fondo": "#D1D9A0",
+    "ratio": 9.3781,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Estado textual / cristal",
+    "tinta": "#FFF3DF",
+    "fondo": "#151727",
+    "ratio": 16.1672,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Rótulo PRO / placa VS-27",
+    "tinta": "#FFF3DC",
+    "fondo": "#594A8C",
+    "ratio": 6.8652,
+    "minimo": 4.5,
+    "pasa": true
+  },
+  {
+    "uso": "Piloto REC / cristal",
+    "tinta": "#F54846",
+    "fondo": "#151727",
+    "ratio": 4.9824,
+    "minimo": 3,
+    "pasa": true
+  },
+  {
+    "uso": "Piloto aviso / cristal",
+    "tinta": "#F0B852",
+    "fondo": "#151727",
+    "ratio": 9.8696,
+    "minimo": 3,
+    "pasa": true
+  },
+  {
+    "uso": "Piloto listo / cristal",
+    "tinta": "#B1E081",
+    "fondo": "#151727",
+    "ratio": 11.6991,
+    "minimo": 3,
+    "pasa": true
+  },
+  {
+    "uso": "Símbolo / fondo app",
+    "tinta": "#FFF3DC",
+    "fondo": "#273FA8",
+    "ratio": 8.0864,
+    "minimo": 3,
+    "pasa": true
+  },
+  {
+    "uso": "Marca de foco / carcasa",
+    "tinta": "#242646",
+    "fondo": "#EDE5D8",
+    "ratio": 11.6612,
+    "minimo": 3,
+    "pasa": true
+  },
+  {
+    "uso": "Marca de foco / carcasa oscura",
+    "tinta": "#FFF3DF",
+    "fondo": "#232946",
+    "ratio": 12.9565,
+    "minimo": 3,
+    "pasa": true
+  }
+]

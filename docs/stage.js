@@ -1272,7 +1272,7 @@ void main() {
         </div>
         <div class="rig-side">
         <div class="rig-deck">
-          <div class="rig-row rig-row-scenes"><span class="hw-print">ESCENAS · MANTÉN PARA GUARDAR</span><span class="hw-print rig-badge">VS-27 · PRO</span></div>
+          <div class="rig-row rig-row-scenes"><span class="hw-print">ESCENAS · MANTÉN PARA GUARDAR</span>${window.flipRollo ? `<img class="rollo-badge" src="${flipRollo.url('marca/placa-vs-27-clara.svg')}" alt="STAGE VS-27 PRO">` : '<span class="hw-print rig-badge">VS-27 · PRO</span>'}</div>
           <div class="rig-scenes" id="rigScenes" role="radiogroup" aria-label="Escenas">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<button class="hw hw-keycap" type="button" role="radio" data-scene="${i}" data-feel="key" aria-label="Escena ${i + 1}"><span>${i + 1}</span></button>`).join('')}</div>
           <div class="rig-tabs" id="rigTabs" role="tablist" aria-label="Módulos">${PAGES.map(page => `<button class="hw hw-keycap" data-color="gray" type="button" role="tab" data-page="${page.id}"><span>${page.label}</span></button>`).join('')}</div>
           <div class="rig-panel" id="rigPanel" role="tabpanel"></div>
@@ -1280,11 +1280,11 @@ void main() {
         </div>
           <div class="rig-transport">
             <div class="hw-labeled"><button class="hw hw-candy" data-color="coral" id="rigRec" type="button" data-feel="primary" aria-label="Grabar la salida">${icon('rec')}</button><span class="hw-print">REC</span></div>
-            <div class="hw-labeled"><button class="hw hw-candy" data-color="white" id="rigPhoto" type="button" aria-label="Foto de la salida">${icon('cam')}</button><span class="hw-print">FOTO</span></div>
-            <button class="hw hw-keycap" data-color="coral" id="rigOut" type="button" data-feel="primary" aria-label="Abrir la salida limpia">${svg('out')}<span>SALIDA</span></button>
+            <div class="hw-labeled"><button class="hw hw-candy" data-color="white" id="rigPhoto" type="button" aria-label="Foto de la salida">${icon(window.flipRollo ? 'foto' : 'cam')}</button><span class="hw-print">FOTO</span></div>
+            <button class="hw hw-keycap" data-color="coral" id="rigOut" type="button" data-feel="primary" aria-label="Abrir la salida limpia">${window.flipRollo ? icon('salida') : svg('out')}<span>SALIDA</span></button>
             <button class="hw hw-keycap" data-color="mustard" id="rigTap" type="button" aria-label="Marcar el tempo"><span>TAP</span><em id="rigBpm">120</em></button>
             <div class="hw-labeled"><button class="hw hw-candy" id="rigMic" type="button" aria-label="Micrófono: reacción al sonido" aria-pressed="false">${icon('mic')}</button><span class="hw-print">MIC</span></div>
-            <div class="hw-labeled"><button class="hw hw-candy" id="rigMidi" type="button" aria-label="MIDI: conectar y aprender" aria-pressed="false">${svg('midi')}</button><span class="hw-print">MIDI</span></div>
+            <div class="hw-labeled"><button class="hw hw-candy" id="rigMidi" type="button" aria-label="MIDI: conectar y aprender" aria-pressed="false">${window.flipRollo ? icon('midi') : svg('midi')}</button><span class="hw-print">MIDI</span></div>
           </div>
         </div>
         <svg class="rig-cables" id="rigCables" aria-hidden="true"></svg>

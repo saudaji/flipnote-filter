@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FLIP · Rollo en añil · Prueba local</title>
+<link rel="stylesheet" href="tema.css"><style>
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:#151619;color:#ebe9e2;margin:0;padding:22px 0 32px;font-family:var(--flip-fuente-texto);font-weight:var(--flip-peso-texto)}
+.wrap{width:min(calc(100% - 16px),395px);margin:auto}
+.tools{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;align-items:center;justify-content:space-between}
+.tools strong{font-size:13px}
+button{cursor:pointer;font:inherit}
+.tools button{border:1px solid #888b91;border-radius:5px;color:#f0eee5;background:#26272d;padding:8px 9px;font-size:11px}
+.tools button[aria-pressed=true]{color:#191a1b;background:#efede3}
+.shell{color:var(--flip-tinta);background:var(--flip-carcasa);border-radius:var(--flip-radio-carcasa);border:1px solid var(--flip-tinta-suave);padding:8px;overflow:hidden}
+.panel,.tools button,.chip{font-family:var(--flip-fuente-panel);font-weight:var(--flip-peso-panel);letter-spacing:var(--flip-tracking-panel)}
+.mechanical{color:var(--flip-tinta-tecla);background:var(--flip-tecla);border:1px solid currentColor;border-radius:var(--flip-radio-tecla);min-height:42px}
+.mechanical[aria-pressed=true]{color:var(--flip-tinta-acento);background:var(--flip-acento)}
+button:focus-visible{outline:2px solid var(--flip-tinta);outline-offset:3px}
+.tools button:focus-visible{outline-color:#f2efe4}
+.bar{display:grid;grid-template-columns:76px 1fr 42px 42px;gap:6px;margin-bottom:8px;align-items:center}
+.bar button,.actions button{display:flex;align-items:center;justify-content:center;gap:3px}
+.ico{width:15px;height:15px;display:block;flex:none}
+.lcd{min-height:42px;background:var(--flip-lcd-fondo);color:var(--flip-lcd-tinta);border:2px solid var(--flip-cristal);border-radius:4px;padding:3px 5px;font:var(--flip-peso-lcd) 12px/1.22 var(--flip-fuente-lcd);letter-spacing:var(--flip-tracking-lcd)}
+.glass{background:var(--flip-cristal);color:var(--flip-tinta-inversa);border-radius:calc(var(--flip-radio-carcasa)/1.7);display:grid;place-items:center;aspect-ratio:0.75;position:relative}
+.glass.stage{aspect-ratio:1.88}
+.glass:before{content:"";position:absolute;inset:24% 9%;border:1px solid currentColor;opacity:.28;border-radius:2px;pointer-events:none}
+.glass.stage:before{inset:12% 8%}
+.glass .message{font-size:12px;z-index:1;padding:10px;max-width:78%;text-align:center}
+.glass .hud{position:absolute;left:13px;bottom:12px;font-size:9px}
+.crt-ident{position:absolute;inset:auto 2%;width:96%;border-radius:5px}
+.boot{position:absolute;bottom:25px;width:min(82%,290px);border-radius:4px;background:var(--flip-lcd-fondo);padding:7px;color:var(--flip-lcd-tinta);z-index:2}
+.boot svg{display:block;width:100%}
+.mode-row,.actions,.profiles,.module-list,.scene-row{display:grid;gap:5px;margin-top:7px}
+.mode-row{grid-template-columns:1fr 1fr}
+.profiles{grid-template-columns:repeat(5,minmax(0,1fr))}
+.profiles button{height:45px;padding:0;font-size:8px;letter-spacing:var(--flip-tracking-panel-pequeno)}
+.actions{grid-template-columns:40px 1fr 66px 42px 42px;align-items:center;margin-top:10px}
+.actions button{overflow:visible}
+.jobs{display:grid;grid-template-columns:1fr 1fr;gap:2px}
+.jobs button{font-size:7px;padding:0}
+.shutter{min-height:64px;border-radius:50%;border:4px double currentColor}
+.model{display:block;margin:7px auto 0;width:146px}
+.module-list{grid-template-columns:repeat(5,minmax(0,1fr))}
+.module-list button{width:100%;font-size:8px;padding:4px 0;display:grid;justify-items:center;align-items:center;letter-spacing:var(--flip-tracking-panel-pequeno)}
+.scene-row{grid-template-columns:repeat(8,minmax(0,1fr))}
+.scene-top{display:flex;justify-content:space-between;gap:8px;margin-top:9px;align-items:center;font-size:9px}
+.scene-top img{width:142px;background:var(--flip-pro-fondo);border-radius:3px}
+.scene-top svg{display:block;width:142px;color:var(--flip-pro-tinta);background:var(--flip-pro-fondo);border-radius:4px}
+.stage-panel{padding:8px 6px;margin-top:7px;border:1px solid var(--flip-tinta-suave);border-radius:8px;font-size:9px}
+.dials{display:flex;justify-content:space-around;text-align:center;margin:8px 0}
+.dials span{display:block;width:30px;height:30px;margin:0 auto 4px;border-radius:50%;background:var(--flip-tecla);color:var(--flip-tinta-tecla);border:2px solid currentColor}
+.dials span:before{display:block;content:"";background:currentColor;width:2px;height:9px;margin:1px auto}
+.pro-gate{margin:8px 0 0;font-size:12px}
+.spec{margin-top:10px;padding:14px;background:#23252a;border-radius:8px}
+.spec h2{margin:0 0 10px;font:700 13px var(--flip-fuente-panel)}
+.samples{display:flex;align-items:end;gap:12px;margin-bottom:10px}
+.samples>div{display:grid;gap:4px;font-size:9px;justify-items:center}
+.samples img{display:block}
+.samples .r{padding:4px;color:var(--flip-tinta-tecla);background:var(--flip-tecla)}
+.samples .r svg{display:block}
+.atlas{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.atlas div{text-align:center;padding:5px 1px;border:1px solid #747677;font-size:8px;border-radius:3px}
+.atlas .ico{margin:1px auto 4px}
+p.note{font-size:11px;color:#cac8c2;margin:8px 0 0;line-height:1.5}
+</style></head>
+<body data-flip="rollo-en-anil" data-tema="principal"><main class="wrap">
+<div class="tools"><strong>Rollo en añil · Prueba a 395 px</strong><button data-action="theme" aria-pressed="false">Oscura</button><button data-action="boot">Arranque</button><button data-action="stage" aria-pressed="false">STAGE</button><span class="gate" hidden><button data-action="gate" aria-pressed="false">Bloqueo PRO</button></span></div>
+<section class="shell" aria-label="Carcasa digital"><div class="bar"><button class="mechanical panel" data-demo="selector" aria-label="Cambiar de módulo"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10a2 2 0 0 1 2-2h2l2-3h4l2 3h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM8 14q2-2 4 0m5-1a1.5 1.5 0 1 0-3 0 1.5 1.5 0 1 0 3 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg> <span class="module-name">CAM</span></button><div class="lcd"><span class="lcd-text">DSI · STD</span><br><span class="lcd-resolution">30 FPS　4:3 HD</span></div><button type="button" class="mechanical " data-demo="mando" aria-label="Micrófono"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 7a3 3 0 0 1 6 0v4a3 3 0 0 1-6 0zm-3 4a6 6 0 0 0 12 0m-6 6v3m-3 0h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button><button type="button" class="mechanical " data-demo="mando" aria-label="Ajustes"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14M8 5v4m8 1v4m-6 1v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button></div>
+<div class="glass"><img class="crt-ident" src="comunicacion/ident-crt.jpg" alt="" hidden><div class="boot" aria-hidden="true" hidden><svg viewBox="0 0 36 11"><g fill="currentColor"></g></svg></div><div class="message" role="status">Visor en reposo</div><span class="hud panel">FL-27 · CAM</span></div>
+<div data-view="cam"><div class="mode-row" aria-label="Variante"><button type="button" class="mechanical panel" data-select="variante" aria-pressed="true">STD</button><button type="button" class="mechanical panel" data-select="variante" aria-pressed="false">LGCY</button></div><div class="profiles" aria-label="Cámaras en la primera ventana"><button type="button" class="mechanical panel" data-select="perfil" aria-pressed="true">DSi</button><button type="button" class="mechanical panel" data-select="perfil" aria-pressed="false">STAMP</button><button type="button" class="mechanical panel" data-select="perfil" aria-pressed="false">AUTO 03</button><button type="button" class="mechanical panel" data-select="perfil" aria-pressed="false">DLPHN</button><button type="button" class="mechanical panel" data-select="perfil" aria-pressed="false">CASKIA</button></div><div class="actions"><button type="button" class="mechanical " data-demo="mando" aria-label="Galería"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zm0 9 4-4 3 2 2-2 5 5m-4-8h.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button><div class="jobs"><button type="button" class="mechanical panel" data-select="captura" aria-pressed="true">FOTO</button><button type="button" class="mechanical panel" data-select="captura" aria-pressed="false">VÍDEO</button></div><button type="button" class="mechanical shutter" data-demo="captura" aria-label="Foto"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7c-2 0-3 1-3 3m13-3c2 0 3 1 3 3M4 15c0 2 1 3 3 3m13-3c0 2-1 3-3 3m-2-6a3 3 0 1 0-6 0 3 3 0 0 0 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button><button type="button" class="mechanical " data-demo="mando" aria-label="Ajuste fino"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M18 12a6 6 0 1 0-12 0 6 6 0 0 0 12 0m-6 0 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button><button type="button" class="mechanical " data-demo="mando" aria-label="Girar cámara"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10a8 8 0 0 1 14-4l2 3m0-4v4h-4M20 14a8 8 0 0 1-14 4l-2-3m0 4v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button></div><svg aria-hidden="true" class="model" viewBox="0 0 248 52">
+  
+  <g fill="currentColor"><rect x="1.5" y="1.5" width="245" height="49" rx="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M10 26h6m-3-3v6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M232 26h6m-3-3v6" fill="none" stroke="currentColor" stroke-width="1.5"/><path fill-rule="evenodd" transform="translate(24 6) scale(0.61)" d="M6 27Q7 18 17 17H19L23 11Q25 8 29 8H42Q47 8 49 13L51 17Q58 18 59 25L61 40Q63 53 51 55L18 59Q7 60 5 49L4 39Q3 32 6 27ZM13 35Q20 27 29 32Q33 35 30 38Q28 40 25 38Q21 35 17 39Q13 40 13 35ZM51 34A8 8 0 1 0 35 34A8 8 0 1 0 51 34Z"/><g transform="translate(66 12) scale(0.63)" fill-rule="evenodd"><path d="M0 12Q0 3 10 3H33Q40 3 40 10Q40 16 33 16H15V22H29Q36 22 36 28Q36 34 29 34H15V39Q15 46 8 46Q0 46 0 39Z" transform="translate(7 0) rotate(-4 20 23)"/><path d="M0 11Q0 3 8 3Q15 3 15 11V31Q15 34 19 34H33Q40 34 40 40Q40 46 33 46H13Q0 46 0 34Z" transform="translate(52 0) rotate(2 20 23)"/><path d="M13 0Q20 1 20 7Q20 13 12 13Q4 13 4 7Q4 0 13 0ZM3 22Q3 17 11 17Q18 17 18 23V39Q18 46 10 46Q3 46 3 39Z" transform="translate(95 -1) rotate(-5 10 23)"/><path d="M0 12Q0 3 9 3H24Q44 3 44 20Q44 36 24 36H15V39Q15 46 8 46Q0 46 0 39ZM15 16V24H24Q29 24 29 20Q29 16 24 16Z" transform="translate(123 0) rotate(2 21 23)"/></g><path d="M178 12h1.5v28H178z"/><path d="M185.62 31V21.74H192.15L191.9 23.68H188.11V25.52H191.58V27.4H188.11V31Z"/><path d="M193.72 31V21.74H196.27V28.98H199.82L200.07 31Z"/><path d="M201.42 28.28V26.33H204.85V28.28Z"/><path d="M206.66 31V30.49Q206.66 29.71 206.92 29.13Q207.19 28.55 207.82 28.09L210.46 26.1Q210.86 25.79 211.06 25.41Q211.26 25.03 211.26 24.6Q211.26 24.09 210.97 23.8Q210.69 23.51 210.07 23.51Q209.71 23.51 209.44 23.65Q209.16 23.8 209.01 24.06Q208.85 24.32 208.85 24.64Q208.85 24.74 208.85 24.83Q208.85 24.92 208.86 25.01H206.71Q206.71 24.94 206.71 24.87Q206.71 24.81 206.71 24.76Q206.71 23.86 207.11 23.15Q207.52 22.44 208.28 22.02Q209.04 21.6 210.1 21.6H210.47Q211.46 21.6 212.18 21.98Q212.91 22.36 213.31 23.02Q213.71 23.68 213.71 24.55Q213.71 25.24 213.47 25.77Q213.22 26.29 212.78 26.73Q212.33 27.17 211.71 27.61L210.31 28.58Q210.24 28.64 210.16 28.7Q210.07 28.76 210.01 28.83Q209.94 28.89 209.88 28.96H213.73V31Z"/><path d="M216.83 31Q216.83 29.98 217.09 29.01Q217.36 28.04 217.8 27.13Q218.25 26.23 218.8 25.39Q219.35 24.56 219.92 23.82H215.79V21.74H222.59V22.85Q221.74 24 221.14 24.99Q220.55 25.99 220.19 26.93Q219.83 27.86 219.67 28.86Q219.51 29.85 219.52 31Z"/></g>
+</svg></div>
+<div data-view="stage" hidden><div class="scene-top panel"><span>ESCENAS</span><svg aria-hidden="true"  viewBox="0 0 248 52">
+  
+  <g fill="currentColor"><rect x="1.5" y="1.5" width="245" height="49" rx="8" fill="none" stroke="currentColor" stroke-width="1.7"/><path fill-rule="evenodd" transform="translate(9 5) scale(0.64)" d="M6 27Q7 18 17 17H19L23 11Q25 8 29 8H42Q47 8 49 13L51 17Q58 18 59 25L61 40Q63 53 51 55L18 59Q7 60 5 49L4 39Q3 32 6 27ZM13 35Q20 27 29 32Q33 35 30 38Q28 40 25 38Q21 35 17 39Q13 40 13 35ZM51 34A8 8 0 1 0 35 34A8 8 0 1 0 51 34Z"/><path d="M61.89 32.19Q60.46 32.19 59.25 31.76Q58.05 31.33 57.32 30.42Q56.58 29.51 56.58 28.07Q56.58 27.96 56.58 27.86Q56.58 27.75 56.6 27.63H59.91Q59.9 27.71 59.9 27.76Q59.9 27.82 59.9 27.9Q59.9 28.33 60.1 28.68Q60.31 29.02 60.75 29.23Q61.2 29.44 61.92 29.44Q62.74 29.44 63.18 29.3Q63.62 29.17 63.81 28.92Q63.99 28.67 63.99 28.34Q63.99 27.88 63.6 27.62Q63.22 27.35 62.58 27.19Q61.95 27.02 61.19 26.86Q60.44 26.7 59.67 26.44Q58.91 26.19 58.28 25.76Q57.65 25.33 57.26 24.63Q56.87 23.93 56.87 22.85Q56.87 21.5 57.61 20.6Q58.35 19.7 59.57 19.24Q60.8 18.78 62.27 18.78Q63.69 18.78 64.85 19.19Q66.01 19.61 66.7 20.46Q67.4 21.32 67.4 22.69V22.92H64.13V22.79Q64.13 22.39 63.93 22.07Q63.74 21.76 63.33 21.58Q62.93 21.4 62.3 21.4Q61.72 21.4 61.31 21.52Q60.9 21.64 60.69 21.85Q60.48 22.07 60.48 22.4Q60.48 22.87 60.87 23.14Q61.26 23.41 61.9 23.58Q62.54 23.75 63.31 23.91Q64.08 24.07 64.85 24.31Q65.61 24.55 66.25 24.96Q66.89 25.38 67.28 26.05Q67.67 26.73 67.67 27.76Q67.67 29.34 66.91 30.31Q66.16 31.29 64.86 31.74Q63.55 32.19 61.89 32.19Z"/><path d="M72.82 32V21.77H69.4V18.97H79.86V21.77H76.42V32Z"/><path d="M80.91 32 85.41 18.97H89.81L94.3 32H90.58L89.73 29.55H85.2L84.36 32ZM86.04 27.06H88.88L87.52 22.61H87.43Z"/><path d="M101.1 32.19Q99.94 32.19 98.97 31.77Q97.99 31.34 97.27 30.57Q96.55 29.81 96.14 28.74Q95.74 27.67 95.74 26.39V24.58Q95.74 23.29 96.17 22.23Q96.6 21.16 97.39 20.39Q98.19 19.62 99.27 19.2Q100.35 18.78 101.64 18.78H102.11Q103.2 18.78 104.15 19.12Q105.09 19.46 105.81 20.1Q106.52 20.73 106.92 21.63Q107.32 22.52 107.32 23.63H104Q104 22.88 103.73 22.4Q103.46 21.92 102.95 21.69Q102.45 21.45 101.76 21.45Q101.27 21.45 100.87 21.61Q100.46 21.76 100.17 22.07Q99.88 22.38 99.72 22.82Q99.57 23.26 99.57 23.83V27.14Q99.57 27.71 99.72 28.15Q99.88 28.58 100.17 28.89Q100.46 29.2 100.87 29.36Q101.27 29.51 101.76 29.51Q102.28 29.51 102.7 29.4Q103.12 29.3 103.41 29.05Q103.69 28.81 103.85 28.43Q104.01 28.05 104.01 27.49V27.14H101.5V24.79H107.32V29.33Q107.32 30.22 107.35 30.8Q107.39 31.38 107.45 32H105.52L105.02 30.56Q104.43 31.29 103.39 31.74Q102.36 32.19 101.28 32.19Z"/><path d="M110.23 32V18.97H119.77L119.42 21.7H113.75V24.04H119.13V26.68H113.75V29.26H119.44L119.8 32Z"/><path d="M132 11h1.5v30H132z"/><path d="M144.04 32 140.64 21.02H143.77L145.93 28.23H145.99L148.13 21.02H151.03L147.59 32Z"/><path d="M156.62 32.16Q155.42 32.16 154.4 31.8Q153.39 31.43 152.77 30.67Q152.16 29.9 152.16 28.69Q152.16 28.6 152.16 28.51Q152.16 28.42 152.17 28.32H154.96Q154.94 28.39 154.94 28.43Q154.94 28.48 154.94 28.54Q154.94 28.91 155.12 29.2Q155.29 29.49 155.67 29.67Q156.04 29.84 156.65 29.84Q157.34 29.84 157.71 29.73Q158.08 29.62 158.24 29.4Q158.39 29.19 158.39 28.92Q158.39 28.53 158.07 28.31Q157.74 28.09 157.21 27.95Q156.68 27.81 156.04 27.67Q155.4 27.54 154.76 27.32Q154.12 27.11 153.58 26.75Q153.05 26.38 152.73 25.79Q152.4 25.2 152.4 24.3Q152.4 23.16 153.02 22.4Q153.64 21.64 154.67 21.25Q155.7 20.86 156.94 20.86Q158.14 20.86 159.12 21.21Q160.09 21.56 160.68 22.29Q161.26 23.01 161.26 24.16V24.35H158.51V24.25Q158.51 23.91 158.34 23.64Q158.18 23.38 157.84 23.22Q157.5 23.07 156.97 23.07Q156.48 23.07 156.14 23.17Q155.79 23.27 155.62 23.45Q155.44 23.64 155.44 23.92Q155.44 24.31 155.77 24.54Q156.09 24.77 156.63 24.91Q157.17 25.05 157.82 25.19Q158.47 25.32 159.12 25.52Q159.76 25.72 160.3 26.07Q160.84 26.42 161.16 26.99Q161.49 27.56 161.49 28.43Q161.49 29.76 160.85 30.58Q160.22 31.4 159.12 31.78Q158.02 32.16 156.62 32.16Z"/><path d="M163.5 28.77V26.46H167.56V28.77Z"/><path d="M169.7 32V31.4Q169.7 30.47 170.02 29.78Q170.34 29.1 171.08 28.55L174.21 26.19Q174.68 25.82 174.92 25.37Q175.16 24.92 175.16 24.42Q175.16 23.82 174.82 23.47Q174.48 23.12 173.74 23.12Q173.32 23.12 172.99 23.29Q172.67 23.47 172.49 23.77Q172.3 24.08 172.3 24.46Q172.3 24.58 172.3 24.68Q172.3 24.79 172.31 24.9H169.76Q169.76 24.82 169.76 24.74Q169.76 24.66 169.76 24.6Q169.76 23.54 170.24 22.7Q170.72 21.86 171.63 21.36Q172.53 20.86 173.78 20.86H174.22Q175.39 20.86 176.25 21.31Q177.11 21.76 177.58 22.54Q178.06 23.32 178.06 24.35Q178.06 25.17 177.77 25.8Q177.48 26.42 176.95 26.94Q176.42 27.46 175.68 27.98L174.03 29.14Q173.94 29.2 173.85 29.27Q173.75 29.34 173.67 29.42Q173.59 29.5 173.52 29.58H178.08V32Z"/><path d="M181.76 32Q181.76 30.79 182.07 29.64Q182.38 28.49 182.91 27.42Q183.44 26.34 184.09 25.36Q184.74 24.37 185.42 23.49H180.53V21.02H188.59V22.34Q187.58 23.7 186.87 24.88Q186.17 26.06 185.74 27.17Q185.32 28.28 185.13 29.46Q184.94 30.64 184.95 32Z"/><rect x="199" y="13" width="38" height="26" rx="5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M206.07 30V21.77H210.32Q211 21.77 211.57 22.09Q212.13 22.41 212.46 22.95Q212.79 23.5 212.79 24.18V24.42Q212.79 25.1 212.45 25.68Q212.11 26.26 211.55 26.61Q210.98 26.96 210.3 26.96H208.33V30ZM208.33 25.3H209.65Q209.91 25.3 210.1 25.18Q210.29 25.07 210.4 24.86Q210.5 24.66 210.5 24.38Q210.5 24.02 210.28 23.74Q210.06 23.47 209.65 23.47H208.33Z"/><path d="M220.15 30.11Q219.65 30.11 219.3 29.96Q218.95 29.82 218.76 29.48Q218.57 29.15 218.57 28.56Q218.57 28.29 218.52 28.01Q218.47 27.73 218.35 27.5Q218.22 27.27 218 27.12Q217.78 26.98 217.43 26.98H216.47V30H214.26V21.77H218.71Q219.3 21.77 219.81 22.01Q220.33 22.25 220.65 22.7Q220.98 23.15 220.98 23.81Q220.98 24.36 220.78 24.8Q220.57 25.25 220.24 25.55Q219.91 25.86 219.51 26.02V26.08Q219.81 26.17 220.05 26.34Q220.29 26.52 220.46 26.77Q220.63 27.02 220.73 27.32Q220.82 27.62 220.82 27.96Q220.82 28.19 220.84 28.43Q220.86 28.68 220.92 28.88Q220.98 29.09 221.1 29.24Q221.22 29.39 221.44 29.45V29.9Q221.16 30.02 220.81 30.06Q220.47 30.11 220.15 30.11ZM216.47 25.31H217.91Q218.12 25.31 218.3 25.17Q218.48 25.04 218.58 24.81Q218.68 24.58 218.68 24.3Q218.68 23.88 218.47 23.68Q218.25 23.47 217.94 23.47H216.47Z"/><path d="M226.12 30.12Q225.39 30.12 224.75 29.85Q224.1 29.59 223.62 29.1Q223.13 28.61 222.86 27.94Q222.58 27.27 222.58 26.45V25.34Q222.58 24.52 222.86 23.85Q223.14 23.18 223.62 22.69Q224.11 22.2 224.75 21.94Q225.39 21.67 226.12 21.67H226.7Q227.44 21.67 228.08 21.94Q228.72 22.2 229.21 22.69Q229.69 23.18 229.97 23.85Q230.25 24.52 230.25 25.34V26.45Q230.25 27.27 229.97 27.94Q229.69 28.61 229.2 29.1Q228.72 29.59 228.08 29.85Q227.43 30.12 226.71 30.12ZM226.41 28.43Q226.72 28.43 226.98 28.33Q227.23 28.22 227.43 28.03Q227.62 27.84 227.73 27.57Q227.83 27.29 227.83 26.93V24.86Q227.83 24.5 227.73 24.22Q227.62 23.95 227.43 23.75Q227.23 23.56 226.98 23.46Q226.72 23.36 226.41 23.36Q226.11 23.36 225.85 23.46Q225.59 23.56 225.4 23.76Q225.21 23.95 225.1 24.22Q225 24.5 225 24.86V26.93Q225 27.29 225.1 27.57Q225.21 27.84 225.4 28.04Q225.59 28.23 225.85 28.33Q226.11 28.43 226.41 28.43Z"/></g>
+</svg></div><div class="pro-gate" hidden>STAGE requiere PRO. Estado de acceso de muestra.</div><div class="scene-row" aria-label="Escenas"><button type="button" class="mechanical panel" data-select="escena" aria-pressed="true">1</button><button type="button" class="mechanical panel" data-select="escena" aria-pressed="false">2</button><button type="button" class="mechanical panel" data-select="escena" aria-pressed="false">3</button><button type="button" class="mechanical panel" data-select="escena" aria-pressed="false">4</button><button type="button" class="mechanical panel" data-select="escena" aria-pressed="false">5</button><button type="button" class="mechanical panel" data-select="escena" aria-pressed="false">6</button><button type="button" class="mechanical panel" data-select="escena" aria-pressed="false">7</button><button type="button" class="mechanical panel" data-select="escena" aria-pressed="false">8</button></div><div class="stage-panel panel">FUENTE　　MEZCLA　　SEÑAL　　SALIDA<div class="dials"><div><span></span>FREC.</div><div><span></span>VELOC.</div><div><span></span>FORMA</div><div><span></span>TONO</div></div></div><div class="module-list"><button type="button" class="mechanical " data-demo="mando" aria-label="Grabar"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M17.5 12a5.5 5.5 0 1 0-11 0 5.5 5.5 0 1 0 11 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button><button type="button" class="mechanical " data-demo="mando" aria-label="Foto"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7c-2 0-3 1-3 3m13-3c2 0 3 1 3 3M4 15c0 2 1 3 3 3m13-3c0 2-1 3-3 3m-2-6a3 3 0 1 0-6 0 3 3 0 0 0 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button><button type="button" class="mechanical " data-demo="mando" aria-label="Salida a otra pantalla"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h11a1 1 0 0 1 1 1v3m0 5v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1M7 21h6m1-8h7m-3-3 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button><button type="button" class="mechanical " data-demo="mando" aria-label="Tempo"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 17c2-2 2-6 4-6s2 6 4 6 2-10 5-10h1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button><button type="button" class="mechanical " data-demo="mando" aria-label="MIDI"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 0-14 0 7 7 0 0 0 14 0m-11 1h.1M10 10h.1m1.9-1h.1m1.9 1h.1m1.9 3h.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg></button></div></div>
+<div class="module-list" aria-label="Módulos"><button type="button" class="mechanical panel" data-module="CAM" aria-label="CAM, Cámara y filtros" aria-pressed="true"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10a2 2 0 0 1 2-2h2l2-3h4l2 3h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM8 14q2-2 4 0m5-1a1.5 1.5 0 1 0-3 0 1.5 1.5 0 1 0 3 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>CAM</button><button type="button" class="mechanical panel" data-module="PORTAL" aria-label="PORTAL, Portal con las manos" aria-pressed="false"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 11a7 7 0 1 1-6-6.9m6 6.9v-5m0 5h-5M9 13q3-3 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>PORTAL</button><button type="button" class="mechanical panel" data-module="ASCII" aria-label="ASCII, Imagen en caracteres" aria-pressed="false"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 18 8 6l4 12m-7-4h6m4-6h5m-5 4h3m-3 4h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>ASCII</button><button type="button" class="mechanical panel" data-module="FLOW" aria-label="FLOW, Siluetas y tipografía" aria-pressed="false"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 15c6 2 4-7 9-7h7m-6-3 6 3-5 4M4 19c5 1 8-3 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>FLOW</button><button type="button" class="mechanical panel" data-module="GLITCH" aria-label="GLITCH, Distorsión" aria-pressed="false"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h8l-3 4h9m2-4v8h-8l2-3M4 12v4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>GLITCH</button><button type="button" class="mechanical panel" data-module="FUSION" aria-label="FUSION, Mezcla de capas" aria-pressed="false"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M14 10a5 5 0 1 0-10 0 5 5 0 0 0 10 0m6 4a5 5 0 1 0-10 0 5 5 0 0 0 10 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>FUSION</button><button type="button" class="mechanical panel" data-module="SONO" aria-label="SONO, Ondas de sonido" aria-pressed="false"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h2c2 0 2-6 4-6s2 12 4 12 2-6 4-6h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>SONO</button><button type="button" class="mechanical panel" data-module="WMP" aria-label="WMP, Visualizador musical" aria-pressed="false"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 17v-5m5 7V8m6 11V5m5 12v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>WMP</button><button type="button" class="mechanical panel" data-module="EDIT" aria-label="EDIT, Edición" aria-pressed="false"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zm0 3h14m-9 3 4 2-4 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>EDIT</button><button type="button" class="mechanical panel" data-module="STAGE" aria-label="STAGE, Sintetizador de vídeo" aria-pressed="false"><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM8 20h8M7 12h2l2-3 2 5 2-3h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>STAGE</button></div></section>
+<section class="spec"><h2>Reducciones y trazo a tamaño real</h2><div class="samples"><div><img src="app/16.png" width="16" height="16" alt="Icono óptico de 16 píxeles">16 px</div><div><img src="app/32.png" width="32" height="32" alt="Icono óptico de 32 píxeles">32 px</div><div><span class="r"><svg aria-hidden="true" width="48" height="48" viewBox="0 0 64 64">
+  
+  <g fill="currentColor"><path d="M6 27Q7 18 17 17H19L23 11Q25 8 29 8H42Q47 8 49 13L51 17Q58 18 59 25L61 40Q63 53 51 55L18 59Q7 60 5 49L4 39Q3 32 6 27ZM13 35Q20 27 29 32Q33 35 30 38Q28 40 25 38Q21 35 17 39Q13 40 13 35ZM50 34A7 7 0 1 0 36 34A7 7 0 1 0 50 34Z" fill-rule="evenodd"/></g>
+</svg></span>Relieve 48 px</div><div><span class="r"><svg aria-hidden="true" width="48" viewBox="0 0 177 54">
+  
+  <g fill="currentColor"><g transform="translate(1 4) scale(1)" fill-rule="evenodd"><path d="M0 12Q0 3 10 3H33Q40 3 40 10Q40 16 33 16H15V22H29Q36 22 36 28Q36 34 29 34H15V39Q15 46 8 46Q0 46 0 39Z" transform="translate(7 0) rotate(-4 20 23)"/><path d="M0 11Q0 3 8 3Q15 3 15 11V31Q15 34 19 34H33Q40 34 40 40Q40 46 33 46H13Q0 46 0 34Z" transform="translate(52 0) rotate(2 20 23)"/><path d="M13 0Q20 1 20 7Q20 13 12 13Q4 13 4 7Q4 0 13 0ZM3 22Q3 17 11 17Q18 17 18 23V39Q18 46 10 46Q3 46 3 39Z" transform="translate(95 -1) rotate(-5 10 23)"/><path d="M0 12Q0 3 9 3H24Q44 3 44 20Q44 36 24 36H15V39Q15 46 8 46Q0 46 0 39ZM15 16V24H24Q29 24 29 20Q29 16 24 16Z" transform="translate(123 0) rotate(2 21 23)"/></g></g>
+</svg></span>FLIP 48 px</div></div><div class="atlas"><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10a2 2 0 0 1 2-2h2l2-3h4l2 3h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM8 14q2-2 4 0m5-1a1.5 1.5 0 1 0-3 0 1.5 1.5 0 1 0 3 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>CAM</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 11a7 7 0 1 1-6-6.9m6 6.9v-5m0 5h-5M9 13q3-3 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>PORTAL</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 18 8 6l4 12m-7-4h6m4-6h5m-5 4h3m-3 4h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>ASCII</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 15c6 2 4-7 9-7h7m-6-3 6 3-5 4M4 19c5 1 8-3 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>FLOW</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h8l-3 4h9m2-4v8h-8l2-3M4 12v4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>GLITCH</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M14 10a5 5 0 1 0-10 0 5 5 0 0 0 10 0m6 4a5 5 0 1 0-10 0 5 5 0 0 0 10 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>FUSION</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h2c2 0 2-6 4-6s2 12 4 12 2-6 4-6h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>SONO</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 17v-5m5 7V8m6 11V5m5 12v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>WMP</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zm0 3h14m-9 3 4 2-4 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>EDIT</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM8 20h8M7 12h2l2-3 2 5 2-3h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>STAGE</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7c-2 0-3 1-3 3m13-3c2 0 3 1 3 3M4 15c0 2 1 3 3 3m13-3c0 2-1 3-3 3m-2-6a3 3 0 1 0-6 0 3 3 0 0 0 6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Foto</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 9c0-1 1-2 2-2h7c1 0 2 1 2 2v6c0 1-1 2-2 2H6c-1 0-2-1-2-2zm11 2 5-3v8l-5-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Vídeo</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M17.5 12a5.5 5.5 0 1 0-11 0 5.5 5.5 0 1 0 11 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Grabar</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 9a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Parar</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10a8 8 0 0 1 14-4l2 3m0-4v4h-4M20 14a8 8 0 0 1-14 4l-2-3m0 4v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Girar cámara</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14M8 5v4m8 1v4m-6 1v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Ajustes</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M18 12a6 6 0 1 0-12 0 6 6 0 0 0 12 0m-6 0 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Ajuste fino</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 7a3 3 0 0 1 6 0v4a3 3 0 0 1-6 0zm-3 4a6 6 0 0 0 12 0m-6 6v3m-3 0h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Micrófono</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zm0 9 4-4 3 2 2-2 5 5m-4-8h.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Galería</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M6 12h5m0 0 6-6m-3 0h4v4m-7 2 6 6m-3 0h4v-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Compartir</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v9m-4-4 4 4 4-4M5 16v2c0 1 1 2 2 2h10c1 0 2-1 2-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Guardar</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 9c0-1 1-2 2-2h4l2 2h6c1 0 2 1 2 2v6c0 1-1 2-2 2H6c-1 0-2-1-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Archivo o carpeta</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 9a7.5 7.5 0 1 1 0 6m0-10v4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Reiniciar</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 7l10 10m0-10L7 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Cerrar</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M13 4 6 13h5l-1 7 8-9h-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Flash</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M15 10a5 5 0 1 0-10 0 5 5 0 0 0 10 0m-1 4 5 5m-9-11v4m-2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Zoom</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 6l10 6-10 6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Reproducir</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 7v10m8-10v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Pausa</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 4H6a2 2 0 0 0-2 2v2m12-4h2a2 2 0 0 1 2 2v2M4 16v2a2 2 0 0 0 2 2h2m12-4v2a2 2 0 0 1-2 2h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Pantalla completa</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 0-14 0 7 7 0 0 0 14 0m-11 1h.1M10 10h.1m1.9-1h.1m1.9 1h.1m1.9 3h.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>MIDI</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h11a1 1 0 0 1 1 1v3m0 5v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1M7 21h6m1-8h7m-3-3 3 3-3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Salida a otra pantalla</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 17c2-2 2-6 4-6s2 6 4 6 2-10 5-10h1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Tempo</div><div><svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><path d="M7 13a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2zm1-2V8a4 4 0 0 1 8 0v3m-4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="2"/></svg>Bloqueo PRO</div></div><p class="note">Vista de integración. Los mandos muestran sus estados de diseño sin usar cámara, micrófono, compras ni grabación.</p></section></main>
+<script id="secuencia" type="application/json">{
+  "columnas": 36,
+  "filas": 11,
+  "duracionMs": 2400,
+  "reducido": {
+    "frame": "flip",
+    "duracionMs": 150
+  },
+  "tiempos": [
+    {
+      "desdeMs": 0,
+      "frame": "vacio"
+    },
+    {
+      "desdeMs": 160,
+      "frame": "abierta"
+    },
+    {
+      "desdeMs": 420,
+      "frame": "guino"
+    },
+    {
+      "desdeMs": 730,
+      "frame": "flip"
+    },
+    {
+      "desdeMs": 1450,
+      "frame": "modelo"
+    },
+    {
+      "desdeMs": 1930,
+      "frame": "estado"
+    }
+  ],
+  "modo": {
+    "cam": {
+      "modelo": "fl-27",
+      "estado": "listo"
+    },
+    "stage": {
+      "modelo": "vs-27",
+      "estado": "stage"
+    }
+  },
+  "frames": {
+    "vacio": [
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000"
+    ],
+    "fl-27": [
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000011111010000000000111001111100000",
+      "000010000010000000001000100000100000",
+      "000010000010000000000000100001000000",
+      "000011110010000011100011000010000000",
+      "000010000010000000000100000100000000",
+      "000010000010000000001000000100000000",
+      "000010000011111000001111100100000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000"
+    ],
+    "vs-27": [
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000010001001111000000111001111100000",
+      "000010001010000000001000100000100000",
+      "000010001010000000000000100001000000",
+      "000010001001110011100011000010000000",
+      "000010001000001000000100000100000000",
+      "000001010000001000001000000100000000",
+      "000000100011110000001111100100000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000"
+    ],
+    "listo": [
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000010000011100111101111100111000000",
+      "000010000001001000000010001000100000",
+      "000010000001001000000010001000100000",
+      "000010000001000111000010001000100000",
+      "000010000001000000100010001000100000",
+      "000010000001000000100010001000100000",
+      "000011111011101111000010000111000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000"
+    ],
+    "stage": [
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000011110111110011100011110111110000",
+      "000100000001000100010100000100000000",
+      "000100000001000100010100000100000000",
+      "000011100001000111110101110111100000",
+      "000000010001000100010100010100000000",
+      "000000010001000100010100010100000000",
+      "000111100001000100010011110111110000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000"
+    ],
+    "abierta": [
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000111100000000000000000",
+      "000000000000001111111000000000000000",
+      "000000000000011111111100000000000000",
+      "000000000000011011101100000000000000",
+      "000000000000011011101100000000000000",
+      "000000000000011111111100000000000000",
+      "000000000000001111111000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000"
+    ],
+    "guino": [
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000111100000000000000000",
+      "000000000000001111111000000000000000",
+      "000000000000011111111100000000000000",
+      "000000000000010111101100000000000000",
+      "000000000000011011101100000000000000",
+      "000000000000011111111100000000000000",
+      "000000000000001111111000000000000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000"
+    ],
+    "flip": [
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000",
+      "000011110000011111010000001001111000",
+      "000111111100010000010000000001000100",
+      "001111111110010000010000011001000100",
+      "001011110110011110010000001001111000",
+      "001101110110010000010000001001000000",
+      "001111111110010000010000001001000000",
+      "000111111100010000011111011101000000",
+      "000000000000000000000000000000000000",
+      "000000000000000000000000000000000000"
+    ]
+  }
+}</script><script>
+const config = JSON.parse(document.querySelector('#secuencia').textContent);
+const body = document.body;
+const boot = document.querySelector('.boot');
+const crt = document.querySelector('.crt-ident');
+const status = document.querySelector('.message');
+let pending = [];
+let mode = 'cam';
+let activeModule = 'CAM';
+let locked = false;
+let captureMode = 'FOTO';
+const light = document.querySelector('.hud');
+const normal = 'Visor en reposo';
+const currentStatus = () => mode === 'stage' ? (locked ? 'STAGE requiere PRO' : 'Entrada de cámara en reposo') : normal;
+function showFrame(id) {
+  const frame = config.frames[id];
+  crt.hidden = id !== 'flip';
+  let dots = '';
+  frame.forEach((row, y) => {
+    [...row].forEach((bit, x) => {
+      if (bit === '1') dots += `<rect x="${x + 0.14}" y="${y + 0.14}" width=".72" height=".72" rx="${body.dataset.flip === 'rollo-en-anil' ? '.27' : '0'}"/>`;
+    });
+  });
+  boot.querySelector('g').innerHTML = dots;
+}
+function playBoot() {
+  pending.forEach(clearTimeout);
+  pending = [];
+  boot.hidden = false;
+  status.hidden = true;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sequence = reduced ? [{desdeMs:0,frame:config.reducido.frame}] : config.tiempos;
+  const aliases = config.modo[mode];
+  sequence.forEach(({desdeMs,frame}) => {
+    if (desdeMs === 0) showFrame(aliases[frame] ?? frame);
+    else pending.push(setTimeout(() => showFrame(aliases[frame] ?? frame), desdeMs));
+  });
+  pending.push(setTimeout(() => {
+    boot.hidden = true;
+    crt.hidden = true;
+    status.hidden = false;
+    status.textContent = currentStatus();
+  }, reduced ? config.reducido.duracionMs : config.duracionMs));
+}
+function select(id) {
+  mode = id;
+  activeModule = id === 'cam' ? 'CAM' : 'STAGE';
+  document.querySelectorAll('[data-module]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.module === activeModule)));
+  document.querySelector('.module-name').textContent = activeModule;
+  document.querySelectorAll('[data-view]').forEach(p => p.hidden = p.dataset.view !== id);
+  document.querySelector('.glass').classList.toggle('stage', id === 'stage');
+  document.querySelector('[data-action="stage"]').setAttribute('aria-pressed',String(id === 'stage'));
+  document.querySelector('.gate').hidden = id !== 'stage';
+  document.querySelector('.lcd-text').textContent = id === 'stage' ? 'STAGE · 16:9' : 'DSI · STD';
+  document.querySelector('.lcd-resolution').textContent = id === 'stage' ? '30 FPS　16:9 720P' : '30 FPS　4:3 HD';
+  light.textContent = id === 'stage' ? 'VS-27 · PRO' : 'FL-27 · CAM';
+  document.querySelector('.pro-gate').hidden = !(id === 'stage' && locked);
+  status.textContent = currentStatus();
+}
+document.querySelector('[data-action="theme"]').addEventListener('click', event => {
+  const dark = body.dataset.tema !== 'oscuro';
+  body.dataset.tema = dark ? 'oscuro' : 'principal';
+  event.currentTarget.setAttribute('aria-pressed',String(dark));
+});
+document.querySelector('[data-action="stage"]').addEventListener('click', () => select(mode === 'cam' ? 'stage' : 'cam'));
+document.querySelector('[data-action="boot"]').addEventListener('click', playBoot);
+document.querySelector('[data-action="gate"]').addEventListener('click', event => {
+  locked = !locked;
+  event.currentTarget.setAttribute('aria-pressed',String(locked));
+  select('stage');
+});
+document.querySelectorAll('[data-module]').forEach(button => button.addEventListener('click', () => {
+  select(button.dataset.module === 'STAGE' ? 'stage' : 'cam');
+  activeModule = button.dataset.module;
+  document.querySelectorAll('[data-module]').forEach(b => b.setAttribute('aria-pressed',String(b === button)));
+  document.querySelector('.module-name').textContent = activeModule;
+  if (activeModule !== 'CAM' && activeModule !== 'STAGE') {
+    light.textContent = 'FL-27 · ' + activeModule;
+    status.textContent = activeModule + ' · vista de rótulo';
+    document.querySelector('.lcd-text').textContent = activeModule;
+  }
+}));
+document.querySelectorAll('[data-select]').forEach(button => button.addEventListener('click', () => {
+  button.parentElement.querySelectorAll('[data-select]').forEach(item => item.setAttribute('aria-pressed',String(item === button)));
+  if (button.dataset.select === 'perfil') document.querySelector('.lcd-text').textContent = button.textContent.trim().toUpperCase() + ' · ' + document.querySelector('[data-select="variante"][aria-pressed="true"]').textContent.trim().toUpperCase();
+  if (button.dataset.select === 'variante') document.querySelector('.lcd-text').textContent = document.querySelector('[data-select="perfil"][aria-pressed="true"]').textContent.trim().toUpperCase() + ' · ' + button.textContent.trim().toUpperCase();
+  if (button.dataset.select === 'captura') captureMode = button.textContent.trim();
+}));
+document.querySelectorAll('[data-demo]').forEach(button => button.addEventListener('click', () => {
+  status.textContent = button.dataset.demo === 'captura' ? captureMode + ' · muestra visual del disparador' : button.getAttribute('aria-label') + ' · muestra visual del mando';
+}));
+</script></body></html>

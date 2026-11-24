@@ -37,7 +37,14 @@ PALETTE = {
     'mustard': '#F0AE2B', 'blue': '#2F78DC', 'mint': '#33B09F', 'lilac': '#8B79D6',
     'orange': '#F08A2D', 'green': '#3CA956', 'graphite': '#3B3C3F', 'white': '#F4F1EA',
     'glass': '#0B0C0D', 'bezel': '#26272A', 'ink': '#3A3833',
+    # «Rollo en añil» (docs/brand/rollo-en-anil/identidad.json).
+    'perla': '#EDE5D8', 'noche': '#232946', 'vainilla': '#FFF3DC', 'anil': '#273FA8', 'mandarina': '#F77F50',
+    'lima': '#90C578', 'rec': '#F54846', 'humo': '#6E678B', 'violeta': '#594A8C',
 }
+# Cualquier color se cambia desde fuera con c_<nombre>=#hex (c_cream=#232946: la carcasa oscura).
+for _name, _value in OPTS.items():
+    if _name.startswith('c_'):
+        PALETTE[_name[2:]] = _value
 
 
 # ── Escena ──────────────────────────────────────────────────────────────────────────────
@@ -461,12 +468,13 @@ def candy(x, y, radius=24, color='coral', pressed=False):
 def shutter(x, y, video=False, pressed=False):
     """El disparador: un botón grande en un aro de aluminio. Blanco cálido para foto, coral para vídeo."""
     travel = -2.4 if pressed else 0.0
-    alu = metal('alu', (0.83, 0.84, 0.86), 0.3, aniso=0.7, radial=True)
+    # ring=#hex: aro anodizado en ese color (el torneado se sigue viendo debajo del tinte).
+    alu = metal('alu', srgb(OPTS['ring']) if 'ring' in OPTS else (0.83, 0.84, 0.86), float(OPTS.get('ring_rough', 0.3)), aniso=0.7, radial=True)
     parts = [
         lathe('sh_seat', [(0, 0.2), (49.5 + float(OPTS.get('gap', 1.5)), 0.2), (49.5 + float(OPTS.get('gap', 1.5)), -0.2)], 0, plastic('well', 0.7, 0)),
         ring('sh_ring', 49.5, 40.5, 5.5, 1.8, 0.3, alu),
         lathe('sh_gap', [(0, 0.6), (40.6, 0.6), (40.6, 0.2)], 0, plastic('graphite', 0.6, 0)),
-        dish('sh_cap', 38.0, 8.6, float(OPTS.get('dip', 2.6)), 3.4, 1.0 + travel, gloss('coral' if video else OPTS.get('cap_white', 'white'))),
+        dish('sh_cap', 38.0, 8.6, float(OPTS.get('dip', 2.6)), 3.4, 1.0 + travel, gloss(OPTS.get('cap_video', 'coral') if video else OPTS.get('cap_white', 'white'))),
     ]
     for part in parts:
         place(part, x, y)
@@ -616,7 +624,8 @@ def shell(w, h):
         place(dome('screw', 4.7, 1.5, 0.55, 0.7, -3.0, steel), cx, cy)
         for sw, sh in ((6.0, 1.15), (1.15, 6.0)):
             place(loft('cross', [(loop_points(sw, sh, 0.45), -1.2), (loop_points(sw, sh, 0.45), -0.92)], dark, cap_top=0.0), cx, cy)
-    text('model', 'FLIP  FL-27  ·  RETRO-STYLE DIGITAL CAMERA', 5.2, 34, -h / 2 + 12, 0.1, plastic('ink', 0.6, 0), font=FONT_COND, spacing=1.6)
+    if OPTS.get('model', '1') != '0':     # model=0: sin serigrafía (la marca va en su placa)
+        text('model', 'FLIP  FL-27  ·  RETRO-STYLE DIGITAL CAMERA', 5.2, 34, -h / 2 + 12, 0.1, plastic('ink', 0.6, 0), font=FONT_COND, spacing=1.6)
     return slab
 
 

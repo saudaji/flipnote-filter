@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0B0C14">
+  <title>FLIP · La cámara con cámaras de otra época</title>
+  <meta name="description" content="FLIP es una cámara que corre en el navegador de tu teléfono: pantalla de consola, sello postal, imprenta, tubo de neón y más. Sin tienda y sin cuenta.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="FLIP · La cámara con cámaras de otra época">
+  <meta property="og:description" content="Ábrela en tu teléfono y sal a hacer tomas. Sin tienda y sin cuenta.">
+  <meta property="og:image" content="https://saudaji.github.io/flipnote-filter/brand/rollo-en-anil/comunicacion/enlace.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="../brand/rollo-en-anil/app/32.png">
+  <link rel="apple-touch-icon" href="../brand/rollo-en-anil/app/any-192.png">
+  <link rel="preload" href="../brand/fuentes/chivo.woff2" as="font" type="font/woff2" crossorigin>
+  <style>
+    /* La página de entrada de FLIP: un solo archivo, sin dependencias. Oscura, como la película de
+       lanzamiento; las tipografías y los colores son los de la marca («Rollo en añil»). */
+    @font-face { font-family: 'Chivo'; src: url('../brand/fuentes/chivo.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+    @font-face { font-family: 'IBM Plex Sans'; src: url('../brand/fuentes/plex.woff2') format('woff2'); font-weight: 100 700; font-display: swap; }
+    @font-face { font-family: 'Doto'; src: url('../brand/fuentes/doto.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+    :root {
+      --fondo: #0B0C14; --tinta: #FFF3DF; --suave: #A9A7BD; --anil: #3D5FE6; --anil-hondo: #273FA8; --verde: #7DDB8B; --mandarina: #F77F50;
+      --lcd: #D1D9A0; --raya: rgba(255, 243, 223, .12);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--fondo); color-scheme: dark; -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+    html, body { overflow-x: hidden; overflow-x: clip; }       /* el resplandor del logo no debe dar barra lateral */
+    body {
+      margin: 0; color: var(--tinta); font: 500 17px/1.55 'IBM Plex Sans', system-ui, sans-serif;
+      background:
+        radial-gradient(90vw 70vh at 50% -10%, rgba(61, 95, 230, .30), transparent 70%),
+        radial-gradient(70vw 50vh at 100% 60%, rgba(61, 95, 230, .10), transparent 70%), var(--fondo);
+      background-attachment: fixed;
+    }
+    a { color: inherit; }
+    .ancho { width: min(1080px, 100% - 44px); margin-inline: auto; }
+    .rotulo { font: 800 13px/1 'Doto', monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--lcd); }
+    h1, h2 { font-family: 'Chivo', sans-serif; font-weight: 800; letter-spacing: -.015em; margin: 0; text-wrap: balance; }
+    h1 { font-size: clamp(36px, 8.4vw, 68px); line-height: 1.02; }
+    h2 { font-size: clamp(28px, 5.6vw, 44px); line-height: 1.06; }
+    p { margin: 0; text-wrap: pretty; }
+    .suave { color: var(--suave); }
+
+    /* Botones: teclas, como las del aparato. */
+    .tecla {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; padding: 0 26px; border: 0; border-radius: 12px; cursor: pointer;
+      font: 800 15px/1 'Chivo', sans-serif; letter-spacing: .09em; text-transform: uppercase; text-decoration: none; color: #FFF3DF;
+      background: linear-gradient(180deg, #4A69EE, var(--anil-hondo)); box-shadow: 0 4px 0 #18286B, inset 0 1px 0 rgba(255, 255, 255, .42);
+      transition: transform .08s ease, box-shadow .08s ease;
+    }
+    .tecla:active { transform: translateY(3px); box-shadow: 0 1px 0 #18286B, inset 0 1px 0 rgba(255, 255, 255, .42); }
+    .tecla.clara { color: #242646; background: linear-gradient(180deg, #FFF8E8, #EFE3C8); box-shadow: 0 4px 0 #B9AE94, inset 0 1px 0 #fff; }
+    .tecla.clara:active { box-shadow: 0 1px 0 #B9AE94, inset 0 1px 0 #fff; }
+    .tecla:focus-visible, a:focus-visible, video:focus-visible { outline: 3px solid var(--verde); outline-offset: 3px; }
+    [hidden] { display: none !important; }
+
+    header { display: flex; align-items: center; justify-content: space-between; padding: calc(18px + env(safe-area-inset-top, 0px)) 0 0; }
+    header img { display: block; width: 104px; height: auto; }
+    header a.abrir { font: 800 13px/1 'Chivo', sans-serif; letter-spacing: .1em; text-transform: uppercase; text-decoration: none; padding: 12px 2px; }
+    header a.abrir::after { content: ' →'; color: var(--verde); }
+
+    /* ── Primera pantalla ── */
+    .portada { display: grid; gap: 30px; align-items: center; padding: 34px 0 64px; }
+    .portada .texto { display: grid; gap: 20px; justify-items: start; }
+    .portada .acciones { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; }
+    .portada .nota { font-size: 14.5px; }
+    @media (min-width: 860px) { .portada { grid-template-columns: 1fr 1.05fr; gap: 56px; padding: 70px 0 110px; } }
+
+    /* El logo vivo, igual que en la portada de la app (brand/rollo-en-anil/app.css). */
+    .vivo-caja { position: relative; aspect-ratio: 1 / .78; }
+    .vivo { position: absolute; left: 50%; top: 50%; width: min(88%, 460px); aspect-ratio: 177 / 131; transform: translate(-50%, -50%); }
+    .vivo::before { content: ''; position: absolute; inset: -34% -22%; background: radial-gradient(closest-side, rgba(61, 95, 230, .34), rgba(61, 95, 230, 0)); }
+    .vivo svg { position: absolute; display: block; overflow: visible; }
+    .rv-flota { position: absolute; left: 31.64%; top: .76%; width: 36.16%; aspect-ratio: 1; animation: rv-flota 3.2s ease-in-out infinite alternate; }
+    .rv-cabeza { position: absolute; inset: 0; animation: rv-cabeza 9s cubic-bezier(.3, .8, .3, 1) infinite; }
+    .rv-capa { inset: 0; width: 100%; height: 100%; }
+    .rv-mandarina { transform: translate(6.9%, 7.5%); animation: rv-mandarina 9s cubic-bezier(.2, .9, .3, 1) infinite; }
+    .rv-azul { transform: translate(13.75%, 15%); animation: rv-azul 9s cubic-bezier(.2, .9, .3, 1) infinite; }
+    .rv-guino { animation: rv-guino 9s step-end infinite; }
+    .rv-ojo-d { left: 54.69%; top: 40.63%; width: 25%; animation: rv-ojo-d 9s ease-in-out infinite; }
+    .rv-ojo-i { left: 22.03%; top: 42.5%; width: 23.13%; opacity: 0; animation: rv-ojo-i 9s ease-in-out infinite; }
+    .rv-letras { position: absolute; left: 0; top: 55.73%; width: 100%; height: 44.27%; }
+    .rv-letra { inset: 0; width: 100%; height: 100%; animation: rv-letra 9s cubic-bezier(.3, .7, .3, 1) infinite; }
+    .rv-letra:nth-child(2) { animation-delay: .09s; } .rv-letra:nth-child(3) { animation-delay: .18s; } .rv-letra:nth-child(4) { animation-delay: .27s; }
+    @keyframes rv-flota { from { transform: translateY(-2.4%); } to { transform: translateY(2.4%); } }
+    @keyframes rv-cabeza { 0%, 88% { transform: none; } 92% { transform: rotate(-7deg) scale(1.05); } 97%, 100% { transform: none; } }
+    @keyframes rv-mandarina { 0%, 60% { transform: translate(6.9%, 7.5%); } 65%, 88.5% { transform: none; } 93% { transform: translate(9.2%, 10%); } 97%, 100% { transform: translate(6.9%, 7.5%); } }
+    @keyframes rv-azul { 0%, 61% { transform: translate(13.75%, 15%); } 67%, 89.5% { transform: none; } 95% { transform: translate(17.5%, 19%); } 99%, 100% { transform: translate(13.75%, 15%); } }
+    @keyframes rv-guino { 0% { opacity: 1; } 63% { opacity: 0; } 89.5% { opacity: 1; } }
+    @keyframes rv-ojo-i {
+      0%, 62.9% { opacity: 0; transform: scaleY(.1); } 63% { opacity: 1; transform: scaleY(.1); } 66%, 76% { opacity: 1; transform: none; }
+      77.5% { opacity: 1; transform: scaleY(.1); } 79%, 88% { opacity: 1; transform: none; } 89.4% { opacity: 1; transform: scaleY(.1); } 89.5%, 100% { opacity: 0; transform: scaleY(.1); }
+    }
+    @keyframes rv-ojo-d { 0%, 28% { transform: none; } 29.5% { transform: scaleY(.1); } 31%, 76% { transform: none; } 77.5% { transform: scaleY(.1); } 79%, 100% { transform: none; } }
+    @keyframes rv-letra { 0%, 90% { transform: none; } 93% { transform: translateY(-10%); } 96.5%, 100% { transform: none; } }
+
+    /* ── Secciones ── */
+    section { padding: 64px 0; border-top: 1px solid var(--raya); }
+    section > .ancho > .cabeza { display: grid; gap: 14px; margin-bottom: 34px; max-width: 30em; }
+    .pelicula { display: grid; gap: 34px; align-items: center; }
+    .pelicula video { display: block; width: min(100%, 340px); aspect-ratio: 9 / 16; margin-inline: auto; border-radius: 26px; background: #000; box-shadow: 0 0 0 1px var(--raya), 0 30px 80px rgba(0, 0, 0, .6), 0 0 90px rgba(61, 95, 230, .22); }
+    @media (min-width: 860px) { .pelicula { grid-template-columns: 1fr 380px; gap: 64px; } .pelicula .cabeza { margin-bottom: 0; } }
+
+    .camaras { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    @media (min-width: 640px) { .camaras { grid-template-columns: repeat(4, 1fr); gap: 18px; } }
+    .camaras figure { margin: 0; display: grid; gap: 10px; }
+    .camaras img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 12px; box-shadow: 0 0 0 1px var(--raya); background: #141627; }
+    .camaras figcaption { font: 800 14px/1 'Chivo', sans-serif; letter-spacing: .08em; display: flex; align-items: center; gap: 8px; }
+    .camaras figcaption i { font: 800 10px/1 'Chivo', sans-serif; font-style: normal; letter-spacing: .14em; color: #1B1206; background: var(--mandarina); border-radius: 4px; padding: 4px 6px 3px; }
+
+    .pasos { display: grid; gap: 16px; }
+    @media (min-width: 760px) { .pasos { grid-template-columns: repeat(3, 1fr); } }
+    .paso { display: grid; gap: 10px; align-content: start; padding: 22px; border-radius: 16px; background: rgba(255, 243, 223, .045); box-shadow: inset 0 0 0 1px var(--raya); }
+    .paso h3 { margin: 0; font: 800 17px/1.2 'Chivo', sans-serif; letter-spacing: .02em; }
+    .paso ol { margin: 0; padding-left: 1.2em; color: var(--suave); font-size: 15.5px; }
+    .paso li + li { margin-top: 4px; }
+    .paso b { color: var(--tinta); font-weight: 600; }
+
+    .cierre { text-align: center; }
+    .cierre .ancho { display: grid; gap: 22px; justify-items: center; }
+    footer { padding: 34px 0 calc(40px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--raya); font-size: 14.5px; }
+    footer .ancho { display: grid; gap: 10px; }
+    @media (prefers-reduced-motion: reduce) { .vivo, .vivo * { animation: none !important; } html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+<header class="ancho">
+  <img src="../brand/rollo-en-anil/marca/horizontal-clara.svg" alt="FLIP" width="242" height="66">
+  <a class="abrir" href="../" data-abrir>Abrir FLIP</a>
+</header>
+
+<main>
+  <div class="ancho portada">
+    <div class="texto">
+      <p class="rotulo">FL-27 · Cámara digital</p>
+      <h1>Tu teléfono, con cámaras de otra época.</h1>
+      <p class="suave">FLIP es una cámara que corre en tu navegador. Pantalla de consola portátil, sello postal, imprenta a cuatro tintas, tubo de neón: eliges una, disparas y te llevas la foto o el video.</p>
+      <div class="acciones">
+        <a class="tecla" href="../" data-abrir>Abrir FLIP</a>
+        <button class="tecla clara" type="button" id="instalar" hidden>Instalar</button>
+      </div>
+      <p class="nota suave" id="nota">Sin tienda y sin cuenta. Funciona en Chrome para Android y en Safari para iPhone.</p>
+    </div>
+    <div class="vivo-caja" aria-hidden="true">
+      <div class="vivo">
+        <div class="rv-flota"><div class="rv-cabeza">
+          <svg class="rv-capa rv-azul" viewBox="0 0 64 64"><path d="M6 27Q7 18 17 17H19L23 11Q25 8 29 8H42Q47 8 49 13L51 17Q58 18 59 25L61 40Q63 53 51 55L18 59Q7 60 5 49L4 39Q3 32 6 27Z" fill="#3D5FE6"/></svg>
+          <svg class="rv-capa rv-mandarina" viewBox="0 0 64 64"><path d="M6 27Q7 18 17 17H19L23 11Q25 8 29 8H42Q47 8 49 13L51 17Q58 18 59 25L61 40Q63 53 51 55L18 59Q7 60 5 49L4 39Q3 32 6 27Z" fill="#F77F50"/></svg>
+          <svg class="rv-capa rv-verde" viewBox="0 0 64 64"><path d="M6 27Q7 18 17 17H19L23 11Q25 8 29 8H42Q47 8 49 13L51 17Q58 18 59 25L61 40Q63 53 51 55L18 59Q7 60 5 49L4 39Q3 32 6 27Z" fill="#7DDB8B"/></svg>
+          <svg class="rv-ojo rv-ojo-i" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#FFF3DC"/><circle cx="8" cy="8" r="4.3" fill="#151727"/></svg>
+          <svg class="rv-ojo rv-ojo-d" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#FFF3DC"/><circle cx="8" cy="8" r="4.3" fill="#151727"/></svg>
+          <svg class="rv-capa rv-guino" viewBox="0 0 64 64"><path d="M13 35Q20 27 29 32Q33 35 30 38Q28 40 25 38Q21 35 17 39Q13 40 13 35Z" fill="#FFF3DC"/></svg>
+        </div></div>
+        <div class="rv-letras">
+          <svg class="rv-letra" viewBox="0 -3 177 58"><path transform="translate(1 0) translate(7 0) rotate(-4 20 23)" d="M0 12Q0 3 10 3H33Q40 3 40 10Q40 16 33 16H15V22H29Q36 22 36 28Q36 34 29 34H15V39Q15 46 8 46Q0 46 0 39Z" fill="#FFF3DF"/></svg>
+          <svg class="rv-letra" viewBox="0 -3 177 58"><path transform="translate(1 0) translate(52 0) rotate(2 20 23)" d="M0 11Q0 3 8 3Q15 3 15 11V31Q15 34 19 34H33Q40 34 40 40Q40 46 33 46H13Q0 46 0 34Z" fill="#FFF3DF"/></svg>
+          <svg class="rv-letra" viewBox="0 -3 177 58"><path transform="translate(1 0) translate(95 -1) rotate(-5 10 23)" d="M13 0Q20 1 20 7Q20 13 12 13Q4 13 4 7Q4 0 13 0ZM3 22Q3 17 11 17Q18 17 18 23V39Q18 46 10 46Q3 46 3 39Z" fill="#FFF3DF" fill-rule="evenodd"/></svg>
+          <svg class="rv-letra" viewBox="0 -3 177 58"><path transform="translate(1 0) translate(123 0) rotate(2 21 23)" d="M0 12Q0 3 9 3H24Q44 3 44 20Q44 36 24 36H15V39Q15 46 8 46Q0 46 0 39ZM15 16V24H24Q29 24 29 20Q29 16 24 16Z" fill="#FFF3DF" fill-rule="evenodd"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="ancho pelicula">
+      <div class="cabeza">
+        <p class="rotulo">La película</p>
+        <h2>Veinticinco segundos para conocerla.</h2>
+        <p class="suave">El aparato que ves es la app: los mismos botones, el mismo visor y las mismas cámaras que vas a traer en la bolsa.</p>
+      </div>
+      <video src="pelicula.mp4" poster="pelicula.jpg" controls playsinline muted loop preload="none" width="720" height="1280" aria-label="Película de lanzamiento de FLIP"></video>
+    </div>
+  </section>
+
+  <section>
+    <div class="ancho">
+      <div class="cabeza">
+        <p class="rotulo">Las cámaras</p>
+        <h2>La misma toma, ocho maneras de verla.</h2>
+        <p class="suave">Cada cámara trae sus variantes y sus perillas. Estas son ocho; adentro hay más.</p>
+      </div>
+      <div class="camaras">
+        <figure><img src="camara-dsi.jpg" alt="Una mano con claveles vista con la cámara DSi: verde, de consola portátil" width="480" height="640" loading="lazy"><figcaption>DSi</figcaption></figure>
+        <figure><img src="camara-stamp.jpg" alt="La misma toma con STAMP: grabada como un sello postal" width="480" height="640" loading="lazy"><figcaption>STAMP</figcaption></figure>
+        <figure><img src="camara-auto03.jpg" alt="La misma toma con AUTO 03: color de cámara compacta" width="480" height="640" loading="lazy"><figcaption>AUTO 03</figcaption></figure>
+        <figure><img src="camara-dlphn.jpg" alt="La misma toma con DLPHN: azules de pantalla antigua" width="480" height="640" loading="lazy"><figcaption>DLPHN</figcaption></figure>
+        <figure><img src="camara-caskia.jpg" alt="La misma toma con CASKIA: cristal líquido de reloj" width="480" height="640" loading="lazy"><figcaption>CASKIA</figcaption></figure>
+        <figure><img src="camara-vfd.jpg" alt="La misma toma con VFD: rosa y azul de tubo fluorescente" width="480" height="640" loading="lazy"><figcaption>VFD</figcaption></figure>
+        <figure><img src="camara-oscam.jpg" alt="OSCAM dibuja un retrato con líneas de osciloscopio" width="480" height="640" loading="lazy"><figcaption>OSCAM</figcaption></figure>
+        <figure><img src="camara-prensa.jpg" alt="La misma toma con PRENSA: puntos de imprenta a cuatro tintas" width="480" height="640" loading="lazy"><figcaption>PRENSA <i>NUEVA</i></figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="instalarla">
+    <div class="ancho">
+      <div class="cabeza">
+        <p class="rotulo">Llévala en tu pantalla de inicio</p>
+        <h2>Se instala desde el navegador, en un minuto.</h2>
+        <p class="suave">Instalada se abre a pantalla completa, funciona sin conexión y se actualiza sola.</p>
+      </div>
+      <div class="pasos">
+        <div class="paso"><h3>Android</h3><ol><li>Abre FLIP en <b>Chrome</b>.</li><li>Toca <b>Instalar</b> aquí arriba, o el menú <b>⋮</b> y luego <b>Instalar app</b>.</li><li>Dale permiso a la cámara la primera vez.</li></ol></div>
+        <div class="paso"><h3>iPhone</h3><ol><li>Abre FLIP en <b>Safari</b>.</li><li>Toca <b>Compartir</b> y luego <b>Agregar a Inicio</b>.</li><li>Ábrela desde su ícono y dale permiso a la cámara.</li></ol></div>
+        <div class="paso"><h3>Computadora</h3><ol><li>Abre FLIP en <b>Chrome</b> o <b>Edge</b>.</li><li>Usa tu cámara web tal cual.</li><li>Con <b>FLIP STAGE</b> mezclas en vivo y proyectas en otra pantalla.</li></ol></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cierre">
+    <div class="ancho">
+      <h2>Sal a hacer tomas.</h2>
+      <a class="tecla" href="../" data-abrir>Abrir FLIP</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="ancho">
+    <p>FLIP no sube tus fotos ni tus videos a ningún servidor: todo se hace en tu teléfono.</p>
+    <p class="suave">FLIP · FL-27 · Cámara digital</p>
+  </div>
+</footer>
+
+<script>
+// Instalar: Chrome avisa cuando la app se puede instalar; ahí aparece la tecla. En iPhone no hay
+// aviso, así que la nota dice por dónde. Quien ya la tiene instalada ve otra nota.
+(function () {
+  var boton = document.getElementById('instalar'), nota = document.getElementById('nota'), aviso = null;
+  var instalada = (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) || navigator.standalone === true;
+  var iphone = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (instalada) nota.textContent = 'Ya la tienes instalada. Ábrela y sal a hacer tomas.';
+  else if (iphone) nota.innerHTML = 'En iPhone: ábrela en Safari, toca <b>Compartir</b> y luego <b>Agregar a Inicio</b>.';
+  window.addEventListener('beforeinstallprompt', function (event) { event.preventDefault(); aviso = event; boton.hidden = false; });
+  boton.addEventListener('click', function () {
+    if (!aviso) return;
+    aviso.prompt();
+    aviso.userChoice.then(function () { aviso = null; boton.hidden = true; });
+  });
+  window.addEventListener('appinstalled', function () { boton.hidden = true; nota.textContent = 'Lista. Búscala en tu pantalla de inicio.'; });
+  // Quien entra a la app desde aquí ya conoce la página de entrada.
+  var puertas = document.querySelectorAll('[data-abrir]');
+  for (var i = 0; i < puertas.length; i++) puertas[i].addEventListener('click', function () { try { localStorage.setItem('flip.entrada.vista', '1'); } catch (_) {} });
+})();
+</script>
+</body>
+</html>

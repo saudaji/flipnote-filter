@@ -167,10 +167,15 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     await page.evaluate(() => document.body.classList.add('portal-mode'));      // PORTAL se maneja sin tocar
     await page.waitForTimeout(3400);
     assert.equal((await state()).rests, restsSoFar, 'con PORTAL no hay reposo');
+    // Al salir de PORTAL con el teléfono quieto, el reposo entraría enseguida (y con razón): para
+    // seguir la prueba, el teléfono «se mueve» hasta estar en STAGE.
+    await pose('mano');
+    await page.waitForTimeout(500);
     await page.evaluate(() => document.body.classList.remove('portal-mode'));
     await page.locator('#shellModule').click();                                 // STAGE
     await page.locator('#shellLauncher [data-module="stage"]').click();
     await page.waitForFunction(() => flipStage.status().active && flipStage.status().fps > 0, null, { timeout: 15000 });
+    await pose('quieto');
     await page.waitForTimeout(3600);
     now = await state();
     assert.deepEqual([now.rests, now.paused], [restsSoFar, false], 'en STAGE no hay reposo');

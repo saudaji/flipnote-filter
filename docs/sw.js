@@ -1,4 +1,4 @@
-const CACHE = 'flipnote-filter-v93-icono';
+const CACHE = 'flipnote-filter-v94-portada';
 const ASSETS = [
   './index.html', './manifest.json', './icon-192.png', './icon-512.png', './frame-runtime.js', './stamp.js', './optical-scope.js', './press.js',
   './night-vision.js', './sensor.js', './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './console.css', './console.js',
@@ -16,7 +16,7 @@ const ASSETS = [
   './brand/rollo-en-anil/activar.js', './brand/rollo-en-anil/app.css', './brand/rollo-en-anil/app/16.png', './brand/rollo-en-anil/app/32.png',
   './brand/rollo-en-anil/app/any-192.png', './brand/rollo-en-anil/app/any-512.png', './brand/rollo-en-anil/app/maskable-192.png',
   './brand/rollo-en-anil/app/maskable-512.png', './brand/rollo-en-anil/app/monocromo-512.png', './brand/rollo-en-anil/app/preloader.svg',
-  './brand/rollo-en-anil/arranque/guino.wav', './brand/rollo-en-anil/comunicacion/ident-crt.jpg', './brand/rollo-en-anil/marca/horizontal-clara.svg',
+  './brand/rollo-en-anil/arranque/guino.wav', './brand/rollo-en-anil/marca/horizontal-clara.svg',
   './brand/rollo-en-anil/marca/placa-fl-27-compacta-clara.svg', './brand/rollo-en-anil/marca/placa-fl-27-compacta.svg', './brand/rollo-en-anil/marca/placa-vs-27-clara.svg',
   './brand/rollo-en-anil/materiales/bezel-oscuro.webp', './brand/rollo-en-anil/materiales/boton-anil-pulsado.webp',
   './brand/rollo-en-anil/materiales/boton-anil.webp', './brand/rollo-en-anil/materiales/boton-lima-pulsado.webp',

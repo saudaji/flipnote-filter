@@ -314,16 +314,35 @@
     sound.play().catch(() => {});
   }
 
+  // El logo vivo de la portada: la cámara flota, parpadea, guiña y abre sus tres capas; las letras
+  // dan un saltito. Cada pieza es su propio SVG y solo se mueve con transform y opacity (app.css),
+  // así el bucle no repinta nada.
+  const CUERPO = 'M6 27Q7 18 17 17H19L23 11Q25 8 29 8H42Q47 8 49 13L51 17Q58 18 59 25L61 40Q63 53 51 55L18 59Q7 60 5 49L4 39Q3 32 6 27Z';
+  const GUINO = 'M13 35Q20 27 29 32Q33 35 30 38Q28 40 25 38Q21 35 17 39Q13 40 13 35Z';
+  const LETRAS = [
+    ['M0 12Q0 3 10 3H33Q40 3 40 10Q40 16 33 16H15V22H29Q36 22 36 28Q36 34 29 34H15V39Q15 46 8 46Q0 46 0 39Z', 'translate(7 0) rotate(-4 20 23)'],
+    ['M0 11Q0 3 8 3Q15 3 15 11V31Q15 34 19 34H33Q40 34 40 40Q40 46 33 46H13Q0 46 0 34Z', 'translate(52 0) rotate(2 20 23)'],
+    ['M13 0Q20 1 20 7Q20 13 12 13Q4 13 4 7Q4 0 13 0ZM3 22Q3 17 11 17Q18 17 18 23V39Q18 46 10 46Q3 46 3 39Z', 'translate(95 -1) rotate(-5 10 23)'],
+    ['M0 12Q0 3 9 3H24Q44 3 44 20Q44 36 24 36H15V39Q15 46 8 46Q0 46 0 39ZM15 16V24H24Q29 24 29 20Q29 16 24 16Z', 'translate(123 0) rotate(2 21 23)'],
+  ];
+  function ident() {
+    const svg = (cls, box, body) => '<svg class="' + cls + '" viewBox="' + box + '" focusable="false">' + body + '</svg>';
+    const capa = (cls, color) => svg('rv-capa ' + cls, '0 0 64 64', '<path d="' + CUERPO + '" fill="' + color + '"/>');
+    const lente = '<circle cx="8" cy="8" r="8" fill="#FFF3DC"/><circle cx="8" cy="8" r="4.3" fill="#151727"/>';
+    const root = document.createElement('div');
+    root.className = 'rollo-ident rollo-vivo';
+    root.innerHTML = '<div class="rv-flota"><div class="rv-cabeza">' + capa('rv-azul', '#3D5FE6') + capa('rv-mandarina', '#F77F50') + capa('rv-verde', '#7DDB8B') +
+      svg('rv-ojo rv-ojo-i', '0 0 16 16', lente) + svg('rv-ojo rv-ojo-d', '0 0 16 16', lente) + svg('rv-capa rv-guino', '0 0 64 64', '<path d="' + GUINO + '" fill="#FFF3DC"/>') + '</div></div>' +
+      '<div class="rv-letras">' + LETRAS.map(([d, t]) => svg('rv-letra', '0 -3 177 58', '<path transform="translate(1 0) ' + t + '" d="' + d + '" fill="#FFF3DF" fill-rule="evenodd"/>')).join('') + '</div>';
+    return root;
+  }
+
   function mount(splash, deck, launcher) {
     restoreTheme();
     const hero = splash && splash.querySelector('.splash-hero');
     if (hero) {
-      const ident = document.createElement('img');
-      ident.className = 'rollo-ident';
-      ident.src = url('comunicacion/ident-crt.jpg');
-      ident.alt = '';
-      ident.addEventListener('load', () => hero.classList.add('rollo-ident-listo'), {once: true});
-      hero.prepend(ident);
+      hero.prepend(ident());
+      hero.classList.add('rollo-ident-listo');
     }
     if (deck) {
       const plate = document.createElement('span');

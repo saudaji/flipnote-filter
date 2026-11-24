@@ -1,5 +1,5 @@
 // La marca «Rollo en añil»: lo que tiene que seguir siendo verdad al tocar la interfaz.
-//   · la portada carga el ident y la marca; el icono, el manifiesto y la precarga apuntan a
+//   · la portada enseña el logo vivo (en bucle, dentro de su pantalla) y la marca; el icono, el manifiesto y la precarga apuntan a
 //     archivos que existen;
 //   · al encender la cámara, la pantallita corre la secuencia de matriz de puntos y la devuelve;
 //   · la tecla CARCASA cambia la carcasa, lo dice, y se recuerda al recargar;
@@ -49,19 +49,21 @@ const contrast = (a, b) => {
     const cover = await page.evaluate(async () => {
       await document.fonts.ready;
       const title = document.querySelector('.rollo-titulo');
-      return { flip: document.body.dataset.flip, theme: document.body.dataset.tema, title: title.naturalWidth > 0, ident: document.querySelector('.rollo-ident').naturalWidth,
+      return { flip: document.body.dataset.flip, theme: document.body.dataset.tema, title: title.naturalWidth > 0, ident: (() => { const v = document.querySelector('.rollo-vivo'), h = document.querySelector('.splash-hero'); if (!v || !h) return 0; const a = v.getBoundingClientRect(), b = h.getBoundingClientRect(); const dentro = a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom && a.width > 120; return dentro && v.querySelectorAll('.rv-capa').length === 4 ? document.getAnimations().filter(x => x.animationName && x.animationName.startsWith('rv-') && x.playState === 'running').length : 0; })(),
         font: getComputedStyle(document.querySelector('.splash-door-label')).fontFamily, chivo: document.fonts.check('800 12px Chivo'), tag: document.querySelector('.splash-tag').textContent.trim() };
     });
     assert.equal(cover.flip, 'rollo-en-anil');
     assert.equal(cover.theme, 'principal', 'la carcasa de fábrica es la clara');
-    assert.ok(cover.title && cover.ident > 0, 'la marca y el ident cargan');
+    assert.ok(cover.title && cover.ident >= 10, 'la marca carga y el logo de la portada está vivo, dentro de su pantalla: ' + cover.ident);
     assert.ok(/Chivo/.test(cover.font) && cover.chivo, 'la serigrafía va en Chivo, servida por la app: ' + cover.font);
     if (shots) await page.screenshot({ path: path.join(shots, 'marca-portada.png') });
-    step('portada: marca, ident y tipografía', { rótulo: cover.tag });
+    step('portada: marca, logo vivo y tipografía', { rótulo: cover.tag, animaciones: cover.ident });
 
     // ── 2 · Arranque en la pantallita ──
     await page.locator('#btnSplashOriginal').click();
     await page.waitForSelector('#shellLcd .rollo-matriz', { timeout: 3000 });
+    const still = await page.evaluate(() => document.getAnimations().filter(x => x.animationName && x.animationName.startsWith('rv-')).length);
+    assert.equal(still, 0, 'con la cámara encendida, el logo de la portada ya no se anima');
     const seen = [];
     for (let i = 0; i < 14; i++) {
       seen.push(await page.evaluate(() => { const m = document.querySelector('#shellLcd .rollo-matriz'); return m ? m.querySelectorAll('rect').length : -1; }));

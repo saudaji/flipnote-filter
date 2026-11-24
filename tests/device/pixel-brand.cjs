@@ -38,11 +38,11 @@ const URL0 = process.env.PIXEL_URL || 'http://localhost:8760';
   await P.sleep(800);
   const cover = await js(async () => {
     await document.fonts.ready;
-    const ident = document.querySelector('.rollo-ident'), title = document.querySelector('.rollo-titulo');
-    return { screen: [innerWidth, innerHeight, devicePixelRatio], theme: document.body.dataset.tema, ident: ident ? ident.naturalWidth : 0, shown: !!document.querySelector('.splash-hero.rollo-ident-listo'), title: title ? title.naturalWidth : 0,
+    const title = document.querySelector('.rollo-titulo');
+    return { screen: [innerWidth, innerHeight, devicePixelRatio], theme: document.body.dataset.tema, ident: (() => { const v = document.querySelector('.rollo-vivo'), h = document.querySelector('.splash-hero'); if (!v || !h) return 0; const a = v.getBoundingClientRect(), b = h.getBoundingClientRect(); const dentro = a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom && a.width > 120; return dentro && v.querySelectorAll('.rv-capa').length === 4 ? document.getAnimations().filter(x => x.animationName && x.animationName.startsWith('rv-') && x.playState === 'running').length : 0; })(), shown: !!document.querySelector('.splash-hero.rollo-ident-listo'), title: title ? title.naturalWidth : 0,
       chivo: document.fonts.check('800 12px Chivo'), plex: document.fonts.check('500 14px "IBM Plex Sans"'), doto: document.fonts.check('800 13px Doto'), agent: navigator.userAgent.match(/Chrome\/[\d.]+/)[0] };
   });
-  assert.ok(cover.ident > 0 && cover.shown && cover.title > 0, 'la portada carga ident y marca: ' + JSON.stringify(cover));
+  assert.ok(cover.ident > 0 && cover.shown && cover.title > 0, 'la portada enseña el logo vivo y la marca: ' + JSON.stringify(cover));
   assert.ok(cover.chivo && cover.plex && cover.doto, 'las tres tipografías cargan: ' + JSON.stringify(cover));
   await shot('01-portada');
   step('portada', cover);

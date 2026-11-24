@@ -47,13 +47,41 @@ body[data-flip="rollo-en-anil"] .splash-title {
   box-shadow: 0 3px 0 #1C2E75, inset 0 1px 0 #7989DC;
 }
 .rollo-titulo { display: block; width: 114px; height: auto; }
-.rollo-ident {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  display: block; width: 100%; height: auto; opacity: 0;
-  -webkit-mask-image: radial-gradient(ellipse closest-side, #000 72%, transparent 100%);
-  mask-image: radial-gradient(ellipse closest-side, #000 72%, transparent 100%);
+/* ── La portada: el logo vivo ────────────────────────────────────────────────
+   La cámara flota; cada nueve segundos recoge sus capas, abre los dos ojos, parpadea y vuelve a
+   guiñar mientras las capas saltan fuera y las letras dan un bote. Solo transform y opacity. */
+.splash-hero { container-type: size; }
+.rollo-vivo {
+  position: absolute; left: 50%; top: 46%; width: 84%; width: min(84cqw, 88cqh); aspect-ratio: 177 / 131;
+  transform: translate(-50%, -50%); pointer-events: none;
 }
-.rollo-ident-listo .rollo-ident { opacity: 1; }
+.rollo-vivo::before { content: ''; position: absolute; inset: -34% -22%; background: radial-gradient(closest-side, rgba(61, 95, 230, .26), rgba(61, 95, 230, 0)); }
+.rollo-vivo svg { position: absolute; display: block; overflow: visible; }
+.rv-flota { position: absolute; left: 31.64%; top: .76%; width: 36.16%; aspect-ratio: 1; animation: rv-flota 3.2s ease-in-out infinite alternate; }
+.rv-cabeza { position: absolute; inset: 0; animation: rv-cabeza 9s cubic-bezier(.3, .8, .3, 1) infinite; }
+.rv-capa { inset: 0; width: 100%; height: 100%; }
+.rv-mandarina { transform: translate(6.9%, 7.5%); animation: rv-mandarina 9s cubic-bezier(.2, .9, .3, 1) infinite; }
+.rv-azul { transform: translate(13.75%, 15%); animation: rv-azul 9s cubic-bezier(.2, .9, .3, 1) infinite; }
+.rv-guino { animation: rv-guino 9s step-end infinite; }
+.rv-ojo-d { left: 54.69%; top: 40.63%; width: 25%; animation: rv-ojo-d 9s ease-in-out infinite; }
+.rv-ojo-i { left: 22.03%; top: 42.5%; width: 23.13%; opacity: 0; animation: rv-ojo-i 9s ease-in-out infinite; }
+.rv-letras { position: absolute; left: 0; top: 55.73%; width: 100%; height: 44.27%; }
+.rv-letra { inset: 0; width: 100%; height: 100%; animation: rv-letra 9s cubic-bezier(.3, .7, .3, 1) infinite; }
+.rv-letra:nth-child(2) { animation-delay: .09s; }
+.rv-letra:nth-child(3) { animation-delay: .18s; }
+.rv-letra:nth-child(4) { animation-delay: .27s; }
+@keyframes rv-flota { from { transform: translateY(-2.4%); } to { transform: translateY(2.4%); } }
+@keyframes rv-cabeza { 0%, 88% { transform: none; } 92% { transform: rotate(-7deg) scale(1.05); } 97%, 100% { transform: none; } }
+@keyframes rv-mandarina { 0%, 60% { transform: translate(6.9%, 7.5%); } 65%, 88.5% { transform: none; } 93% { transform: translate(9.2%, 10%); } 97%, 100% { transform: translate(6.9%, 7.5%); } }
+@keyframes rv-azul { 0%, 61% { transform: translate(13.75%, 15%); } 67%, 89.5% { transform: none; } 95% { transform: translate(17.5%, 19%); } 99%, 100% { transform: translate(13.75%, 15%); } }
+@keyframes rv-guino { 0% { opacity: 1; } 63% { opacity: 0; } 89.5% { opacity: 1; } }
+@keyframes rv-ojo-i {
+  0%, 62.9% { opacity: 0; transform: scaleY(.1); } 63% { opacity: 1; transform: scaleY(.1); } 66%, 76% { opacity: 1; transform: none; }
+  77.5% { opacity: 1; transform: scaleY(.1); } 79%, 88% { opacity: 1; transform: none; } 89.4% { opacity: 1; transform: scaleY(.1); } 89.5%, 100% { opacity: 0; transform: scaleY(.1); }
+}
+@keyframes rv-ojo-d { 0%, 28% { transform: none; } 29.5% { transform: scaleY(.1); } 31%, 76% { transform: none; } 77.5% { transform: scaleY(.1); } 79%, 100% { transform: none; } }
+@keyframes rv-letra { 0%, 90% { transform: none; } 93% { transform: translateY(-10%); } 96.5%, 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .rollo-vivo, .rollo-vivo * { animation: none !important; } }
 .rollo-ident-listo b { display: none; }
 .rollo-ident-listo u { color: #D6E5AA; }
 .rollo-pie {

@@ -120,7 +120,7 @@ a 30 el Samsung pasaba de los 21 que conseguía antes a 30 y acababa trabajando 
 ### Añadido después: la cámara descansa cuando nadie la mira
 
 Visto que casi todo el calor es la cámara encendida, lo único que de verdad lo baja es no tenerla
-encendida de más (`docs/rest.js`). Sin publicar todavía (caché v87).
+encendida de más (`docs/rest.js`). Publicado en `main` la misma noche (caché v87).
 
 - **Visor de la última toma**: mientras se mira una foto o un vídeo, la cámara se suelta y los
   bucles de dibujo esperan. Al cerrar, vuelve. Un vistazo de menos de un segundo no la toca.

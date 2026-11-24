@@ -117,6 +117,30 @@ simulada, no en un Pixel.
 FUSION y EDIT quedan a 24 cuadros por segundo: con la lectura rápida cada cuadro cuesta menos, y
 a 30 el Samsung pasaba de los 21 que conseguía antes a 30 y acababa trabajando más.
 
+### Añadido después: la cámara descansa cuando nadie la mira
+
+Visto que casi todo el calor es la cámara encendida, lo único que de verdad lo baja es no tenerla
+encendida de más (`docs/rest.js`). Sin publicar todavía (caché v87).
+
+- **Visor de la última toma**: mientras se mira una foto o un vídeo, la cámara se suelta y los
+  bucles de dibujo esperan. Al cerrar, vuelve. Un vistazo de menos de un segundo no la toca.
+- **Lanzador de módulos**: igual si se queda abierto más de cinco segundos. Al elegir un módulo,
+  la cámara vuelve solo si ese módulo la usa.
+- **Reposo**: si el teléfono lleva un minuto quieto (lo dice el sensor de orientación) y sin
+  toques, la pantallita avisa diez segundos antes («REPOSO EN 10 S»), la cámara se apaga y el visor
+  lo dice. Despierta al tocar la pantalla —ese toque no pulsa lo que tenga debajo— o al levantar el
+  teléfono. La cámara tarda en volver lo mismo que al regresar de otra app.
+
+Cuándo **no**: mientras se graba; en STAGE (lo que sale por la otra pantalla no puede pararse); el
+reposo, tampoco con PORTAL (se maneja con las manos, sin tocar) ni cuando la imagen la mueve el
+sonido; y sin sensor de orientación (un ordenador, un iPhone) no hay reposo automático, porque no
+se podría distinguir un teléfono en la mesa de uno en la mano.
+
+Qué ahorra: mientras descansa, el teléfono está como en la primera fila de la tabla de arriba
+(0,45 núcleos en vez de unos 3,1). Esa cifra se midió con la cámara y los bucles parados a mano;
+el reposo en sí no se ha probado en un teléfono (no estaba conectado): está comprobado con
+`tests/rest.cjs`, con el teléfono «quieto» y «en la mano» simulados.
+
 ## 3 · El aparato como objeto
 
 Lo que hacía que pareciera una pantalla y no un objeto, y lo que se ha cambiado:
@@ -162,7 +186,7 @@ Lo que hacía que pareciera una pantalla y no un objeto, y lo que se ha cambiado
 
 ## 4 · Pruebas
 
-Tres pruebas nuevas, en la batería:
+Cuatro pruebas nuevas, en la batería:
 
 - `video-file.cjs`: el archivo de vídeo que se guarda (apartado 1).
 - `pace.cjs`: en una pantalla de 120 Hz simulada ningún módulo dibuja más deprisa que su tope ni
@@ -170,10 +194,13 @@ Tres pruebas nuevas, en la batería:
 - `object.cjs`: la carcasa con su canto y su rendija, la luz viva (sentidos, tope, vuelta al
   reposo, nada se escribe estando quieto, el sensor se suelta con la app oculta, las marcas y los
   iconos no giran) y la hoja de formato y audio sin desenfoque y con piezas renderizadas.
+- `rest.cjs`: la cámara descansa con el visor o el lanzador abiertos y vuelve al cerrar; reposo
+  con aviso previo, despertar con un toque que no pulsa nada o al levantar el teléfono; y sin
+  reposo en la mano, grabando, con PORTAL, en STAGE ni sin sensor.
 
-La batería completa (`tests/run-all.cjs`, 18 pruebas) pasa. Fuera de ella pasan el recorrido de
+La batería completa (`tests/run-all.cjs`, 19 pruebas) pasa. Fuera de ella pasan el recorrido de
 toques al azar (`explore.cjs`, semilla 7) y la actualización desde la versión publicada
-(`update-cache.cjs --ref 89e9282`: los 97 archivos de la caché nueva, byte a byte). En WebKit con
+(`update-cache.cjs`, desde `89e9282` y, con el reposo, desde `30f8417`: todos los archivos de la caché nueva, byte a byte). En WebKit con
 forma de iPhone la carcasa nueva se dibuja bien y la prueba de humo pasa; con las reglas de CSS que
 no entienden los Safari antiguos, la página se comporta igual que la publicada.
 
@@ -200,7 +227,10 @@ la página mientras mide.
   medido solo con la pantalla simulada.
 - **La luz viva en un teléfono de verdad.** Probada con inclinaciones simuladas. En iPhone no se
   activa: Safari pide un permiso aparte para el sensor y no se ha añadido esa pregunta.
-- **Temperatura.** La cámara encendida es, con diferencia, lo que más calienta, y eso no se ha
-  podido bajar. Lo que se ha quitado es trabajo de FLIP.
+- **Temperatura.** La cámara encendida es, con diferencia, lo que más calienta, y mientras se usa
+  eso no se ha podido bajar. Lo que se ha quitado es trabajo de FLIP y el tiempo que la cámara pasa
+  encendida sin que nadie la mire.
+- **El reposo en un teléfono de verdad.** Si un minuto es mucho o poco, si el sensor da por
+  «quieto» un teléfono que alguien sostiene muy firme, y cuánto tarda la cámara en volver.
 - **ASCII, UPLOAD y EDIT** siguen con sus paneles de antes; las perillas de STAGE conservan su
   acabado (aunque ya giran con la luz).

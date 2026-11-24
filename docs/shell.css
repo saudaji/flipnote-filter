@@ -933,3 +933,21 @@ body.portal-mode #osdHint { bottom: 52px; }
 .launcher-card.is-on small { color: rgba(255, 255, 255, .86); }
 .launcher-card.is-on::before, .launcher-card.is-on::after, #btnSplashOriginal::before, #btnSplashOriginal::after, .viewer-actions button.primary::before, .viewer-actions button.primary::after { border-image-source: url('./body/keycap-coral.webp'); }
 .launcher-card.is-on:active::before, .launcher-card.is-on:active::after, #btnSplashOriginal:active::before, #btnSplashOriginal:active::after, .viewer-actions button.primary:active::before, .viewer-actions button.primary:active::after { border-image-source: url('./body/keycap-coral-down.webp'); }
+
+/* ── Reposo (rest.js) ────────────────────────────────────────────────────── */
+/* La cámara está apagada: el visor se oscurece y una nota lo dice. El velo ocupa toda la pantalla
+   para que el toque que despierta no pulse nada de lo que hay debajo. */
+#restVeil { position: fixed; inset: 0; z-index: 400; display: flex; justify-content: center; align-items: flex-start; touch-action: none; cursor: pointer; }
+#restVeil[hidden] { display: none; }
+.rest-note {
+  margin-top: 30vh; padding: 15px 20px 14px; border-radius: 7px; display: grid; grid-template-columns: auto auto; column-gap: 10px; row-gap: 8px; align-items: center; justify-content: center;
+  background: radial-gradient(120% 90% at 30% 10%, #1c1e21, #0b0c0d 70%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .07), 0 0 0 5px #232427, 0 10px 26px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .06);
+  color: #efe9d8; text-transform: uppercase;
+}
+.rest-note i { width: 8px; height: 8px; border-radius: 50%; background: var(--coral); box-shadow: 0 0 7px rgba(236, 91, 69, .8); animation: lcd-blink 2s steps(2, jump-none) infinite; }
+.rest-note b { font: 800 20px/1 var(--font-dot); letter-spacing: .08em; }
+.rest-note span { grid-column: 1 / -1; font: 700 8.5px/1.3 var(--font-ui); letter-spacing: .14em; color: rgba(239, 233, 216, .6); text-align: center; }
+body.is-resting :is(#display, #asciiCanvas, #sflowCanvas, #scrashCanvas, #fusionCanvas, #editCanvas),
+body.is-waking :is(#display, #asciiCanvas, #sflowCanvas, #scrashCanvas, #fusionCanvas, #editCanvas) { opacity: .16; }
+

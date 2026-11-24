@@ -299,6 +299,8 @@
   const currentModule = () => overlay || activeTab;
   function openLauncher(open) {
     launcher.classList.toggle('is-open', open);
+    // Con el lanzador abierto un rato nadie mira la cámara: descansa (rest.js).
+    if (window.flipRest) flipRest[open ? 'hold' : 'release']('launcher');
     if (open) launcher.querySelectorAll('.launcher-card').forEach(card => card.classList.toggle('is-on', card.dataset.module === currentModule()));
   }
   function goModule(key) {
@@ -417,6 +419,8 @@
     const stage = $('viewerStage');
     stage.innerHTML = '';
     viewer.classList.toggle('is-open', open);
+    // Mientras se mira la última toma, la cámara descansa (rest.js).
+    if (window.flipRest) flipRest[open && last ? 'hold' : 'release']('viewer');
     if (!open || !last) return;
     const node = document.createElement(last.video ? 'video' : 'img');
     node.src = last.url;

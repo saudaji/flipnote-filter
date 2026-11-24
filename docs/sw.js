@@ -1,7 +1,7 @@
-const CACHE = 'flipnote-filter-v86-fresco';
+const CACHE = 'flipnote-filter-v87-reposo';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './frame-runtime.js', './stamp.js', './optical-scope.js', './night-vision.js', './sensor.js',
-  './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './console.css', './console.js', './feel.js', './mp4-flat.js', './light.js', './portal.js', './stage.js', './stage.css', './stage-out.html', './hands-worker.js', './pretext.js', './enochian.ttf',
+  './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './console.css', './console.js', './feel.js', './mp4-flat.js', './light.js', './rest.js', './portal.js', './stage.js', './stage.css', './stage-out.html', './hands-worker.js', './pretext.js', './enochian.ttf',
   './body/shell-top.webp', './body/shell-mid.webp', './body/shell-bottom.webp', './body/shell-foot.webp', './body/bezel.webp', './body/tray.webp', './body/lcd.webp', './body/knob.webp', './body/dial.webp', './body/dial-cream.webp', './body/jack.webp',
   './body/nub.webp', './body/grain.webp', './body/look-key.webp', './body/look-key-down.webp', './body/look-key-on.webp', './body/shutter-photo.webp', './body/shutter-photo-down.webp',
   './body/shutter-video.webp', './body/shutter-video-down.webp', './body/candy-graphite.webp',

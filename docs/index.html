@@ -12441,6 +12441,8 @@ document.addEventListener('visibilitychange', () => {
     releaseCamera();
     return;
   }
+  // En reposo (rest.js) la cámara sigue apagada al volver: la enciende el toque que lo despierta.
+  if (window.flipRest && flipRest.holding()) return;
   const dead = !!stream && stream.getVideoTracks().every(track => track.readyState === 'ended');
   if (!cameraParked && !dead) return;
   cameraParked = false;
@@ -12533,7 +12535,9 @@ async function openCamera(facing) {
   }
   _refreshCamZoomSupport(nextStream.getVideoTracks()[0] || null);
   _resetCamEngineState('preview');
-  if (document.visibilityState === 'hidden' && cameraParked) { releaseCamera(); return; }
+  // La cámara terminó de abrirse cuando ya no hacía falta (la app pasó a segundo plano o entró en
+  // reposo mientras tanto): se suelta.
+  if (cameraParked && (document.visibilityState === 'hidden' || (window.flipRest && flipRest.holding()))) { releaseCamera(); return; }
   if (activeTab === 'cam' && cameraRunning) scheduleFrame(cameraLoop);
   if (activeTab === 'ascii' && asciiRunning) scheduleFrame(asciiLoop);
   if (activeTab === 'fusion' && fusionRunning) scheduleFrame(_fusionLoop);
@@ -22554,6 +22558,7 @@ window.__flipMainReady = true;                              // el guion llegó h
 <script src="./shell.js"></script>
 <script src="./console.js"></script>
 <script src="./light.js"></script>
+<script src="./rest.js"></script>
 <script src="./portal.js"></script>
 <script src="./stage.js"></script>
 <script>

@@ -13,6 +13,8 @@
 //     el cuadro de la cámara no había llegado): no cuenta para el tope y se repite cuanto antes.
 //   · Despertarlo antes de tiempo (un toque, un ajuste) sigue siendo scheduleFrame(loop) sin más.
 //   · cancelFrame(loop) lo para.
+//   · pauseFrames(true) deja todos los bucles en espera (la cámara en reposo, rest.js): quien pida
+//     su próxima vuelta se queda apuntado y la recibe al reanudar con pauseFrames(false).
 const FRAME_DEFAULT_FPS = 60;
 const FRAME_SLACK = 3;                  // ms de holgura: el refresco nunca llega clavado
 const frameStates = new WeakMap();
@@ -54,9 +56,21 @@ function frameStateOf(loop) {
   return state;
 }
 
+let framesPaused = false;
+const framesHeld = new Set();
+function pauseFrames(on) {
+  if (!!on === framesPaused) return;
+  framesPaused = !!on;
+  if (framesPaused) return;
+  const held = [...framesHeld];
+  framesHeld.clear();
+  for (const loop of held) scheduleFrame(loop);
+}
+
 function scheduleFrame(loop, wait, idle) {
   const state = frameStateOf(loop);
   if (idle) state.last = state.prev;
+  if (framesPaused) { framesHeld.add(loop); return; }
   const now = performance.now();
   const at = Math.max(now + (wait > 0 ? wait : 0), state.last + 1000 / (loop.maxFps || FRAME_DEFAULT_FPS) - FRAME_SLACK);
   if (state.raf) { if (at < state.at) state.at = at; return; }
@@ -74,6 +88,7 @@ function scheduleFrame(loop, wait, idle) {
 }
 
 function cancelFrame(loop) {
+  framesHeld.delete(loop);
   const state = frameStates.get(loop);
   if (!state) return;
   if (state.raf) cancelAnimationFrame(state.raf);
@@ -82,8 +97,9 @@ function cancelFrame(loop) {
   state.timer = 0;
 }
 
-// ¿Hay una vuelta pedida para este bucle?
+// ¿Hay una vuelta pedida para este bucle? (En pausa, estar apuntado cuenta.)
 function framePending(loop) {
+  if (framesHeld.has(loop)) return true;
   const state = frameStates.get(loop);
   return !!(state && (state.raf || state.timer));
 }

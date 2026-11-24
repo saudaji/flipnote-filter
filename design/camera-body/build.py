@@ -387,6 +387,17 @@ def dome(name, radius, depth, crown, fillet, z, material):
     return lathe(name, profile, z, material)
 
 
+def dish(name, radius, depth, dip, fillet, z, material):
+    """Botón con la tapa cóncava (donde descansa el dedo): el centro se hunde «dip» y el borde lo
+    remata un canto redondeado. La concavidad es lo que le da forma a la vista: sombra arriba a la
+    izquierda, luz abajo a la derecha, y un filo brillante alrededor."""
+    flat = radius - fillet
+    profile = [(flat * i / 16, depth - dip * (1 - (i / 16) ** 2)) for i in range(17)]
+    profile += arc(flat, depth - fillet, fillet, 90, 0)[1:]
+    profile.append((radius, 0))
+    return lathe(name, profile, z, material)
+
+
 def ring(name, outer, inner, depth, chamfer, z, material):
     profile = [(inner, 0), (inner, depth - chamfer * 0.6), (inner + chamfer * 0.6, depth), (outer - chamfer, depth), (outer, depth - chamfer), (outer, 0)]
     return lathe(name, profile, z, material)
@@ -455,7 +466,7 @@ def shutter(x, y, video=False, pressed=False):
         lathe('sh_seat', [(0, 0.2), (49.5 + float(OPTS.get('gap', 1.5)), 0.2), (49.5 + float(OPTS.get('gap', 1.5)), -0.2)], 0, plastic('well', 0.7, 0)),
         ring('sh_ring', 49.5, 40.5, 5.5, 1.8, 0.3, alu),
         lathe('sh_gap', [(0, 0.6), (40.6, 0.6), (40.6, 0.2)], 0, plastic('graphite', 0.6, 0)),
-        dome('sh_cap', 38.0, 8.5, 3.4, 3.2, 1.0 + travel, gloss('coral' if video else 'white')),
+        dish('sh_cap', 38.0, 8.6, float(OPTS.get('dip', 2.6)), 3.4, 1.0 + travel, gloss('coral' if video else OPTS.get('cap_white', 'white'))),
     ]
     for part in parts:
         place(part, x, y)
@@ -565,6 +576,50 @@ def body(w, h):
     return slab
 
 
+def shell(w, h):
+    """La carcasa entera, vista de frente: losa con el canto redondeado que recoge la luz, rejilla
+    del altavoz calada (se ve el fondo oscuro), tornillos avellanados y la serigrafía del modelo.
+    Sale sin grano (lo pone la interfaz, en tesela) para poder estirar la franja central."""
+    radius, fillet, depth = float(OPTS.get('radius', 30)), float(OPTS.get('fillet', 5.0)), 14.0
+    loops = [(loop_points(w, h, radius, 16), -depth), (loop_points(w, h, radius, 16), -fillet)]
+    for i in range(1, 9):
+        a = math.radians(90 * i / 8)
+        inset = fillet * (1 - math.cos(a))
+        loops.append((loop_points(w - inset * 2, h - inset * 2, max(1.0, radius - inset), 16), -fillet * (1 - math.sin(a))))
+    slab = loft('shell', loops, plastic('cream', 0.5, 0), cap_top=0.0, cap_bottom=True)
+    if OPTS.get('plain'):
+        return slab             # sin rejilla, tornillos ni serigrafía: el pie de las pantallas interiores
+    cutters = []
+    for i in range(7):
+        # Cada ranura lleva un pequeño bisel en la boca: es lo que recoge la luz por un lado y la sombra por el otro.
+        cutters.append(place(loft('slot%d' % i, [(loop_points(46, 3.2, 1.6), -11.0), (loop_points(46, 3.2, 1.6), -0.75), (loop_points(47.5, 4.7, 2.35), 0.0), (loop_points(47.5, 4.7, 2.35), 3.0)], None, cap_top=0.0, cap_bottom=True), -w / 2 + 44, -h / 2 + 30 + i * 7.4))
+    screws = [(sx * (w / 2 - 15), -h / 2 + 15) for sx in (-1, 1)]
+    for cx, cy in screws:
+        cutters.append(place(lathe('screwhole', [(0, 3.0), (6.4, 3.0), (6.4, 0.0), (5.3, -1.1), (5.3, -3.0), (0, -3.0)], 0, None, segments=64), cx, cy))
+    bpy.context.view_layer.objects.active = slab
+    for index, cutter in enumerate(cutters):
+        mod = slab.modifiers.new('cut%d' % index, 'BOOLEAN')
+        mod.object = cutter
+        mod.operation = 'DIFFERENCE'
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+    for cutter in cutters:
+        bpy.data.objects.remove(cutter)
+    try:
+        slab.data.set_sharp_from_angle(angle=math.radians(40))
+    except Exception:
+        pass
+    # Tela del altavoz, detrás de las ranuras.
+    place(loft('grille', [(loop_points(52, 52, 2), -10.2), (loop_points(52, 52, 2), -10.0)], plastic('glass', 0.9, 0), cap_top=0.0), -w / 2 + 44, -h / 2 + 52)
+    steel = metal('steel', (0.70, 0.71, 0.73), 0.3, aniso=0.55, radial=True)
+    dark = plastic('graphite', 0.6, 0)
+    for cx, cy in screws:
+        place(dome('screw', 4.7, 1.5, 0.55, 0.7, -3.0, steel), cx, cy)
+        for sw, sh in ((6.0, 1.15), (1.15, 6.0)):
+            place(loft('cross', [(loop_points(sw, sh, 0.45), -1.2), (loop_points(sw, sh, 0.45), -0.92)], dark, cap_top=0.0), cx, cy)
+    text('model', 'FLIP  FL-27  ·  RETRO-STYLE DIGITAL CAMERA', 5.2, 34, -h / 2 + 12, 0.1, plastic('ink', 0.6, 0), font=FONT_COND, spacing=1.6)
+    return slab
+
+
 def main():
     scene = reset()
     lights(scene)
@@ -587,6 +642,11 @@ def main():
         w, h = 400, int(OPTS.get('h', 900))
         camera(scene, w, h, False)
         body(w, h)
+    elif PIECE == 'shell':
+        # Con 3 px de aire alrededor: es la rendija negra entre el aparato y el borde de la pantalla.
+        w, h, air = 400, int(OPTS.get('h', 400)), float(OPTS.get('air', 3))
+        camera(scene, w + air * 2, h + air * 2, True)
+        shell(w, h)
     else:
         sizes = {'shutter': (112, 112), 'candy': (56, 56), 'keycap': (int(OPTS.get('w', 96)), int(OPTS.get('h', 46))), 'recess': (int(OPTS.get('w', 132)), int(OPTS.get('h', 132))),
                  'knob': (72, 72), 'switch': (72, 34), 'nub': (40, 34), 'dial': (60, 60), 'jack': (36, 36)}

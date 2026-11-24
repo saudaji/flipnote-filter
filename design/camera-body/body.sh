@@ -20,10 +20,17 @@ for color in coral mustard blue mint lilac graphite slate white; do
   r "candy-$color" candy color=$color
   r "candy-$color-down" candy color=$color state=down
 done
-r shutter-photo shutter
-r shutter-photo-down shutter state=down
-r shutter-video shutter cap=video
-r shutter-video-down shutter cap=video state=down
+# El disparador lleva la tapa cóncava (donde descansa el dedo) y un blanco algo más apagado: es lo
+# que deja ver su forma en vez de un círculo blanco plano.
+SHUTTER="dip=5.4 cap_white=#E2DFD6 gloss_rough=0.34"
+r shutter-photo shutter $SHUTTER
+r shutter-photo-down shutter state=down $SHUTTER
+r shutter-video shutter cap=video $SHUTTER
+r shutter-video-down shutter cap=video state=down $SHUTTER
+# La carcasa entera, en tres piezas (más el pie liso de las pantallas interiores).
+"$BLENDER" -b -P "$HERE/build.py" -- shell "$OUT/.shell.png" scale=4 samples=192 radius=22 2>&1 | grep -E "RENDER_OK|Error|Traceback" || true
+"$BLENDER" -b -P "$HERE/build.py" -- shell "$OUT/.shell-plain.png" scale=4 samples=192 radius=22 plain=1 2>&1 | grep -E "RENDER_OK|Error|Traceback" || true
+python3 "$HERE/shell.py" "$OUT/.shell.png" "$OUT/.shell-plain.png" "$HERE/../../docs/body" 4
 # Las diapositivas de la bandeja de cámaras: teclas bajas (las de la consola), en crema y en coral.
 k() { out="$OUT/$1.png"; shift; "$BLENDER" -b -P "$HERE/panel.py" -- key "$out" w=64 h=54 scale=4 samples=128 strip=7 key_rough=0.36 key_coat=0.35 well=#4E4A3E "$@" 2>&1 | grep -E "RENDER_OK|Error|Traceback" || true; }
 k look-key color=key

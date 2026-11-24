@@ -5,7 +5,7 @@
 // cámara, mensajes a los hilos de trabajo, contextos de audio y de WebGL vivos y animaciones de CSS
 // en marcha. No mide temperatura (eso es del teléfono: tests/device/pixel-heat.cjs); sirve para
 // ver qué corre sin hacer falta y para comparar antes y después de un cambio.
-//   FLIP_URL=http://127.0.0.1:8760 node tests/energy.cjs [--seconds 6] [--fps 30] [--only cam,portal] [--json salida.json]
+//   FLIP_URL=http://127.0.0.1:8760 node tests/energy.cjs [--seconds 6] [--fps 30] [--hz 120] [--only cam,portal] [--json salida.json]
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
@@ -14,21 +14,55 @@ const { launch, PIXEL, URL } = require('./lib/harness.cjs');
 const arg = (name, fallback) => { const at = process.argv.indexOf(name); return at >= 0 ? process.argv[at + 1] : fallback; };
 const seconds = Number(arg('--seconds', 6)), camFps = Number(arg('--fps', 30));
 const only = arg('--only', '') ? arg('--only', '').split(',') : null;
+const hz = Number(arg('--hz', 0));
 
 // Se inyecta antes que la app: cuenta sin cambiar lo que la app hace.
 function instrument() {
   const E = window.__energy = { raf: 0, rafBy: {}, timers: 0, timerBy: {}, workers: [], toWorkers: 0, fromWorkers: 0, audio: [], gl: 0, frames: {} };
+  // --hz 120: la página cree estar en una pantalla de 120 Hz (un Pixel). Los refrescos los da un
+  // reloj propio; sirve para contar cuántas veces se despierta y dibuja cada bucle, no para medir GPU.
+  if (window.__energyHz) {
+    const period = 1000 / window.__energyHz, timeout = window.setTimeout.bind(window);
+    let queue = new Map(), id = 0, armed = false, next = performance.now();
+    const pump = () => {
+      armed = false;
+      const run = queue; queue = new Map();
+      const now = performance.now();
+      for (const fn of run.values()) { try { fn(now); } catch (error) { timeout(() => { throw error; }, 0); } }
+    };
+    const arm = () => { if (armed) return; armed = true; const now = performance.now(); next = Math.max(next + period, now + 0.5); if (next - now > period * 2) next = now + period; timeout(pump, next - now); };
+    window.requestAnimationFrame = fn => { queue.set(++id, fn); arm(); return id; };
+    window.cancelAnimationFrame = handle => { queue.delete(handle); };
+  }
   const raf = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = function (fn) {
-    return raf(function (t) { E.raf++; const n = (fn && fn.__name) || (fn && fn.name) || 'anónima'; E.rafBy[n] = (E.rafBy[n] || 0) + 1; return fn(t); });
+    return raf(function (t) { E.raf++; E.tick++; const n = (fn && fn.__name) || (fn && fn.name) || 'anónima'; E.rafBy[n] = (E.rafBy[n] || 0) + 1; return fn(t); });
   };
   for (const kind of ['setInterval', 'setTimeout']) {
     const real = window[kind].bind(window);
     window[kind] = function (fn, ms, ...rest) {
       if (typeof fn !== 'function') return real(fn, ms, ...rest);
       const tag = kind === 'setInterval' ? 'cada ' + (ms | 0) + ' ms' : 'espera';
-      return real(function () { E.timers++; E.timerBy[tag] = (E.timerBy[tag] || 0) + 1; return fn.apply(this, arguments); }, ms, ...rest);
+      return real(function () { E.timers++; E.tick++; E.timerBy[tag] = (E.timerBy[tag] || 0) + 1; return fn.apply(this, arguments); }, ms, ...rest);
     };
+  }
+  // Cuadros dibujados de verdad en cada lienzo a la vista: vueltas distintas en las que se pintó.
+  E.tick = 0; E.canvas = {};
+  const touch = canvas => {
+    if (!canvas || !canvas.id || !canvas.isConnected) return;
+    const entry = E.canvas[canvas.id] || (E.canvas[canvas.id] = { last: -1, n: 0 });
+    if (entry.last !== E.tick) { entry.last = E.tick; entry.n++; }
+  };
+  for (const name of ['drawImage', 'putImageData', 'fillRect', 'fillText', 'stroke', 'fill']) {
+    const real = CanvasRenderingContext2D.prototype[name];
+    CanvasRenderingContext2D.prototype[name] = function () { touch(this.canvas); return real.apply(this, arguments); };
+  }
+  for (const GL of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) {
+    if (!GL) continue;
+    for (const name of ['drawArrays', 'drawElements']) {
+      const real = GL.prototype[name];
+      GL.prototype[name] = function () { touch(this.canvas); return real.apply(this, arguments); };
+    }
   }
   const RealWorker = window.Worker;
   window.Worker = function (url, options) {
@@ -62,6 +96,7 @@ async function main() {
   const rows = [];
   try {
     const context = await browser.newContext({ ...PIXEL, acceptDownloads: true });
+    if (hz) await context.addInitScript(value => { window.__energyHz = value; }, hz);
     await context.addInitScript(instrument);
     await context.addInitScript({ path: path.join(__dirname, 'scenes.js') });
     await context.addInitScript({ path: path.join(__dirname, 'lib', 'page-kit.js') });
@@ -80,7 +115,7 @@ async function main() {
     await page.evaluate(() => {
       const E = window.__energy, count = name => { E.frames[name] = (E.frames[name] || 0) + 1; };
       const schedule = scheduleFrame;
-      scheduleFrame = function (loop) { if (loop && !loop.__tagged) { loop.__tagged = true; } count('agenda:' + ((loop && loop.name) || 'anónima')); return schedule(loop); };
+      scheduleFrame = function (loop) { if (loop && !loop.__tagged) { loop.__tagged = true; } count('agenda:' + ((loop && loop.name) || 'anónima')); return schedule.apply(this, arguments); };
       const render = _renderCamEngineFrame;
       _renderCamEngineFrame = function (...args) { count('motor:' + ((args[5] && args[5].path) || '?')); return render.apply(this, args); };
       const portal = flipPortal.render;
@@ -98,6 +133,7 @@ async function main() {
       const E = window.__energy;
       return {
         raf: E.raf, rafBy: { ...E.rafBy }, timers: E.timers, timerBy: { ...E.timerBy }, toWorkers: E.toWorkers, fromWorkers: E.fromWorkers, frames: { ...E.frames },
+        canvas: Object.fromEntries(Object.entries(E.canvas).map(([id, entry]) => [id, entry.n])),
         workers: E.workers.filter(w => w.alive).map(w => w.url), audio: E.audio.filter(a => a.state === 'running').length, audioAll: E.audio.filter(a => a.state !== 'closed').length, gl: E.gl,
         animations: document.getAnimations().filter(a => a.playState === 'running').map(a => { const t = a.effect && a.effect.target; return (t ? (t.id ? '#' + t.id : t.tagName.toLowerCase() + (t.classList[0] ? '.' + t.classList[0] : '')) : '?') + ':' + (a.animationName || a.transitionProperty || 'anim'); }),
         stage: typeof flipStage !== 'undefined' ? flipStage.status().fps : 0, stageOn: typeof flipStage !== 'undefined' && flipStage.status().active,
@@ -115,22 +151,24 @@ async function main() {
       const row = {
         name, pagina: per(ca.renderer, cb.renderer), graficos: per(ca.gpu, cb.gpu), navegador: per(ca.browser, cb.browser), hilo: per(ca.task, cb.task), script: per(ca.script, cb.script), estilo: per(ca.layout, cb.layout),
         raf: per(a.raf, b.raf), timers: per(a.timers, b.timers), aTrabajo: per(a.toWorkers, b.toWorkers), frames: diff(a.frames, b.frames), rafBy: diff(a.rafBy, b.rafBy), timerBy: diff(a.timerBy, b.timerBy),
+        lienzos: diff(a.canvas, b.canvas),
         workers: b.workers, audio: b.audio + '/' + b.audioAll, gl: b.gl, animations: b.animations, stage: b.stageOn ? b.stage : 0,
         portal: b.portal && b.portal.active ? { fase: b.portal.phase, delegado: b.portal.delegate } : null, camera: b.camera,
       };
       rows.push(row);
       const f = row.frames;
+      const top = Object.entries(row.lienzos)[0] || ['—', 0];
       console.log(name.padEnd(26), 'página', String(row.pagina.toFixed(2)).padStart(5), ' gráficos', String(row.graficos.toFixed(2)).padStart(5), ' hilo', String(row.hilo.toFixed(2)).padStart(5),
         ' rAF/s', String(Math.round(row.raf)).padStart(4), ' temp/s', String(Math.round(row.timers)).padStart(3), ' →hilos/s', String(Math.round(row.aTrabajo)).padStart(3),
         ' motor/s', String(Math.round((f['motor:preview'] || 0) + (f['motor:capture'] || 0))).padStart(3), ' portal/s', String(Math.round(f.portal || 0)).padStart(3), ' stage', String(Math.round(row.stage)).padStart(3),
-        ' cámara/s', String(Math.round(f['cámara'] || 0)).padStart(3), ' hilos', row.workers.length, ' audio', row.audio, ' gl', row.gl, row.animations.length ? ' anim ' + row.animations.length : '');
+        ' cámara/s', String(Math.round(f['cámara'] || 0)).padStart(3), ' dibujo/s', String(Math.round(top[1])).padStart(3), ('(' + top[0] + ')').padEnd(16), ' hilos', row.workers.length, ' audio', row.audio, ' gl', row.gl, row.animations.length ? ' anim ' + row.animations.length : '');
       return row;
     };
     const pick = async (family, variant) => { await page.evaluate(([f, v]) => { _setCamFamily(f); if (v && camVariant !== v) { camVariant = v; _applyCamState(); } }, [family, variant]); };
     const open = async key => { await page.locator('#shellModule').click(); await page.locator('#shellLauncher [data-module="' + key + '"]').click(); };
     const want = name => !only || only.some(o => name.startsWith(o));
 
-    console.log('cámara simulada a ' + camFps + ' cuadros/s · ' + seconds + ' s por medida · CPU en núcleos (1,00 = un núcleo entero)');
+    console.log('cámara simulada a ' + camFps + ' cuadros/s · ' + (hz ? 'pantalla simulada de ' + hz + ' Hz · ' : '') + seconds + ' s por medida · CPU en núcleos (1,00 = un núcleo entero)');
     if (want('cam')) {
       await measure('cam DSI (recién abierta)');
       for (const [family, variant] of [['STAMP', 'ENGR'], ['AUTO03', 'NIGHT'], ['DLPHN', 'STD'], ['CASKIA', 'SEIKO'], ['VFD', 'STD'], ['VFD', 'CRT'], ['OSCAM', 'STD'], ['SLHT', null]]) {

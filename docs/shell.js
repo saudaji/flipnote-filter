@@ -388,8 +388,10 @@
   let last = null;
   const originalSave = saveBlob;
   saveBlob = async function (blob, filename) {
+    // El visor guarda la toma ya sellada: lo que enseña es lo que se comparte.
+    try { blob = await _sealFlipVideo(blob); } catch (_) {}
     try { remember(blob, filename); } catch (_) {}
-    return originalSave.apply(this, arguments);
+    return originalSave.call(this, blob, filename);
   };
   function remember(blob, filename) {
     if (!blob || !/^(image|video)\//.test(blob.type || '')) return;

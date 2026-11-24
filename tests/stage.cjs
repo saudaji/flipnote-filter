@@ -277,7 +277,11 @@ async function phone(browser) {
   near(free.level, 64 / 127, .01, 'el volumen MIDI es el nivel de salida');
   // Tempo a golpes.
   await settle(1700);
-  for (let i = 0; i < 4; i++) { await page.locator('#rigTap').click(); await settle(480); }
+  // La tecla responde a un toque de verdad; el compás lo marcan cuatro golpes dados desde la propia
+  // página, cada medio segundo exacto (los toques del arnés tardan más o menos según lo cargado que
+  // esté el ordenador, y eso medía la prueba, no el tempo).
+  await page.locator('#rigTap').click();
+  await page.evaluate(() => new Promise(done => { let n = 0; const hit = () => { document.getElementById('rigTap').click(); if (++n < 4) setTimeout(hit, 500); else done(); }; setTimeout(hit, 2200); }));
   st = await S();
   assert.equal(st.bpmSource, 'TAP'); assert.ok(st.bpm > 105 && st.bpm < 130, 'cuatro golpes cada medio segundo ≈ 120: ' + st.bpm);
 

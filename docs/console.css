@@ -70,6 +70,15 @@ body[data-tab="cam"] #palettes .cs-pane[data-cs-n="3"] .cs-slot, body[data-tab="
   background: url('./body/console-mark.webp') center / contain no-repeat; transform: rotate(var(--turn, 0deg));
 }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob.is-held > i { transition: none; }
+/* Luz viva (light.js): el cuerpo de la perilla gira unos grados con la inclinación del teléfono y
+   se lleva sus brillos; la marca sigue marcando el valor y la escala, serigrafiada en la placa,
+   no se mueve (por eso va en pieza aparte). Los selectores no giran: llevan sus rótulos. */
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob:not([data-cs-kind]) { isolation: isolate; background-image: url('./body/console-scale.webp'); }
+:is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob:not([data-cs-kind])::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: url('./body/console-knob.webp') center / contain no-repeat;
+  transform: rotate(var(--lt, 0deg)); will-change: transform;
+}
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob:focus-visible { filter: drop-shadow(0 0 calc(3 * var(--cu)) rgba(240, 174, 43, .9)); }
 /* Serigrafía: el nombre del mando, y su valor en ámbar como en un visor de siete segmentos. */
 body[data-tab="cam"] #palettes .cs-slot > [class$="-lbl"], body[data-tab="cam"] #palettes .cs-slot > .cs-lbl, body[data-tab="cam"] #palettes .cs-cell > .cs-lbl,
@@ -287,7 +296,7 @@ body[data-tab="cam"] #palettes #auto03ModeNote {
 .cs-rack .cr-tabs > .cr-gap { flex: 1 1 calc(8 * var(--cu)); }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cr-tabs > .cs-key { flex: 0 1 calc(86 * var(--cu)) !important; }
 /* El piloto de nivel de SONO, en la placa */
-.cs-rack > #sonoAmpDot { display: block !important; position: absolute; right: calc(19 * var(--cu)); top: calc(115 * var(--cu)); width: calc(6 * var(--cu)); height: calc(6 * var(--cu)); margin: 0; border-radius: 50%; outline: calc(1.5 * var(--cu)) solid #0a0a0b; }
+.cs-rack > #sonoAmpDot { transition: none !important; display: block !important; position: absolute; right: calc(19 * var(--cu)); top: calc(115 * var(--cu)); width: calc(6 * var(--cu)); height: calc(6 * var(--cu)); margin: 0; border-radius: 50%; outline: calc(1.5 * var(--cu)) solid #0a0a0b; }
 /* El visor de WMP acaba donde empieza su placa (con archivo, la barra de avance va debajo). */
 #wmpArea.visible { bottom: calc(96px + var(--wmpHUD-h, 72px)) !important; }
 body.wmp-file #wmpArea.visible { bottom: calc(156px + var(--wmpHUD-h, 72px)) !important; }

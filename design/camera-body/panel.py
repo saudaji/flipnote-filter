@@ -244,19 +244,23 @@ def main():
             key(-150 + 68 * i, -88, 62, 30, 'graphite', pressed=False, led='on' if i == 0 else 'off')
         key(146, -88, 72, 30, 'coral')
     else:
-        sizes = {'plate': (int(OPTS.get('w', 384)) + 20, int(OPTS.get('h', 240)) + 20), 'knob': (76, 76), 'mark': (76, 76), 'toggle': (44, 60),
+        sizes = {'plate': (int(OPTS.get('w', 384)) + 20, int(OPTS.get('h', 240)) + 20), 'knob': (76, 76), 'mark': (76, 76), 'scale': (76, 76), 'toggle': (44, 60),
                  'key': (int(OPTS.get('w', 58)) + 12, int(OPTS.get('h', 28)) + 12), 'slide': (60, 32), 'nub': (60, 32)}
         if piece not in sizes:
             raise SystemExit('pieza desconocida: ' + piece)
         w, h = sizes[piece]
         B.camera(scene, w, h, True)
-        if piece not in ('mark',):
+        if piece not in ('mark', 'scale'):
             catcher(w, h)
         if piece == 'plate':
             lcd = tuple(float(v) for v in OPTS['lcd'].split(',')) if 'lcd' in OPTS else None
             plate(w - 20, h - 20, lcd=lcd)
         elif piece == 'knob':
             knob(0, 0, 24, mark=False)
+            if int(OPTS.get('ticks', 11)) > 0:      # ticks=0: la perilla sola (su escala va aparte, en 'scale')
+                ticks(0, 0, 24)
+        elif piece == 'scale':
+            # La escala serigrafiada en la placa, sola: la perilla gira su brillo con la luz y la escala no.
             ticks(0, 0, 24)
         elif piece == 'mark':
             knob(0, 0, 24, mark=True, body=False)

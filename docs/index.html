@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#E7E0CF">
+  <meta name="theme-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -86,7 +86,7 @@
         try {
           if (typeof scheduleFrame !== 'function' || typeof cameraLoop !== 'function') return;
           // ¿Murió de verdad? Vivo, el bucle de la cámara siempre tiene pedido su próximo cuadro.
-          if (activeTab !== 'cam' || !cameraRunning || pendingFrames.has(cameraLoop)) return;
+          if (activeTab !== 'cam' || !cameraRunning || framePending(cameraLoop)) return;
           stumbles++; lastRestart = Date.now();
           scheduleFrame(cameraLoop);
         } catch (again) { return; }
@@ -11809,7 +11809,7 @@ function renderASCII(source, srcW, srcH, mirror, forUpload) {
   if (mirror) { ctxAS.translate(SW, 0); ctxAS.scale(-1, 1); }
   ctxAS.imageSmoothingEnabled = true;
   ctxAS.imageSmoothingQuality = acQualityVal === 'smooth' ? 'high' : 'medium';
-  ctxAS.drawImage(source, sx, sy, sw, sh, 0, 0, SW, SH);
+  drawCamCrop(ctxAS, source, srcW, srcH, sx, sy, sw, sh, SW, SH);
   ctxAS.restore();
 
   if (asciiSubMode === 'typo') {
@@ -11843,7 +11843,7 @@ function _renderASCIICaptureSync(source, srcW, srcH, mirror) {
   if (mirror) { ctxAS.translate(SW, 0); ctxAS.scale(-1, 1); }
   ctxAS.imageSmoothingEnabled = true;
   ctxAS.imageSmoothingQuality = acQualityVal === 'smooth' ? 'high' : 'medium';
-  ctxAS.drawImage(source, sx, sy, sw, sh, 0, 0, SW, SH);
+  drawCamCrop(ctxAS, source, srcW, srcH, sx, sy, sw, sh, SW, SH);
   ctxAS.restore();
   const { data: px } = ctxAS.getImageData(0, 0, SW, SH);
   if (asciiSubMode === 'typo' && _typoReady) {
@@ -12834,6 +12834,17 @@ function liveCamFrame(maxAge = 150) {
     ? { source: fast.canvas, srcW: fast.width, srcH: fast.height, fast: true }
     : { source: vid, srcW: vid.videoWidth, srcH: vid.videoHeight, fast: false };
 }
+// La cámara para los motores que no pasan por cameraLoop (GLITCH, FUSION, EDIT, ASCII). En Android
+// leer el elemento de vídeo cuesta 20–30 ms por cuadro y a 30 por segundo se come el hilo entero;
+// el cuadro reducido del sensor rápido cuesta menos de 2. Devuelve { source, w, h, fast }.
+function camSourceForEngines(maxAge = 180) {
+  if (IS_ANDROID && flipSensor.usable(vid)) {
+    if (!flipSensor.pending(vid)) flipSensor.prime(vid);
+    const fast = flipSensor.current(vid, maxAge);
+    if (fast) return { source: fast.canvas, w: fast.width, h: fast.height, fast: true };
+  }
+  return { source: vid, w: vid.videoWidth, h: vid.videoHeight, fast: false };
+}
 // Pide el cuadro siguiente un tic antes de que toque dibujar. Devuelve true si conviene esperar
 // un tic más porque el cuadro pedido aún no ha llegado.
 function awaitCamFrame(due, minInterval) {
@@ -12850,7 +12861,7 @@ function cameraLoop(t) {
       _camVideoReviveT = t;
       try { vid.play().catch(() => {}); } catch (_) {}
     }
-    scheduleFrame(cameraLoop);
+    scheduleFrame(cameraLoop, 0, true);
     return;
   }
   // PORTAL dibuja la cámara fluida y aplica la cadencia de cada emulador solo dentro de la ventana.
@@ -12858,8 +12869,13 @@ function cameraLoop(t) {
   // Con dibujo acelerado PORTAL va a la cadencia de la pantalla y lee la cámara por su cuenta.
   const portalFast = portalOn && window.flipPortal.fast;
   const minInterval = portalOn ? (portalFast ? 0 : 1000 / 30) : (camFpsEnabled ? 1000 / camFpsTarget : 0);
-  if (!_pipeTestOn && !portalFast && awaitCamFrame(t - camLastFrameMs, minInterval)) { scheduleFrame(cameraLoop); return; }
+  // La cámara entrega 30 cuadros por segundo: ningún motor de CAM pinta más deprisa. PORTAL sigue
+  // los dedos y puede ir a 60.
+  cameraLoop.maxFps = portalFast ? 60 : 30;
+  if (!_pipeTestOn && !portalFast && awaitCamFrame(t - camLastFrameMs, minInterval)) { scheduleFrame(cameraLoop, 0, true); return; }
+  let drew = false;
   if (t - camLastFrameMs >= minInterval) {
+    drew = true;
     _camSensorPrimed = false;
     if (_pipeTestOn) {
       // PIPELINE KEYSTONE test path — CAM→GLITCH chained render. Resolves the same
@@ -12905,13 +12921,16 @@ function cameraLoop(t) {
     frames++;
   }
   if (t - lastFPSt >= 1000) { fpsEl.textContent = frames + ' fps'; frames = 0; lastFPSt = t; }
-  scheduleFrame(cameraLoop);
+  // Hasta el cuadro siguiente no hay nada que hacer: el hilo duerme y despierta poco antes (el
+  // cuadro de la cámara se pide 20 ms antes de dibujar). A 8 por segundo eran 120 despertares
+  // por segundo en una pantalla de 120 Hz; ahora, los justos.
+  scheduleFrame(cameraLoop, minInterval ? camLastFrameMs + minInterval - 24 - performance.now() : 0, !drew);
 }
 
 function asciiLoop(ts) {
   if (!asciiRunning) { _asciiLoopAlive = false; return; }
   _asciiLoopAlive = true;
-  if (asciiUploading) { scheduleFrame(asciiLoop); return; }
+  if (asciiUploading) { scheduleFrame(asciiLoop, 80, true); return; }
   if (_isTypoCamInteractive()) {
     updateTouchReflow();
     const prevTs = asciiLoop._lastGyroTs || ts || performance.now();
@@ -12958,7 +12977,7 @@ function asciiLoop(ts) {
   // FPS cap for mobile preview. Adaptive cap lowers preview cadence before touching image fidelity.
   if (basePreviewCap) {
     const fpsCap = Math.max(IS_ANDROID ? 14 : 18, Math.min(basePreviewCap, _asciiAdaptiveFpsCap || basePreviewCap));
-    if (ts - _asciiAndroidLastT < 1000 / fpsCap) { scheduleFrame(asciiLoop); return; }
+    if (ts - _asciiAndroidLastT < 1000 / fpsCap - 2) { scheduleFrame(asciiLoop, 1000 / fpsCap - (ts - _asciiAndroidLastT) - 10, true); return; }
     _asciiAndroidLastT = ts;
   } else {
     _asciiAdaptiveFpsCap = 0;
@@ -14296,6 +14315,7 @@ function createFlipKnob(container, options) {
   function render(nextValue, silent) {
     value = clamp(nextValue);
     knob.style.transform = `rotate(${angleForValue(value)}deg)`;
+    knob.style.setProperty('--turn', angleForValue(value) + 'deg');      // la carcasa gira solo la marca (shell.css)
     valueEl.textContent = formatValue(value);
     if (!silent && opts.onChange) opts.onChange(value);
   }
@@ -14891,7 +14911,11 @@ function _getFlipRecorderMimeCandidates(hasAudio = false) {
   // WebM from MediaRecorder has Duration=0 in the EBML header, which breaks
   // Instagram and other apps that parse container metadata before playing.
   // Android Chrome 94+ supports video/mp4;codecs=avc1 via MediaRecorder.
-  const mp4 = ['video/mp4;codecs=avc1', 'video/mp4'];
+  // Con sonido se pide AAC por su nombre: si el navegador eligiera Opus dentro del MP4, el
+  // archivo se vería en el teléfono pero las redes no lo importarían.
+  const mp4 = hasAudio
+    ? ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4']
+    : ['video/mp4;codecs=avc1', 'video/mp4'];
   // iOS and Android: prefer MP4 — avoids WebM duration=0 bug on social media.
   if (_IS_IOS || IS_ANDROID) return hasAudio ? [...mp4, ...webmAudio] : [...mp4, ...webmVideo];
   return hasAudio ? [...webmAudio, ...mp4] : [...webmVideo, ...mp4];
@@ -14947,9 +14971,12 @@ function _getFlipRecordDimensions(sourceCanvas = null, options = {}) {
     [aw, ah] = aspect.split(':').map(n => parseInt(n, 10));
   }
   if (!aw || !ah) { aw = camAspW || 4; ah = camAspH || 3; aspect = `${aw}:${ah}`; }
-  const shortSide = res.base;
-  if (aw <= ah) return { width: shortSide, height: Math.round(shortSide * ah / aw), aspect };
-  return { width: Math.round(shortSide * aw / ah), height: shortSide, aspect };
+  // Medidas pares: H.264 trabaja en bloques de 2 × 2 y un lado impar acaba en un archivo
+  // que algunos importadores rechazan.
+  const even = n => Math.max(2, Math.round(n / 2) * 2);
+  const shortSide = even(res.base);
+  if (aw <= ah) return { width: shortSide, height: even(shortSide * ah / aw), aspect };
+  return { width: even(shortSide * aw / ah), height: shortSide, aspect };
 }
 function _createRecordingCanvasStream(sourceCanvas, fps = 30, options = {}) {
   if (typeof sourceCanvas.captureStream !== 'function') {
@@ -14962,15 +14989,14 @@ function _createRecordingCanvasStream(sourceCanvas, fps = 30, options = {}) {
   const ctx = proxy.getContext('2d', { willReadFrequently:false });
   ctx.imageSmoothingEnabled = true;
   try { ctx.imageSmoothingQuality = 'high'; } catch (_) {}
-  let rafId = 0;
   let stopped = false;
   const interval = 1000 / Math.max(1, fps);
   let nextFrame = 0;
   const draw = (now = performance.now()) => {
     if (stopped) return;
-    rafId = requestAnimationFrame(draw);
-    if (now + 0.5 < nextFrame) return;
+    if (now + 0.5 < nextFrame) { scheduleFrame(draw, nextFrame - performance.now() - 6, true); return; }
     nextFrame = now + interval - (Math.max(0, now - nextFrame) % interval);
+    scheduleFrame(draw, nextFrame - performance.now() - 6);
     if (typeof options.renderFrame === 'function') {
       options.renderFrame({
         ctx,
@@ -15009,7 +15035,7 @@ function _createRecordingCanvasStream(sourceCanvas, fps = 30, options = {}) {
     stream,
     stop() {
       stopped = true;
-      if (rafId) cancelAnimationFrame(rafId);
+      cancelFrame(draw);
       if (typeof options.onStop === 'function') {
         try { options.onStop(); } catch (_) {}
       }
@@ -15630,7 +15656,25 @@ document.getElementById('asciiCanvasCol').addEventListener('click', () => {
 //   CTA (_promptShareSave) so navigator.share runs inside a real tap.
 // _shareOrDownload: explicit share action (Share buttons) — falls back to _downloadBlob.
 // ════════════════════════════════════════════════════════════════════
+// Un vídeo sale de la app «sellado»: MP4 de una pieza (mp4-flat.js) y con el tipo limpio
+// («video/mp4», sin la coletilla de códecs que confunde al sistema al compartir). El sellado
+// se recuerda por toma, de modo que guardar, compartir y el visor entregan el mismo archivo.
+const _flipSealed = new WeakMap();
+async function _sealFlipVideo(blob) {
+  if (!blob || !/^video\//i.test(blob.type || '')) return blob;
+  if (_flipSealed.has(blob)) return _flipSealed.get(blob);
+  let out = blob;
+  try {
+    if (/mp4/i.test(blob.type) && window.flipMp4) out = (await flipMp4.flatten(blob)).blob || blob;
+  } catch (_) { out = blob; }
+  const type = String(blob.type).split(';')[0];
+  if (out.type !== type) out = out.slice(0, out.size, type);
+  _flipSealed.set(blob, out);
+  _flipSealed.set(out, out);
+  return out;
+}
 function _downloadBlob(blob, filename) {
+  blob = _flipSealed.get(blob) || blob;
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -15641,6 +15685,7 @@ function _downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 async function saveBlob(blob, filename) {
+  blob = await _sealFlipVideo(blob);
   if (flipAudioSettings?.saveMode === 'share') {
     // iOS: navigator.share needs a live user gesture. Video saves finalize
     // async (MediaRecorder events), outside the tap — defer to an explicit
@@ -15703,6 +15748,8 @@ function _flipTs() {
 function _flipName(module, ext) { return `flip_${module}_${_flipTs()}.${ext}`; }
 // _shareOrDownload: explicit share action — always opens share sheet when available.
 async function _shareOrDownload(blob, filename) {
+  // Ya sellado no hay espera (y el toque sigue valiendo para abrir la hoja de compartir).
+  blob = _flipSealed.get(blob) || await _sealFlipVideo(blob);
   const file = new File([blob], filename, { type: blob.type });
   if (navigator.canShare?.({ files: [file] })) {
     try { await navigator.share({ files: [file], title: 'FLIP' }); return; }
@@ -17497,10 +17544,16 @@ function sonoLoop(ts) {
   }
 
   // Amp dot
-  const lum = Math.floor(Math.min(1, audio.amp * 2) * 255);
-  const dot  = document.getElementById('sonoAmpDot');
-  dot.style.background  = `rgb(${lum},${lum >> 1},0)`;
-  dot.style.boxShadow   = lum > 60 ? `0 0 ${lum >> 2}px rgba(255,${lum>>1},0,.7)` : 'none';
+  // El piloto sube por escalones y solo se toca cuando cambia: escribirle un color distinto en
+  // cada cuadro obligaba a recalcular estilos y repintar 60 o 120 veces por segundo.
+  const step = Math.round(Math.min(1, audio.amp * 2) * 6);
+  if (step !== sonoLoop._lamp && ts - (sonoLoop._lampT || 0) > 70) {
+    sonoLoop._lamp = step; sonoLoop._lampT = ts;
+    const lum = Math.round(step * 42.5);
+    const dot  = document.getElementById('sonoAmpDot');
+    dot.style.background  = `rgb(${lum},${lum >> 1},0)`;
+    dot.style.boxShadow   = lum > 60 ? `0 0 ${lum >> 2}px rgba(255,${lum>>1},0,.7)` : 'none';
+  }
 
   scheduleFrame(sonoLoop);
 }
@@ -19126,7 +19179,7 @@ async function startExtAudio(deviceId) {
     if (!wmpRunning) { wmpRunning = true; scheduleFrame(wmpLoop); }
   } else if (activeTab === 'scrash') {
     if (!scrashRunning) { scrashRunning = true; _scrStartT = null; }
-    if (!_scrRafId) _scrRafId = requestAnimationFrame(_scrashLoop);
+    if (!_scrRafId) { _scrRafId = 1; scheduleFrame(_scrashLoop); }
   } else if (activeTab === 'fusion') {
     fusionRunning = true;
     scheduleFrame(_fusionLoop);
@@ -19452,7 +19505,7 @@ let _ctxScrAudioBuf;
     _syncScrashEditorPane();
     if (scrashRunning && scrAnimateOn && !_scrRafId) {
       _scrStartT = null;
-      _scrRafId = requestAnimationFrame(_scrashLoop);
+      _scrRafId = 1; scheduleFrame(_scrashLoop);
     }
   });
 
@@ -19808,12 +19861,13 @@ function _scrashLoop(t) {
 
   if (vid.videoWidth) {
     // Draw video fitting the canvas (letterbox — show full image, no crop)
-    const vA = vid.videoWidth / vid.videoHeight, cA = SW / SH;
+    const cam = camSourceForEngines();
+    const vA = cam.w / cam.h, cA = SW / SH;
     let dx=0, dy=0, dw=SW, dh=SH;
     if (vA > cA) { dh = SW / vA; dy = (SH - dh) / 2; }
     else          { dw = SH * vA; dx = (SW - dw) / 2; }
     _ctxScrTmp.fillStyle='#000'; _ctxScrTmp.fillRect(0,0,SW,SH);
-    _ctxScrTmp.drawImage(vid, dx, dy, dw, dh);
+    _ctxScrTmp.drawImage(cam.source, dx, dy, dw, dh);
     // Camera + ext audio simultaneously: also feed audioMod so the live feed reacts to the music.
     // F4: incluye extMicOnlyMode — mic móvil modula GLITCH sin apagar la cámara.
     const camAudioMod = ((extAudioMode || extMicOnlyMode) && extAnalyser) ? _scrashReadAudioBands(extAnalyser) : undefined;
@@ -19823,18 +19877,21 @@ function _scrashLoop(t) {
     _applyScrash(_ctxScrTmp, ctxScrash, SW, SH, elapsed, audioMod);
   }
 
-  _scrRafId = requestAnimationFrame(_scrashLoop);
+  _scrRafId = 1; scheduleFrame(_scrashLoop);
 }
+// La cámara da 30 cuadros por segundo y el efecto depende del tiempo, no del número de vueltas:
+// dibujar 60 o 120 veces era repetir trabajo.
+_scrashLoop.maxFps = 30;
 
 function enterScrash() {
   scrashRunning = true;
   _scrStartT = null;
-  _scrRafId = requestAnimationFrame(_scrashLoop);
+  _scrRafId = 1; scheduleFrame(_scrashLoop);
 }
 
 function exitScrash() {
   scrashRunning = false;
-  if (_scrRafId) { cancelAnimationFrame(_scrRafId); _scrRafId = null; }
+  if (_scrRafId) { cancelFrame(_scrashLoop); _scrRafId = null; }
   if (scrashRecorder && scrashRecorder.state !== 'inactive') { _stopRecorderSafely(scrashRecorder); }
 }
 
@@ -20886,17 +20943,22 @@ if (screen.width > 768) {
   }
 
   // ── RAF render loop ─────────────────────────────────────────────────
+  // La cámara y la silueta llegan a 30 por segundo: ese es el tope. Una vuelta que no dibuja
+  // (el cuadro aún no ha llegado) no cuenta y se repite al refresco siguiente.
+  let _sfDrew = false;
   async function _sfLoop() {
     if (!_sfActive) return;
     const generation = flowGeneration;
+    _sfDrew = false;
     try {
       await _sfDrawFrame();
     } finally {
-      if (_sfActive && generation === flowGeneration) _sfRafId = requestAnimationFrame(_sfLoop);
+      if (_sfActive && generation === flowGeneration) { _sfRafId = 1; scheduleFrame(_sfLoop, 0, !_sfDrew); }
     }
   }
+  _sfLoop.maxFps = 30;
   async function _sfDrawFrame() {
-    if (_sfMode === 'audio') { await _sfLoopAudio(); return; }
+    if (_sfMode === 'audio') { _sfDrew = true; await _sfLoopAudio(); return; }
 
     if (!vid.videoWidth || vid.readyState < 2) return;
 
@@ -20911,6 +20973,7 @@ if (screen.width > 768) {
     const CW = sfCanvas.width;
     const CH = sfCanvas.height;
     if (!CW || !CH) return;
+    _sfDrew = true;
 
     // ── Silueta ──────────────────────────────────────────────────────
     // El detector compartido infiere en su worker; aquí se le ofrece el cuadro y se usa la
@@ -21100,8 +21163,8 @@ if (screen.width > 768) {
     _sfAudioStartT = performance.now();
     _sfActive = true;
     _sfBadge('');
-    cancelAnimationFrame(_sfRafId);
-    _sfRafId = requestAnimationFrame(_sfLoop);
+    cancelFrame(_sfLoop);
+    _sfRafId = 1; scheduleFrame(_sfLoop);
   }
 
   // Exposed so startExtAudio() can kick-start FLOW's audio mode when the
@@ -21143,8 +21206,8 @@ if (screen.width > 768) {
     _sfResize();
     _sfActive = true;
     _sfBadge('');
-    cancelAnimationFrame(_sfRafId);
-    _sfRafId = requestAnimationFrame(_sfLoop);
+    cancelFrame(_sfLoop);
+    _sfRafId = 1; scheduleFrame(_sfLoop);
   }
   // Al entrar en el módulo arranca solo; ya no hace falta pulsar CAM.
   window._sflowAutoStart = function() {
@@ -21166,7 +21229,7 @@ if (screen.width > 768) {
     _sfActive = false;
     _stopRecorderSafely(_sfRecorder);
     _sfMode = 'cam';
-    cancelAnimationFrame(_sfRafId);
+    cancelFrame(_sfLoop);
     _sfRafId = 0;
     // Clear canvas
     sfCtx.clearRect(0, 0, sfCanvas.width, sfCanvas.height);
@@ -21359,8 +21422,9 @@ function _fusionGetSrcCanvas() {
   if (_fusionSrc.width !== w || _fusionSrc.height !== h) { _fusionSrc.width = w; _fusionSrc.height = h; }
   if (vid.videoWidth) {
     const fctx = _fusionSrc.getContext('2d');
+    const cam = camSourceForEngines();
     fctx.save();
-    drawCover(fctx, vid, vid.videoWidth, vid.videoHeight, w, h);
+    drawCover(fctx, cam.source, cam.w, cam.h, w, h);
     fctx.restore();
     return _fusionSrc;
   }
@@ -21372,7 +21436,7 @@ function _fusionGetSrcCanvas() {
 function _fusionLoop(ts) {
   if (!fusionRunning) { _fusionLoopAlive = false; return; }
   _fusionLoopAlive = true;
-  const minInterval = 1000 / 30;
+  const minInterval = 1000 / 24 - 6;      // el ritmo lo marca el tope del bucle (maxFps)
   if (ts - _fusionLastFrameMs >= minInterval) {
     const srcCanvas = _fusionGetSrcCanvas();
     if (srcCanvas) {
@@ -21389,6 +21453,11 @@ function _fusionLoop(ts) {
   }
   scheduleFrame(_fusionLoop);
 }
+
+// 24 cuadros por segundo: con la lectura rápida de la cámara cada cuadro cuesta menos, y a 30 el
+// teléfono acababa trabajando más que antes (medido: de 21 cuadros a 30). A 24 trabaja menos que
+// antes y va igual o más suelto.
+_fusionLoop.maxFps = 24;
 
 (function _initFusion() {
   // ── Family pills — mirrors CAM's family list, drives the same global
@@ -21574,6 +21643,18 @@ const ctxEdit = editCanvas.getContext('2d');
 const editVideoEl = document.getElementById('editVideoEl');
 
 // cover-fit draw: fills w×h cropping overflow, no stretch distortion.
+// Recorte de la fuente al tamaño de muestreo. Si la fuente es la cámara en vivo, por la vía rápida.
+function drawCamCrop(ctx, source, srcW, srcH, sx, sy, sw, sh, dw, dh) {
+  if (source === vid) {
+    const cam = camSourceForEngines();
+    if (cam.fast) {
+      const kx = cam.w / srcW, ky = cam.h / srcH;
+      ctx.drawImage(cam.source, sx * kx, sy * ky, sw * kx, sh * ky, 0, 0, dw, dh);
+      return;
+    }
+  }
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, dw, dh);
+}
 function drawCover(ctx, srcEl, sw, sh, w, h) {
   if (!sw || !sh) return;
   const scale = Math.max(w / sw, h / sh);
@@ -21588,8 +21669,9 @@ function _editGetSrcCanvas() {
   const ctx = _editSrcCanvas.getContext('2d');
   if (editSource.type === 'cam') {
     if (!vid.videoWidth) return null;
+    const cam = camSourceForEngines();
     ctx.save();
-    drawCover(ctx, vid, vid.videoWidth, vid.videoHeight, w, h);
+    drawCover(ctx, cam.source, cam.w, cam.h, w, h);
     ctx.restore();
     return _editSrcCanvas;
   }
@@ -21686,7 +21768,7 @@ function _editStepParams(step) {
 
 function _editLoop(ts) {
   if (!editRunning) return;
-  const minInterval = 1000 / 30;
+  const minInterval = 1000 / 24 - 6;      // el ritmo lo marca el tope del bucle (maxFps)
   if (ts - _editLastFrameMs >= minInterval) {
     const srcCanvas = _editGetSrcCanvas();
     if (srcCanvas) {
@@ -21698,6 +21780,8 @@ function _editLoop(ts) {
   }
   scheduleFrame(_editLoop);
 }
+
+_editLoop.maxFps = 24;
 
 (function _initEdit() {
   // ── Restore persisted pipeline (window._editPipeline — see saveSettings/
@@ -22465,9 +22549,11 @@ if ('serviceWorker' in navigator) {
 }
 window.__flipMainReady = true;                              // el guion llegó hasta el final (lo comprueba el vigía de arranque)
 </script>
+<script src="./mp4-flat.js"></script>
 <script src="./feel.js"></script>
 <script src="./shell.js"></script>
 <script src="./console.js"></script>
+<script src="./light.js"></script>
 <script src="./portal.js"></script>
 <script src="./stage.js"></script>
 <script>

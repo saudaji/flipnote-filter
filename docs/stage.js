@@ -343,7 +343,7 @@ void main() {
   // ── Motor ───────────────────────────────────────────────────────────────────
   const eng = { canvas: null, gl: null, ok: false, error: '', w: 0, h: 0, fb: [], flip: 0, alloc: {}, camKind: 0, camSeq: -1, hasA: false, hasMask: false, maskSeq: -1, maskBytes: null, fit: [1, 1, 0, 0], mirror: 0, yuvKey: '', path: '' };
   const state = { active: false, raf: 0, clean: false, failed: 0 };
-  const clock = { last: 0, t: 0, n: 0, fps: 60, slow: 0, fast: 0, autoH: COARSE ? 540 : 720, dtAvg: 16.7, beat: 0 };
+  const clock = { last: 0, t: 0, n: 0, fps: 60, slow: 0, fast: 0, autoH: COARSE ? 540 : 720, dtAvg: 16.7, beat: 0, painted: 0 };
   const ph = { gen: 0, spin: 0, cycle: 0, roll: 0, warp: 0, lfo: [0, 0], rnd: [{ cycle: -1, from: 0, to: 0 }, { cycle: -1, from: 0, to: 0 }] };
   const mods = Object.fromEntries(SOURCES.map(s => [s[0], 0]));
   const val = {};
@@ -1031,7 +1031,9 @@ void main() {
         else { if (out.canvas.width !== eng.w || out.canvas.height !== eng.h) { out.canvas.width = eng.w; out.canvas.height = eng.h; } out.ctx.drawImage(eng.canvas, 0, 0); }
       } catch (_) { output.detach(); }
     }
-    if (clock.n % 2 === 0) paint(now);
+    // El panel se repinta 20 veces por segundo: de sobra para pilotos y agujas, y un tercio del
+    // trabajo de estilos que costaba repintarlo cada dos cuadros en una pantalla de 120 Hz.
+    if (now - clock.painted >= 48) { clock.painted = now; paint(now); }
   }
   function tick() {
     try { frame(); state.failed = 0; }
@@ -1040,13 +1042,14 @@ void main() {
       if (state.failed === 30) note('STAGE se detuvo por un error de dibujo. Sal y vuelve a entrar.');
     }
   }
-  function pumpMain() {
-    state.raf = requestAnimationFrame(() => {
-      if (!state.active) return;
-      if (!(out.ctx && performance.now() - out.lastTick < 150)) tick();     // con ventana de salida, manda su reloj
-      pumpMain();
-    });
+  // 60 cuadros por segundo como mucho: en una pantalla de 120 Hz dibujaba el doble sin que se viera.
+  function mainFrame() {
+    if (!state.active) return;
+    if (!(out.ctx && performance.now() - out.lastTick < 150)) tick();     // con ventana de salida, manda su reloj
+    pumpMain();
   }
+  mainFrame.maxFps = 60;
+  function pumpMain() { scheduleFrame(mainFrame); }
 
   // ── Salida ──────────────────────────────────────────────────────────────────
   const out = { win: null, canvas: null, ctx: null, lastTick: -1e9 };
@@ -1607,7 +1610,7 @@ void main() {
     if (!eng.gl && !eng.error) eng.ok = initGl();
     if (typeof stream !== 'undefined' && !stream && !extAudioMode && typeof startCamera === 'function') startCamera(facingMode).catch(() => {});
     clock.last = performance.now();
-    cancelAnimationFrame(state.raf);
+    cancelFrame(mainFrame);
     pumpMain(); pumpOut(); wake(true);
     patched(); syncKeys(); lcd(true);
     // La primera vez, dos frases que explican el aparato.
@@ -1621,7 +1624,7 @@ void main() {
   function exit() {
     state.active = false;
     document.body.classList.remove('stage-mode');
-    cancelAnimationFrame(state.raf);
+    cancelFrame(mainFrame);
     recStop();
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     if (out.win && !out.win.closed) { try { out.win.close(); } catch (_) {} }

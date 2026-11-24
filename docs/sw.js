@@ -1,8 +1,8 @@
-const CACHE = 'flipnote-filter-v85-consola';
+const CACHE = 'flipnote-filter-v86-fresco';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './frame-runtime.js', './stamp.js', './optical-scope.js', './night-vision.js', './sensor.js',
-  './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './console.css', './console.js', './feel.js', './portal.js', './stage.js', './stage.css', './stage-out.html', './hands-worker.js', './pretext.js', './enochian.ttf',
-  './body/body.webp', './body/bezel.webp', './body/tray.webp', './body/lcd.webp', './body/knob.webp', './body/dial.webp', './body/dial-cream.webp', './body/jack.webp',
+  './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './console.css', './console.js', './feel.js', './mp4-flat.js', './light.js', './portal.js', './stage.js', './stage.css', './stage-out.html', './hands-worker.js', './pretext.js', './enochian.ttf',
+  './body/shell-top.webp', './body/shell-mid.webp', './body/shell-bottom.webp', './body/shell-foot.webp', './body/bezel.webp', './body/tray.webp', './body/lcd.webp', './body/knob.webp', './body/dial.webp', './body/dial-cream.webp', './body/jack.webp',
   './body/nub.webp', './body/grain.webp', './body/look-key.webp', './body/look-key-down.webp', './body/look-key-on.webp', './body/shutter-photo.webp', './body/shutter-photo-down.webp',
   './body/shutter-video.webp', './body/shutter-video-down.webp', './body/candy-graphite.webp',
   './body/candy-graphite-down.webp', './body/candy-coral.webp', './body/candy-coral-down.webp',
@@ -14,7 +14,7 @@ const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512
   './body/keycap-coral-down.webp', './body/keycap-slate.webp', './body/keycap-slate-down.webp',
   './body/keycap-gray.webp', './body/keycap-gray-down.webp', './body/keycap-mustard.webp',
   './body/keycap-mustard-down.webp',
-  './body/console-plate.webp', './body/console-knob.webp', './body/console-sel3.webp', './body/console-sel2.webp', './body/console-mark.webp', './body/console-slide.webp', './body/console-nub.webp',
+  './body/console-plate.webp', './body/console-knob.webp', './body/console-scale.webp', './body/console-sel3.webp', './body/console-sel2.webp', './body/console-mark.webp', './body/console-slide.webp', './body/console-nub.webp',
   './body/console-key.webp', './body/console-key-on.webp', './body/console-key-down.webp', './body/console-key-down-on.webp', './body/console-key-coral.webp', './body/console-key-coral-down.webp',
   './body/look-DSI.webp', './body/look-STAMP.webp', './body/look-AUTO03.webp', './body/look-DLPHN.webp',
   './body/look-CASKIA.webp', './body/look-VFD.webp', './body/look-OSCAM.webp', './body/look-SLHT.webp',

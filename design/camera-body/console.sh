@@ -13,7 +13,10 @@ r() { out="$OUT/$1.png"; kind="$2"; shift 2; "$BLENDER" -b -P "$HERE/panel.py" -
 r console-plate plate w=384 h=240 scale=3 samples=192
 # Perillas: la luz se estrecha para que la cara torneada dé su brillo en abanico.
 KNOB="scale=4 samples=160 sheen=0.3 ambient=0.38 key=1.4 face_rough=0.27"
-r console-knob knob $KNOB ticks=11 sweep=270
+# La perilla va sin su escala (ticks=0) y la escala, en pieza aparte: con la luz viva el cuerpo de la
+# perilla gira unos grados y la escala, que está serigrafiada en la placa, no.
+r console-knob knob $KNOB ticks=0
+r console-scale scale $KNOB ticks=11 sweep=270
 r console-sel3 knob $KNOB ticks=3 sweep=100
 r console-sel2 knob $KNOB ticks=2 sweep=70
 r console-mark mark $KNOB

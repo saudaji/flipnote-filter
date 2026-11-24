@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
   <title>FLIP óptico · 16 px</title>
-  <g fill="#273FA8"><rect x="0" y="0" width="16" height="16" rx="2.88"/></g><path d="M2 7Q2 5 4 5H5L6 3H10L11 5H13Q14 5 14 7V12Q14 14 12 14H4Q2 14 2 12ZM4 9Q5.6 7.5 7 9L6.4 10.3Q5.5 9.7 4.6 10.3ZM12 9.5a1.65 1.65 0 1 0-3.3 0 1.65 1.65 0 1 0 3.3 0Z" fill="#FFF3DC" fill-rule="evenodd"/>
+  <rect width="16" height="16" rx="2.88" fill="#0B0C14"/><path d="M2 7Q2 5 4 5H5L6 3H10L11 5H13Q14 5 14 7V12Q14 14 12 14H4Q2 14 2 12Z" fill="#7DDB8B"/><path d="M4 9Q5.6 7.5 7 9L6.4 10.3Q5.5 9.7 4.6 10.3Z" fill="#FFF3DC"/><circle cx="10.35" cy="9.5" r="1.75" fill="#FFF3DC"/>
 </svg>

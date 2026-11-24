@@ -32,7 +32,10 @@ const URL0 = process.env.PIXEL_URL || 'http://localhost:8760';
 
   // ── 1 · Portada ──
   await c.reload();
-  await P.sleep(3500);
+  // Por red y sin caché la app tarda en llegar: se espera a que esté entera, no un tiempo fijo.
+  await P.sleep(1500);
+  for (let i = 0; i < 80; i++) { if (await c.evaluate(`document.readyState === 'complete' && !!window.flipShell && !!document.querySelector('.splash-hero.rollo-ident-listo')`).catch(() => false)) break; await P.sleep(500); }
+  await P.sleep(800);
   const cover = await js(async () => {
     await document.fonts.ready;
     const ident = document.querySelector('.rollo-ident'), title = document.querySelector('.rollo-titulo');
@@ -119,7 +122,10 @@ const URL0 = process.env.PIXEL_URL || 'http://localhost:8760';
     press[variant] = { ...s, fps, state: await js(() => { const st = flipPress.state(); return [st.mode, st.w, st.h, +st.cell.toFixed(1), st.fw, st.fh]; }) };
     await shot('08-prensa-' + variant.toLowerCase());
     assert.ok(s.luma > 0.08 && s.luma < 0.95 && s.tones > 30, variant + ': hay imagen impresa ' + JSON.stringify(s));
-    assert.ok(fps > 18, variant + ': va a su cadencia (' + fps + ' de 24)');
+    // La cadencia que toca es la del teléfono: la de fábrica de PRENSA (24) o la que el usuario tenga limitada.
+    const target = await js(() => camFpsTarget);
+    press[variant].target = target;
+    assert.ok(fps > target * 0.85, variant + ': va a su cadencia (' + fps + ' de ' + target + ')');
   }
   assert.ok(press.DIARIO.vivid < 0.02, 'DIARIO es de una tinta en el teléfono: ' + press.DIARIO.vivid);
   step('PRENSA con cámara real', { grafica: gl.renderer, highp: gl.highp, ...press });

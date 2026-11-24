@@ -1,4 +1,4 @@
-const CACHE = 'flipnote-filter-v94-portada';
+const CACHE = 'flipnote-filter-v95-grano';
 const ASSETS = [
   './index.html', './manifest.json', './icon-192.png', './icon-512.png', './frame-runtime.js', './stamp.js', './optical-scope.js', './press.js',
   './night-vision.js', './sensor.js', './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './console.css', './console.js',
@@ -8,7 +8,7 @@ const ASSETS = [
   './body/bezel.webp', './body/candy-graphite-down.webp', './body/candy-graphite.webp', './body/candy-lilac-down.webp', './body/candy-lilac.webp',
   './body/candy-white-down.webp', './body/candy-white.webp', './body/console-key-down-on.webp', './body/console-key-down.webp',
   './body/console-key-on.webp', './body/console-key.webp', './body/console-nub.webp', './body/console-plate.webp', './body/console-scale.webp',
-  './body/console-sel2.webp', './body/console-sel3.webp', './body/console-slide.webp', './body/dial-cream.webp', './body/grain.webp',
+  './body/console-sel2.webp', './body/console-sel3.webp', './body/console-slide.webp', './body/dial-cream.webp', './body/grain.webp','./body/grano.webp', './body/grano-relieve.webp', 
   './body/jack.webp', './body/keycap-gray-down.webp', './body/keycap-gray.webp', './body/knob.webp', './body/lcd.webp', './body/look-AUTO03.webp',
   './body/look-CASKIA.webp', './body/look-DLPHN.webp', './body/look-DSI.webp', './body/look-OSCAM.webp', './body/look-PRENSA.webp', './body/look-SLHT.webp',
   './body/look-STAMP.webp', './body/look-VFD.webp', './body/nub.webp', './body/shell-bottom.webp', './body/shell-foot.webp', './body/shell-mid.webp',

@@ -24,13 +24,20 @@ function pila(size, span) {
     `<path d="${GUINO}" fill="${OJO}"/><circle cx="43" cy="34" r="8" fill="${OJO}"/><circle cx="43" cy="34" r="4.3" fill="${PUPILA}"/></g>`;
 }
 const svg = (size, title, body) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}">\n  <title>${title}</title>\n  ${body}\n</svg>\n`;
-// A 16 y 32 px el símbolo va dibujado a la rejilla; a 16 no caben las capas.
+// El grano mate de la interfaz (docs/body/grano.webp), encima de todo el icono. En el SVG que se
+// guarda apunta a la tesela del repositorio; al sacar cada PNG se incrusta y se escala para que una
+// mota mida un píxel de ese tamaño (si no, a 192 se promediaría y a 1024 saldría en bloques).
+const TESELA = 'GRANO_HREF', LADO = 'GRANO_LADO';
+const grano = (size, rx) => `<defs><pattern id="grano" width="${LADO}" height="${LADO}" patternUnits="userSpaceOnUse"><image href="${TESELA}" width="${LADO}" height="${LADO}"/></pattern></defs>` +
+  `<rect width="${size}" height="${size}" rx="${rx}" fill="url(#grano)"/>`;
+const conGrano = (text, href, lado) => text.split(TESELA).join(href).split(LADO).join(String(lado));
+// A 16 y 32 px el símbolo va dibujado a la rejilla; a 16 no caben las capas ni el grano.
 const G16 = 'M2 7Q2 5 4 5H5L6 3H10L11 5H13Q14 5 14 7V12Q14 14 12 14H4Q2 14 2 12Z';
 const G32 = 'M4 13Q4 9 8 9H10L12 5H20L22 9H25Q28 9 28 13V23Q28 28 23 28H8Q4 28 4 24Z';
 const files = {
-  'maestro.svg': svg(1024, 'FLIP · maestro', `<rect width="1024" height="1024" rx="188" fill="${FONDO}"/>${pila(1024, 0.70)}`),
-  'maskable.svg': svg(1024, 'FLIP · maskable', `<rect width="1024" height="1024" fill="${FONDO}"/>${pila(1024, 0.54)}`),
-  '../comunicacion/avatar.svg': svg(1080, 'FLIP · avatar', `<rect width="1080" height="1080" fill="${FONDO}"/>${pila(1080, 0.56)}`),
+  'maestro.svg': svg(1024, 'FLIP · maestro', `<rect width="1024" height="1024" rx="188" fill="${FONDO}"/>${pila(1024, 0.70)}${grano(1024, 188)}`),
+  'maskable.svg': svg(1024, 'FLIP · maskable', `<rect width="1024" height="1024" fill="${FONDO}"/>${pila(1024, 0.54)}${grano(1024, 0)}`),
+  '../comunicacion/avatar.svg': svg(1080, 'FLIP · avatar', `<rect width="1080" height="1080" fill="${FONDO}"/>${pila(1080, 0.56)}${grano(1080, 0)}`),
   '16.svg': svg(16, 'FLIP óptico · 16 px', `<rect width="16" height="16" rx="2.88" fill="${FONDO}"/><path d="${G16}" fill="${VERDE}"/>` +
     `<path d="M4 9Q5.6 7.5 7 9L6.4 10.3Q5.5 9.7 4.6 10.3Z" fill="${OJO}"/><circle cx="10.35" cy="9.5" r="1.75" fill="${OJO}"/>`),
   '32.svg': svg(32, 'FLIP óptico · 32 px', `<rect width="32" height="32" rx="5.76" fill="${FONDO}"/><g transform="translate(1.2 0.6) scale(0.86)"><path transform="translate(4 4)" d="${G32}" fill="${AZUL}"/>` +
@@ -40,11 +47,13 @@ const pngs = [['maestro.svg', 'maestro.png', 1024], ['maestro.svg', 'any-512.png
   ['maskable.svg', 'maskable-512.png', 512], ['maskable.svg', 'maskable-192.png', 192], ['../comunicacion/avatar.svg', '../comunicacion/avatar.png', 1080], ['16.svg', '16.png', 16], ['32.svg', '32.png', 32]];
 (async () => {
   fs.mkdirSync(out, { recursive: true });
-  for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(out, name), body);
+  const tile = 'data:image/webp;base64,' + fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'body', 'grano.webp')).toString('base64');
+  for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(out, name), conGrano(body, name.startsWith('..') ? '../../../body/grano.webp' : '../../../body/grano.webp', 256));
   const browser = await chromium.launch({ channel: 'chrome' });
   for (const [source, target, size] of pngs) {
     const page = await browser.newPage({ viewport: { width: size, height: size }, deviceScaleFactor: 1 });
-    await page.setContent(`<style>html,body{margin:0;background:transparent}svg{display:block;width:${size}px;height:${size}px}</style>` + files[source]);
+    const canvas = Number(files[source].match(/viewBox="0 0 (\d+)/)[1]);
+    await page.setContent(`<style>html,body{margin:0;background:transparent}svg{display:block;width:${size}px;height:${size}px}</style>` + conGrano(files[source], tile, 256 * canvas / size));
     fs.writeFileSync(path.join(out, target), await page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } }));
     await page.close();
   }

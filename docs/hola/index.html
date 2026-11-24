@@ -57,6 +57,10 @@
     .tecla.clara:active { box-shadow: 0 1px 0 #B9AE94, inset 0 1px 0 #fff; }
     .tecla:focus-visible, a:focus-visible, video:focus-visible { outline: 3px solid var(--verde); outline-offset: 3px; }
     [hidden] { display: none !important; }
+    /* El grano mate de la marca, encima de toda la página menos de la película y de las muestras:
+       esas enseñan lo que hace cada cámara y no llevan más filtro que el suyo. */
+    .grano { position: fixed; inset: 0; z-index: 5; pointer-events: none; background: url('../body/grano.webp') 0 0 / 128px 128px repeat; }
+    .camaras img, .pelicula video { position: relative; z-index: 6; }
 
     header { display: flex; align-items: center; justify-content: space-between; padding: calc(18px + env(safe-area-inset-top, 0px)) 0 0; }
     header img { display: block; width: 104px; height: auto; }
@@ -128,6 +132,7 @@
   </style>
 </head>
 <body>
+<div class="grano" aria-hidden="true"></div>
 <header class="ancho">
   <img src="../brand/rollo-en-anil/marca/horizontal-clara.svg" alt="FLIP" width="242" height="66">
   <a class="abrir" href="../" data-abrir>Abrir FLIP</a>

@@ -951,3 +951,57 @@ body.portal-mode #osdHint { bottom: 52px; }
 body.is-resting :is(#display, #asciiCanvas, #sflowCanvas, #scrashCanvas, #fusionCanvas, #editCanvas),
 body.is-waking :is(#display, #asciiCanvas, #sflowCanvas, #scrashCanvas, #fusionCanvas, #editCanvas) { opacity: .16; }
 
+/* ── Grano mate ──────────────────────────────────────────────────────────────
+   El aparato no es un color plano de pantalla: cada material lleva su grano.
+   · El plástico (carcasa, teclas, hojas, lanzador): grano con relieve, iluminado como la carcasa.
+   · Lo lustroso y el cristal (botones redondos, disparador, pantallita, miniatura): apenas.
+   · Lo que se ve en un cristal apagado (el logo de la portada): grano de película.
+   · El visor, los lienzos de los módulos y las fotos: nada. La imagen no lleva más filtro que el
+     de su cámara.
+   Las capas las pone shell.js (grano()); son estáticas y se componen sin modos de fusión, así
+   que no cuestan nada mientras la cámara pinta. Se quita con la tecla GRANO del lanzador. */
+.grano {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 2147483000; pointer-events: none; border-radius: inherit;
+  background: url('./body/grano-relieve.webp') 0 0 / 128px 128px repeat;
+}
+body[data-grano="no"] .grano { display: none; }
+.grano-ancla { position: relative; }
+.grano.pelicula { background-image: url('./body/grano.webp'); }
+/* Piezas lustrosas o de cristal: salen por encima del grano de su superficie y llevan el suyo, leve. */
+:is(.hw-candy, #deckShutter, .hw-lcd, #deckGallery) { z-index: 2147483001; }
+.grano.leve { z-index: 3; opacity: .36; background-image: url('./body/grano.webp'); }
+:is(.hw-candy, #deckShutter) > .grano.leve { border-radius: 50%; }
+/* El grano no se sale de la carcasa: sigue su canto redondeado (las mismas medidas que su render). */
+body { --grano-margen: calc(100vw / 406 * 3.4); --grano-canto: calc(100vw / 406 * 21.6); }
+@media (min-width: 520px) { body { --grano-margen: 3px; --grano-canto: 22px; } }
+:is(#shellLauncher, #shellViewer, #splash) > .grano {
+  left: var(--grano-margen); top: var(--grano-margen); width: calc(100% - var(--grano-margen) * 2); height: calc(100% - var(--grano-margen) * 2); border-radius: var(--grano-canto);
+}
+#shellTop > .grano {
+  left: var(--grano-margen); top: var(--grano-margen); width: calc(100% - var(--grano-margen) * 2); height: calc(100% - var(--grano-margen));
+  border-radius: var(--grano-canto) var(--grano-canto) 0 0;
+}
+:is(#camDeck, #flipBottomNav, #barSflow, #barEdit, #barStage) > .grano {
+  left: var(--grano-margen); width: calc(100% - var(--grano-margen) * 2); height: calc(100% - var(--grano-margen));
+  border-radius: 0 0 var(--grano-canto) var(--grano-canto);
+}
+/* La carcasa de fondo: z 0 dentro de #camBody; shell.js le recorta las barras, que ya traen su capa. */
+#camBody > .grano { z-index: 0; border-radius: 0; left: var(--grano-margen); width: calc(100% - var(--grano-margen) * 2); }
+/* El marco del visor: solo el aro, no el cristal. */
+#lcd > .grano {
+  left: calc(var(--bw22, 22px) * -1); top: calc(var(--bw22, 22px) * -1); width: calc(100% + var(--bw22, 22px) * 2); height: calc(100% + var(--bw22, 22px) * 2);
+  /* El aro claro es la mitad de fuera del marco; la de dentro es la junta oscura del cristal. */
+  box-sizing: border-box; padding: calc(var(--bw22, 22px) * .46); border-radius: 0; z-index: 5;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+/* La portada: el relieve no entra en el cristal de su pantalla (mismas medidas que .splash-hero);
+   ahí dentro el logo lleva grano de película. */
+#splash > .grano {
+  --hx: calc(32.5px - var(--grano-margen)); --hy: calc(36.5px + env(safe-area-inset-top, 0px) - var(--grano-margen));
+  -webkit-mask: linear-gradient(#000 0 0) var(--hx) var(--hy) / calc(100% - var(--hx) * 2) calc(100% - var(--hy) - 340.5px + var(--grano-margen)) no-repeat, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) var(--hx) var(--hy) / calc(100% - var(--hx) * 2) calc(100% - var(--hy) - 340.5px + var(--grano-margen)) no-repeat exclude, linear-gradient(#000 0 0);
+}
+.splash-hero > .grano { left: -11.5px; top: -11.5px; width: calc(100% + 23px); height: calc(100% + 23px); border-radius: 7.5px; z-index: 4; }
+/* En el visor de fotos, la foto queda por encima del grano. */
+.viewer-stage img, .viewer-stage video { position: relative; z-index: 2147483001; }

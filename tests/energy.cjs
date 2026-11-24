@@ -5,7 +5,7 @@
 // cámara, mensajes a los hilos de trabajo, contextos de audio y de WebGL vivos y animaciones de CSS
 // en marcha. No mide temperatura (eso es del teléfono: tests/device/pixel-heat.cjs); sirve para
 // ver qué corre sin hacer falta y para comparar antes y después de un cambio.
-//   FLIP_URL=http://127.0.0.1:8760 node tests/energy.cjs [--seconds 6] [--fps 30] [--hz 120] [--only cam,portal] [--json salida.json]
+//   FLIP_URL=http://127.0.0.1:8760 node tests/energy.cjs [--seconds 6] [--fps 30] [--hz 120] [--only cam,portal] [--grano no] [--json salida.json]
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
@@ -97,6 +97,7 @@ async function main() {
   try {
     const context = await browser.newContext({ ...PIXEL, acceptDownloads: true });
     if (hz) await context.addInitScript(value => { window.__energyHz = value; }, hz);
+    if (arg('--grano', '') === 'no') await context.addInitScript(() => { try { localStorage.setItem('flip.rollo.grano', 'no'); } catch (_) {} });
     await context.addInitScript(instrument);
     await context.addInitScript({ path: path.join(__dirname, 'scenes.js') });
     await context.addInitScript({ path: path.join(__dirname, 'lib', 'page-kit.js') });

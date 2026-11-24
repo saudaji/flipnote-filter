@@ -115,6 +115,85 @@
   }
   if (window.flipRollo) flipRollo.mount(splashEl, deck, launcher);
 
+  // ── Grano mate ──────────────────────────────────────────────────────────────
+  // Cada material del aparato lleva su grano (shell.css, .grano): relieve en el plástico, apenas
+  // en lo lustroso y en el cristal, de película en el logo de la portada. El visor, los lienzos de
+  // los módulos, las fotos y lo que flota sobre ellos (avisos, la barra de exportar, el ajuste de
+  // SFLOW) no están en ninguna lista: la imagen se queda limpia. Se enciende y se apaga con la tecla GRANO del lanzador (y se recuerda).
+  const GRANO_BARRAS = '#shellTop, #camDeck, #flipBottomNav, #barSflow, #barEdit, #barStage, #scrashControls, #fusionHUD, #sonoHUD, #wmpHUD, #editHUD, .rig-side';
+  const GRANO_HOJAS = '#lcd, #flipSettingsPanel, #shellLauncher, #shellViewer, #splash, #asciiPanel, #upPanel, .rig-panel, .cs-rack';
+  const GRANO_PIEZAS = '.hw-candy, #deckShutter, .hw-lcd, #deckGallery';
+  const GRANO_KEY = 'flip.rollo.grano';
+  let granoTimer = 0;
+  const granoSoon = () => { clearTimeout(granoTimer); granoTimer = setTimeout(grano, 140); };
+  // Si una pieza rehace su contenido (la pantallita al arrancar), su capa vuelve sola.
+  const granoWatch = new MutationObserver(() => granoSoon());
+  const capaGrano = (host, kind) => {
+    let layer = host.querySelector(':scope > .grano');
+    if (!layer) {
+      layer = el('i', { class: 'grano' + (kind ? ' ' + kind : ''), 'aria-hidden': 'true' });
+      host.appendChild(layer);
+      if (getComputedStyle(host).position === 'static') host.classList.add('grano-ancla');
+      granoWatch.observe(host, { childList: true });
+    }
+    return layer;
+  };
+  function grano() {
+    if (document.body.dataset.grano === 'no') return;
+    document.querySelectorAll(GRANO_BARRAS + ', ' + GRANO_HOJAS).forEach(surface => {
+      const layer = capaGrano(surface);
+      if (surface.id === 'lcd') return;
+      // Una hoja con desplazamiento: el grano cubre todo su contenido, no solo lo que asoma.
+      if (layer.style.height) layer.style.height = '';
+      if (surface.scrollHeight > surface.clientHeight + 1) layer.style.height = surface.scrollHeight + 'px';
+    });
+    // Las piezas están pintadas en su borde (border-image): su capa cubre la pieza entera.
+    document.querySelectorAll(GRANO_PIEZAS).forEach(piece => {
+      const layer = capaGrano(piece, 'leve'), style = getComputedStyle(piece);
+      const b = ['Left', 'Top', 'Right', 'Bottom'].map(side => parseFloat(style['border' + side + 'Width']) || 0);
+      const box = b.join(' ');
+      if (layer.dataset.borde === box) return;
+      layer.dataset.borde = box;
+      layer.style.left = -b[0] + 'px'; layer.style.top = -b[1] + 'px';
+      layer.style.width = 'calc(100% + ' + (b[0] + b[2]) + 'px)'; layer.style.height = 'calc(100% + ' + (b[1] + b[3]) + 'px)';
+    });
+    const hero = document.querySelector('.splash-hero');
+    if (hero) capaGrano(hero, 'pelicula');
+    // La carcasa de fondo lleva su grano en todo menos donde hay una barra, que trae el suyo:
+    // así no hay franja sin grano entre piezas ni sitio donde se junten dos capas.
+    const body = $('camBody');
+    if (body) {
+      const layer = capaGrano(body), base = layer.getBoundingClientRect();
+      let path = 'M0 0H' + base.width.toFixed(1) + 'V' + base.height.toFixed(1) + 'H0Z';
+      document.querySelectorAll(GRANO_BARRAS).forEach(bar => {
+        const r = bar.getBoundingClientRect(), style = getComputedStyle(bar);
+        if (r.width < 8 || r.height < 8 || style.display === 'none' || style.visibility === 'hidden') return;
+        path += 'M' + (r.left - base.left).toFixed(1) + ' ' + (r.top - base.top).toFixed(1) + 'h' + r.width.toFixed(1) + 'v' + r.height.toFixed(1) + 'h' + (-r.width).toFixed(1) + 'Z';
+      });
+      layer.style.clipPath = 'path(evenodd, "' + path + '")';
+    }
+  }
+  const setGrano = on => {
+    document.body.dataset.grano = on ? 'si' : 'no';
+    try { localStorage.setItem(GRANO_KEY, on ? 'si' : 'no'); } catch (_) {}
+    const key = $('rolloGrano');
+    if (key) { key.textContent = on ? 'SIN GRANO' : 'CON GRANO'; key.setAttribute('aria-pressed', String(on)); }
+    if (on) grano();
+  };
+  let granoOn = true;
+  try { granoOn = localStorage.getItem(GRANO_KEY) !== 'no'; } catch (_) {}
+  const head = launcher.querySelector('.launcher-head');
+  if (head) {
+    const key = el('button', { type: 'button', id: 'rolloGrano', class: 'hw hw-keycap', 'aria-label': 'Poner o quitar el grano mate del aparato' });
+    key.addEventListener('click', () => setGrano(document.body.dataset.grano === 'no'));
+    head.insertBefore(key, head.querySelector('#launcherClose'));
+  }
+  setGrano(granoOn);
+  new MutationObserver(granoSoon).observe(document.body, { attributes: true, attributeFilter: ['data-tab', 'data-tema'] });
+  addEventListener('click', granoSoon, true);
+  addEventListener('resize', granoSoon);
+  window.flipGrano = { paint: grano, set: setGrano, on: () => document.body.dataset.grano !== 'no' };
+
   // ── Geometría del visor ─────────────────────────────────────────────────────
   // relayout() pregunta aquí cuánto mide el cristal donde va el visor de CAM.
   window.flipShellGlass = function () {

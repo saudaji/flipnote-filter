@@ -71,8 +71,18 @@ function check(name, shot, wantAudio) {
   const a = packets(shot.rawFile), b = packets(shot.saved);
   assert.equal(a.length, b.length, 'mismo número de paquetes');
   for (let i = 0; i < a.length; i++) assert.ok(a[i][0] === b[i][0] && a[i][2] === b[i][2] && a[i][5] === b[i][5], 'paquete ' + i + ' idéntico (pista, tiempo y contenido)');
+  // El arranque: la imagen empieza con el sonido (no medio segundo después) y con un solo fotograma
+  // clave. Si el flujo de vídeo se abre antes de que el sonido esté listo, el grabador recibe un
+  // primer cuadro suelto por otro camino: en un teléfono Chrome avisa de que «la descripción del
+  // códec cambia» y el vídeo arranca tarde, con dos fotogramas clave seguidos.
+  const start = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,start_time,duration:packet=stream_index,pts_time,flags', '-of', 'json', shot.saved], { encoding: 'utf8', maxBuffer: 1 << 26 }));
+  const picture = start.streams.findIndex(s => s.codec_type === 'video'), sound = start.streams.find(s => s.codec_type === 'audio');
+  const keys = start.packets.filter(p => p.stream_index === picture && /K/.test(p.flags) && Number(p.pts_time) < 0.5).length;
+  const lead = Number(start.streams[picture].start_time) || 0, seconds = Number(start.streams[picture].duration);
+  assert.equal(keys, 1, 'un solo fotograma clave en el arranque');
+  if (sound) assert.ok(lead < 0.25 && Math.abs(seconds - Number(sound.duration)) < 0.4, 'la imagen empieza con el sonido: imagen desde ' + lead + ' s, ' + seconds + ' s de imagen y ' + sound.duration + ' s de sonido');
   execFileSync('ffmpeg', ['-v', 'error', '-xerror', '-i', shot.saved, '-f', 'null', '-']);
-  step(name, { antes: before.top.join(' '), cabeceraAntes: before.mvhd.seconds, ahora: after.top.join(' '), segundos: after.mvhd.seconds, paquetes: b.length, sonido: audio ? audio.codec_name : 'sin' });
+  step(name, { arranque: lead,  antes: before.top.join(' '), cabeceraAntes: before.mvhd.seconds, ahora: after.top.join(' '), segundos: after.mvhd.seconds, paquetes: b.length, sonido: audio ? audio.codec_name : 'sin' });
 }
 
 (async () => {

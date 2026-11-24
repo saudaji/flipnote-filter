@@ -15247,13 +15247,17 @@ function _createRecordingCanvasStream(sourceCanvas, fps = 30, options = {}) {
 }
 async function _createFlipRecordingJob(canvas, fps, videoBitsPerSecond, options = {}) {
   const dims = _getFlipRecordDimensions(canvas, options);
-  const canvasCapture = _createRecordingCanvasStream(canvas, fps, { ...options, dims });
+  // Primero el sonido, después el vídeo. Preparar el micrófono tarda; si el flujo del lienzo se abre
+  // antes y espera, al arrancar el grabador le llega un primer cuadro suelto por otro camino (otra
+  // etiqueta de color): Chrome avisa de que «la descripción del códec cambia», la imagen empieza
+  // medio segundo después que el sonido y arranca con dos fotogramas clave seguidos.
   let audioReady = false;
   try {
     audioReady = await flipAudioEngine.prepareForRecording(flipAudioSettings);
   } catch (_) {
     audioReady = false;
   }
+  const canvasCapture = _createRecordingCanvasStream(canvas, fps, { ...options, dims });
   const stream = createCombinedStream(canvasCapture.stream, audioReady ? flipAudioEngine : null);
   try {
     const recState = _createFlipRecorder(stream, _getFlipVideoBitrate(videoBitsPerSecond, dims, fps));

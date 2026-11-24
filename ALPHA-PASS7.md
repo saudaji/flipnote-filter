@@ -17,7 +17,9 @@ emitir en directo. Abierto por dentro, el archivo que guardaba FLIP era así:
 | 4 s, sin sonido | `ftyp moov moof mdat mfra` | 0 | 4,1 s |
 | 13 s, con sonido | `ftyp moov moof mdat moof mdat moof mdat` | 0 | **0 s** |
 
-En cuanto la toma pasa de unos segundos, la cabecera declara **duración cero** y no hay índice.
+El índice falta siempre. Y en tomas de más de unos segundos la cabecera declara a menudo
+**duración cero** (depende de cuántos tramos haya cerrado el grabador: en las pruebas, la misma
+toma de 13 s salió unas veces con duración 0 y otras con la suya).
 Un reproductor lo sortea; quien lo importa para recortarlo y recodificarlo, no. Además el archivo
 salía con el tipo `video/mp4;codecs=avc1`, con la coletilla de códecs, que es lo que recibe el
 sistema al compartir.
@@ -120,7 +122,7 @@ a 30 el Samsung pasaba de los 21 que conseguía antes a 30 y acababa trabajando 
 ### Añadido después: la cámara descansa cuando nadie la mira
 
 Visto que casi todo el calor es la cámara encendida, lo único que de verdad lo baja es no tenerla
-encendida de más (`docs/rest.js`). Publicado en `main` la misma noche (caché v87).
+encendida de más (`docs/rest.js`). Publicado en `main` la misma noche (caché v88).
 
 - **Visor de la última toma**: mientras se mira una foto o un vídeo, la cámara se suelta y los
   bucles de dibujo esperan. Al cerrar, vuelve. Un vistazo de menos de un segundo no la toca.

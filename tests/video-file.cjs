@@ -1,6 +1,6 @@
 // El vídeo que sale de FLIP tiene que poder importarse en otra app (Instagram, WhatsApp, el
-// carrete). MediaRecorder lo escribe fragmentado y, en tomas de más de unos segundos, con
-// duración 0 en la cabecera; docs/mp4-flat.js lo deja como un MP4 de una pieza. Aquí se graba
+// carrete). MediaRecorder lo escribe fragmentado (sin índice de cuadros) y, en muchas tomas
+// largas, con duración 0 en la cabecera; docs/mp4-flat.js lo deja como un MP4 de una pieza. Aquí se graba
 // con la tubería real y se comprueba el archivo que llega a Descargas:
 //   · sin tramos (moof/mvex), con el índice completo y la duración verdadera en la cabecera
 //   · los mismos cuadros y el mismo sonido que salieron del codificador, bit a bit
@@ -87,8 +87,10 @@ function check(name, shot, wantAudio) {
     await page.evaluate(() => { flipAudioSettings.audioMode = 'on'; });
     const long = await take(page, 'larga', 13);
     check('toma larga con sonido', long, true);
-    assert.equal(inspect(long.rawFile).info.mvhd.seconds, 0, 'el original largo declara duración 0 (lo que rompía la importación)');
-    step('el original largo declaraba duración 0', { tramos: inspect(long.rawFile).info.fragments });
+    // El original, según cuántos tramos haya cerrado el grabador, declara su duración o declara 0.
+    // No depende de FLIP, así que solo se anota; lo que se exige es cómo queda el archivo guardado.
+    const rawInfo = inspect(long.rawFile).info;
+    step('el original largo, tal como lo escribe el navegador', { tramos: rawInfo.fragments, duracionDeclarada: rawInfo.mvhd.seconds, cuadrosEnElIndice: rawInfo.tracks.map(t => t.samplesInTable) });
     assert.deepEqual(errors, [], 'sin errores de página');
 
     // ── El conversor no pierde tomas ──

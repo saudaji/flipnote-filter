@@ -72,7 +72,9 @@ function scheduleFrame(loop, wait, idle) {
   if (idle) state.last = state.prev;
   if (framesPaused) { framesHeld.add(loop); return; }
   const now = performance.now();
-  const at = Math.max(now + (wait > 0 ? wait : 0), state.last + 1000 / (loop.maxFps || FRAME_DEFAULT_FPS) - FRAME_SLACK);
+  // Sin espera pedida solo manda el tope: comparar con «ahora» haría saltarse un refresco cuando
+  // el cuadro siguiente ya trae una hora anterior a esta llamada (el hilo iba con retraso).
+  const at = Math.max(wait > 0 ? now + wait : -Infinity, state.last + 1000 / (loop.maxFps || FRAME_DEFAULT_FPS) - FRAME_SLACK);
   if (state.raf) { if (at < state.at) state.at = at; return; }
   if (state.timer) {
     if (at >= state.at - 1) return;     // ya dormía hasta entonces o hasta antes

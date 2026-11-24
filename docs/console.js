@@ -18,7 +18,7 @@
   const $ = id => document.getElementById(id);
   const feel = () => window.flipFeel || null;
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  const FAMILY_PANES = ['dsiEditPanel', 'dlpEditPanel', 'oscamEditPanel', 'caskiaEditPanel', 'auto03EditPanel', 'stampEditPanel', 'slhtEditPanel'];
+  const FAMILY_PANES = ['dsiEditPanel', 'dlpEditPanel', 'oscamEditPanel', 'caskiaEditPanel', 'auto03EditPanel', 'stampEditPanel', 'slhtEditPanel', 'pressEditPanel'];
   const PANES = FAMILY_PANES.concat(['camMobileUtilityDock', 'camStickerPanel', 'palColorTabs']);
   const SECTIONS = [['cam', 'CÁMARA'], ['color', 'COLOR'], ['frame', 'CUADRO'], ['stickers', 'PEGATINAS']];
   const SWEEP = 270;                           // recorrido de una perilla, en grados
@@ -176,7 +176,7 @@
     for (const id of FAMILY_PANES) {
       const pane = $(id);
       if (!pane) continue;
-      const slots = [...pane.querySelectorAll('.cs-slot')].filter(slot => !(/^(oscamStaticOnlyRow|oscamLegacyRow)$/.test(slot.id) && !slot.classList.contains('visible')));
+      const slots = [...pane.querySelectorAll('.cs-slot')].filter(slot => !(/^(oscamStaticOnlyRow|oscamLegacyRow|pressRegRow|pressPairRow)$/.test(slot.id) && !slot.classList.contains('visible')));
       const perRow = slots.length > 5 ? Math.ceil(slots.length / 2) : Math.max(3, slots.length);
       pane.style.setProperty('--cs-n', String(perRow));
       pane.dataset.csN = String(perRow);

@@ -8,7 +8,7 @@ const path = require('node:path');
 const { launch, openFlip, saveDataUrl, URL } = require('./lib/harness.cjs');
 const { execFileSync } = require('node:child_process');
 
-const CADENCE = { DSI: 8, STAMP: 24, AUTO03: 30, DLPHN: 24, CASKIA: 15, VFD: 30, OSCAM: 30, SLHT: 24 };
+const CADENCE = { DSI: 8, STAMP: 24, AUTO03: 30, DLPHN: 24, CASKIA: 15, VFD: 30, OSCAM: 30, SLHT: 24, PRENSA: 24 };
 const shot = (id, family, variant, scene, extra = {}) => ({ id, family, variant, scene, frames: 12, ...extra });
 const SHOTS = [
   // AUTO 03: la misma habitación en penumbra con las tres exposiciones, y la versión iluminada.

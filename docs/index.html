@@ -1390,6 +1390,8 @@
 
     /* ── SLHT SILHOUETTE edit panel ── */
     #slhtEditPanel { display:none; margin-bottom:3px; }
+    #pressRegRow, #pressPairRow { display:none; }
+    #pressRegRow.visible, #pressPairRow.visible { display:flex; }
     .slht-ctrl-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
     .slht-lbl {
       color:#606060;
@@ -3370,6 +3372,7 @@
     <button class="cam-fam-btn"        data-family="VFD"    title="VFD — Vacuum Fluorescent"><strong>VFD</strong><small>Fósforo fluorescente</small></button>
     <button class="cam-fam-btn"        data-family="OSCAM"  title="OSCAM — Oscilloscope camera"><strong>OSCAM</strong><small>Osciloscopio</small></button>
     <button class="cam-fam-btn"        data-family="SLHT"   title="SLHT — Silhouette field"><strong>SLHT</strong><small>Campo de siluetas</small></button>
+    <button class="cam-fam-btn"        data-family="PRENSA" title="PRENSA — Semitono de imprenta"><strong>PRENSA</strong><small>Semitono de imprenta</small></button>
   </div>
 </div>
 
@@ -3503,6 +3506,33 @@
       <span class="dsi-lbl">TAMAÑO</span>
       <span class="dsi-val" id="vDsiCelda">×1</span>
       <input type="range" id="dsiCelda" min="1" max="4" step="1" value="1">
+    </div>
+  </div>
+  <div id="pressEditPanel" style="display:none;">
+    <div class="press-ctrl-row">
+      <span class="press-lbl">PUNTO</span>
+      <span class="press-val" id="vPressDot">3</span>
+      <input type="range" id="pressDot" min="1" max="10" step="1" value="3">
+    </div>
+    <div class="press-ctrl-row">
+      <span class="press-lbl">TINTA</span>
+      <span class="press-val" id="vPressInk">50</span>
+      <input type="range" id="pressInk" min="0" max="100" value="50">
+    </div>
+    <div class="press-ctrl-row">
+      <span class="press-lbl">PAPEL</span>
+      <span class="press-val" id="vPressPaper">35</span>
+      <input type="range" id="pressPaper" min="0" max="100" value="35">
+    </div>
+    <div class="press-ctrl-row" id="pressRegRow">
+      <span class="press-lbl">REGISTRO</span>
+      <span class="press-val" id="vPressReg">15</span>
+      <input type="range" id="pressReg" min="0" max="100" value="15">
+    </div>
+    <div class="press-ctrl-row" id="pressPairRow">
+      <span class="press-lbl">TINTAS</span>
+      <span class="press-val" id="vPressPair">AZUL·ROSA</span>
+      <input type="range" id="pressPair" min="0" max="3" step="1" value="0">
     </div>
   </div>
   <div id="stampEditPanel" style="display:none;">
@@ -4267,6 +4297,7 @@
 <button id="btnMicMobile" type="button" aria-label="Toggle microphone">🎙</button>
 
 <script src="./optical-scope.js"></script>
+<script src="./press.js"></script>
 <script src="./stamp.js"></script>
 <script src="./night-vision.js"></script>
 <script src="./sensor.js"></script>
@@ -5069,6 +5100,8 @@ let oscamTraceVal = 48;
 let oscamDefinitionVal = 46;
 let oscamLegacyMode = 'WAVE';
 let oscamColorMode = 'GREEN';
+// PRENSA: tamaño del punto (1–10), tinta, papel, descuadre de planchas y par de tintas de RISO.
+let pressDotVal = 3, pressInkVal = 50, pressPaperVal = 35, pressRegVal = 15, pressPairVal = 0;
 let caskiaSeikoGhostVal = 28;
 let caskiaSeikoDitherVal = 18;
 let caskiaSeikoContrastVal = 42;
@@ -5164,6 +5197,17 @@ const CAM_FAMILIES = {
     editMode:'slht',
     paletteContext:null,
   },
+  PRENSA: {
+    label:'PRENSA',
+    displayLabel:'PRENSA',
+    variants:[
+      { id:'CMYK', label:'CMYK', hint:'CMYK · cuatricromía: cian, magenta, amarillo y negro, cada tinta con su trama girada.' },
+      { id:'DIARIO', label:'DIARIO', hint:'DIARIO · una sola tinta negra y trama gruesa sobre papel de periódico.' },
+      { id:'RISO', label:'RISO', hint:'RISO · dos tintas planas que se pisan, como en una duplicadora de fanzine.' },
+    ],
+    editMode:'press',
+    paletteContext:null,
+  },
 };
 
 function _getSafeActiveTab() {
@@ -5182,6 +5226,7 @@ const CAMERA_ENGINE_RENDERERS = Object.freeze({
   VFD: 'vfd',
   OSCAM: 'oscam',
   SLHT: 'slht',
+  PRENSA: 'press',
 });
 const _camEngineCore = {
   sessionSeed: ((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0),
@@ -5410,6 +5455,16 @@ function drawCameraFrame(frame) {
       return frame;
     case 'slht':
       renderSlht(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
+      return frame;
+    case 'press':
+      if (!(window.renderPress && renderPress(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
+        { dot: pressDotVal, ink: pressInkVal, paper: pressPaperVal, register: pressRegVal, pair: pressPairVal }))) {
+        // Sin gráfica (WebGL) no hay planchas: queda el punto de imprenta a una tinta del motor de DSi.
+        const keep = [dsiTramaVal, dsiCeldaVal];
+        dsiTramaVal = 3; dsiCeldaVal = 2;
+        try { drawCameraFrame({ ...frame, profile: { ...frame.profile, renderer: 'dsi' } }); }
+        finally { [dsiTramaVal, dsiCeldaVal] = keep; }
+      }
       return frame;
     case 'dsi':
     default:
@@ -5851,6 +5906,11 @@ function _applyCamState() {
   _syncDsiTramaUI();
   oscamPanel.style.display = editMode === 'oscam' ? 'block' : 'none';
   slhtPanel.style.display = editMode === 'slht' ? 'block' : 'none';
+  // PRENSA: el descuadre de planchas hace falta con más de una tinta; el par de tintas es de RISO.
+  document.getElementById('pressEditPanel').style.display = editMode === 'press' ? 'block' : 'none';
+  document.getElementById('pressRegRow').classList.toggle('visible', editMode === 'press' && camVariant !== 'DIARIO');
+  document.getElementById('pressPairRow').classList.toggle('visible', editMode === 'press' && camVariant === 'RISO');
+  _syncPressUI();
   oscamLegacyRow.classList.toggle('visible', editMode === 'oscam' && camVariant === 'LGCY');
   oscamStaticOnlyRow.classList.toggle('visible', editMode === 'oscam' && camVariant !== 'TIME');
   oscamStaticOnlyRow.querySelector('.oscam-lbl').textContent = ({ FFT:'FILA', XY:'SEPARACIÓN', STD:'DETALLE' })[camVariant] || 'SCAN';
@@ -6048,6 +6108,22 @@ document.querySelectorAll('.auto03-btn[data-a03stamp]').forEach(btn => {
     saveSettings();
   });
 });
+function _syncPressUI() {
+  const pairs = (window.flipPress && flipPress.PAIRS) || [];
+  for (const [id, out, value, text] of [['pressDot', 'vPressDot', pressDotVal, String(pressDotVal)], ['pressInk', 'vPressInk', pressInkVal, String(pressInkVal)],
+    ['pressPaper', 'vPressPaper', pressPaperVal, String(pressPaperVal)], ['pressReg', 'vPressReg', pressRegVal, String(pressRegVal)],
+    ['pressPair', 'vPressPair', pressPairVal, (pairs[pressPairVal] || pairs[0] || { id: '—' }).id]]) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.value = value;
+    document.getElementById(out).textContent = text;
+  }
+}
+for (const [id, set] of [['pressDot', v => { pressDotVal = Math.max(1, Math.min(10, v)); }], ['pressInk', v => { pressInkVal = Math.max(0, Math.min(100, v)); }],
+  ['pressPaper', v => { pressPaperVal = Math.max(0, Math.min(100, v)); }], ['pressReg', v => { pressRegVal = Math.max(0, Math.min(100, v)); }],
+  ['pressPair', v => { pressPairVal = Math.max(0, Math.min(3, v)); }]]) {
+  document.getElementById(id).addEventListener('input', event => { set(+event.target.value | 0); _syncPressUI(); saveSettings(); });
+}
 function _syncDsiTramaUI() {
   const trama = document.getElementById('dsiTrama'), celda = document.getElementById('dsiCelda');
   if (!trama || !celda) return;
@@ -7247,6 +7323,8 @@ _buildVFDOverlay();
 _buildVfdThermalOverlay();
 _camLayerSets.vfd = { used: 0, parked: false, canvases: () => [_vfdCvs, _vfdThermalCvs], build: () => { _buildVFDOverlay(); _buildVfdThermalOverlay(); },
   drop: () => { _dropCanvasCache(_vfdOverlayCache); _dropCanvasCache(_vfdThermalOverlayCache); if (typeof _vfdCrtGlow !== 'undefined' && _vfdCrtGlow) for (const glow of _vfdCrtGlow) { glow.canvas.width = 0; glow.canvas.height = 0; } } };
+// PRENSA pinta en la gráfica: al dejar de usarse suelta su contexto (el sistema limita cuántos hay).
+_camLayerSets.press = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipPress) flipPress.release(); } };
 _camLayerSets.stamp = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (typeof _stampRelease === 'function') _stampRelease(); } };
 _camLayerSets.oscam = { used: 0, parked: false, canvases: () => [_oscamPersistCvs, _oscamOverlayCvs, _oscamFrameCvs],
   build: () => { if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence(); if (typeof _buildOscamOverlay === 'function') _buildOscamOverlay(); },
@@ -12761,7 +12839,7 @@ let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 let customCameraFps = false;
-const cameraCadence = { DSI:8, STAMP:24, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, SLHT:24 };
+const cameraCadence = { DSI:8, STAMP:24, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, SLHT:24, PRENSA:24 };
 function syncCameraCadence() {
   document.getElementById('camFpsVal').textContent = camFpsTarget;
   document.getElementById('camFpsSlider').value = camFpsTarget;
@@ -20074,6 +20152,7 @@ function saveSettings() {
       auto03ToneMode, auto03SharpMode, auto03NoiseMode, auto03StampMode,
       stampEngraveVal, stampInkVal, stampDetailVal, stampPaperVal, stampPaletteMode, stampFrameMode,
       dsiTramaVal, dsiCeldaVal,
+      pressDotVal, pressInkVal, pressPaperVal, pressRegVal, pressPairVal,
       dlpColorMode, dlpResonanceVal, dlpContrastVal, oscamIntensityVal, oscamDetailVal, oscamPresenceVal, oscamTraceVal, oscamDefinitionVal, oscamLegacyMode, oscamColorMode,
       slhtDensity, slhtHaloReach, slhtFlowStr, slhtContourLk, slhtMotionR, slhtGlyphSz, slhtNoiseAmt, slhtFillAmt, slhtSmoothAmt,
       sonoPreset, sonoMixVal, sonoChaosVal,
@@ -20157,6 +20236,12 @@ function loadSettings() {
     if (Number.isFinite(s.dsiTramaVal)) dsiTramaVal = Math.max(0, Math.min(DSI_TRAMAS.length - 1, Math.round(s.dsiTramaVal)));
     if (Number.isFinite(s.dsiCeldaVal)) dsiCeldaVal = Math.max(1, Math.min(4, Math.round(s.dsiCeldaVal)));
     _syncDsiTramaUI();
+    if (Number.isFinite(s.pressDotVal)) pressDotVal = Math.max(1, Math.min(10, Math.round(s.pressDotVal)));
+    if (Number.isFinite(s.pressInkVal)) pressInkVal = Math.max(0, Math.min(100, Math.round(s.pressInkVal)));
+    if (Number.isFinite(s.pressPaperVal)) pressPaperVal = Math.max(0, Math.min(100, Math.round(s.pressPaperVal)));
+    if (Number.isFinite(s.pressRegVal)) pressRegVal = Math.max(0, Math.min(100, Math.round(s.pressRegVal)));
+    if (Number.isFinite(s.pressPairVal)) pressPairVal = Math.max(0, Math.min(3, Math.round(s.pressPairVal)));
+    _syncPressUI();
     if (s.stampEngraveVal !== undefined) {
       stampEngraveVal = Math.max(0, Math.min(100, Math.round(s.stampEngraveVal)));
       const e = document.getElementById('stampEngrave');

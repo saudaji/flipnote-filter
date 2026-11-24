@@ -1,6 +1,6 @@
-const CACHE = 'flipnote-filter-v90-rollo-anil';
+const CACHE = 'flipnote-filter-v91-prensa';
 const ASSETS = [
-  './index.html', './manifest.json', './icon-192.png', './icon-512.png', './frame-runtime.js', './stamp.js', './optical-scope.js',
+  './index.html', './manifest.json', './icon-192.png', './icon-512.png', './frame-runtime.js', './stamp.js', './optical-scope.js', './press.js',
   './night-vision.js', './sensor.js', './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './console.css', './console.js',
   './feel.js', './mp4-flat.js', './light.js', './rest.js', './portal.js', './stage.js', './stage.css', './stage-out.html', './hands-worker.js',
   './pretext.js', './enochian.ttf', './fonts/Bloom-Regular.otf', './fonts/BNMonica.otf', './fonts/Fluidic-Regular.otf', './fonts/Canterbury.ttf',
@@ -10,7 +10,7 @@ const ASSETS = [
   './body/console-key-on.webp', './body/console-key.webp', './body/console-nub.webp', './body/console-plate.webp', './body/console-scale.webp',
   './body/console-sel2.webp', './body/console-sel3.webp', './body/console-slide.webp', './body/dial-cream.webp', './body/grain.webp',
   './body/jack.webp', './body/keycap-gray-down.webp', './body/keycap-gray.webp', './body/knob.webp', './body/lcd.webp', './body/look-AUTO03.webp',
-  './body/look-CASKIA.webp', './body/look-DLPHN.webp', './body/look-DSI.webp', './body/look-OSCAM.webp', './body/look-SLHT.webp',
+  './body/look-CASKIA.webp', './body/look-DLPHN.webp', './body/look-DSI.webp', './body/look-OSCAM.webp', './body/look-PRENSA.webp', './body/look-SLHT.webp',
   './body/look-STAMP.webp', './body/look-VFD.webp', './body/nub.webp', './body/shell-bottom.webp', './body/shell-foot.webp', './body/shell-mid.webp',
   './body/shell-top.webp', './body/tray.webp', './brand/fuentes/chivo.woff2', './brand/fuentes/doto.woff2', './brand/fuentes/plex.woff2',
   './brand/rollo-en-anil/activar.js', './brand/rollo-en-anil/app.css', './brand/rollo-en-anil/app/16.png', './brand/rollo-en-anil/app/32.png',

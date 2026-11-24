@@ -99,6 +99,7 @@ body[data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] .cs-slot > [class$="-v
 
 /* Mandos que solo existen en alguna variante (o si el teléfono tiene zoom). */
 body[data-tab="cam"] #palettes #oscamStaticOnlyRow:not(.visible), body[data-tab="cam"] #palettes #oscamLegacyRow:not(.visible),
+body[data-tab="cam"] #palettes #pressRegRow:not(.visible), body[data-tab="cam"] #palettes #pressPairRow:not(.visible),
 body[data-tab="cam"] #palettes #camZoomCtrl[style*="none"] { display: none !important; }
 
 /* ── Interruptor deslizante: la ranura es fija y el botón corre a un lado u otro ── */

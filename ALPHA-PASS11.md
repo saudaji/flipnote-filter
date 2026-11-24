@@ -3,7 +3,7 @@
 Probando la marca en un Pixel 10 Pro XL, Chrome avisó al grabar: «la descripción del códec no
 debería cambiar durante la grabación… considera avc3». Esta pasada lo aclara y lo arregla.
 
-Rama `fable/prensa`. Sin publicar (lo publicado es la décima pasada, caché v91).
+Rama `fable/prensa`. Publicada en `main` el 24 de noviembre de 2026 (caché v92).
 
 ## Qué pasaba
 

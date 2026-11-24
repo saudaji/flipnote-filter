@@ -1,4 +1,4 @@
-const CACHE = 'flipnote-filter-v88-reposo';
+const CACHE = 'flipnote-filter-v89-tramas';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './frame-runtime.js', './stamp.js', './optical-scope.js', './night-vision.js', './sensor.js',
   './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './console.css', './console.js', './feel.js', './mp4-flat.js', './light.js', './rest.js', './portal.js', './stage.js', './stage.css', './stage-out.html', './hands-worker.js', './pretext.js', './enochian.ttf',

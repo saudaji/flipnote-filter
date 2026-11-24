@@ -18,7 +18,7 @@
   const $ = id => document.getElementById(id);
   const feel = () => window.flipFeel || null;
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  const FAMILY_PANES = ['dlpEditPanel', 'oscamEditPanel', 'caskiaEditPanel', 'auto03EditPanel', 'stampEditPanel', 'slhtEditPanel'];
+  const FAMILY_PANES = ['dsiEditPanel', 'dlpEditPanel', 'oscamEditPanel', 'caskiaEditPanel', 'auto03EditPanel', 'stampEditPanel', 'slhtEditPanel'];
   const PANES = FAMILY_PANES.concat(['camMobileUtilityDock', 'camStickerPanel', 'palColorTabs']);
   const SECTIONS = [['cam', 'CÁMARA'], ['color', 'COLOR'], ['frame', 'CUADRO'], ['stickers', 'PEGATINAS']];
   const SWEEP = 270;                           // recorrido de una perilla, en grados

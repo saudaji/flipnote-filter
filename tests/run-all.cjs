@@ -8,7 +8,7 @@ const TESTS = [
   ['alpha-smoke.cjs'], ['optical-cameras.cjs'], ['night-vision.cjs'], ['vector-beam.cjs'],
   ['material-audit.cjs', '--strict'], ['alpha-flows.cjs'], ['alpha-media.cjs'], ['alpha-performance.cjs', '--seconds', '3', '--soak', '24'],
   ['portal.cjs'], ['feel.cjs'], ['console.cjs'], ['stage.cjs'], ['vfd-crt.cjs'], ['boot-guard.cjs'], ['webkit-smoke.cjs'],
-  ['video-file.cjs'], ['object.cjs'], ['pace.cjs'], ['rest.cjs'],
+  ['video-file.cjs'], ['object.cjs'], ['pace.cjs'], ['rest.cjs'], ['dither.cjs'],
 ];
 let failed = 0;
 for (const [file, ...args] of TESTS) {

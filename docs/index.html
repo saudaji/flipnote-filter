@@ -3485,6 +3485,18 @@
       </div>
     </div>
   </div>
+  <div id="dsiEditPanel" style="display:none;">
+    <div class="dsi-ctrl-row">
+      <span class="dsi-lbl">TRAMA</span>
+      <span class="dsi-val" id="vDsiTrama">BAYER</span>
+      <input type="range" id="dsiTrama" min="0" max="5" step="1" value="0">
+    </div>
+    <div class="dsi-ctrl-row">
+      <span class="dsi-lbl">TAMAÑO</span>
+      <span class="dsi-val" id="vDsiCelda">×1</span>
+      <input type="range" id="dsiCelda" min="1" max="4" step="1" value="1">
+    </div>
+  </div>
   <div id="stampEditPanel" style="display:none;">
     <div class="stamp-ctrl-row">
       <span class="stamp-lbl">ENGRAVE</span>
@@ -4829,6 +4841,33 @@ const BAYER8 = new Uint8Array([
   15,47, 7,39,13,45, 5,37, 63,31,55,23,61,29,53,21,
 ].map(v => Math.round(v * 255 / 63)));
 
+// ── Tramas de la cámara DSi ─────────────────────────────────────────────────
+// Además de Bayer, DSi puede tramar con otras matrices de umbral y con difusión de error de
+// Atkinson (la del primer Macintosh). Las de umbral son estables en vídeo por construcción: el
+// umbral de cada punto no cambia de un cuadro a otro. Una matriz se saca de una «función de
+// punto» ordenando sus celdas, de modo que cada tono de gris enciende su proporción justa.
+function _tramaDeFuncion(n, spot) {
+  const cells = [];
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) cells.push([spot(x, y, n), BAYER8[(y & 7) * 8 + (x & 7)], y * n + x]);
+  cells.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+  const data = new Uint8Array(n * n);
+  cells.forEach((cell, rank) => { data[cell[2]] = Math.round((rank + 0.5) / (n * n) * 255); });
+  return data;
+}
+const _TAU_TRAMA = Math.PI * 2;
+const DSI_TRAMAS = [
+  { id: 'BAYER', label: 'BAYER', n: 8, data: BAYER8 },
+  { id: 'ATKINSON', label: 'ATKINSON', diffusion: true },
+  // Ruido azul 64 × 64 (ruido filtrado en alta frecuencia e igualado por rango): grano fino y sin dibujo.
+  { id: 'AZUL', label: 'AZUL', n: 64, data: Uint8Array.from(atob('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'), c => c.charCodeAt(0)) },
+  // Punto de imprenta: crece desde el centro de cada celda.
+  { id: 'PUNTOS', label: 'PUNTOS', n: 8, data: _tramaDeFuncion(8, (x, y, n) => Math.cos(_TAU_TRAMA * (x + .5) / n) + Math.cos(_TAU_TRAMA * (y + .5) / n)) },
+  // Líneas que engordan con la sombra, como un grabado o una pantalla de líneas.
+  { id: 'LINEAS', label: 'LÍNEAS', n: 8, data: _tramaDeFuncion(8, (x, y, n) => Math.cos(_TAU_TRAMA * (y + .5) / n)) },
+  // Rayado cruzado: una diagonal en los tonos claros y la otra se suma en los oscuros.
+  { id: 'CRUZ', label: 'CRUZ', n: 8, data: _tramaDeFuncion(8, (x, y, n) => Math.max(Math.cos(_TAU_TRAMA * (x + y + 1) / n), Math.cos(_TAU_TRAMA * (x - y) / n) * .6 - .45)) },
+];
+
 // ════════════════════════════════════════════════════════════════════
 // DIMENSIONS
 // ════════════════════════════════════════════════════════════════════
@@ -5031,6 +5070,8 @@ let auto03ToneMode = 'STANDARD';
 let auto03SharpMode = 'CLASSIC';
 let auto03NoiseMode = 'CCD';
 let auto03StampMode = 'OFF';
+let dsiTramaVal = 0;      // índice en DSI_TRAMAS
+let dsiCeldaVal = 1;      // tamaño de la celda de la trama, en puntos del sensor (1–4)
 let stampEngraveVal = 62;
 let stampInkVal = 58;
 let stampDetailVal = 54;
@@ -5797,6 +5838,9 @@ function _applyCamState() {
   caskiaPanel.style.display = editMode === 'caskia' ? 'block' : 'none';
   auto03Panel.style.display = editMode === 'auto03' ? 'block' : 'none';
   stampPanel.style.display = editMode === 'stamp' ? 'block' : 'none';
+  // La trama es de DSi · STD; LGCY es la difusión de error de siempre.
+  document.getElementById('dsiEditPanel').style.display = (camFamily === 'DSI' && camVariant === 'STD') ? 'block' : 'none';
+  _syncDsiTramaUI();
   oscamPanel.style.display = editMode === 'oscam' ? 'block' : 'none';
   slhtPanel.style.display = editMode === 'slht' ? 'block' : 'none';
   oscamLegacyRow.classList.toggle('visible', editMode === 'oscam' && camVariant === 'LGCY');
@@ -5995,6 +6039,25 @@ document.querySelectorAll('.auto03-btn[data-a03stamp]').forEach(btn => {
       b.classList.toggle('active', b.dataset.a03stamp === auto03StampMode));
     saveSettings();
   });
+});
+function _syncDsiTramaUI() {
+  const trama = document.getElementById('dsiTrama'), celda = document.getElementById('dsiCelda');
+  if (!trama || !celda) return;
+  trama.value = dsiTramaVal;
+  celda.value = dsiCeldaVal;
+  document.getElementById('vDsiTrama').textContent = (DSI_TRAMAS[dsiTramaVal] || DSI_TRAMAS[0]).label;
+  document.getElementById('vDsiCelda').textContent = '×' + dsiCeldaVal;
+}
+document.getElementById('dsiTrama').addEventListener('input', event => {
+  dsiTramaVal = Math.max(0, Math.min(DSI_TRAMAS.length - 1, +event.target.value | 0));
+  _atkWas = null; _atkErr = null;
+  _syncDsiTramaUI();
+  saveSettings();
+});
+document.getElementById('dsiCelda').addEventListener('input', event => {
+  dsiCeldaVal = Math.max(1, Math.min(4, +event.target.value | 0));
+  _syncDsiTramaUI();
+  saveSettings();
 });
 [
   ['stampEngrave', 'vStampEngrave', 'stampEngraveVal'],
@@ -6293,6 +6356,7 @@ function _applyEditAdj(r, g, b) {
 }
 
 let diffusionErrors;
+let _atkErr = null, _atkWas = null;
 function _renderDitheredCore(source, srcW, srcH, targetCtx, mirror, autoLevels, applyEdits, palOverride, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
@@ -6361,8 +6425,54 @@ function _renderDitheredCore(source, srcW, srcH, targetCtx, mirror, autoLevels, 
     return;
   }
 
+  // La trama elegida en la consola de DSi (UPLOAD, con sus propios mandos, sigue en Bayer).
+  const trama = applyEdits ? DSI_TRAMAS[0] : (DSI_TRAMAS[dsiTramaVal] || DSI_TRAMAS[0]);
+  const cell = applyEdits ? 1 : Math.max(1, Math.min(4, dsiCeldaVal | 0));
+  if (trama.diffusion) {
+    // Atkinson sobre una rejilla de celdas: reparte 6/8 del error a seis vecinos (el resto se
+    // pierde, de ahí sus blancos limpios y sus negros llenos).
+    const gw = Math.ceil(sampleW / cell), gh = Math.ceil(sampleH / cell), count = gw * gh;
+    if (!_atkErr || _atkErr.length !== count) { _atkErr = new Float32Array(count); _atkWas = new Uint8Array(count); }
+    else _atkErr.fill(0);
+    const err = _atkErr, was = _atkWas;
+    for (let gy = 0; gy < gh; gy++) {
+      const y = Math.min(sampleH - 1, gy * cell + (cell >> 1));
+      for (let gx = 0; gx < gw; gx++) {
+        const x = Math.min(sampleW - 1, gx * cell + (cell >> 1));
+        const i = (y * sampleW + x) << 2, at = gy * gw + gx;
+        const raw = (src[i]*77 + src[i+1]*150 + src[i+2]*29) >> 8;
+        const gray = autoLevels ? ((raw - base) * 255 / range + 0.5) | 0 : raw;
+        const g = gray + err[at];
+        // Histéresis: el punto que ya era tinta tiende a seguir siéndolo. Sin esto, con el ruido
+        // de la cámara la difusión de error «hierve» de un cuadro al siguiente.
+        const isInk = g < (was[at] ? 142 : 114);
+        was[at] = isInk ? 1 : 0;
+        const e = (g - (isInk ? 0 : 255)) / 8;
+        if (gx + 1 < gw) err[at + 1] += e;
+        if (gx + 2 < gw) err[at + 2] += e;
+        if (gy + 1 < gh) {
+          if (gx > 0) err[at + gw - 1] += e;
+          err[at + gw] += e;
+          if (gx + 1 < gw) err[at + gw + 1] += e;
+        }
+        if (gy + 2 < gh) err[at + gw * 2] += e;
+        const R = isInk ? IR : PR, G = isInk ? IG : PG, B = isInk ? IB : PB;
+        const y1 = Math.min(sampleH, (gy + 1) * cell), x1 = Math.min(sampleW, (gx + 1) * cell);
+        for (let py = gy * cell; py < y1; py++) {
+          for (let px = gx * cell, o = (py * sampleW + px) << 2; px < x1; px++, o += 4) { outBuf[o] = R; outBuf[o+1] = G; outBuf[o+2] = B; outBuf[o+3] = 255; }
+        }
+      }
+    }
+    sampleCtx.putImageData(new ImageData(outBuf, sampleW, sampleH), 0, 0);
+    targetCtx.imageSmoothingEnabled = false;
+    targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
+    if (outScan) targetCtx.drawImage(outScan, 0, 0, outW, outH);
+    return;
+  }
+  const tramaData = trama.data, tramaN = trama.n, tramaMask = tramaN - 1;
+
   for (let y = 0; y < sampleH; y++) {
-    const row8 = (y & 7) << 3;
+    const tramaRow = (((y / cell) | 0) & tramaMask) * tramaN;
     for (let x = 0; x < sampleW; x++) {
       const i   = (y * sampleW + x) << 2;
       let er=src[i], eg=src[i+1], eb=src[i+2];
@@ -6379,7 +6489,7 @@ function _renderDitheredCore(source, srcW, srcH, targetCtx, mirror, autoLevels, 
       // Dithering intensity: blend between threshold-only and full Bayer
       const strength = applyEdits ? upDitherIntVal/100 : 1;
       const midpoint = applyEdits ? acThreshVal : 128;
-      const threshold = Math.min(255,Math.max(1,midpoint + (BAYER8[row8 + (x & 7)] - 127.5)*strength));
+      const threshold = Math.min(255,Math.max(1,midpoint + (tramaData[tramaRow + (((x / cell) | 0) & tramaMask)] - 127.5)*strength));
       const isInk = gray < threshold;
       outBuf[i]=isInk?IR:PR; outBuf[i+1]=isInk?IG:PG;
       outBuf[i+2]=isInk?IB:PB; outBuf[i+3]=255;
@@ -19947,6 +20057,7 @@ function saveSettings() {
       caskiaSeikoGhostVal, caskiaSeikoDitherVal, caskiaSeikoContrastVal, caskiaSeikoTintVal, caskiaSeikoSoftnessVal,
       auto03ToneMode, auto03SharpMode, auto03NoiseMode, auto03StampMode,
       stampEngraveVal, stampInkVal, stampDetailVal, stampPaperVal, stampPaletteMode, stampFrameMode,
+      dsiTramaVal, dsiCeldaVal,
       dlpColorMode, dlpResonanceVal, dlpContrastVal, oscamIntensityVal, oscamDetailVal, oscamPresenceVal, oscamTraceVal, oscamDefinitionVal, oscamLegacyMode, oscamColorMode,
       slhtDensity, slhtHaloReach, slhtFlowStr, slhtContourLk, slhtMotionR, slhtGlyphSz, slhtNoiseAmt, slhtFillAmt, slhtSmoothAmt,
       sonoPreset, sonoMixVal, sonoChaosVal,
@@ -20027,6 +20138,9 @@ function loadSettings() {
       auto03StampMode = s.auto03StampMode;
       document.querySelectorAll('.auto03-btn[data-a03stamp]').forEach(b => b.classList.toggle('active', b.dataset.a03stamp === auto03StampMode));
     }
+    if (Number.isFinite(s.dsiTramaVal)) dsiTramaVal = Math.max(0, Math.min(DSI_TRAMAS.length - 1, Math.round(s.dsiTramaVal)));
+    if (Number.isFinite(s.dsiCeldaVal)) dsiCeldaVal = Math.max(1, Math.min(4, Math.round(s.dsiCeldaVal)));
+    _syncDsiTramaUI();
     if (s.stampEngraveVal !== undefined) {
       stampEngraveVal = Math.max(0, Math.min(100, Math.round(s.stampEngraveVal)));
       const e = document.getElementById('stampEngrave');

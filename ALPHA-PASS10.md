@@ -3,7 +3,8 @@
 Segunda de las ideas tomadas del estudio de Dither Boy: el semitono de imprenta, con sus planchas
 de color. Entra como una cámara nueva de CAM, la novena.
 
-Rama `fable/prensa`, encima de la marca (`fable/rollo-anil`). Sin publicar.
+Rama `fable/prensa`, encima de la marca (`fable/rollo-anil`). Publicada en `main` el 24 de noviembre de 2026
+(caché v91), tras probarla en el Pixel.
 
 ## Qué hay
 
@@ -65,15 +66,43 @@ Batería completa (22 pruebas): 20 en verde en la pasada; a `alpha-performance` 
 cerró el navegador a mitad (sin informe de fallo de Chrome) y, repetidas a solas, pasan las dos.
 Con el procesador frenado a la cuarta parte, PRENSA tarda 0,9 ms de mediana por cuadro.
 
+## En el teléfono (Pixel 10 Pro XL, Chrome 157, por USB)
+
+`tests/device/pixel-brand.cjs`, con toques reales y la cámara de verdad:
+
+- **Marca**: la portada carga el ident, la marca y las tres tipografías; la pantallita corre la
+  secuencia de arranque y vuelve a su estado; las piezas son las renderizadas; la luz viva recibe
+  el sensor de inclinación; la carcasa oscura lleva sus marcos oscuros en la cámara, el lanzador y
+  la hoja de ajustes.
+- **PRENSA**: pinta en la gráfica del teléfono (PowerVR, con precisión alta) a 24 cuadros por
+  segundo en las tres tiradas; DIARIO sale a una tinta; la foto al doble de tamaño coincide con
+  el visor (0,9996); un vídeo de 3,5 s se graba, se aplana a una pieza y se abre. Nada se guarda
+  en el teléfono durante la prueba.
+- Sin errores en la consola ni archivos que fallen.
+
+Trabajo del teléfono entero (`tests/device/pixel-heat.cjs`, 45 s por tramo, núcleos ocupados; con
+la cámara abierta, lo más es la propia cámara del sistema):
+
+| | teléfono | página | gráficos | ms por cuadro |
+|---|---:|---:|---:|---:|
+| CAM · DSi | 2,67 | 0,21 | 0,15 | 3,8 |
+| CAM · PRENSA CMYK | 2,79 | 0,34 | 0,35 | 1,5 |
+| CAM · STAMP | 2,97 | 0,79 | 0,33 | 23,7 |
+| GLITCH | 3,51 | 0,44 | 0,69 | — |
+| STAGE | 3,77 | 0,52 | 0,61 | — |
+| cámara en reposo | ≈ 1,0 | 0,06 | 0,06 | — |
+
+PRENSA queda entre DSi y STAMP. Estado térmico 0 (normal) en toda la medida; la piel del teléfono
+entre 34 y 36 °C. El reposo automático saltó solo durante la primera pasada (teléfono quieto un
+minuto) y dejó el teléfono en un núcleo: la herramienta ahora lo aplaza mientras mide.
+
 ## Sin comprobar
 
-- En un teléfono: ni el aspecto con cámara real (el ruido del sensor en poca luz puede hacer
-  hervir los puntos) ni el calor. La medida de arriba es de ordenador.
-- Vídeo grabado con PRENSA: la prueba cubre la foto; la grabación usa el mismo camino, pero no se
-  ha revisado un vídeo.
+- PRENSA con poca luz, a ojo, durante un rato largo (si el ruido del sensor hace hervir el punto).
 - iPhone: la prueba de WebKit abre las tres tiradas sin error, sin mirar la imagen.
 - Los verdes y azules salen apagados (es lo que da la cuatricromía con estas tintas); no se ha
   comparado con una impresión real.
+- El ahorro de la carcasa oscura en la pantalla OLED y el sonido del arranque.
 
 ## Lo siguiente de la lista
 

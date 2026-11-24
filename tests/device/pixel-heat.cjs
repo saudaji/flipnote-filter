@@ -69,6 +69,9 @@ const cores = (a, b, key) => +(((b[key] - a[key]) / 100) / ((b.at - a.at) / 1000
   await c.send('Page.bringToFront').catch(() => {});
   // La pantalla no se apaga mientras se mide (se suelta al final).
   await c.evaluate(`navigator.wakeLock ? navigator.wakeLock.request('screen').then(lock => { window.__heatLock = lock; return 1; }).catch(() => 0) : 0`);
+  // El reposo automático (rest.js) apagaría la cámara al minuto de tener el teléfono quieto en la mesa:
+  // mientras se mide queda aplazado, y al final vuelve a su tiempo.
+  await c.evaluate(`(() => { if (!window.flipRest) return; window.__heatIdle = flipRest.config({}).idle; flipRest.config({ idle: 1e9 }); if (flipRest.state().resting) document.getElementById('restVeil').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); })()`);
   // Contadores pasivos: cuántas veces dibuja cada motor. No añaden vueltas a la página.
   await c.evaluate(`(() => {
     if (window.__heat) return;
@@ -94,6 +97,7 @@ const cores = (a, b, key) => +(((b[key] - a[key]) / 100) / ((b.at - a.at) / 1000
     ['cam DSI', async () => { await go('cam'); await pick('DSI', 'STD'); }],
     ['cam VFD CRT', async () => { await go('cam'); await pick('VFD', 'CRT'); }],
     ['cam STAMP', async () => { await go('cam'); await pick('STAMP', 'ENGR'); }],
+    ['cam PRENSA', async () => { await go('cam'); await pick('PRENSA', 'CMYK'); }],
     ['glitch', async () => { await go('scrash'); }],
     ['fusion', async () => { await go('fusion'); }],
     ['ascii', async () => { await go('ascii'); }],
@@ -134,6 +138,7 @@ const cores = (a, b, key) => +(((b[key] - a[key]) / 100) / ((b.at - a.at) / 1000
       String(Math.round(row.dibujo[1])).padStart(9), String(row.ms).padStart(10), String(row.hz).padStart(12), String(row.camaraFps).padStart(9), String(row.rastreador + (row.delegado ? ' ' + row.delegado : '')).padStart(13), ' ' + row.dibujo[0]);
   }
   await c.evaluate(`(() => { const H = __heat; _renderCamEngineFrame = H.real; for (const [proto, name, real] of H.patched) proto[name] = real; delete window.__heat; if (window.__heatLock) { window.__heatLock.release(); delete window.__heatLock; } return true; })()`);
+  await c.evaluate(`(() => { if (window.flipRest && window.__heatIdle) { flipRest.config({ idle: window.__heatIdle }); delete window.__heatIdle; } })()`);
   await go('cam');
   if (out) fs.writeFileSync(out, JSON.stringify({ info, seconds, rows }, null, 1));
   c.close();

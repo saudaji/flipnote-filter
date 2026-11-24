@@ -6,7 +6,8 @@ pictogramas y secuencia de arranque. La dirección y los archivos vienen del paq
 integra en la versión actual, renderiza de verdad los materiales con la paleta nueva y termina la
 carcasa oscura.
 
-Rama `fable/rollo-anil`, sobre `main` (`4a4ead0`). Sin publicar.
+Rama `fable/rollo-anil`, sobre `main` (`4a4ead0`). Publicada en `main` el 24 de noviembre de 2026 junto con
+la cámara PRENSA (ALPHA-PASS10.md), tras probarla en el Pixel.
 
 ## Qué cambia a la vista
 
@@ -62,19 +63,22 @@ Y se ha terminado lo que el parche dejaba a medias:
   sin errores de página (Chrome, 395 × 844).
 - Portada y cámara en WebKit (el motor de Safari), las dos carcasas.
 
+## En el teléfono
+
+Probada en un Pixel 10 Pro XL con `tests/device/pixel-brand.cjs` (portada, arranque, piezas, luz
+viva, carcasa oscura); el detalle está en ALPHA-PASS10.md.
+
 ## Sin comprobar
 
-- En un teléfono real: el arranque de la pantallita, el sonido, la carcasa oscura en OLED y la
-  luz viva sobre las piezas nuevas.
-- El ahorro de energía de la carcasa oscura (no se ha medido).
-- La imagen de enlace en redes (hace falta que esté publicada).
+- El sonido del arranque y el ahorro de energía de la carcasa oscura en OLED (no se han medido).
+- La imagen de enlace en redes.
 - Contraste real con reflejos; los valores del manual son de color plano.
 
 ## Pendiente de la marca (no entra en esta pasada)
 
-- **Marca de agua** opcional en fotos y vídeos (los SVG están en `docs/brand/…/comunicacion/`).
+- **Marca de agua**: descartada (decisión de producto); los SVG quedan en el paquete de marca.
 - **Textos de voz** del manual (permiso de cámara, reposo, errores): hoy se conservan los de la app.
-- **Bloqueo PRO** de STAGE: hay pictograma y aviso, falta una fuente de licencia.
+- **Bloqueo PRO** de STAGE: aplazado hasta que la app salga al público; hay pictograma y aviso.
 - La placa de la consola sigue en grafito y los paneles de ASCII, UPLOAD y EDIT conservan su
   dibujo anterior con los colores nuevos.
 - En la carcasa oscura, el monitor y la placa de STAGE siguen en perla (leen como placa clara).

@@ -3,7 +3,7 @@
 Primera de las ideas tomadas del estudio de Dither Boy (un programa de escritorio de tramado): que
 la trama no sea una sola, sino un mando.
 
-Rama `fable/public-alpha-pass2`. Sin publicar todavía (caché v89).
+Rama `fable/public-alpha-pass2`, publicada en `main` el 23 de noviembre de 2026 (caché v89).
 
 ## Qué hay
 

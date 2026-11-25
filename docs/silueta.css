@@ -27,6 +27,9 @@ html:has(body[data-piel="interfaz"]) { background: #0B0C14 !important; }
 body[data-piel="interfaz"] :is(#shellLauncher, #shellViewer, #splash) { background: var(--si-fondo) !important; }
 body[data-piel="interfaz"] :is(#camBody, #shellLauncher, #shellViewer, #splash)::before { display: none !important; }
 body[data-piel="interfaz"] #camBody { background: var(--si-banda) !important; }   /* lo que asoma alrededor de la imagen */
+/* STAGE pone sus mandos directamente sobre el fondo: ahí el fondo es el claro (o el del tema), para que se lean. */
+body[data-piel="interfaz"].stage-mode #camBody { background: var(--si-fondo) !important; }
+body[data-piel="interfaz"].stage-mode #camBody > .grano { --si-grano-tinta: initial; }
 body[data-piel="interfaz"] #lcd { display: none !important; }
 body[data-piel="interfaz"] :is(#display, #flash, #osd, #cameraGate:not(.en-modulo)) { border-radius: 0 !important; }
 body[data-piel="interfaz"] .rollo-pie { display: none !important; }
@@ -192,6 +195,16 @@ body.is-recording #deckShutter .silueta .cara { opacity: 0; }
 body.is-recording #deckShutter .silueta .parar { opacity: 1; }
 body[data-piel="interfaz"].cam-video:not(.is-recording) #deckShutter .silueta .pupila { fill: var(--si-rec); }
 @media (prefers-reduced-motion: reduce) { #deckShutter .silueta :is(.ojo, .cerrado) { transition: none !important; } }
+
+/* ── Cámaras que escuchan (escucha.js) ──
+   Mientras espera el golpe, la cámara del disparador mantiene el ojo cerrado; con la escucha
+   encendida late con el bajo. */
+#deckShutter.espera .silueta .ojo { transform: scaleY(.16); opacity: 0; }
+#deckShutter.espera .silueta .cerrado { opacity: 1; }
+body[data-escucha="si"][data-piel="interfaz"] #deckShutter .silueta { transform: scale(calc(1 + var(--pulso, 0) * .08)); transform-origin: 50% 55%; transition: transform .07s linear; }
+body[data-piel="interfaz"] .si-escucha .si-chip { flex: 0 1 132px; }
+body[data-piel="interfaz"] .si-escucha-dice { margin: 0; padding: 0 2px; font: 500 11.5px/1.35 'IBM Plex Sans', system-ui, sans-serif; color: var(--si-banda-suave); }
+@media (prefers-reduced-motion: reduce) { body[data-escucha="si"] #deckShutter .silueta { transform: none !important; } }
 
 /* ── La placa: FLIP a la izquierda, FL-27 a la derecha ── */
 .si-placa { display: none; }

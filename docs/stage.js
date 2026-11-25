@@ -38,7 +38,10 @@ const flipStage = (() => {
     ['lfo1', 'LFO 1', '#ec5b45', true], ['lfo2', 'LFO 2', '#f0ae2b', true], ['bass', 'BAJO', '#2f78dc'], ['mid', 'MEDIO', '#33b09f'],
     ['high', 'AGUDO', '#8b79d6'], ['beat', 'GOLPE', '#e5392b'], ['padx', 'PAD X', '#566679'], ['pady', 'PAD Y', '#8d8572'],
     ['note', 'NOTA', '#3ca956'], ['hx', 'MANO X', '#f08a2d'], ['hy', 'MANO Y', '#d7559b'], ['pinch', 'PINZA', '#3b3c3f'],
+    // Pistas de Ableton Live (enlace LIVE con PITÁGORAS): cada toma sigue el nivel de una pista.
+    ['lv1', 'PISTA 1', '#7ddb8b'], ['lv2', 'PISTA 2', '#58c6b0'], ['lv3', 'PISTA 3', '#5fb0e6'], ['lv4', 'PISTA 4', '#b39be8'], ['lv5', 'PISTA 5', '#f2a65a'], ['lv6', 'PISTA 6', '#ef7f7f'],
   ];
+  const LIVE_KEYS = ['lv1', 'lv2', 'lv3', 'lv4', 'lv5', 'lv6'];
   const SRC = Object.fromEntries(SOURCES.map(s => [s[0], { label: s[1], tone: s[2], bipolar: !!s[3] }]));
   // Mandos: clave → [rótulo, valor de fábrica, tiene centro].
   const P = {
@@ -106,7 +109,7 @@ const flipStage = (() => {
 
   // ── Estado guardado ─────────────────────────────────────────────────────────
   const STORE = 'flip.stage.v3';        // v3: escenas de fábrica con reacción al sonido más marcada
-  function fresh() { return { v: 3, scene: 0, scenes: FACTORY(), live: null, global: { aspect: 0, quality: 0, flipX: 0, flipY: 0, bpm: 0, p: {} }, midi: { cc: {}, note: {} } }; }
+  function fresh() { return { v: 3, scene: 0, scenes: FACTORY(), live: null, global: { aspect: 0, quality: 0, flipX: 0, flipY: 0, bpm: 0, p: {}, live: { url: '', slots: [] } }, midi: { cc: {}, note: {} } }; }
   function tidyPatch(patch, fallback) {
     const out = { name: String(patch && patch.name || fallback.name).slice(0, 12), p: {}, d: {}, r: [] };
     for (const id of SCENE_IDS) out.p[id] = Number.isFinite(patch && patch.p && patch.p[id]) ? clamp(patch.p[id]) : fallback.p[id];
@@ -126,6 +129,7 @@ const flipStage = (() => {
       const g = raw.global || {};
       Object.assign(base.global, { aspect: clamp(g.aspect | 0, 0, 3), quality: clamp(g.quality | 0, 0, 3), flipX: g.flipX ? 1 : 0, flipY: g.flipY ? 1 : 0, bpm: Number.isFinite(g.bpm) ? g.bpm : 0 });
       for (const id of GLOBAL_IDS) if (g.p && Number.isFinite(g.p[id])) base.global.p[id] = clamp(g.p[id]);
+      if (g.live && typeof g.live === 'object') base.global.live = { url: typeof g.live.url === 'string' ? g.live.url.slice(0, 400) : '', slots: Array.isArray(g.live.slots) ? g.live.slots.slice(0, 6).map(x => (typeof x === 'string' ? x.slice(0, 40) : '')) : [] };
       if (raw.midi) { base.midi.cc = Object.assign({}, raw.midi.cc); base.midi.note = Object.assign({}, raw.midi.note); }
     } catch (_) {}
     return base;
@@ -692,9 +696,33 @@ void main() {
     const a = score(bestLag - 1), b = score(bestLag), c = score(bestLag + 1), fine = (a - c) / (2 * (a - 2 * b + c) || 1);
     return 6000 / (bestLag + clamp(fine, -.5, .5));
   }
+  // ── Sincronía por sonido ────────────────────────────────────────────────────
+  // Dos teléfonos que oyen la misma música ya caen juntos en cada golpe (lo oyen a la vez). Para
+  // que además coincidan en QUÉ pulso es (y los LFO a tempo y los cambios por compás vayan a la
+  // par) sin hablarse entre ellos, cada uno numera los pulsos con lo único que comparten: la hora.
+  // A un tempo redondeado, «pulsos desde la época» da un número enorme y común; la música fija
+  // dónde cae el pulso dentro de ese número (la fase, media circular de los golpes) y el número
+  // entero sale igual en todos. Basta coincidir módulo 64 pulsos (16 compases).
+  const coro = { bpm: 0, cos: 0, sin: 0, n: 0, locked: false, phase: 0 };
+  function coroBeat() {
+    const bpm = Math.round(audio.bpm);
+    if (!bpm || bpmSource() !== 'AUTO') { coro.locked = false; coro.n = 0; coro.bpm = 0; return; }
+    if (bpm !== coro.bpm) Object.assign(coro, { bpm, n: 0, locked: false });
+    const w = Date.now() / 60000 * bpm, ang = (w - Math.floor(w)) * TAU;
+    const k = coro.n ? .12 : 1;
+    coro.cos += (Math.cos(ang) - coro.cos) * k; coro.sin += (Math.sin(ang) - coro.sin) * k;
+    if (++coro.n < 6) return;
+    coro.phase = (Math.atan2(coro.sin, coro.cos) / TAU + 1) % 1;
+    const near = w - coro.phase, n = Math.round(near);
+    if (Math.abs(near - n) > .2) return;                                  // un golpe a contratiempo no numera
+    const have = Math.round(clock.beat), d = ((((n - have) % 64) + 96) % 64) - 32;
+    if (d) clock.beat += d;
+    coro.locked = true;
+  }
   function onBeat(now) {
     audio.lastBeat = now; audio.beat = 1; audio.beats++;
-    clock.beat += (Math.round(clock.beat) - clock.beat) * .35;                  // el reloj de compases se engancha al golpe
+    coroBeat();
+    if (!linkTempo()) clock.beat += (Math.round(clock.beat) - clock.beat) * .35;   // el reloj de compases se engancha al golpe (con LIVE, lo lleva Ableton)
   }
   function readAudio(dt, now) {
     const tex = audio.tex;
@@ -703,6 +731,13 @@ void main() {
       const j = audio.inject;
       audio.env.bass = j.bass || 0; audio.env.mid = j.mid || 0; audio.env.high = j.high || 0;
       if (j.beat) { audio.beat = j.beat; j.beat = 0; }
+    } else if (linkMaster()) {
+      // LIVE: el master de Ableton tal como sale, sin micrófono ni sala. Mismo seguidor que con el micrófono
+      // (GANANCIA y CAÍDA mandan igual); los golpes los cuenta PITÁGORAS y llegan en linkTake().
+      const m = link.frame.m;
+      const gain = Math.pow(2, (val['aud.gain'] === undefined ? .5 : val['aud.gain']) * 4 - 2), fall = .04 + Math.pow(val['aud.fall'] === undefined ? .4 : val['aud.fall'], 2) * .9;
+      follow('bass', m[1] * 54 - 54, dt, gain, fall, m[0] > .02); follow('mid', m[2] * 54 - 54, dt, gain, fall, m[0] > .02); follow('high', m[3] * 54 - 54, dt, gain, fall, m[0] > .02);
+      audio.level = m[0] > audio.level ? m[0] : audio.level + (m[0] - audio.level) * (1 - Math.exp(-dt / .25));
     } else if (audio.on && audio.analyser) {
       if (audio.ctx.state === 'suspended') audio.ctx.resume().catch(() => {});
       audio.analyser.getFloatFrequencyData(audio.db);
@@ -750,7 +785,7 @@ void main() {
       const a = .3 + .2 * mods.lfo1, f = 2 + mods.lfo2;
       for (let i = 0; i < 256; i++) {
         const x = i / 255;
-        tex[i] = audio.inject ? 255 * clamp(lerp(audio.env.bass, audio.env.high, x)) : Math.max(0, 150 - i * 1.1) * (.6 + .4 * Math.sin(clock.t * 2 + i * .13));
+        tex[i] = audio.inject || linkMaster() ? 255 * clamp(lerp(audio.env.bass, audio.env.high, x)) : Math.max(0, 150 - i * 1.1) * (.6 + .4 * Math.sin(clock.t * 2 + i * .13));
         tex[256 + i] = 128 + 110 * a * Math.sin(TAU * (x * f + clock.t * .7)) * Math.sin(Math.PI * x) + 14 * Math.sin(TAU * (x * 9 - clock.t * 1.9));
       }
     }
@@ -886,11 +921,141 @@ void main() {
     readout('MUEVE EL MANDO MIDI > ' + targetName(target), 5000);
   }
 
+  // ── LIVE: lo que toca Ableton, por la señal de PITÁGORAS ────────────────────
+  // PITÁGORAS (el asistente de Ableton) ya oye dentro de Live: un oído en el master y un sensor por
+  // pista. Su señal para visuales (un flujo de eventos, solo de lectura, con su propia llave) trae
+  // 30 veces por segundo el nivel de cada pista, el master en tres bandas, cada golpe y el pulso
+  // exacto del transporte. Aquí eso se vuelve: seis tomas (una por pista, con su nombre), BAJO /
+  // MEDIO / AGUDO / GOLPE tomados del master de Live en vez del micrófono, y el tempo y el compás
+  // de Live como reloj. Formato de cada cuadro: { t, play, pos, bpm, m:[nivel,bajo,medio,agudo],
+  // hits, hit, ears, tr:{ 'track:3': [nivel,bajo,medio,agudo] } }, todo de 0 a 1.
+  const link = { es: null, state: 'off', at: -1e9, frame: null, tracks: [], keys: LIVE_KEYS.map(() => ''), goal: LIVE_KEYS.map(() => 0), hits: -1, lag: Infinity, demo: false, host: '', paintAt: 0 };
+  const linkFresh = () => performance.now() - link.at < 1200;
+  const linkMaster = () => linkFresh() && !!link.frame && !!link.frame.ears && Array.isArray(link.frame.m);
+  const linkTempo = () => (linkFresh() && link.frame && link.frame.bpm) || 0;
+  // Solo el enlace de la señal (el de VISUALES): el de la app de PITÁGORAS abre todo el estudio y no se guarda aquí.
+  function linkUrl(text) {
+    try {
+      const u = new URL(String(text).trim());
+      if (!/^https?:$/.test(u.protocol) || !/\/api\/feed\/stream\/?$/.test(u.pathname) || !u.searchParams.get('t')) return '';
+      return u.origin + '/api/feed/stream?t=' + encodeURIComponent(u.searchParams.get('t'));
+    } catch (_) { return ''; }
+  }
+  // Cada toma recuerda el NOMBRE de su pista: si en Live cambian de orden, el cable sigue al instrumento.
+  function linkAssign() {
+    const want = store.global.live.slots, used = new Set();
+    link.keys = LIVE_KEYS.map((_, i) => {
+      const t = want[i] && want[i] !== '-' && link.tracks.find(t => t.name === want[i] && !used.has(t.key));
+      if (t) used.add(t.key);
+      return t ? t.key : '';
+    });
+    LIVE_KEYS.forEach((_, i) => {
+      if (link.keys[i] || want[i] === '-') return;                       // ya tiene pista, o se dejó libre a propósito («-»)
+      // (una toma cuya pista ya no existe —otro set— pasa a la siguiente pista sin toma)
+      const t = link.tracks.find(t => !used.has(t.key) && !want.includes(t.name));
+      if (t) { used.add(t.key); link.keys[i] = t.key; want[i] = t.name; }
+    });
+    linkLabels();
+  }
+  function linkLabels() {
+    LIVE_KEYS.forEach((key, i) => {
+      const t = link.tracks.find(t => t.key === link.keys[i]), kept = store.global.live.slots[i];
+      const name = (t ? t.name : kept && kept !== '-' ? kept : 'PISTA ' + (i + 1)).toUpperCase();
+      SRC[key].label = name.slice(0, 14);
+      const jack = ui.rig && ui.rig.querySelector('.rig-jack[data-src="' + key + '"]');
+      if (jack) { jack.querySelector('.hw-print').textContent = name.slice(0, 8); jack.classList.toggle('is-idle', !t); jack.setAttribute('aria-label', 'Modulador ' + name); }
+    });
+    if (ui.rig) { syncJacks(); linkPaint(); }
+  }
+  function linkSet(info) {
+    link.tracks = Array.isArray(info && info.tracks) ? info.tracks.filter(t => t && t.key && t.kind !== 'master').map(t => ({ key: String(t.key), name: String(t.name || t.key).slice(0, 40) })) : [];
+    link.demo = !!(info && info.demo);
+    linkAssign();
+    save();
+  }
+  function linkTake(f) {
+    if (!f || typeof f.t !== 'number') return;
+    const now = performance.now();
+    link.frame = f; link.at = now;
+    if (link.state !== 'on') {
+      link.state = 'on'; linkPaint();
+      // al llegar la señal, las tomas de pista quedan a la vista (el pupitre se desplaza en pantallas bajas)
+      const deck = ui.rig && ui.rig.querySelector('.rig-deck');
+      if (deck) requestAnimationFrame(() => { deck.scrollTop = deck.scrollHeight; });
+    }
+    // retraso de la red + diferencia entre relojes: el menor visto es lo que hay que descontar siempre
+    const lag = Date.now() / 1000 - f.t;
+    link.lag = lag < link.lag ? lag : link.lag + .0005;
+    if (link.hits >= 0 && f.hits > link.hits && f.ears) { audio.beat = Math.max(audio.beat, clamp(.55 + .45 * (f.hit == null ? 1 : f.hit))); audio.beats++; audio.lastBeat = now; }
+    link.hits = f.hits;
+    LIVE_KEYS.forEach((_, i) => {
+      const v = link.keys[i] && f.tr && f.tr[link.keys[i]];
+      link.goal[i] = v ? clamp(Math.pow(clamp((v[0] - .3) / .65), 1.4)) : 0;       // −38 dB es 0; −3 dB, casi 1
+    });
+  }
+  // El pulso de Live en este instante (el cuadro trae el suyo; se adelanta lo que tardó en llegar).
+  function linkBeatNow() {
+    const f = link.frame;
+    return f.pos + (f.play ? clamp(Date.now() / 1000 - f.t - link.lag, 0, .5) * f.bpm / 60 : 0);
+  }
+  function linkOpen(text, quiet) {
+    const url = linkUrl(text);
+    if (!url) { if (!quiet) flipToast('Ese no es el enlace de VISUALES de PITÁGORAS. Cópialo tal cual de donde lo encendiste.', 5200); return false; }
+    linkClose(true);
+    store.global.live.url = url; save();
+    Object.assign(link, { state: 'connecting', lag: Infinity, hits: -1, host: new URL(url).host });
+    let es;
+    try { es = new EventSource(url); } catch (_) { link.state = 'error'; linkPaint(); return false; }
+    link.es = es;
+    es.addEventListener('set', event => { try { linkSet(JSON.parse(event.data)); } catch (_) {} });
+    es.onmessage = event => { try { linkTake(JSON.parse(event.data)); } catch (_) {} };
+    es.onerror = () => { if (link.es !== es) return; link.state = es.readyState === 2 ? 'error' : 'connecting'; linkPaint(); };
+    linkPaint();
+    return true;
+  }
+  function linkClose(keep) {
+    if (link.es) { link.es.close(); link.es = null; }
+    Object.assign(link, { state: 'off', frame: null, at: -1e9, tracks: [], hits: -1 });
+    link.goal.fill(0); link.keys.fill('');
+    if (!keep) { store.global.live.url = ''; save(); }
+    linkLabels();
+  }
+  function linkPaint() {
+    if (!ui.rig) return;
+    link.paintAt = performance.now();
+    const f = link.frame, on = link.state === 'on' && linkFresh();
+    const text = link.state === 'off' ? 'LIVE · CONECTAR CON ABLETON'
+      : link.state === 'error' ? 'LIVE · NO CONTESTA · TOCA PARA REVISAR'
+      : !on ? 'LIVE · BUSCANDO A PITÁGORAS…'
+      : 'LIVE · ' + (f.bpm ? Math.round(f.bpm) + ' BPM' : 'SIN TEMPO') + ' · ' + link.tracks.length + (link.tracks.length === 1 ? ' PISTA' : ' PISTAS') + (link.demo ? ' · DEMO' : f.ears ? '' : ' · SIN OÍDO DEL MASTER') + (f.play ? '' : ' · PARADO');
+    put('rigLiveText', text);
+    ui.rig.classList.toggle('rig-live-on', on);
+    $('rigLive').classList.toggle('is-on', on);
+    $('rigLive').classList.toggle('is-wait', link.state === 'connecting' || (link.state === 'on' && !on));
+    const sheet = $('rigLiveSheet');
+    if (sheet.hidden) return;
+    put('rigLiveHelp', on ? 'Conectado' + (link.host ? ' a ' + link.host : '') + '. Elige qué pista de Ableton sigue cada toma; luego toca la toma y un mando para tender el cable.'
+      : 'Pega el enlace de VISUALES que da PITÁGORAS al encenderse. Solo deja escuchar lo que toca Live: el nivel de cada pista, los golpes y el compás.');
+    $('rigLiveUrl').hidden = on; $('rigLiveGo').hidden = on; $('rigLiveOff').hidden = link.state === 'off';
+    const slots = $('rigLiveSlots'), sign = link.tracks.map(t => t.key + t.name).join('|') + '#' + link.keys.join(',');
+    slots.hidden = !on;
+    if (on && slots.dataset.sign !== sign) {
+      slots.dataset.sign = sign;
+      const esc = text => String(text).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      slots.innerHTML = LIVE_KEYS.map((key, i) => `<label style="--tone:${SRC[key].tone}"><i></i><span>TOMA ${i + 1}</span><select data-slot="${i}" aria-label="Pista de la toma ${i + 1}"><option value="-">— libre —</option>${link.tracks.map(t => `<option value="${esc(t.name)}"${t.key === link.keys[i] ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>`).join('');
+    }
+  }
+  function linkSheet(open) {
+    $('rigLiveSheet').hidden = !open;
+    if (open) { $('rigLiveUrl').value = ''; linkPaint(); }
+  }
+
   // ── Reloj y moduladores ─────────────────────────────────────────────────────
   const taps = [];
   // Quién marca el tempo: el reloj MIDI si llega; si no, el que se marcó a golpes; si no, el de la música.
-  function bpmNow() { return performance.now() - midi.tickAt < 1500 ? midi.bpm : store.global.bpm || audio.bpm || 120; }
-  function bpmSource() { return performance.now() - midi.tickAt < 1500 ? 'MIDI' : store.global.bpm ? 'TAP' : audio.bpm ? 'AUTO' : ''; }
+  // (Con LIVE conectado manda Ableton: es el tempo de verdad, no uno estimado.)
+  function bpmNow() { return linkTempo() || (performance.now() - midi.tickAt < 1500 ? midi.bpm : store.global.bpm || audio.bpm || 120); }
+  function bpmSource() { return linkTempo() ? 'LIVE' : performance.now() - midi.tickAt < 1500 ? 'MIDI' : store.global.bpm ? 'TAP' : audio.bpm ? 'AUTO' : ''; }
   function tap() {
     const now = performance.now();
     if (taps.length && now - taps[taps.length - 1] > 2000) taps.length = 0;
@@ -914,6 +1079,16 @@ void main() {
   const pad = { x: .5, y: .5, active: false };
   function stepMods(dt) {
     clock.beat += bpmNow() / 60 * dt;
+    if (linkTempo() && link.frame.play) {
+      // El reloj de compases es el de Live: mismo pulso y mismo número de compás que el transporte.
+      const d = linkBeatNow() - clock.beat;
+      clock.beat += Math.abs(d) > 1.5 ? d : d * Math.min(1, dt * 12);
+    }
+    {
+      // Las pistas de Live llegan unas diez veces por segundo: suben en 25 ms y sueltan en 140 ms.
+      const up = 1 - Math.exp(-dt / .025), down = 1 - Math.exp(-dt / .14), alive = linkFresh();
+      for (let i = 0; i < LIVE_KEYS.length; i++) { const goal = alive ? link.goal[i] : 0, key = LIVE_KEYS[i]; mods[key] += (goal - mods[key]) * (goal > mods[key] ? up : down); }
+    }
     for (const n of [0, 1]) {
       // A tempo, la fase sale del reloj de compases (así cae en el pulso); libre, corre por su cuenta.
       if (live.d['lfo.sync']) ph.lfo[n] = clock.beat * DIVS[Math.min(7, Math.floor(lfoRate(n + 1) * 8))][0];
@@ -1210,6 +1385,7 @@ void main() {
     if (ui.armed) readout(SRC[ui.armed].label + ' > TOCA UN MANDO', 4000); else readout('', 0);
     if (ui.armed && (ui.armed === 'bass' || ui.armed === 'mid' || ui.armed === 'high') && !audio.on && !audio.inject) flipToast('Enciende MIC para que los mandos sigan el sonido.', 2600);
     if (ui.armed === 'note' && midi.state === 'off') flipToast('Pulsa MIDI para conectar tu controlador.', 2600);
+    if (ui.armed && LIVE_KEYS.includes(ui.armed) && link.state !== 'on') flipToast('Conecta LIVE para que este mando siga una pista de Ableton.', 2600);
   }
 
   // ── Consola ─────────────────────────────────────────────────────────────────
@@ -1284,7 +1460,8 @@ void main() {
           <div class="rig-scenes" id="rigScenes" role="radiogroup" aria-label="Escenas">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<button class="hw hw-keycap" type="button" role="radio" data-scene="${i}" data-feel="key" aria-label="Escena ${i + 1}"><span>${i + 1}</span></button>`).join('')}</div>
           <div class="rig-tabs" id="rigTabs" role="tablist" aria-label="Módulos">${PAGES.map(page => `<button class="hw hw-keycap" data-color="gray" type="button" role="tab" data-page="${page.id}"><span>${page.label}</span></button>`).join('')}</div>
           <div class="rig-panel" id="rigPanel" role="tabpanel"></div>
-          <div class="rig-jacks" id="rigJacks" aria-label="Moduladores">${SOURCES.map(([key, label, tone]) => `<button class="hw rig-jack" type="button" data-src="${key}" data-feel="soft" style="--tone:${tone}" aria-label="Modulador ${label}"><i class="led"></i><b class="socket"></b><span class="hw-print">${label}</span></button>`).join('')}</div>
+          <button class="hw rig-live" id="rigLive" type="button" aria-haspopup="dialog" aria-label="Enlace con Ableton Live"><i></i><span id="rigLiveText">LIVE · CONECTAR CON ABLETON</span></button>
+          <div class="rig-jacks" id="rigJacks" aria-label="Moduladores">${SOURCES.map(([key, label, tone]) => `<button class="hw rig-jack" type="button" data-src="${key}"${LIVE_KEYS.includes(key) ? ' data-live' : ''} data-feel="soft" style="--tone:${tone}" aria-label="Modulador ${label}"><i class="led"></i><b class="socket"></b><span class="hw-print">${label}</span></button>`).join('')}</div>
         </div>
           <div class="rig-transport">
             <div class="hw-labeled"><button class="hw hw-candy" data-color="coral" id="rigRec" type="button" data-feel="primary" aria-label="Grabar la salida">${icon('rec')}</button><span class="hw-print">REC</span></div>
@@ -1296,6 +1473,13 @@ void main() {
           </div>
         </div>
         <svg class="rig-cables" id="rigCables" aria-hidden="true"></svg>
+        <div class="rig-live-sheet" id="rigLiveSheet" role="dialog" aria-label="Enlace con Ableton Live" hidden>
+          <h3>LIVE · ABLETON</h3>
+          <p id="rigLiveHelp"></p>
+          <input id="rigLiveUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="http://127.0.0.1:8420/api/feed/stream?t=…" aria-label="Enlace de visuales de PITÁGORAS">
+          <div class="rig-live-slots" id="rigLiveSlots" hidden></div>
+          <div class="rig-live-keys"><button type="button" id="rigLiveGo">CONECTAR</button><button type="button" id="rigLiveOff">DESCONECTAR</button><button type="button" id="rigLiveClose">LISTO</button></div>
+        </div>
       </div>`;
     Object.assign(ui, { rig: $('stageRig'), monitor: $('rigMonitor'), screen: $('rigScreen'), panel: $('rigPanel'), cablesSvg: $('rigCables'), note: $('rigNote'), cleanHint: $('rigCleanHint') });
     ui.leds = [...ui.rig.querySelectorAll('.rig-jack')].map(jack => [jack.dataset.src, jack.querySelector('.led')]);
@@ -1411,6 +1595,7 @@ void main() {
   function paint(now) {
     if (!ui.rig || state.clean) { lcd(false); return; }
     for (const [key, led] of ui.leds) led.style.opacity = (.22 + .78 * Math.abs(mods[key])).toFixed(2);
+    if (link.state !== 'off' && now - link.paintAt > 700) linkPaint();
     for (const id of Object.keys(ui.ctl)) {
       const node = ui.ctl[id];
       if (ui.stale && !(ui.drag && ui.drag.id === id)) syncCtl(id);
@@ -1571,6 +1756,22 @@ void main() {
     $('rigTap').addEventListener('click', event => { if (midi.learn) learnTarget('t:tap', event.currentTarget); else tap(); });
     $('rigMic').addEventListener('click', () => (audio.on ? audioOff() : audioOn()));
     $('rigMidi').addEventListener('click', () => { if (midi.state === 'off' || midi.state === 'denied' || midi.state === 'none') midiConnect(); else setLearn(!midi.learn); });
+    $('rigLive').addEventListener('click', () => linkSheet(true));
+    $('rigLiveClose').addEventListener('click', () => linkSheet(false));
+    $('rigLiveGo').addEventListener('click', () => { if (linkOpen($('rigLiveUrl').value)) $('rigLiveUrl').value = ''; });
+    $('rigLiveUrl').addEventListener('keydown', event => { if (event.key === 'Enter') $('rigLiveGo').click(); event.stopPropagation(); });
+    $('rigLiveOff').addEventListener('click', () => linkClose(false));
+    $('rigLiveSlots').addEventListener('change', event => {
+      const select = event.target.closest('select[data-slot]');
+      if (!select) return;
+      const slots = store.global.live.slots, i = +select.dataset.slot;
+      // una pista vive en una sola toma: la que la tenía queda libre
+      if (select.value !== '-') for (let k = 0; k < 6; k++) if (k !== i && slots[k] === select.value) slots[k] = '-';
+      slots[i] = select.value;
+      for (let k = 0; k < 6; k++) if (slots[k] == null) slots[k] = '-';
+      linkAssign(); save();
+    });
+    linkLabels();
     // El monitor es un pad XY; doble toque, siguiente escena. Sin cámara, un toque la pide.
     let lastPadTap = 0;
     ui.screen.addEventListener('pointerdown', event => {
@@ -1625,6 +1826,7 @@ void main() {
     try {
       if (!localStorage.getItem('flip.stage.hello')) { localStorage.setItem('flip.stage.hello', '1'); flipToast('Teclas 1 a 8: escenas. Toca una toma de abajo y luego una perilla para conectar un cable.', 6500); }
     } catch (_) {}
+    if (store.global.live.url && link.state === 'off') linkOpen(store.global.live.url, true);      // el enlace con Ableton vuelve solo
     if (!midi.access && navigator.permissions && navigator.requestMIDIAccess) {
       navigator.permissions.query({ name: 'midi' }).then(permission => { if (permission.state === 'granted' && state.active && !midi.access) midiConnect(); }).catch(() => {});
     }
@@ -1638,6 +1840,7 @@ void main() {
     if (out.win && !out.win.closed) { try { out.win.close(); } catch (_) {} }
     output.detach();
     audioOff(); handsOn(false); wake(false);
+    linkClose(true); if (ui.rig) linkSheet(false);
     if (ui.armed) arm(ui.armed);
     if (midi.learn) setLearn(false);
     save();
@@ -1655,7 +1858,9 @@ void main() {
     get active() { return state.active; },
     status: () => ({ active: state.active, ok: eng.ok, error: eng.error, size: [eng.w, eng.h], fps: +clock.fps.toFixed(1), scene: store.scene, name: store.scenes[store.scene].name, hasA: eng.hasA, path: eng.path, camKind: eng.camKind,
       hasMask: eng.hasMask, page: ui.page, armed: ui.armed, routes: live.r.map(r => r.slice()), audio: { on: audio.on, kind: audio.kind, bpm: +audio.bpm.toFixed(1), level: +audio.level.toFixed(3), loud: +audio.loud.toFixed(1), beats: audio.beats, silent: audio.on && audio.quietFor > 4 }, beat: +clock.beat.toFixed(3), bpm: +bpmNow().toFixed(1), bpmSource: bpmSource(),
-      midi: { state: midi.state, learn: midi.learn, target: midi.target, last: midi.last, knobs: midi.knobs.slice(), map: JSON.parse(JSON.stringify(store.midi)) }, hands: { on: hands.on, seen: hands.seen }, out: { window: !!out.ctx, clean: state.clean }, rec: rec.on, black: ui.black, morphing: !!morph }),
+      midi: { state: midi.state, learn: midi.learn, target: midi.target, last: midi.last, knobs: midi.knobs.slice(), map: JSON.parse(JSON.stringify(store.midi)) },
+      sync: { locked: coro.locked && bpmSource() === 'AUTO', bpm: coro.bpm, phase: +coro.phase.toFixed(3) },
+      live: { state: link.state, fresh: linkFresh(), master: linkMaster(), tracks: link.tracks.map(t => t.name), keys: link.keys.slice(), names: LIVE_KEYS.map(key => SRC[key].label), demo: link.demo, host: link.host }, hands: { on: hands.on, seen: hands.seen }, out: { window: !!out.ctx, clean: state.clean }, rec: rec.on, black: ui.black, morphing: !!morph }),
     get: id => (id in P ? live.p[id] : getD(id)),
     value: id => val[id],
     mods: () => Object.assign({}, mods),
@@ -1683,7 +1888,11 @@ void main() {
     midi: { inject: (bytes, stamp) => midiIn(bytes, stamp === undefined ? performance.now() : stamp), connect: midiConnect, learn: setLearn },
     // direct: fuerza la subida directa del vídeo. inject: sustituye la cámara por unos planos dados (pruebas del sombreador).
     camera: { direct(on) { camState.forceDirect = !!on; eng.path = ''; eng.camSeq = -1; }, inject(planes) { camState.injected = planes || null; eng.camSeq = -1; eng.path = ''; eng.yuvKey = ''; } },
-    reset() { store = fresh(); adopt(store.scenes[0]); morph = null; patched(); save(); },
+    reset() { linkClose(true); store = fresh(); adopt(store.scenes[0]); morph = null; patched(); linkLabels(); save(); },
+    // LIVE: el enlace con Ableton por la señal de PITÁGORAS. inject() es la misma entrada que la red (pruebas y demos).
+    live: { connect: linkOpen, disconnect: () => linkClose(false), sheet: linkSheet, keys: LIVE_KEYS,
+      inject(message) { if (message && message.set) linkSet(message.set); else linkTake(message); },
+      assign(slot, name) { const slots = store.global.live.slots; for (let k = 0; k < 6; k++) if (slots[k] == null) slots[k] = ''; if (name) for (let k = 0; k < 6; k++) if (k !== slot && slots[k] === name) slots[k] = '-'; slots[slot] = name || '-'; linkAssign(); save(); } },
     tables: { PARAMS: P, SOURCES: SOURCES.map(s => s[0]), PAGES: PAGES.map(p => p.id), GENS, MIX_MODES, LOOKS: LOOKS.map(l => l.key) },
   };
 })();

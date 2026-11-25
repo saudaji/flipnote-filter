@@ -55,8 +55,9 @@
   if (mic && !mic.hidden) {
     const label = el('span', { class: 'si-audio' }, '<b>AUDIO</b><i></i>');
     mic.appendChild(label);
-    const paint = () => { label.lastChild.textContent = mic.classList.contains('is-on') ? 'Micrófono' : 'Silencio'; };
+    const paint = () => { label.lastChild.textContent = body.dataset.escucha === 'si' ? 'Escucha' : mic.classList.contains('is-on') ? 'Micrófono' : 'Silencio'; };
     new MutationObserver(paint).observe(mic, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(paint).observe(body, { attributes: true, attributeFilter: ['data-escucha'] });
     paint();
   }
 

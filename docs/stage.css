@@ -168,6 +168,35 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 .rig-route b { font-family: var(--font-dot); font-size: 10px; }
 .rig-route button { width: 20px; height: 20px; border-radius: 50%; font: 700 13px/1 var(--font-ui); color: var(--ink-dim); }
 
+/* ── LIVE: enlace con Ableton (stage.js, «LIVE») ─────────────────────────────
+   Las seis tomas de pista solo aparecen con el enlace encendido (o si ya llevan un cable); la
+   barra de abajo dice el estado y abre la hoja para conectar y elegir pistas. */
+.rig-jack[data-live] { display: none; }
+.rig-live-on .rig-jack[data-live], .rig-jack[data-live].is-used { display: flex; }
+.rig-live-on .rig-jack[data-live] { order: -1; }                       /* con el enlace encendido, las pistas van en la primera fila */
+.rig-jack[data-live].is-idle { opacity: .45; }
+.rig-live { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; min-height: 26px; padding: 0 9px; border-radius: 8px; background: rgba(120, 105, 70, .1); box-shadow: inset 0 1px 2px rgba(60, 50, 25, .22), 0 1px 0 #fff; color: var(--ink); font: 800 8.5px/1 var(--font-ui); letter-spacing: .1em; text-align: left; position: relative; }
+.rig-live::after { content: ''; position: absolute; inset: -9px 0; }                 /* zona táctil de 44 px */
+.rig-live i { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: #9a927f; }
+.rig-live.is-on i { background: #3ca956; box-shadow: 0 0 6px #3ca956; }
+.rig-live.is-wait i { background: #f0ae2b; animation: rig-learn .8s steps(1, end) infinite; }
+.rig-live span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rig-live-sheet { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 12; max-height: calc(100% - 20px); overflow-y: auto; display: grid; gap: 10px; padding: 14px 14px 12px; border-radius: 12px; background: #17181c; color: #f4f1ea; box-shadow: 0 14px 36px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.rig-live-sheet[hidden] { display: none; }
+.rig-live-sheet h3 { margin: 0; font: 800 12px/1 var(--font-ui); letter-spacing: .14em; }
+.rig-live-sheet p { margin: 0; font: 500 12.5px/1.4 var(--font-ui); color: #cfc9bc; }
+.rig-live-sheet input { width: 100%; height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid #55565d; background: #0c0d10; color: #f4f1ea; font: 500 13px/1 ui-monospace, monospace; }
+.rig-live-sheet input[hidden] { display: none; }
+.rig-live-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rig-live-slots[hidden] { display: none; }
+.rig-live-slots label { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 6px; font: 800 8.5px/1 var(--font-ui); letter-spacing: .1em; color: #cfc9bc; }
+.rig-live-slots label i { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); }
+.rig-live-slots select { grid-column: 1 / -1; height: 40px; border-radius: 8px; border: 1px solid #55565d; background: #0c0d10; color: #f4f1ea; font: 600 13px/1 var(--font-ui); padding: 0 8px; }
+.rig-live-keys { display: flex; gap: 8px; justify-content: flex-end; }
+.rig-live-keys button { min-height: 44px; padding: 0 14px; border-radius: 8px; border: 0; background: #2a2b31; color: #f4f1ea; font: 800 10.5px/1 var(--font-ui); letter-spacing: .1em; }
+.rig-live-keys button[hidden] { display: none; }
+#rigLiveGo { background: #7ddb8b; color: #151727; }
+
 /* ── Tomas de modulación ─────────────────────────────────────────────────── */
 .rig-jacks {
   flex: 0 0 auto; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px 0; padding: 4px 1px 3px; border-radius: 10px;

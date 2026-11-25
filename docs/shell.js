@@ -352,14 +352,121 @@
   }
   new MutationObserver(syncMode).observe(btnMode, { subtree: true, childList: true, characterData: true });
   new MutationObserver(syncMode).observe(btnShot, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class'] });
-  $('deckModeSwitch').addEventListener('click', () => btnMode.click());
+
+  // ── Una sola botonera para todos los modos ──────────────────────────────────
+  // El pupitre de la cámara (última toma, FOTO/VIDEO, disparador, AJUSTES y un botón de contexto)
+  // es el mismo en ASCII, GLITCH, FUSIÓN, SONO, WMP y EDIT: la misma pieza se muda de sitio y
+  // cada mando llama al botón propio del módulo, que sigue existiendo, oculto.
+  //   toggle + shoot: módulos con su propio modo foto/video.   snap + rec: módulos con dos botones.
+  //   hud: la consola que AJUSTES abre y cierra.   source: lo que hace FUENTE (si no, GIRAR).
+  const DECKS = {
+    ascii: { video: () => asciiCamMode === 'video', toggle: 'btnAsciiMode', shoot: 'btnAsciiCapture', adjust: () => $('btnAsciiEdit').click() },
+    scrash: { video: () => scrashCamMode === 'video', toggle: 'btnScrashMode', shoot: 'btnScrashSnap', hud: true },
+    fusion: { snap: 'btnFusionSnap', rec: 'btnFusionRec', hud: true },
+    sono: { snap: 'btnSonoCapture', rec: 'btnSonoRec', hud: true, source: () => $('sonoPerm').classList.toggle('visible') },
+    wmp: { snap: 'btnWmpCapture', rec: 'btnWmpRec', hud: true, source: () => $('wmpPerm').classList.toggle('visible') },
+    edit: { snap: 'btnEditSnap', rec: 'btnEditRec', hud: true, open: true, source: () => $('editFileInput').click() },
+  };
+  // WMP tiene dos mandos propios que no caben en la botonera común: reproducir o pausar el
+  // archivo, y la pantalla completa. Van sobre su pantalla, abajo a la izquierda.
+  const wmpArea = $('wmpArea');
+  if (wmpArea) {
+    const transport = el('div', { id: 'wmpTransport' }, `
+      <button class="hw" id="wmpPlay" type="button" aria-label="Reproducir o pausar">${icon('play')}</button>
+      <button class="hw" id="wmpFull" type="button" aria-label="Pantalla completa">${icon('full')}</button>`);
+    document.body.appendChild(transport);
+    const play = $('btnWmpPlayPause');
+    const mirror = () => {
+      $('wmpPlay').hidden = !play || play.disabled;
+      const glyph = ((play && (play.querySelector('.btn-icon') || play).textContent) || '').trim();
+      $('wmpPlay').querySelector('svg').outerHTML = icon(glyph === '⏸' ? 'pause' : 'play');
+    };
+    if (play) new MutationObserver(mirror).observe(play, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['disabled'] });
+    mirror();
+    $('wmpPlay').addEventListener('click', () => play && !play.disabled && play.click());
+    $('wmpFull').addEventListener('click', () => $('btnWmpFull') && $('btnWmpFull').click());
+  }
+  const deckMain = deck.querySelector('.deck-main');
+  const modeDeck = el('footer', { id: 'modeDeck' });
+  document.body.appendChild(modeDeck);
+  const deckVideo = {}, consoleOpen = {};
+  for (const [tab, spec] of Object.entries(DECKS)) consoleOpen[tab] = !!spec.open;
+  const deckOf = () => (activeTab !== 'cam' && DECKS[activeTab]) || null;
+  const deckRecording = spec => { const node = $(spec.rec || spec.shoot); return !!node && node.classList.contains('recording'); };
+  const deckIsVideo = spec => (spec.video ? spec.video() : !!deckVideo[activeTab]);
+  function paintDeck() {
+    const spec = deckOf();
+    if (!spec) return;
+    const video = deckIsVideo(spec), recording = deckRecording(spec);
+    document.body.classList.toggle('cam-video', video || recording);
+    document.body.classList.toggle('is-recording', recording);
+    $('deckModeSwitch').setAttribute('aria-checked', String(video));
+    deckMain.querySelectorAll('[data-mode-label]').forEach(label => label.classList.toggle('is-on', (label.dataset.modeLabel === 'video') === video));
+    $('deckShutter').setAttribute('aria-label', recording ? 'Detener la grabación' : video ? 'Grabar video' : 'Tomar foto');
+    $('deckAdjust').setAttribute('aria-pressed', String(spec.hud ? !!consoleOpen[activeTab] : false));
+  }
+  // La consola de un módulo (sus perillas) se abre y se cierra con AJUSTES, como en la cámara.
+  function setConsole(tab, open) {
+    if (!DECKS[tab] || !DECKS[tab].hud) return;
+    consoleOpen[tab] = !!open;
+    if (tab !== activeTab) return;
+    document.documentElement.dataset.consola = open ? 'abierta' : 'cerrada';
+    if (tab === 'scrash' && typeof _syncScrashHudVisibility === 'function') _syncScrashHudVisibility();
+    if (tab === 'sono' && typeof _syncSonoLayoutVars === 'function') _syncSonoLayoutVars();
+    if (window._editSyncHudLayout) window._editSyncHudLayout();
+    window.dispatchEvent(new Event('resize'));
+    paintDeck();
+  }
+  function syncDeck(tab) {
+    const spec = tab !== 'cam' && DECKS[tab];
+    document.body.classList.toggle('modo-pupitre', !!spec);
+    if (!spec) {
+      delete document.documentElement.dataset.consola;
+      if (deckMain.parentElement !== deck) deck.insertBefore(deckMain, deck.querySelector('.rollo-pie'));
+    } else {
+      if (deckMain.parentElement !== modeDeck) modeDeck.appendChild(deckMain);
+      document.documentElement.dataset.consola = !spec.hud || consoleOpen[tab] ? 'abierta' : 'cerrada';
+    }
+    // El botón de contexto: GIRAR la cámara o elegir la FUENTE (un archivo, el micrófono).
+    const context = $('deckFlip'), source = !!(spec && spec.source);
+    context.querySelector('svg').outerHTML = icon(source ? 'folder' : 'flip');
+    context.setAttribute('aria-label', source ? 'Elegir la fuente' : 'Cambiar entre cámara frontal y trasera');
+    context.parentElement.querySelector('.hw-print').textContent = source ? 'FUENTE' : 'GIRAR';
+    if (spec) paintDeck(); else syncMode();
+  }
+  for (const spec of Object.values(DECKS)) {
+    for (const id of [spec.toggle, spec.shoot, spec.snap, spec.rec]) {
+      const node = id && $(id);
+      if (node) new MutationObserver(paintDeck).observe(node, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class'] });
+    }
+  }
+  const flipMode = () => {
+    const spec = deckOf();
+    if (!spec) return btnMode.click();
+    if (deckRecording(spec)) return;
+    if (spec.toggle) $(spec.toggle).click(); else deckVideo[activeTab] = !deckVideo[activeTab];
+    paintDeck();
+  };
+  $('deckModeSwitch').addEventListener('click', flipMode);
   deck.querySelector('.deck-mode .hw-print').addEventListener('click', event => {
-    const label = event.target.closest('[data-mode-label]');
-    if (label && label.dataset.modeLabel !== camMode) btnMode.click();
+    const label = event.target.closest('[data-mode-label]'), spec = deckOf();
+    if (!label) return;
+    const now = spec ? (deckIsVideo(spec) ? 'video' : 'foto') : camMode;
+    if (label.dataset.modeLabel !== now) flipMode();
   });
-  $('deckShutter').addEventListener('click', () => btnShot.click());
-  $('deckFlip').addEventListener('click', () => _toggleCamera());
-  $('deckAdjust').addEventListener('click', () => _toggleCamEdit());
+  $('deckShutter').addEventListener('click', () => {
+    const spec = deckOf();
+    if (!spec) return btnShot.click();
+    if (spec.shoot) return $(spec.shoot).click();
+    $(deckRecording(spec) || deckVideo[activeTab] ? spec.rec : spec.snap).click();
+  });
+  $('deckFlip').addEventListener('click', () => { const spec = deckOf(); if (spec && spec.source) spec.source(); else _toggleCamera(); });
+  $('deckAdjust').addEventListener('click', () => {
+    const spec = deckOf();
+    if (!spec) return _toggleCamEdit();
+    if (spec.adjust) return spec.adjust();
+    setConsole(activeTab, !consoleOpen[activeTab]);
+  });
 
   // Cuadros por segundo y batería, a la pantallita.
   const fpsSource = $('fps');
@@ -508,8 +615,10 @@
       // La miniatura de un vídeo es lo que había en el visor al terminar.
       try {
         const thumb = document.createElement('canvas');
-        thumb.width = 120; thumb.height = Math.round(120 * display.height / display.width);
-        thumb.getContext('2d').drawImage(display, 0, 0, thumb.width, thumb.height);
+        const shown = { ascii: 'asciiCanvas', scrash: 'scrashCanvas', fusion: 'fusionCanvas', sono: 'sonoCanvas', wmp: 'wmpCanvas', edit: 'editCanvas', sflow: 'sflowCanvas' }[activeTab];
+        const source = (shown && $(shown)) || display;
+        thumb.width = 120; thumb.height = Math.round(120 * source.height / source.width);
+        thumb.getContext('2d').drawImage(source, 0, 0, thumb.width, thumb.height);
         face.style.backgroundImage = `url(${thumb.toDataURL('image/jpeg', 0.7)})`;
       } catch (_) { face.style.backgroundImage = ''; }
     } else face.style.backgroundImage = `url(${last.url})`;
@@ -579,6 +688,7 @@
     $('shellModule').querySelector('svg').outerHTML = icon(mode[3]);
     $('shellModule').setAttribute('aria-label', 'Cambiar de modo: ' + mode[1]);
     document.body.dataset.modo = mode[0];
+    syncDeck(tab);
     if (tab === 'cam') { syncCam(); syncMode(); requestAnimationFrame(measureDeck); }
     else {
       $('lcdLook').textContent = entry ? entry[1] : String(key).toUpperCase();
@@ -592,6 +702,8 @@
   window.flipShell = {
     hint, syncCam, syncTab, measureDeck, openLauncher, openViewer, icon, el, goModule,
     module: currentModule, mode: () => modeOf(currentModule())[0], modes: MODES,
+    // La consola de perillas de un módulo: abrirla o cerrarla, y saber si lo está.
+    console: (open, tab = activeTab) => setConsole(tab, open), consoleOpen: (tab = activeTab) => !DECKS[tab] || !DECKS[tab].hud || !!consoleOpen[tab],
     // Registra un módulo que vive sobre una pestaña del motor: { tab, enter(), exit() }.
     overlay(key, spec) { overlays[key] = spec; },
     onLook(handler) { lookHandlers.push(handler); },

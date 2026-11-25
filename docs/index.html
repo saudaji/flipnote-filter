@@ -13625,7 +13625,9 @@ function _syncModuleCanvases(tab) {
 function _syncScrashHudVisibility() {
   const scrashAreaVisible = document.getElementById('scrashArea')?.classList.contains('visible');
   const uploadVisible = document.getElementById('uploadSection')?.classList.contains('visible');
-  const show = (activeTab === 'scrash' && scrashAreaVisible) || (activeTab === 'up' && uploadMode === 'scrash' && uploadVisible);
+  // En GLITCH la consola se abre y se cierra con AJUSTES (shell.js); cerrada, el lienzo crece.
+  const consoleShut = activeTab === 'scrash' && window.flipShell && typeof flipShell.consoleOpen === 'function' && !flipShell.consoleOpen('scrash');
+  const show = !consoleShut && ((activeTab === 'scrash' && scrashAreaVisible) || (activeTab === 'up' && uploadMode === 'scrash' && uploadVisible));
   const ctrlsEl = document.getElementById('scrashControls');
   if (ctrlsEl) {
     ctrlsEl.classList.toggle('visible', show);

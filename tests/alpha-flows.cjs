@@ -264,7 +264,7 @@ async function main() {
     // y un toque devuelve los mandos; las hojas de ajustes se cierran también con Escape ──
     await openModule(page, 'wmp');
     await page.waitForTimeout(700);
-    await page.locator('#flipBottomNav button', { hasText: 'FULL' }).click();
+    await page.locator('#wmpFull').click();
     await page.waitForFunction(() => !!document.fullscreenElement, null, { timeout: 5000 });
     await page.waitForTimeout(300);
     const full = await page.evaluate(() => { const r = document.getElementById('wmpCanvas').getBoundingClientRect(); return { box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], view: [innerWidth, innerHeight] }; });

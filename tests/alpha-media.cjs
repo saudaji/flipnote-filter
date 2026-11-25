@@ -117,11 +117,11 @@ async function cameraMedia(browser) {
   await openModule(page, 'edit');
   await page.setInputFiles('#editFileInput', path.join(out, 'foto-night.jpg'));
   await page.waitForTimeout(900);
-  const editPhoto = await measure(page, await download(page, () => page.locator('#btnEditSnap').click(), 'edit-desde-foto'), [64, 48]);
+  const editPhoto = await measure(page, await download(page, () => page.locator('#deckShutter').click(), 'edit-desde-foto'), [64, 48]);
   assert.ok(editPhoto.rg < 0.9, 'EDIT exporta la foto importada (conserva el tinte): ' + editPhoto.rg);
   await page.setInputFiles('#editFileInput', withAudio);
   await page.waitForTimeout(1500);
-  const editVideo = await measure(page, await download(page, () => page.locator('#btnEditSnap').click(), 'edit-desde-video'), [64, 48]);
+  const editVideo = await measure(page, await download(page, () => page.locator('#deckShutter').click(), 'edit-desde-video'), [64, 48]);
   const flat = Math.max(...editVideo.luma) - Math.min(...editVideo.luma);
   assert.ok(flat > 20, 'EDIT dibuja el vídeo importado');
   step('EDIT importa y exporta', { photo: editPhoto.width + 'x' + editPhoto.height, video: editVideo.width + 'x' + editVideo.height });

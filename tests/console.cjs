@@ -144,12 +144,14 @@ async function main() {
       await openModule(page, key);
       await page.waitForTimeout(1100);
       if (key === 'sflow') { await page.locator('#sflowAdjust').click(); await page.waitForTimeout(400); }
+      // La consola viene cerrada: se abre con AJUSTES, como lo haría una persona.
+      if (await page.evaluate(() => !!(window.flipShell && flipShell.consoleOpen && !flipShell.consoleOpen()))) { await page.locator('#deckAdjust').click(); await page.waitForTimeout(500); }
       const rack = '#' + hud + ' > .cs-rack';
       const report = await page.evaluate(({ hud }) => {
         const host = document.getElementById(hud), rack = host.querySelector(':scope > .cs-rack'), plate = rack.getBoundingClientRect();
         const shown = el => !!el.offsetParent && getComputedStyle(el).visibility !== 'hidden';
         const out = [...rack.querySelectorAll('.cs-knob, .cs-toggle, .cs-key')].filter(el => shown(el) && (el.getBoundingClientRect().left < plate.left - 1 || el.getBoundingClientRect().right > plate.right + 1)).length;
-        const bar = [...document.querySelectorAll('#flipBottomNav, #barSflow')].find(shown);
+        const bar = [...document.querySelectorAll('#modeDeck, #flipBottomNav, #barSflow')].find(shown);
         return {
           visible: shown(rack), plate: [Math.round(plate.left), Math.round(plate.top), Math.round(plate.width), Math.round(plate.height)], view: [innerWidth, innerHeight], out,
           scroll: [host, rack].some(el => el.scrollHeight > el.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(el).overflowY)),

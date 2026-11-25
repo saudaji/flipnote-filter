@@ -61,6 +61,16 @@
     ['edit', 'EDIT', 'Edición por capas', '#7d7768'], ['stage', 'STAGE', 'Central de visuales en vivo', '#3b3c3f'],
   ];
   if (window.flipRollo) for (const item of MODULES) item[3] = flipRollo.palette[item[0]][0];
+  // Cuatro modos, y dentro de cada uno sus variantes (los diez módulos del motor). Quien abre el
+  // lanzador elige entre cuatro cosas, no entre diez: [id, nombre, qué es, icono, [[módulo, rótulo]…]].
+  const MODES = [
+    ['camara', 'CÁMARA', 'Cámaras de otra época, ASCII, glitch y PORTAL', 'cam', [['cam', 'RETRO'], ['portal', 'PORTAL'], ['ascii', 'ASCII'], ['sflow', 'FLOW'], ['scrash', 'GLITCH']]],
+    ['sono', 'SONO', 'Tu música, en imagen', 'sono', [['sono', 'ONDAS'], ['wmp', 'ESCENAS']]],
+    ['estudio', 'ESTUDIO', 'Fotos y videos por capas', 'edit', [['edit', 'CAPAS'], ['fusion', 'FUSIÓN']]],
+    ['stage', 'STAGE', 'Visuales en vivo y proyección', 'stage', [['stage', 'STAGE']]],
+  ];
+  const modeOf = key => MODES.find(mode => mode[4].some(sub => sub[0] === key)) || MODES[0];
+  const lastOf = mode => { try { const key = localStorage.getItem('flip.modo.' + mode[0]); if (mode[4].some(sub => sub[0] === key)) return key; } catch (_) {} return mode[4][0][0]; };
 
   // ── Construcción ────────────────────────────────────────────────────────────
   document.body.prepend(el('div', { id: 'camBody', 'aria-hidden': 'true' }));
@@ -96,9 +106,12 @@
         <div class="hw-labeled"><button class="hw hw-candy" data-color="mint" id="deckFlip" type="button" aria-label="Cambiar entre cámara frontal y trasera">${icon('flip')}</button><span class="hw-print">GIRAR</span></div>
       </div>
     </div>`);
-  const launcher = el('div', { id: 'shellLauncher', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Módulos de FLIP' }, `
-    <div class="launcher-head"><h2>MÓDULOS</h2><button class="hw hw-candy sm" id="launcherClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
-    <div class="launcher-grid">${MODULES.map(([key, title, sub, tone]) => `<button class="hw launcher-card" type="button" data-module="${key}"><em style="--tone:${tone};--rollo-ico-ink:${window.flipRollo ? flipRollo.palette[key][1] : '#fff'}">${icon(key)}</em><strong>${title}</strong><small>${sub}</small>${key === 'stage' ? '<u>PRO</u>' : ''}</button>`).join('')}</div>`);
+  const launcher = el('div', { id: 'shellLauncher', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Modos de FLIP' }, `
+    <div class="launcher-head"><h2>MODOS</h2><button class="hw hw-candy sm" id="launcherClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
+    <div class="launcher-grid">${MODES.map(([id, title, sub, ico, subs]) => subs.length === 1
+      ? `<button class="hw launcher-card" type="button" data-mode="${id}" data-module="${subs[0][0]}"><em>${icon(ico)}</em><strong>${title}</strong><small>${sub}</small>${id === 'stage' ? '<u>PRO</u>' : ''}</button>`
+      : `<div class="launcher-card" data-mode="${id}"><button class="hw launcher-modo" type="button" data-go-mode="${id}"><em>${icon(ico)}</em><strong>${title}</strong><small>${sub}</small></button>` +
+        `<div class="launcher-subs" role="group" aria-label="Variantes de ${title}">${subs.map(([key, label]) => `<button class="hw launcher-sub" type="button" data-module="${key}">${label}</button>`).join('')}</div></div>`).join('')}</div>`);
   const viewer = el('div', { id: 'shellViewer', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Última toma' }, `
     <div class="launcher-head"><h2>ÚLTIMA TOMA</h2><button class="hw hw-candy sm" id="viewerClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
     <div class="viewer-stage" id="viewerStage"></div>
@@ -383,9 +396,14 @@
     launcher.classList.toggle('is-open', open);
     // Con el lanzador abierto un rato nadie mira la cámara: descansa (rest.js).
     if (window.flipRest) flipRest[open ? 'hold' : 'release']('launcher');
-    if (open) launcher.querySelectorAll('.launcher-card').forEach(card => card.classList.toggle('is-on', card.dataset.module === currentModule()));
+    if (open) {
+      const here = currentModule(), mode = modeOf(here)[0];
+      launcher.querySelectorAll('.launcher-card').forEach(card => card.classList.toggle('is-on', card.dataset.mode === mode));
+      launcher.querySelectorAll('.launcher-sub').forEach(sub => { const on = sub.dataset.module === here; sub.classList.toggle('is-on', on); sub.setAttribute('aria-pressed', String(on)); });
+    }
   }
   function goModule(key) {
+    try { localStorage.setItem('flip.modo.' + modeOf(key)[0], key); } catch (_) {}
     if (key === currentModule()) return;
     if (overlay && overlays[overlay]) { const leaving = overlay; overlay = ''; overlays[leaving].exit(); }
     if (overlays[key]) {
@@ -399,8 +417,10 @@
   $('shellModule').addEventListener('click', () => openLauncher(true));
   $('launcherClose').addEventListener('click', () => openLauncher(false));
   launcher.addEventListener('click', event => {
-    const card = event.target.closest('.launcher-card');
-    if (card) { openLauncher(false); goModule(card.dataset.module); }
+    // Una variante lleva a su módulo; la tarjeta de un modo, a la última variante que se usó en él.
+    const sub = event.target.closest('[data-module]'), door = event.target.closest('[data-go-mode]');
+    const key = sub ? sub.dataset.module : door ? lastOf(MODES.find(mode => mode[0] === door.dataset.goMode)) : '';
+    if (key) { openLauncher(false); goModule(key); }
   });
 
   // ── Botoneras de los demás módulos: mismos mandos, iconos propios ───────────
@@ -553,9 +573,12 @@
     if (window.flipRollo && document.body.dataset.tab !== tab) flipRollo.cancelMode($('shellLcd'));
     document.body.dataset.tab = tab;
     const key = currentModule();
-    const entry = MODULES.find(m => m[0] === key);
-    $('shellModuleName').textContent = entry ? entry[1] : String(key).toUpperCase();
-    $('shellModule').querySelector('svg').outerHTML = icon(entry ? entry[0] : 'cam');
+    const entry = MODULES.find(m => m[0] === key), mode = modeOf(key);
+    // La tecla dice el modo; la variante (ASCII, FLOW…) la dice la pantallita.
+    $('shellModuleName').textContent = mode[1];
+    $('shellModule').querySelector('svg').outerHTML = icon(mode[3]);
+    $('shellModule').setAttribute('aria-label', 'Cambiar de modo: ' + mode[1]);
+    document.body.dataset.modo = mode[0];
     if (tab === 'cam') { syncCam(); syncMode(); requestAnimationFrame(measureDeck); }
     else {
       $('lcdLook').textContent = entry ? entry[1] : String(key).toUpperCase();
@@ -568,7 +591,7 @@
   measureDeck();
   window.flipShell = {
     hint, syncCam, syncTab, measureDeck, openLauncher, openViewer, icon, el, goModule,
-    module: currentModule,
+    module: currentModule, mode: () => modeOf(currentModule())[0], modes: MODES,
     // Registra un módulo que vive sobre una pestaña del motor: { tab, enter(), exit() }.
     overlay(key, spec) { overlays[key] = spec; },
     onLook(handler) { lookHandlers.push(handler); },

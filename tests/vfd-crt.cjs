@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { launch, openFlip, probe } = require('./lib/harness.cjs');
+const { launch, openFlip, probe, pickVariant } = require('./lib/harness.cjs');
 
 const out = path.resolve(process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), 'flip-crt-')));
 fs.mkdirSync(out, { recursive: true });
@@ -45,10 +45,14 @@ async function main() {
 
     // ── 1 · Se elige desde la bandeja, como cualquier otra variante ──
     await page.locator('#deckLooks [data-family="VFD"]').click();
+    // En la piel INTERFAZ las teclas de variante viven en el cajón «cámaras y filtros».
+    const drawer = await page.locator('.si-abrir').isVisible();
+    if (drawer) await page.locator('.si-abrir').click();
     const keys = await page.evaluate(() => [...document.querySelectorAll('#deckVariants [data-variant]')].map(b => ({ id: b.dataset.variant, w: Math.round(b.getBoundingClientRect().width), h: Math.round(b.getBoundingClientRect().height) })));
     assert.deepEqual(keys.map(k => k.id), ['STD', 'THRML', 'CRT']);
     assert.ok(keys.every(k => k.w >= 80 && k.h >= 34), 'tres teclas que caben y se pueden pulsar: ' + JSON.stringify(keys));
     await page.locator('#deckVariants [data-variant="CRT"]').click();
+    if (drawer) await page.locator('.si-abrir').click();
     await page.waitForFunction(() => camFamily === 'VFD' && camVariant === 'CRT');
     const lcd = await page.evaluate(() => document.getElementById('lcdLook').textContent);
     assert.match(lcd, /CRT/, 'la pantallita dice la variante: ' + lcd);

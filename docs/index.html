@@ -2955,8 +2955,10 @@
 <link rel="stylesheet" href="./stage.css">
 <link rel="stylesheet" href="./brand/rollo-en-anil/tema.css">
 <link rel="stylesheet" href="./brand/rollo-en-anil/app.css">
+<link rel="stylesheet" href="./silueta.css">
 </head>
 <body data-flip="rollo-en-anil">
+<script>/* La piel se decide antes de pintar: INTERFAZ de fábrica, OBJETO si se eligió (silueta.js). */try{document.body.dataset.piel=localStorage.getItem('flip.piel')==='objeto'?'objeto':'interfaz'}catch(_){document.body.dataset.piel='interfaz'}</script>
 
 <div id="decoOverlay" aria-hidden="true">
   <div class="deco-edge deco-top"></div>
@@ -22860,6 +22862,7 @@ window.__flipMainReady = true;                              // el guion llegó h
 <script src="./feel.js"></script>
 <script src="./brand/rollo-en-anil/activar.js"></script>
 <script src="./shell.js"></script>
+<script src="./silueta.js"></script>
 <script src="./console.js"></script>
 <script src="./light.js"></script>
 <script src="./rest.js"></script>

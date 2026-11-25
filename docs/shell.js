@@ -96,8 +96,8 @@
       <div class="deck-left">
         <button class="hw" id="deckGallery" type="button" aria-label="Ver la última toma"><b>${icon('image')}</b></button>
         <div class="deck-mode">
-          <span class="hw-print"><b data-mode-label="foto">FOTO</b><b data-mode-label="video">VÍDEO</b></span>
-          <button class="hw hw-switch" id="deckModeSwitch" type="button" role="switch" aria-checked="false" aria-label="Foto o vídeo"><i></i></button>
+          <span class="hw-print"><b data-mode-label="foto">FOTO</b><b data-mode-label="video">VIDEO</b></span>
+          <button class="hw hw-switch" id="deckModeSwitch" type="button" role="switch" aria-checked="false" aria-label="Foto o video"><i></i></button>
         </div>
       </div>
       <button class="hw" id="deckShutter" type="button" aria-label="Disparar"><i></i></button>
@@ -344,7 +344,7 @@
     deck.querySelectorAll('[data-mode-label]').forEach(label => label.classList.toggle('is-on', (label.dataset.modeLabel === 'video') === video));
     const recording = btnShot.classList.contains('recording');
     document.body.classList.toggle('is-recording', recording);
-    $('deckShutter').setAttribute('aria-label', recording ? 'Detener la grabación' : video ? 'Grabar vídeo' : 'Tomar foto');
+    $('deckShutter').setAttribute('aria-label', recording ? 'Detener la grabación' : video ? 'Grabar video' : 'Tomar foto');
     const time = (btnShot.querySelector('.btn-icon')?.textContent || '').trim();
     const shown = /^\d\d:\d\d$/.test(time) ? time : '00:00';
     $('osdRecTime').textContent = shown;
@@ -612,7 +612,7 @@
     button.classList.add('has-shot');
     button.classList.toggle('is-video', last.video);
     if (last.video) {
-      // La miniatura de un vídeo es lo que había en el visor al terminar.
+      // La miniatura de un video es lo que había en el visor al terminar.
       try {
         const thumb = document.createElement('canvas');
         const shown = { ascii: 'asciiCanvas', scrash: 'scrashCanvas', fusion: 'fusionCanvas', sono: 'sonoCanvas', wmp: 'wmpCanvas', edit: 'editCanvas', sflow: 'sflowCanvas' }[activeTab];
@@ -644,7 +644,7 @@
   }
   $('deckGallery').addEventListener('click', () => {
     if (last) openViewer(true);
-    else flipToast('Aquí aparecerá tu última foto o vídeo.');
+    else flipToast('Aquí aparecerá tu última foto o video.');
   });
   $('viewerClose').addEventListener('click', () => openViewer(false));
   $('viewerSave').addEventListener('click', () => { if (last) _downloadBlob(last.blob, last.filename); });

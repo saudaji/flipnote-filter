@@ -75,7 +75,7 @@ const URL0 = process.env.PIXEL_URL || 'http://localhost:8760';
   await c.tap('#rolloTema');
   await P.sleep(500);
   const key = await js(() => ({ theme: document.body.dataset.tema, text: document.getElementById('rolloTema').textContent }));
-  assert.deepEqual(key, { theme: 'oscuro', text: 'CARCASA CLARA' });
+  assert.deepEqual(key, { theme: 'oscuro', text: 'TEMA CLARO' });
   await shot('05-lanzador-oscuro');
   await c.tap('#launcherClose');
   await P.sleep(700);

@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { launch, openFlip, probe, openModule } = require('./lib/harness.cjs');
+const { launch, openFlip, probe, openModule, pickVariant } = require('./lib/harness.cjs');
 
 const out = path.resolve(process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), 'flip-flows-')));
 fs.mkdirSync(out, { recursive: true });
@@ -134,7 +134,7 @@ async function main() {
     // ── 7 · NIGHT y FLASH desde los controles; el LED solo se enciende al disparar en FLASH ──
     if (facing[1] !== 'environment') await flip();
     await page.locator('#deckLooks [data-family="AUTO03"]').click();
-    await page.locator('#deckVariants [data-variant="NIGHT"]').click();
+    await pickVariant(page, 'NIGHT');
     const hint = await page.locator('.flip-toast').last().textContent();
     assert.match(hint, /no usa infrarrojo/);
     await page.waitForTimeout(900);
@@ -147,7 +147,7 @@ async function main() {
       return { rg: s.r / s.g, bg: s.b / s.g, mean: s.mean };
     }, fs.readFileSync(night).toString('base64'));
     assert.ok(tint.rg < 0.85 && tint.bg > 0.85, 'la foto NIGHT conserva el tinte: ' + JSON.stringify(tint));
-    await page.locator('#deckVariants [data-variant="FLASH"]').click();
+    await pickVariant(page, 'FLASH');
     await page.waitForTimeout(300);
     await download(page, () => page.locator(SNAP).click(), 'foto-flash');
     state = await cam(page);
@@ -239,7 +239,7 @@ async function main() {
       await page.waitForTimeout(500);
       return page.evaluate(() => {
         const box = sel => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, right: r.right, bottom: r.bottom }; };
-        const need = { snap: box('#deckShutter'), looks: box('#deckLooks'), variants: box('#deckVariants'), visor: box('#display'), flip: box('#deckFlip'), modules: box('#shellModule'), ajustes: box('#shellSettings') };
+        const need = { snap: box('#deckShutter'), looks: box('#deckLooks'), variants: (b => b && b.w > 0 ? b : box('.si-variante'))(box('#deckVariants')), visor: box('#display'), flip: box('#deckFlip'), modules: box('#shellModule'), ajustes: box('#shellSettings') };
         const inside = Object.fromEntries(Object.entries(need).map(([k, b]) => [k, !!b && b.w > 20 && b.h > 20 && b.x >= -1 && b.y >= -1 && b.right <= innerWidth + 1 && b.bottom <= innerHeight + 1]));
         const overlap = (a, b) => a && b && a.x < b.right - 1 && b.x < a.right - 1 && a.y < b.bottom - 1 && b.y < a.bottom - 1;
         const controls = ['snap', 'looks', 'variants', 'flip', 'modules', 'ajustes'];

@@ -39,7 +39,7 @@ const contrast = (a, b) => {
 
   const browser = await launch();
   try {
-    let { page, errors, context } = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 1280, h: 720, fps: 30 }, boot: false });
+    let { page, errors, context } = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 1280, h: 720, fps: 30 }, boot: false, piel: 'objeto' });
     const failed = [];
     page.on('requestfailed', request => failed.push(request.url()));
     page.on('response', response => { if (response.status() >= 400) failed.push(response.status() + ' ' + response.url()); });
@@ -97,9 +97,9 @@ const contrast = (a, b) => {
     // ── 4 · Carcasa oscura ──
     await page.locator('#shellModule').click();
     const key = page.locator('#rolloTema');
-    assert.equal((await key.textContent()).trim(), 'CARCASA OSCURA');
+    assert.equal((await key.textContent()).trim(), 'TEMA OSCURO');
     await key.click();
-    assert.equal((await key.textContent()).trim(), 'CARCASA CLARA', 'la tecla dice a cuál se cambia');
+    assert.equal((await key.textContent()).trim(), 'TEMA CLARO', 'la tecla dice a cuál se cambia');
     await page.locator('#launcherClose').click();
     await page.waitForTimeout(400);
     const dark = await page.evaluate(() => {

@@ -49,7 +49,7 @@ const rectOf = (page, selector) => page.evaluate(sel => {
   const browser = await launch();
   try {
     // ── La portada: el logo lleva grano ──
-    let { page, errors } = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 1280, h: 720, fps: 30 }, boot: false });
+    let { page, errors } = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 1280, h: 720, fps: 30 }, boot: false, piel: 'objeto' });
     await page.waitForSelector('#splash > .grano');
     await page.addStyleTag({ content: DYE });
     const hero = await magenta(page, await rectOf(page, '.splash-hero'));

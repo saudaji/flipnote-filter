@@ -241,8 +241,8 @@
     const toggle = document.getElementById('rolloTema');
     if (toggle) {
       toggle.setAttribute('aria-pressed', String(theme === 'oscuro'));
-      // La tecla dice a qué carcasa se cambia al pulsarla.
-      toggle.textContent = theme === 'oscuro' ? 'CARCASA CLARA' : 'CARCASA OSCURA';
+      // La tecla dice a qué tema se cambia al pulsarla (vale para las dos pieles).
+      toggle.textContent = theme === 'oscuro' ? 'TEMA CLARO' : 'TEMA OSCURO';
     }
     try { localStorage.setItem(storageKey, theme); } catch (_) {}
   }
@@ -357,8 +357,8 @@
       toggle.type = 'button';
       toggle.id = 'rolloTema';
       toggle.className = 'hw hw-keycap';
-      toggle.setAttribute('aria-label', 'Cambiar el color de la carcasa');
-      toggle.textContent = document.body.dataset.tema === 'oscuro' ? 'CARCASA CLARA' : 'CARCASA OSCURA';
+      toggle.setAttribute('aria-label', 'Cambiar entre tema claro y oscuro');
+      toggle.textContent = document.body.dataset.tema === 'oscuro' ? 'TEMA CLARO' : 'TEMA OSCURO';
       toggle.setAttribute('aria-pressed', String(document.body.dataset.tema === 'oscuro'));
       toggle.addEventListener('click', () => setTheme(document.body.dataset.tema === 'oscuro' ? 'principal' : 'oscuro'));
       head.insertBefore(toggle, head.querySelector('#launcherClose'));

@@ -11,7 +11,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
-const { launch, openFlip, probe, PIXEL, openModule } = require('./lib/harness.cjs');
+const { launch, openFlip, probe, PIXEL, openModule, pickVariant } = require('./lib/harness.cjs');
 
 const args = process.argv.slice(2);
 const refAt = args.indexOf('--old-ref');
@@ -81,7 +81,7 @@ async function cameraMedia(browser) {
   step('micrófono tras grabar', { audioLive: mic });
 
   // 2 · NIGHT: visor frente a vídeo.
-  await page.locator('#deckVariants [data-variant="NIGHT"]').click();
+  await pickVariant(page, 'NIGHT');
   await page.waitForTimeout(1500);
   const nightVisor = await page.evaluate(() => { const s = FlipKit.stats(display, [0.25, 0.25, 0.5, 0.5]); return { luma: Array.from(FlipKit.luma(display, null, [64, 48])), rg: s.r / s.g, bg: s.b / s.g }; });
   const nightVideo = await record(page, 2200, 'video-night');

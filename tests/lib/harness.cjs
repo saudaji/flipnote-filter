@@ -40,6 +40,9 @@ async function openFlip(browser, options = {}) {
   });
   await context.addInitScript({ path: path.join(__dirname, '..', 'scenes.js') });
   await context.addInitScript({ path: path.join(__dirname, 'page-kit.js') });
+  // piel: 'objeto' abre la carcasa de aparato (de fábrica FLIP abre la piel INTERFAZ). Se fija antes
+  // de cargar, una sola vez por contexto: si la prueba cambia de piel después, se respeta.
+  if (options.piel) await context.addInitScript(piel => { try { if (!sessionStorage.getItem('flip.prueba.piel')) { localStorage.setItem('flip.piel', piel); sessionStorage.setItem('flip.prueba.piel', '1'); } } catch (_) {} }, options.piel);
   if (options.sceneCamera) {
     await context.addInitScript(config => { window.__flipSceneCamera = config; }, options.sceneCamera);
     await context.addInitScript({ path: path.join(__dirname, 'scene-camera.js') });
@@ -61,6 +64,14 @@ async function openModule(page, key) {
   await page.locator('#shellLauncher [data-module="' + key + '"]').click();
 }
 
+// Elige una variante de la cámara como lo hace una persona: en la piel OBJETO las teclas están a
+// la vista; en la piel INTERFAZ viven en el cajón «cámaras y filtros», que se abre y se cierra.
+async function pickVariant(page, id) {
+  const key = page.locator('#deckVariants [data-variant="' + id + '"]');
+  if (!(await key.isVisible())) await page.locator('.si-abrir').click();
+  await key.click();
+  if (await page.evaluate(() => document.body.classList.contains('banda-abierta'))) await page.locator('.si-abrir').click();
+}
 function saveDataUrl(file, dataUrl) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64'));
@@ -79,4 +90,4 @@ function probe(file) {
   return JSON.parse(raw);
 }
 
-module.exports = { URL, PIXEL, launch, openFlip, openModule, saveDataUrl, encodeClip, probe };
+module.exports = { URL, PIXEL, launch, openFlip, openModule, pickVariant, saveDataUrl, encodeClip, probe };

@@ -85,6 +85,9 @@ async function main() {
     assert.ok(got.log[0].gain > kinds.key.down.gain, 'el disparador es lo que más suena');
 
     // 4 · Una diapositiva vive en una bandeja que se desplaza: tocarla no suena, elegirla sí.
+    await page.locator('#deckLooks [data-family="DLPHN"]').scrollIntoViewIfNeeded();   // en la piel INTERFAZ la tira es un carrusel
+    await page.waitForTimeout(350);
+    await take();
     const [lx, ly] = await center('#deckLooks [data-family="DLPHN"]');
     await page.mouse.move(lx, ly); await page.mouse.down(); await page.waitForTimeout(60);
     assert.equal((await take()).log.length, 0, 'tocar una diapositiva no suena');

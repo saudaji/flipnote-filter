@@ -13,7 +13,7 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { launch, PIXEL } = require('./lib/harness.cjs');
+const { launch, PIXEL, pickVariant } = require('./lib/harness.cjs');
 
 const args = process.argv.slice(2);
 const refAt = args.indexOf('--ref');
@@ -130,7 +130,7 @@ async function main() {
     await page.locator('#btnSplashOriginal').click();
     await page.waitForFunction(() => vid.videoWidth > 0, null, { timeout: 15000 });
     await page.locator('#deckLooks [data-family="VFD"]').click();
-    await page.locator('#deckVariants [data-variant="CRT"]').click();
+    await pickVariant(page, 'CRT');
     await page.waitForFunction(() => camVariant === 'CRT');
     await page.waitForTimeout(700);
     const [file] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.locator('#deckShutter').click()]);

@@ -35,7 +35,7 @@ const dark = c => c[0] + c[1] + c[2] < 60, cream = c => c[0] > 200 && c[1] > 195
 (async () => {
   const browser = await launch();
   try {
-    const { page, errors } = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 720, h: 1280, fps: 30 } });
+    const { page, errors } = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 720, h: 1280, fps: 30 }, piel: 'objeto' });
     await page.waitForTimeout(500);
     const size = await page.evaluate(() => [innerWidth, innerHeight]);
     const [W, H] = size;

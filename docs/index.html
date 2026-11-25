@@ -3301,9 +3301,11 @@
 </div>
 
 <!-- SONO mic permission overlay -->
-<div id="sonoPerm">
-  <p>SONO necesita<br>el micrófono</p>
-  <button id="btnSonoStart">ACTIVAR MICRÓFONO</button>
+<div id="sonoPerm" class="fuente-sonido">
+  <strong>Elige la fuente de sonido</strong>
+  <p>SONO dibuja lo que oye: tu micrófono o un archivo de audio.</p>
+  <button type="button" id="btnSonoStart">MICRÓFONO</button>
+  <label class="quiet" id="btnSonoPermFile" for="sonoFileInputEl">ARCHIVO DE AUDIO</label>
 </div>
 
 <div id="preloader"><img class="preloader-glyph" src="./brand/rollo-en-anil/app/preloader.svg" alt=""></div>
@@ -3313,13 +3315,31 @@
   <div class="splash-doors">
     <button class="splash-door" id="btnSplashOriginal">
       <span class="splash-door-label">ENCENDER CÁMARA</span>
-      <span class="splash-door-sub">Fotos, vídeo y edición con cámaras de otra época</span>
+      <span class="splash-door-sub">Fotos y video con cámaras de otra época</span>
     </button>
+    <!-- Sin cámara: primero una sola tecla; al tocarla se abre en dos. Ninguna pide la cámara. -->
+    <div class="splash-par" id="splashSinCamara">
+      <button class="splash-door" id="btnSplashSinCamara" aria-expanded="false" aria-controls="splashParTeclas">
+        <span class="splash-door-label">SONIDO O ARCHIVO</span>
+        <span class="splash-door-sub">Tu música o tus fotos y videos, sin cámara</span>
+      </button>
+      <div class="splash-par-teclas" id="splashParTeclas" hidden>
+        <button class="splash-door" id="btnSplashSono">
+          <span class="splash-door-label">MÚSICA</span>
+          <span class="splash-door-sub">Micrófono o archivo</span>
+        </button>
+        <button class="splash-door" id="btnSplashArchivo">
+          <span class="splash-door-label">FOTO O VIDEO</span>
+          <span class="splash-door-sub">Abre un archivo</span>
+        </button>
+      </div>
+    </div>
     <button class="splash-door" id="btnSplashStage">
       <span class="splash-door-label">FLIP STAGE</span>
       <span class="splash-door-sub">Mezclar en vivo y proyectar en otra pantalla</span>
     </button>
   </div>
+  <p class="splash-nota">Todo se procesa en tu dispositivo. Nada se sube.</p>
 </div>
 
 <div id="flash"></div>
@@ -4008,11 +4028,12 @@
 </div>
 
 <!-- WMP source/permission overlay -->
-<div id="wmpPerm">
-  <p class="wmp-perm-title">CHOOSE AUDIO SOURCE</p>
+<div id="wmpPerm" class="fuente-sonido">
+  <strong class="wmp-perm-title">Elige la fuente de sonido</strong>
+  <p>WMP mueve los visuales con tu micrófono o con un archivo de audio.</p>
   <div class="wmp-src-row">
-    <button class="wmp-src-btn" id="btnWmpMicPerm">🎙 MIC</button>
-    <label class="wmp-src-btn" id="btnWmpFilePerm" for="wmpFileInputPerm">📂 FILE</label>
+    <button type="button" class="wmp-src-btn" id="btnWmpMicPerm">MICRÓFONO</button>
+    <label class="wmp-src-btn quiet" id="btnWmpFilePerm" for="wmpFileInputPerm">ARCHIVO DE AUDIO</label>
     <input type="file" id="wmpFileInputPerm" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,.opus,.weba" style="display:none;">
   </div>
   <p id="wmpPermErr"></p>
@@ -4120,7 +4141,7 @@
      Own video element, own canvas, zero relation to other modes
 ════════════════════════════════════════════════════════════════ -->
 <div id="sflowArea">
-  <div id="sflowStatusBadge">FLOW — toca CAM para empezar</div>
+  <div id="sflowStatusBadge" style="display:none"></div>
   <canvas id="sflowCanvas"></canvas>
 </div>
 
@@ -12566,9 +12587,35 @@ function startCamera(facing) {
 }
 
 // ── Puerta de cámara ──────────────────────────────────────────────
-// Si CAM se queda sin cámara (permiso denegado, cámara ocupada, vuelta del segundo plano)
-// el visor ofrece un botón para activarla y dice qué pasó.
+// Si un módulo que usa la cámara se queda sin ella (permiso denegado, cámara ocupada, vuelta del
+// segundo plano), su pantalla ofrece activarla o seguir con un archivo, y dice qué pasó.
 const CAMERA_TABS = new Set(['cam', 'ascii', 'scrash', 'fusion', 'sflow']);
+const CAMERA_GATE_AREAS = { ascii: ['asciiArea', null], scrash: ['scrashArea', 'scrashControls'], fusion: ['fusionArea', 'fusionHUD'], sflow: ['sflowArea', 'sflowHUD'], edit: ['editArea', 'editHUD'] };
+function _tabNeedsCamera(tab) {
+  if (tab === 'edit') return typeof window._editUsesCamera === 'function' && window._editUsesCamera();
+  if (tab === 'ascii') { try { if (asciiStaticSrc) return false; } catch (_) {} }
+  return CAMERA_TABS.has(tab);
+}
+// En CAM la puerta ocupa el cristal del visor (shell.css); en los demás módulos, su pantalla.
+function _placeCameraGate(gate, tab) {
+  const [areaId, hudId] = CAMERA_GATE_AREAS[tab] || [];
+  const area = areaId && document.getElementById(areaId);
+  if (!area) { gate.classList.remove('en-modulo'); return; }
+  const rect = area.getBoundingClientRect(), bar = document.getElementById('shellTop'), hud = hudId && document.getElementById(hudId);
+  const top = Math.max(rect.top, bar ? bar.getBoundingClientRect().bottom : 0);
+  let bottom = rect.bottom;
+  if (hud) { const h = hud.getBoundingClientRect(); if (h.height > 8 && h.top > top + 160 && h.top < bottom) bottom = h.top; }
+  gate.style.setProperty('--gate-top', top + 'px'); gate.style.setProperty('--gate-left', rect.left + 'px');
+  gate.style.setProperty('--gate-w', rect.width + 'px'); gate.style.setProperty('--gate-h', Math.max(200, bottom - top) + 'px');
+  gate.classList.add('en-modulo');
+}
+// Un fallo de cámara lo cuenta la puerta; si no está a la vista, un aviso breve y en español.
+function cameraFailed(error) {
+  syncCameraGate(error);
+  const gate = document.getElementById('cameraGate');
+  if (gate && !gate.hidden) return;
+  flipToast('⚠ ' + cameraGateMessage(error)[0]);
+}
 let cameraGateError = null, cameraParked = false, cameraIdle = false;
 function cameraGateMessage(error) {
   if (!error) return ['Cámara apagada', 'FLIP necesita la cámara para este módulo.'];
@@ -12589,17 +12636,24 @@ function syncCameraGate(error) {
   if (error !== undefined) cameraGateError = error;
   const tab = _getSafeActiveTab();
   const booted = typeof splash === 'undefined' || splash.classList.contains('hidden');
-  const idle = booted && (tab === 'cam' || tab === 'sflow') && !stream && !cameraRequest && !extAudioMode && !extMicOnlyMode && !cameraParked;
+  const idle = booted && _tabNeedsCamera(tab) && !stream && !cameraRequest && !extAudioMode && !extMicOnlyMode && !cameraParked;
   gate.hidden = !idle;
   if (!idle) return;
+  _placeCameraGate(gate, tab);
   const [title, text] = cameraGateMessage(cameraGateError);
   document.getElementById('cameraGateTitle').textContent = title;
   document.getElementById('cameraGateText').textContent = text;
 }
 document.getElementById('btnCameraGate').addEventListener('click', () => {
-  startCamera(facingMode).catch(() => {});
+  startCamera(facingMode).then(() => {
+    // FLOW no tiene un bucle que espere a la cámara: hay que volver a arrancarlo.
+    if (_getSafeActiveTab() === 'sflow' && typeof window._sflowAutoStart === 'function') window._sflowAutoStart();
+  }).catch(() => {});
 });
-document.getElementById('btnCameraGateFile').addEventListener('click', () => switchTab('edit'));
+// «Usar un archivo» abre el selector en EDIT ya con la fuente en archivo: no vuelve a pedir la cámara.
+document.getElementById('btnCameraGateFile').addEventListener('click', () => {
+  if (typeof window._editOpenFile === 'function') window._editOpenFile(); else switchTab('edit');
+});
 
 // ── Segundo plano ─────────────────────────────────────────────────
 // Al ocultarse la página se cierra la toma en curso y se sueltan cámara y micrófono;
@@ -12643,7 +12697,7 @@ document.addEventListener('visibilitychange', () => {
   if (!cameraParked && !dead) return;
   cameraParked = false;
   if (dead) releaseCamera();
-  if (!extAudioMode) startCamera(facingMode).catch(error => flipToast('⚠ ' + (error?.message || 'Camera failed')));
+  if (!extAudioMode) startCamera(facingMode).catch(cameraFailed);
 });
 
 // Hay teléfonos que no abren una cámara mientras la otra sigue encendida («Could not start video
@@ -12743,7 +12797,7 @@ function _toggleCamera() {
   if (cameraRequest) return;
   const next = facingMode === 'environment' ? 'user' : 'environment';
   startCamera(next).then(() => { facingMode = next; })
-    .catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+    .catch(cameraFailed);
 }
 document.getElementById('btnFlip').addEventListener('click', _toggleCamera);
 document.getElementById('btnSwitchCam').addEventListener('click', _toggleCamera);
@@ -12817,7 +12871,7 @@ function applyCamAspect(aw, ah) {
     if (asciiPanelOpen) document.body.classList.add('ascii-edit');
   }
   // Only restart camera when in cam tab
-  if (stream && activeTab === 'cam') startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+  if (stream && activeTab === 'cam') startCamera(facingMode).catch(cameraFailed);
 }
 
 document.querySelectorAll('.asp-btn').forEach(btn => {
@@ -13717,7 +13771,7 @@ function switchTab(tab) {
   cameraRunning = isCam; asciiRunning = isAscii;
   // Restart camera if it was stopped by a file upload
   if (isCam || isAscii || isScrash || isFusion) inputMode = 'camera';
-  if ((isCam || isAscii || isScrash || isFusion) && !stream && !extAudioMode) startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+  if ((isCam || isAscii || isScrash || isFusion) && !stream && !extAudioMode) startCamera(facingMode).catch(cameraFailed);
   // F5 — paridad móvil: extMicOnlyMode también cuenta como fuente para arrancar estos loops
   // (además de la cámara real o EXT AUDIO clásico de desktop).
   if (isCam   && (stream || ((extAudioMode || extMicOnlyMode) && extAnalyser))) scheduleFrame(cameraLoop);
@@ -13729,7 +13783,7 @@ function switchTab(tab) {
     if (stream && !(typeof recorder !== 'undefined' && recorder && recorder.state !== 'inactive')) { cameraIdle = true; releaseCamera(); }
   } else if (cameraIdle) {
     cameraIdle = false;
-    if (!stream && !cameraRequest && !extAudioMode) startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+    if (!stream && !cameraRequest && !extAudioMode) startCamera(facingMode).catch(cameraFailed);
   }
   if (isSflow && typeof window._sflowAutoStart === 'function') window._sflowAutoStart();
   syncCameraGate();
@@ -16609,10 +16663,9 @@ async function _bootFromSplash() {
     cameraRunning = activeTab === 'cam';
     await startCamera(facingMode);
   } catch (err) {
-    // Camera failed (denied / unavailable) — enter the app anyway so
-    // non-camera modules (UPLOAD, WMP, GLITCH…) stay usable. switchTab
-    // retries startCamera when a camera tab is opened again.
-    flipToast('⚠ ' + (err?.message || 'Camera failed') + ' — abre EDIT para usar un archivo');
+    // Sin cámara (denegada o no disponible) se entra igual: la puerta del visor lo explica y
+    // ofrece seguir con un archivo, y los módulos sin cámara siguen sirviendo.
+    cameraFailed(err);
   } finally {
     _splashBooting = false;
     syncCameraGate();
@@ -16626,6 +16679,27 @@ document.getElementById('btnSplashOriginal').addEventListener('click', e => {
     flipRollo.showMode(document.getElementById('shellLcd'), 'cam');
     flipRollo.playBoot();
   }
+});
+
+// Entrar sin cámara: música (SONO) o un archivo propio (EDIT). Ninguna de las dos la pide.
+document.getElementById('btnSplashSinCamara').addEventListener('click', e => {
+  e.stopPropagation();
+  e.currentTarget.hidden = true;
+  e.currentTarget.setAttribute('aria-expanded', 'true');
+  document.getElementById('splashParTeclas').hidden = false;
+  document.getElementById('btnSplashSono').focus({ preventScroll: true });
+});
+document.getElementById('btnSplashSono').addEventListener('click', e => {
+  e.stopPropagation();
+  splash.classList.add('hidden');
+  switchTab('sono');
+  if (window.flipRollo) { flipRollo.showMode(document.getElementById('shellLcd'), 'sono'); flipRollo.playBoot(); }
+});
+document.getElementById('btnSplashArchivo').addEventListener('click', e => {
+  e.stopPropagation();
+  splash.classList.add('hidden');
+  if (typeof window._editOpenFile === 'function') window._editOpenFile(); else switchTab('edit');
+  if (window.flipRollo) { flipRollo.showMode(document.getElementById('shellLcd'), 'edit'); flipRollo.playBoot(); }
 });
 
 document.getElementById('btnSplashStage').addEventListener('click', e => {
@@ -19435,9 +19509,9 @@ async function stopExtAudio() {
     asciiRunning = true;
     scheduleFrame(asciiLoop);
   } else if (activeTab === 'scrash') {
-    await startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+    await startCamera(facingMode).catch(cameraFailed);
   } else if (activeTab === 'fusion') {
-    await startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+    await startCamera(facingMode).catch(cameraFailed);
     fusionRunning = true;
     scheduleFrame(_fusionLoop);
   } else if (activeTab === 'sflow') {
@@ -21417,7 +21491,7 @@ if (screen.width > 768) {
       // F5 — móvil: el mic convive con la cámara; solo si la cámara no está disponible se cae
       // al blob de audio del mic.
       if (extMicOnlyMode && extAnalyser) { _sfStartAudioMode(); return; }
-      _sfBadge('FLOW — sin cámara');
+      _sfBadge('');            // lo cuenta la puerta de cámara, que ofrece activarla o usar un archivo
       return;
     }
 
@@ -21457,7 +21531,7 @@ if (screen.width > 768) {
     // Clear canvas
     sfCtx.clearRect(0, 0, sfCanvas.width, sfCanvas.height);
     if (_sfTrailCanvas) _sfTrailCtx.clearRect(0, 0, _sfTrailCanvas.width, _sfTrailCanvas.height);
-    _sfBadge('FLOW — toca CAM para empezar');
+    _sfBadge('');
   }
 
   // ── Button: CAM ─────────────────────────────────────────────────────
@@ -22280,12 +22354,20 @@ _editLoop.maxFps = 24;
   document.getElementById('editSrcCam').addEventListener('click', () => {
     editSource = { type: 'cam' };
     _editSetSourcePill('cam');
-    if (!stream && !extAudioMode) startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+    if (!stream && !extAudioMode) startCamera(facingMode).catch(cameraFailed);
     _editSyncPersisted();
   });
   document.getElementById('editSrcPhoto').addEventListener('click', () => {
     document.getElementById('editFileInput').click();
   });
+  window._editUsesCamera = () => editSource.type === 'cam';
+  // Entrar en EDIT para trabajar con un archivo: la fuente deja de ser la cámara antes de entrar
+  // (así no la pide) y se abre el selector. No se guarda hasta que haya un archivo elegido.
+  window._editOpenFile = function () {
+    if (editSource.type === 'cam') { editSource = { type: 'photo' }; _editSetSourcePill('photo'); }
+    if (activeTab !== 'edit') switchTab('edit'); else syncCameraGate();
+    document.getElementById('editFileInput').click();
+  };
   document.getElementById('editSrcVideo').addEventListener('click', () => {
     document.getElementById('editFileInput').click();
   });
@@ -22450,7 +22532,7 @@ _editLoop.maxFps = 24;
       flipToast('EDIT: la fuente guardada (foto/video) no persiste el archivo — volviendo a CAM');
     }
     if (editSource.type === 'cam' && !stream && !extAudioMode) {
-      startCamera(facingMode).catch(err => flipToast('⚠ ' + (err?.message || 'Camera failed')));
+      startCamera(facingMode).catch(cameraFailed);
     }
     scheduleFrame(_editLoop);
   };

@@ -433,6 +433,7 @@ void main() {
   // ── Fuentes ─────────────────────────────────────────────────────────────────
   const look = { base: null, bctx: null, canvas: null, ctx: null, at: -Infinity, key: '' };
   const camState = { dirty: true, hooked: false, forceDirect: false };
+  let camMissSince = 0;
   function camReady() { return !!camState.injected || (typeof vid !== 'undefined' && vid && vid.videoWidth > 0 && vid.readyState >= 2 && typeof stream !== 'undefined' && !!stream); }
   function hookVideo() {
     if (camState.hooked || typeof vid === 'undefined' || !vid.requestVideoFrameCallback) return;
@@ -972,9 +973,16 @@ void main() {
     c.v2('uRes', W, H); c.f('uAspect', W / H);
     c.v4('uFitA', eng.fit); c.i('uCamKind', eng.camKind); c.f('uMirrorA', eng.shaderMirror ? 1 : 0); c.f('uHasA', eng.hasA ? 1 : 0); c.f('uHasMask', eng.hasMask ? 1 : 0);
     if (eng.yuv) { c.m3('uYuv', eng.yuv); c.v3('uYuvOff', eng.yuvOff); }
-    c.i('uGen', d['src.gen']); c.i('uMixMode', d['mix.mode']); c.i('uFbMode', d['fb.mode']); c.i('uMirror', d['geo.mirror']); c.f('uKeyInv', d['key.inv'] ? 1 : 0);
+    // Sin cámara y sin generador a la vista, el monitor no se queda en negro: se dibuja un
+    // generador. Es solo el dibujo: los mandos y lo guardado no cambian, y al llegar la cámara vuelve.
+    // Solo cuando de verdad no hay cámara: no mientras se está abriendo (ni en el primer segundo y
+    // medio), para que al entrar con cámara no asome el generador.
+    const opening = typeof cameraRequest !== 'undefined' && !!cameraRequest;
+    if (camReady() || opening) camMissSince = 0; else if (!camMissSince) camMissSince = performance.now();
+    const camless = !!camMissSince && performance.now() - camMissSince > 1500 && !(d['src.gen'] && v['mix.fade'] > .5);
+    c.i('uGen', camless ? 2 : d['src.gen']); c.i('uMixMode', camless ? 0 : d['mix.mode']); c.i('uFbMode', d['fb.mode']); c.i('uMirror', d['geo.mirror']); c.f('uKeyInv', d['key.inv'] ? 1 : 0);
     c.f('uGenFreq', lerp(1.5, 42, v['gen.freq'] * v['gen.freq'])); c.f('uGenPhase', ph.gen); c.f('uGenShape', v['gen.shape']); c.f('uGenHue', v['gen.hue']);
-    c.f('uFade', v['mix.fade']); c.f('uKeyLevel', v['key.level']); c.f('uKeySoft', .01 + v['key.soft'] * .35);
+    c.f('uFade', camless ? 1 : v['mix.fade']); c.f('uKeyLevel', v['key.level']); c.f('uKeySoft', .01 + v['key.soft'] * .35);
     c.f('uFbAmt', v['fb.amt'] * .985); c.f('uFbZoom', Math.exp(bi(v['fb.zoom']) * .22 * k)); c.f('uFbRot', bi(v['fb.rot']) * .16 * k);
     c.v2('uFbShift', bi(v['fb.x']) * .045 * k, bi(v['fb.y']) * .045 * k); c.f('uFbHue', v['fb.hue'] * .12 * k); c.f('uFbGain', Math.pow(.55 + v['fb.decay'] * .5, k));
     c.f('uZoom', Math.exp(bi(v['geo.zoom']) * 1.6)); c.f('uRot', bi(v['geo.rot']) * Math.PI + ph.spin * TAU);
@@ -1426,7 +1434,7 @@ void main() {
     $('rigTap').classList.toggle('is-beat', (ph.lfo[0] % 1) < .12 && !!live.d['lfo.sync']);
     $('rigMidi').classList.toggle('is-active', now - midi.seen < 120);
     if (!eng.ok) note(eng.error ? 'Este navegador no tiene WebGL 2: STAGE no puede dibujar aquí.' : '');
-    else if (!camReady()) note(live.d['src.gen'] && live.p['mix.fade'] > .5 ? '' : 'Sin cámara. Toca el monitor para activarla.');
+    else if (!camReady()) note(live.d['src.gen'] && live.p['mix.fade'] > .5 ? '' : typeof cameraRequest !== 'undefined' && cameraRequest ? '' : 'Sin cámara: se ve un generador. Toca el monitor para activarla.');
     else if (audio.on && audio.quietFor > 4) note('No llega sonido. Sube la música o elige otra entrada en MOD.');
     else if (live.d['mix.mode'] === 5 && !eng.hasMask) note(flipSilhouette.status().phase === 'failed' ? 'El recorte de silueta necesita conexión la primera vez.' : 'Cargando el recorte de silueta…');
     else note('');

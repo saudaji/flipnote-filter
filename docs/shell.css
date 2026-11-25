@@ -293,6 +293,31 @@ body.is-recording #osdFrame, body.portal-mode #osdFrame { display: none; }
   color: #f4f1ea !important; font-family: var(--font-ui) !important;
 }
 #cameraGate[hidden] { display: none !important; }
+/* Elegir la fuente de sonido (SONO y WMP): la misma puerta que la de cámara, nunca una pantalla
+   en negro ni un aviso en otro idioma. */
+:is(#sonoPerm, #wmpPerm).fuente-sonido {
+  gap: 10px !important; padding: 18px !important; text-align: center;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .03) 0 1px, transparent 1px 3px), #0b0c0d !important;
+  color: #f4f1ea !important; font-family: var(--font-ui) !important;
+}
+:is(#sonoPerm, #wmpPerm).fuente-sonido strong { font: 800 15px/1.2 var(--font-dot) !important; letter-spacing: .1em !important; text-transform: uppercase; color: #f4f1ea !important; }
+:is(#sonoPerm, #wmpPerm).fuente-sonido p { font: 500 13.5px/1.45 var(--font-ui) !important; letter-spacing: 0 !important; color: #b8b3a6 !important; max-width: 280px; margin: 0; }
+:is(#sonoPerm, #wmpPerm).fuente-sonido .wmp-src-row { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+:is(#sonoPerm, #wmpPerm).fuente-sonido :is(button, label) {
+  display: inline-flex !important; align-items: center; justify-content: center; position: static !important; isolation: auto;
+  min-width: 220px; min-height: 46px; padding: 0 22px !important; border-radius: 10px !important; border: 0 !important; cursor: pointer;
+  font: 800 12px/1 var(--font-ui) !important; letter-spacing: .1em !important; text-transform: uppercase; opacity: 1 !important;
+  background: var(--flip-acento, #273fa8) !important; color: var(--flip-tinta-acento, #fff) !important; box-shadow: 0 3px 0 #1c2e75, 0 8px 18px rgba(0, 0, 0, .4) !important;
+}
+:is(#sonoPerm, #wmpPerm).fuente-sonido :is(button, label):active { transform: translateY(2px); box-shadow: 0 1px 0 #1c2e75 !important; }
+:is(#sonoPerm, #wmpPerm).fuente-sonido :is(button, label).quiet { background: var(--cream-hi) !important; color: #242646 !important; box-shadow: 0 3px 0 var(--cream-deep), 0 8px 18px rgba(0, 0, 0, .4) !important; }
+:is(#sonoPerm, #wmpPerm).fuente-sonido :is(button, label)::before, :is(#sonoPerm, #wmpPerm).fuente-sonido :is(button, label)::after { content: none !important; }
+:is(#sonoPerm, #wmpPerm).fuente-sonido #wmpPermErr { color: #ff9c8a !important; font: 500 12px/1.4 var(--font-ui) !important; min-height: 16px; }
+/* Fuera de CAM la puerta ocupa la pantalla del módulo (index.html la mide: _placeCameraGate). */
+#cameraGate.en-modulo {
+  top: var(--gate-top) !important; left: var(--gate-left) !important; right: auto !important; bottom: auto !important;
+  width: var(--gate-w) !important; height: var(--gate-h) !important; z-index: 12 !important; border-radius: 0 !important;
+}
 #cameraGate strong { font: 800 15px/1.2 var(--font-dot); letter-spacing: .1em; text-transform: uppercase; color: #f4f1ea; }
 #cameraGate p { font: 500 13.5px/1.45 var(--font-ui); color: #b8b3a6; max-width: 280px; margin: 0; }
 #cameraGate button {
@@ -494,6 +519,12 @@ body:not([data-tab="cam"]) #camBody, body.stage-mode #camBody {
   border-radius: 3px;
 }
 #asciiArea, #sonoArea, #wmpArea, #sflowArea, #scrashArea, #fusionArea, #editArea, #stageArea { background: transparent !important; }
+/* Las pantallas de los módulos empiezan donde acaba la barra de arriba. Arrancaban 10 px antes y
+   lo oscuro (un lienzo, un aviso) se comía el pie de la barra: las teclas quedaban colgando fuera
+   de la carcasa. En horizontal la barra va en la columna de mandos y no hace falta. */
+@media not all and (orientation: landscape) and (max-height: 540px) {
+  #asciiArea, #sonoArea, #wmpArea, #scrashArea, #fusionArea, #editArea, #sonoPerm, #wmpPerm { top: var(--shell-top) !important; }
+}
 /* WMP a pantalla completa: la imagen llena la pantalla, sin marco (un toque devuelve los mandos). */
 #wmpArea:fullscreen { background: #000 !important; }
 #wmpArea:fullscreen #wmpCanvas { width: 100vw !important; height: 100vh !important; box-shadow: none; border-radius: 0; cursor: pointer; }
@@ -832,9 +863,11 @@ body.portal-mode #osdHint { bottom: 52px; }
   gap: 0 !important; padding: 0 22px calc(46px + env(safe-area-inset-bottom, 0px)) !important; z-index: 500 !important;
 }
 #splash.hidden { display: none !important; }
+/* Lo que ocupa el pie de la portada (placa, rótulo, tres entradas y la nota): de ahí para arriba es la pantalla. */
+#splash { --portada-pie: 392px; }
 #splash > .splash-title, #splash > .splash-tag, #splash > .splash-doors { position: relative; }
 .splash-hero {
-  position: absolute !important; left: 22px; right: 22px; top: calc(26px + env(safe-area-inset-top, 0px)); bottom: 330px; min-height: 150px;
+  position: absolute !important; left: 22px; right: 22px; top: calc(26px + env(safe-area-inset-top, 0px)); bottom: var(--portada-pie); min-height: 150px;
   border-style: solid; border-width: var(--bw22, 22px); border-color: transparent; border-image: url('./body/bezel.webp') 66 / var(--bw22, 22px) stretch;
 }
 .splash-hero::before { content: ''; position: absolute; inset: -11.5px; border-radius: 7.5px; background: radial-gradient(120% 90% at 30% 10%, #1c1e21, #0b0c0d 60%); box-shadow: inset 0 0 24px rgba(0, 0, 0, .7); }
@@ -850,11 +883,16 @@ body.portal-mode #osdHint { bottom: 52px; }
   color: #fff !important; text-shadow: none !important; animation: none !important;
   background: linear-gradient(180deg, #3b55c4, #273fa8); box-shadow: 0 3px 0 #1c2e75, inset 0 1px 0 rgba(255, 255, 255, .45);
 }
-.splash-tag { align-self: flex-start; margin: 4px 0 20px 3px; font: 700 8.5px/1.5 var(--font-ui); letter-spacing: .2em; color: var(--ink-dim); text-transform: uppercase; }
+.splash-tag { align-self: flex-start; margin: 4px 0 16px 3px; font: 700 8.5px/1.5 var(--font-ui); letter-spacing: .2em; color: var(--ink-dim); text-transform: uppercase; }
 .splash-tag i { display: inline-block; width: 26px; height: 7px; margin-right: 8px; vertical-align: middle; border-radius: 1px; background: linear-gradient(90deg, var(--coral) 0 25%, var(--mustard) 25% 50%, var(--mint) 50% 75%, var(--blue) 75%); }
-.splash-doors { width: 100% !important; max-width: 420px !important; display: flex !important; flex-direction: column !important; gap: 14px !important; }
+.splash-doors { width: 100% !important; max-width: 420px !important; display: flex !important; flex-direction: column !important; gap: 11px !important; }
+.splash-par, .splash-par-teclas { width: 100%; }
+.splash-par-teclas { display: flex; gap: 10px; }
+.splash-par-teclas[hidden], .splash-door[hidden] { display: none !important; }
+.splash-par-teclas .splash-door { flex: 1 1 0; min-width: 0; padding-left: 13px !important; padding-right: 10px !important; }
+.splash-nota { position: relative; width: 100%; max-width: 420px; margin: 13px 0 0; text-align: center; font: 500 11.5px/1.3 var(--font-ui); letter-spacing: .01em; color: var(--ink-dim); }
 .splash-door {
-  width: 100% !important; min-height: 62px !important; padding: 11px 16px 12px !important; border-radius: 13px !important; border: 0 !important; cursor: pointer;
+  width: 100% !important; min-height: 58px !important; padding: 10px 16px 11px !important; border-radius: 13px !important; border: 0 !important; cursor: pointer;
   display: flex !important; flex-direction: column !important; align-items: flex-start !important; justify-content: center !important; gap: 5px !important; text-align: left !important;
   background: linear-gradient(180deg, #fbf8f1, #ebe5d7) !important; color: var(--ink) !important;
   box-shadow: 0 5px 0 var(--cream-deep), 0 12px 20px rgba(70, 60, 30, .22), inset 0 1px 0 #fff !important;
@@ -999,8 +1037,8 @@ body { --grano-margen: calc(100vw / 406 * 3.4); --grano-canto: calc(100vw / 406 
    ahí dentro el logo lleva grano de película. */
 #splash > .grano {
   --hx: calc(32.5px - var(--grano-margen)); --hy: calc(36.5px + env(safe-area-inset-top, 0px) - var(--grano-margen));
-  -webkit-mask: linear-gradient(#000 0 0) var(--hx) var(--hy) / calc(100% - var(--hx) * 2) calc(100% - var(--hy) - 340.5px + var(--grano-margen)) no-repeat, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) var(--hx) var(--hy) / calc(100% - var(--hx) * 2) calc(100% - var(--hy) - 340.5px + var(--grano-margen)) no-repeat exclude, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) var(--hx) var(--hy) / calc(100% - var(--hx) * 2) calc(100% - var(--hy) - var(--portada-pie) - 10.5px + var(--grano-margen)) no-repeat, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) var(--hx) var(--hy) / calc(100% - var(--hx) * 2) calc(100% - var(--hy) - var(--portada-pie) - 10.5px + var(--grano-margen)) no-repeat exclude, linear-gradient(#000 0 0);
 }
 .splash-hero > .grano { left: -11.5px; top: -11.5px; width: calc(100% + 23px); height: calc(100% + 23px); border-radius: 7.5px; z-index: 4; }
 /* En el visor de fotos, la foto queda por encima del grano. */

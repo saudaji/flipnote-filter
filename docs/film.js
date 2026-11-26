@@ -12,6 +12,8 @@
 //                        ─► D · grano: estadística de los cristales revelados (depende de la densidad
 //                              y del formato; nadie le pone «cantidad»)
 //                        ─► E · copia: la ampliadora centra el negativo y el papel lo vuelve positivo
+//                              (una diapositiva se mira a contraluz; el blanco y negro va a su papel,
+//                              que se puede virar)
 //
 // Diseño: FILM-viabilidad-y-arquitectura (Claude) con la auditoría de Gemini Neon. Los parámetros de
 // cada película son de ARRANQUE (Neon los dio citando fichas públicas; no están cotejados uno a uno):
@@ -77,41 +79,208 @@
     // ── Las películas (parámetros de arranque) ──
     // Orden de capas en todo el archivo: [roja, verde, azul] = la que ve el rojo (tinte cian), el verde
     // (magenta) y el azul (amarillo).
+    //
+    // Hay tres clases de película, y cada una acaba de un modo distinto:
+    //   · «negative»: negativo de color con máscara naranja; se copia en papel de color;
+    //   · «reversal»: diapositiva; la propia película es el positivo y se mira a contraluz (sin papel:
+    //     no hay quien corrija la exposición, así que EXPOSICIÓN aquí sí aclara y oscurece);
+    //   · «mono»: negativo de plata, una sola emulsión; se copia en papel de blanco y negro, que se
+    //     puede virar, y admite un filtro de color delante del objetivo.
+    // Lo «experimental» no son efectos encima: son cosas que se le hacen a una película de verdad, y se
+    // calculan igual que se hacen —
+    //   · «unmasked» + «cross»: una diapositiva revelada como negativo (proceso cruzado): sin máscara y
+    //     con las capas de contraste distinto, las luces y las sombras se tiñen al revés una de otra;
+    //   · «silver»: saltarse el blanqueo: la plata se queda con el tinte (más contraste, menos color);
+    //   · «shoot»: cargar el rollo al revés: la luz entra por la base naranja y llega primero a la capa roja;
+    //   · «swap»: una película cuyas capas forman el tinte de otra (colores cambiados de sitio).
     const NEG_EXTRA = [[[440, 30, 0.14], [540, 35, 0.18]], [[435, 26, 0.22]], []];
     const NEG_DYES = [dye(665, 48, NEG_EXTRA[0]), dye(542, 30, NEG_EXTRA[1]), dye(442, 34)];
     // La máscara naranja: el acoplador de cada capa es de color —absorbe justo donde su tinte absorbe de
     // más— y se gasta al formarse el tinte. Así la absorción de más queda casi constante (el velo
     // naranja) en vez de ensuciar los colores. «MASK» es qué parte de esa absorción alcanza a cancelar.
     const NEG_MASK = NEG_EXTRA.map(extra => dye(0, 1, extra)), MASK = 0.92;
+    // Los tintes de una diapositiva: sin máscara que los limpie, cada uno absorbe un poco donde no debe.
+    const SLIDE_DYES = [dye(652, 46, [[545, 40, 0.09], [440, 30, 0.05]]), dye(546, 31, [[440, 28, 0.15], [650, 40, 0.03]]), dye(446, 34, [[545, 40, 0.03]])];
     const SUB = { share: [0.28, 0.42, 0.30], shift: [-0.75, 0, 0.75] };       // sub-emulsión rápida, media y lenta
+    const x3 = v => [v, v, v];
+    // El freno entre capas (DIR) de la película de retrato, ajustado contra una carta de colores; las
+    // demás lo toman escalado: «k» multiplica lo que cada capa frena a las otras (el color), y «self» es
+    // lo que una capa se frena a sí misma en su contorno (el borde marcado).
+    const DIR0 = [[0.14, 0.26, 0], [0.72, 0.14, 0.41], [0, 0.42, 0.12]];
+    const dirOf = (k, self) => DIR0.map((row, c) => row.map((v, j) => (c === j ? (self == null ? v : self) : Math.min(0.95, v * k))));
+    // Una sensibilidad a la que se le resta (o suma) un lóbulo: la cuarta capa de algunos negativos
+    // —sensible al cian, frena a la roja— hace justo eso: la capa roja «ve en negativo» el verde azulado.
+    const lobed = (s, l0, w, a) => spec((l, i) => s[i] + a * Math.exp(-Math.pow(l - l0, 2) / (2 * w * w)));
+    // Una emulsión de plata: de dónde a dónde ve («from» lo corta el vidrio; «to», su sensibilización).
+    const silverSens = (to, soft, blue = 0.3) => spec(l => smooth(372, 408, l) * (1 - smooth(to - soft, to + soft, l)) * (1 - 0.22 * lobe(l, 505, 24, 24)) * (1 + blue * lobe(l, 438, 30, 30)));
+    // Rollo cargado al revés: la luz atraviesa la base (naranja: se come el azul y parte del verde) y
+    // llega a las capas roja y verde sin el filtro amarillo que las protegía del azul; la capa azul
+    // queda debajo de todo, detrás de ese filtro, casi a oscuras.
+    const BASE_T = spec(l => Math.pow(10, -(0.18 + 0.60 * (1 - smooth(530, 600, l)) + 0.32 * (1 - smooth(450, 510, l)))));
+    const YELLOW_T = spec(l => Math.pow(10, -1.5 * (1 - smooth(468, 520, l))));
+    const NATIVE_BLUE = spec(l => 0.28 * (1 - smooth(440, 500, l)));          // la sensibilidad propia de la plata al azul
+    const flipped = s => [spec((l, i) => (s[0][i] + NATIVE_BLUE[i]) * BASE_T[i]), spec((l, i) => (s[1][i] + NATIVE_BLUE[i]) * BASE_T[i]), spec((l, i) => s[2][i] * BASE_T[i] * YELLOW_T[i] * 0.6)];
     const STOCKS = {
+      // ── negativos de color ──
       RETRATO400: {
-        name: 'RETRATO 400', hint: 'RETRATO 400 · negativo de color para todos los días: piel limpia y mucho margen en las luces.',
-        kind: 'negative', balance: 5500,
+        name: 'RETRATO 400', kind: 'negative', balance: 5500,
         sens: [sens(642, 36, 18, -0.04, true), sens(548, 34, 24, 0, true), sens(445, 32, 24, 0.05)],
         dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.58, 0.62, 0.66], gray: -0.62,
-        dir: [[0.14, 0.26, 0], [0.72, 0.14, 0.41], [0, 0.42, 0.12]], dirRadius: 18,
+        dir: DIR0, dirRadius: 18,
         halation: { radius: 210, k: [0.035, 0.008, 0.001] },
-        grain: { d: [0.95, 0.58, 0.34], rho: [0.9, 2.8, 5.2], sat: 0.5 },
+        grain: { rho: [0.9, 2.8, 5.2], sat: 0.5 },
       },
       CALIDO200: {
-        name: 'CÁLIDO 200', hint: 'CÁLIDO 200 · negativo de calle y sol: más color, más contraste y dorados cálidos.',
-        kind: 'negative', balance: 5500,
+        name: 'CÁLIDO 200', kind: 'negative', balance: 5500,
         sens: [sens(645, 32, 16, 0.02, true), sens(546, 30, 22, 0, true), sens(442, 30, 22, 0.08)],
         dmin: [0.24, 0.62, 0.94], dmax: [2.20, 2.75, 3.15], gamma: [0.66, 0.70, 0.74], gray: -0.55,
         dir: [[0.16, 0.21, 0], [0.72, 0.16, 0.45], [0, 0.57, 0.15]], dirRadius: 20,
         halation: { radius: 220, k: [0.045, 0.010, 0.002] },
-        grain: { d: [1.05, 0.65, 0.38], rho: [0.75, 2.3, 4.4], sat: 0.48 },
+        grain: { rho: [0.75, 2.3, 4.4], sat: 0.48 },
         warm: 0.035,                                                   // su copia tira a cálida: un punto más de luz azul en la ampliadora (más tinte amarillo en el papel)
       },
       CINE500T: {
-        name: 'CINE 500T', hint: 'CINE 500T · película de cine para luz de foco, sin capa antihalo: las luces sangran en rojo.',
-        kind: 'negative', balance: 3200,
+        name: 'CINE 500T', kind: 'negative', balance: 3200,
         sens: [sens(646, 35, 18, -0.18, true), sens(546, 32, 24, 0.08, true), sens(445, 30, 24, 0.42)],
         dmin: [0.20, 0.56, 0.86], dmax: [1.95, 2.40, 2.75], gamma: [0.62, 0.65, 0.68], gray: -0.66,
         dir: [[0.14, 0.20, 0], [0.72, 0.14, 0.43], [0, 0.37, 0.12]], dirRadius: 18,
         halation: { radius: 235, k: [0.28, 0.07, 0.01] },
-        grain: { d: [1.10, 0.64, 0.30], rho: [0.7, 2.5, 6.4], sat: 0.52 },
+        grain: { rho: [0.7, 2.5, 6.4], sat: 0.52 },
+      },
+      // Negativo de calle con cuarta capa: tonos duros, verdes que tiran al cian, rojos hondos; las
+      // sombras se enfrían y las luces se calientan (las capas no llevan el mismo contraste).
+      CALLE400: {
+        name: 'CALLE 400', kind: 'negative', balance: 5500,
+        sens: [lobed(sens(644, 34, 17, -0.02, true), 508, 20, -0.16), sens(541, 30, 22, 0, true), sens(447, 30, 24, 0.06)],
+        dmin: [0.24, 0.60, 0.92], dmax: [2.15, 2.70, 3.05], gamma: [0.68, 0.70, 0.70], gray: -0.52,
+        dir: dirOf(0.8), dirRadius: 20,
+        halation: { radius: 215, k: [0.04, 0.009, 0.001] },
+        grain: { rho: [0.6, 1.9, 3.8], sat: 0.48 },
+        contrast: 1.07, cross: [1.09, 0.94, 1.0], paper: { toe: 1.75, shoulder: 1.8 },
+      },
+      // Negativo de álbum: la copia que se guardó treinta años. Luces ámbar, sombras con color.
+      AMBAR160: {
+        name: 'ÁMBAR 160', kind: 'negative', balance: 5500,
+        sens: [sens(640, 36, 18, 0, true), sens(550, 34, 24, 0, true), sens(444, 32, 24, 0.04)],
+        dmin: [0.22, 0.58, 0.88], dmax: [2.10, 2.60, 3.00], gamma: [0.60, 0.63, 0.64], gray: -0.60,
+        dir: dirOf(1.2), dirRadius: 18,
+        halation: { radius: 210, k: [0.04, 0.009, 0.001] },
+        grain: { rho: [1.1, 3.2, 6.0], sat: 0.5 },
+        cross: [1.05, 1.0, 0.76], cast: [-0.008, 0.004, 0.022], paper: { toe: 1.35, shoulder: 1.45 },
+      },
+      // Negativo de cine para luz de día: poco contraste, poco color, sombras largas, una gota de magenta.
+      CINE250D: {
+        name: 'CINE 250D', kind: 'negative', balance: 5500,
+        sens: [sens(644, 35, 18, -0.02, true), sens(546, 32, 24, 0, true), sens(445, 30, 24, 0.05)],
+        dmin: [0.20, 0.56, 0.86], dmax: [1.95, 2.40, 2.75], gamma: [0.54, 0.56, 0.58], gray: -0.68,
+        dir: dirOf(0.62), dirRadius: 18,
+        halation: { radius: 230, k: [0.11, 0.028, 0.004] },
+        grain: { rho: [0.9, 3.0, 6.8], sat: 0.52 },
+        contrast: 0.86, cast: [0, 0.012, -0.004], paper: { toe: 1.25, shoulder: 1.2 },
+      },
+      // ── diapositivas ──
+      // Diapositiva de paisaje: color a tope, negros hondos, los azules con una gota de magenta.
+      VIVA50: {
+        name: 'DIAPO VIVA 50', kind: 'reversal', balance: 5500,
+        sens: [lobed(sens(646, 30, 16, 0, true), 448, 22, 0.035), sens(546, 28, 20, 0, true), sens(444, 28, 22, 0.02)],
+        dmin: x3(0), dmax: x3(3.5), gamma: x3(1.5), gray: 0.30,
+        dir: [[0.05, 0.036, 0], [0.237, 0.05, 0.094], [0.104, 0.027, 0.05]], dirRadius: 16,
+        halation: { radius: 200, k: [0.02, 0.005, 0.001] },
+        grain: { rho: [3.0, 9.0, 16.0], sat: 0.5 },
+        sub: { share: [0.26, 0.44, 0.30], shift: [-0.32, 0, 0.34] },
+      },
+      // Diapositiva de reportero: color contenido, sombras duras, cielos hondos sin magenta.
+      REPORTAJE64: {
+        name: 'REPORTAJE 64', kind: 'reversal', balance: 5500,
+        sens: [lobed(sens(640, 34, 17, 0, true), 492, 22, -0.14), sens(548, 30, 22, 0, true), sens(446, 30, 22, 0)],
+        dmin: x3(0), dmax: x3(3.6), gamma: x3(1.36), gray: 0.24,
+        dir: [[0.05, 0.028, -0.138], [0.016, 0.05, -0.046], [-0.037, 0.042, 0.05]], dirRadius: 16,
+        halation: { radius: 200, k: [0.02, 0.005, 0.001] },
+        grain: { rho: [2.2, 6.5, 12.0], sat: 0.5 },
+        sub: { share: [0.34, 0.42, 0.24], shift: [-0.30, 0, 0.36] }, tint: [0.985, 1, 1.03],
+      },
+      // ── experimentales ──
+      // Diapositiva revelada como negativo: contraste alto, luces verde-amarillas y sombras azules.
+      CRUZADO100: {
+        name: 'CRUZADO 100', kind: 'negative', balance: 5500, unmasked: true,
+        sens: [sens(646, 30, 16, 0, true), sens(546, 28, 20, 0, true), sens(444, 28, 22, 0.02)],
+        dmin: [0.18, 0.22, 0.30], dmax: [2.6, 2.8, 3.0], gamma: [0.80, 0.84, 0.80], gray: -0.46,
+        dir: dirOf(1.25), dirRadius: 18,
+        halation: { radius: 200, k: [0.03, 0.007, 0.001] },
+        grain: { rho: [1.0, 3.0, 5.6], sat: 0.5 },
+        cross: [0.95, 1.16, 0.60], cast: [0.006, -0.02, 0.012], paper: { toe: 1.8, shoulder: 1.8 },
+      },
+      // Negativo sin blanquear: la plata se queda en la película. Metálico, duro, casi sin color.
+      PLATA200: {
+        name: 'PLATA 200', kind: 'negative', balance: 5500,
+        sens: [sens(644, 35, 18, -0.02, true), sens(546, 32, 24, 0, true), sens(445, 30, 24, 0.05)],
+        dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.60, 0.63, 0.66], gray: -0.60,
+        dir: dirOf(1.0), dirRadius: 18,
+        halation: { radius: 215, k: [0.05, 0.012, 0.002] },
+        grain: { rho: [0.42, 1.3, 2.6], sat: 0.45 },
+        silver: 0.95, contrast: 1.24, cast: [0.006, 0, -0.008], paper: { toe: 1.7, shoulder: 1.8 },
+      },
+      // El rollo cargado al revés: todo en rojos, naranjas y amarillos.
+      REVES200: {
+        name: 'AL REVÉS 200', kind: 'negative', balance: 5500,
+        sens: [sens(642, 36, 18, -0.04, true), sens(548, 34, 24, 0, true), sens(445, 32, 24, 0.05)],
+        shoot: { sens: flipped([sens(642, 36, 18, -0.04), sens(548, 34, 24, 0), sens(445, 32, 24, 0.05)]), ev: 0.55 },
+        dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.62, 0.66, 0.70], gray: -0.62,
+        dir: dirOf(0.7), dirRadius: 18,
+        halation: { radius: 210, k: [0.03, 0.03, 0.02] },
+        grain: { rho: [0.6, 1.9, 3.6], sat: 0.5 },
+      },
+      // Película de colores cambiados: la capa del verde forma el tinte de la del azul, y al revés.
+      // El follaje sale púrpura; el cielo, verde agua; los amarillos, rosa. El rojo se queda.
+      PURPURA400: {
+        name: 'PÚRPURA 400', kind: 'negative', balance: 5500, swap: [0, 2, 1],
+        sens: [sens(642, 36, 18, -0.04, true), sens(548, 34, 24, 0, true), sens(445, 32, 24, 0.05)],
+        dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.62, 0.64, 0.64], gray: -0.60,
+        dir: dirOf(0.9), dirRadius: 18,
+        halation: { radius: 210, k: [0.04, 0.009, 0.001] },
+        grain: { rho: [0.7, 2.2, 4.2], sat: 0.5 },
+      },
+      // ── blanco y negro ──
+      // Grano finísimo; no ve del todo el rojo (los labios y la piel ganan cuerpo). Sombras suaves y con
+      // detalle, y de los medios a las luces, dura.
+      BNFINO100: {
+        name: 'B/N FINO 100', kind: 'mono', balance: 5500,
+        sens: x3(silverSens(632, 16, 0.2)),
+        dmin: x3(0.26), dmax: x3(2.25), gamma: x3(0.62), gray: -0.64,
+        dir: dirOf(0, 0.28), dirRadius: 13,
+        halation: { radius: 190, k: x3(0.012) },
+        grain: { rho: [3.4, 10.0, 18.0], sat: 0.5 },
+        paper: { toe: 1.75, shoulder: 1.4 },
+      },
+      // La de reportero de toda la vida: ve todos los colores, grano con carácter, pie largo.
+      BNCLASICO400: {
+        name: 'B/N CLÁSICO 400', kind: 'mono', balance: 5500,
+        sens: x3(silverSens(655, 18)),
+        dmin: x3(0.30), dmax: x3(2.35), gamma: x3(0.64), gray: -0.58,
+        dir: dirOf(0, 0.36), dirRadius: 16,
+        halation: { radius: 215, k: x3(0.03) },
+        grain: { rho: [0.34, 1.0, 2.0], sat: 0.45 },
+        paper: { toe: 1.5, shoulder: 1.9 },
+      },
+      // Ortocromática: ciega al rojo. Labios y pecas oscuros, cielos blancos, mucho contraste.
+      BNORTO80: {
+        name: 'B/N ORTO 80', kind: 'mono', balance: 5500,
+        sens: x3(silverSens(578, 14, 0.45)),
+        dmin: x3(0.24), dmax: x3(2.40), gamma: x3(0.72), gray: -0.56,
+        dir: dirOf(0, 0.32), dirRadius: 13,
+        halation: { radius: 190, k: x3(0.02) },
+        grain: { rho: [2.2, 6.5, 12.0], sat: 0.5 },
+        contrast: 1.08, paper: { toe: 1.6, shoulder: 2.0 },
+      },
+      // La de noche: rapidísima, grano como arena, sin capa antihalo (las luces se abren en un velo).
+      BNNOCHE3200: {
+        name: 'B/N NOCHE 3200', kind: 'mono', balance: 3200,
+        sens: x3(silverSens(672, 20, 0.15)),
+        dmin: x3(0.36), dmax: x3(2.20), gamma: x3(0.60), gray: -0.50,
+        dir: dirOf(0, 0.3), dirRadius: 18,
+        halation: { radius: 240, k: x3(0.2) },
+        grain: { rho: [0.085, 0.26, 0.55], sat: 0.4 },
+        contrast: 1.1, paper: { toe: 1.6, shoulder: 1.9 },
       },
     };
     // El papel de copia (color, contraste normal).
@@ -121,65 +290,106 @@
       dmin: 0.08, dmax: [2.25, 2.30, 2.20], gamma: [2.15, 2.25, 2.10],
       toe: 1.5, shoulder: 1.4,                                         // qué tan cortos son el pie y el hombro de su curva (1 = logística pura)
     };
+    // El papel de blanco y negro (plata sobre fibra).
+    const BW_PAPER = { dmin: 0.05, dmax: 2.15, gamma: 2.2, toe: 1.5, shoulder: 1.4 };
     const PAPERS = [{ name: 'SUAVE', grade: 0.84 }, { name: 'NORMAL', grade: 1 }, { name: 'DURO', grade: 1.2 }];
     const FORMATS = [{ name: '½ CUADRO', mm: 24 }, { name: '35 MM', mm: 36 }, { name: '6 × 7', mm: 70 }, { name: '4 × 5', mm: 127 }];
+    // Filtros de color delante del objetivo (blanco y negro): qué deja pasar cada uno. El fotómetro
+    // compensa la luz que quitan: un gris se queda donde estaba y los colores cambian de tono.
+    const cutOn = (at, soft, floor = 0.01) => spec(l => floor + (1 - floor) / (1 + Math.exp(-(l - at) / soft)));
+    const FILTERS = [
+      { name: 'SIN', t: null },
+      { name: 'AMARILLO', t: cutOn(495, 7, 0.02) },
+      { name: 'NARANJA', t: cutOn(550, 7) },
+      { name: 'ROJO', t: cutOn(598, 7) },
+      { name: 'VERDE', t: spec(l => 0.02 + 0.6 * lobe(l, 538, 26, 34)) },
+    ];
+    // Virados: en qué se convierte la plata de la copia. «lo» es el color de las densidades bajas (las
+    // luces) y «hi» el de las altas (las sombras): cuánto absorbe en rojo, verde y azul por unidad de
+    // densidad. Un virador no ataca igual lo claro que lo oscuro: de ahí el tono partido.
+    const TONERS = [
+      { name: 'NEUTRO', lo: [1, 1, 1], hi: [1, 1, 1], base: [1, 1, 1], dmax: 1 },
+      { name: 'CÁLIDO', lo: [0.88, 1, 1.24], hi: [0.96, 1, 1.09], base: [1, 0.985, 0.945], dmax: 0.98 },
+      { name: 'SELENIO', lo: [1.0, 1.0, 0.98], hi: [0.89, 1.07, 0.97], base: [1, 0.995, 0.975], dmax: 1.08 },
+      { name: 'SEPIA', lo: [0.66, 1, 1.62], hi: [0.84, 1, 1.3], base: [1, 0.985, 0.94], dmax: 0.86 },
+      { name: 'CIANOTIPO', lo: [1.55, 0.86, 0.34], hi: [1.3, 0.98, 0.56], base: [1, 0.995, 0.965], dmax: 0.92 },
+    ];
 
     // ── La curva característica de una capa: densidad contra log10 de la exposición ──
-    // Tres sub-emulsiones logísticas; «k» se busca para que la pendiente en el centro sea la gamma pedida.
-    function layerCurve(dmin, dmax, gamma, centre) {
-      const range = dmax - dmin, parts = k => x => { let s = 0; for (let j = 0; j < 3; j++) s += SUB.share[j] / (1 + Math.exp(-k * (x - centre - SUB.shift[j]))); return s; };
+    // Tres sub-emulsiones logísticas; «k» se busca para dar la gamma pedida. En un negativo, la gamma es
+    // la pendiente en el centro de la curva. En una diapositiva (que es su propio positivo) es el
+    // contraste de la imagen en el gris medio: lo que de verdad se ve.
+    function layerCurve(dmin, dmax, gamma, centre, sub = SUB, reversal = false) {
+      const range = dmax - dmin, parts = k => x => { let s = 0; for (let j = 0; j < 3; j++) s += sub.share[j] / (1 + Math.exp(-k * (x - centre - sub.shift[j]))); return s; };
+      const measure = reversal
+        ? k => { const f = parts(k); return 0.70 * (f(0.02) - f(-0.02)) / 0.04 / Math.max(1e-4, 1 - f(0)); }
+        : k => { const f = parts(k); return range * (f(centre + 0.02) - f(centre - 0.02)) / 0.04; };
       let lo = 0.4, hi = 14;
-      for (let it = 0; it < 40; it++) { const k = 0.5 * (lo + hi), f = parts(k), slope = range * (f(centre + 0.02) - f(centre - 0.02)) / 0.04; if (slope < gamma) lo = k; else hi = k; }
+      for (let it = 0; it < 40; it++) { const k = 0.5 * (lo + hi); if (measure(k) < gamma) lo = k; else hi = k; }
       const k = 0.5 * (lo + hi);
       return {
         k, centre, dmin, range,
         D: x => dmin + range * parts(k)(x),
         // qué parte de cada sub-emulsión se revela (para el grano)
-        p: x => SUB.shift.map(s => 1 / (1 + Math.exp(-k * (x - centre - s)))),
+        p: x => sub.shift.map(s => 1 / (1 + Math.exp(-k * (x - centre - s)))),
       };
     }
 
     // ── Preparar una película: todo lo que el revelado necesita, ya integrado ──
-    // options: { push: −1…2 (empuje), scene: kelvin de la luz de la escena (por defecto, la de la película) }
+    // options: { push: −1…2 (empuje), scene: kelvin de la luz de la escena (por defecto, la de la
+    //            película), filter: 0…4 (filtro de color; solo en blanco y negro) }
     function prepare(key, options = {}) {
       const stock = STOCKS[key];
       if (!stock) throw new Error('FILM: no conozco la película ' + key);
-      const push = clamp(options.push || 0, -1, 2);
+      const push = clamp(options.push || 0, -1, 2), mono = stock.kind === 'mono', reversal = stock.kind === 'reversal';
+      const filter = mono ? clamp(Math.round(options.filter || 0), 0, FILTERS.length - 1) : 0, glass = FILTERS[filter].t;
       const light = planck(options.scene || stock.balance), ref = planck(stock.balance);
+      const lit = glass ? spec((l, i) => light[i] * glass[i]) : light, shoot = stock.shoot;
       // A · la matriz de exposición: lo que cada capa recibe de cada primario, con el blanco en (1, 1, 1)
-      // bajo la luz para la que la película está equilibrada.
-      const expose = stock.sens.map(s => { const white = dot(ref, s); return BASES.map(b => dot(b, light, s) / white); });
+      // bajo la luz para la que la película está equilibrada (y a través del filtro, si lo lleva).
+      // Un rollo cargado al revés se mide como si estuviera al derecho: de ahí sale su color.
+      const expose = stock.sens.map((s, c) => { const white = glass ? dot(ref, glass, s) : dot(ref, s), boost = shoot ? Math.pow(2, shoot.ev || 0) : 1; return BASES.map(b => boost * dot(b, lit, shoot ? shoot.sens[c] : s) / white); });
       const E = mulM(expose, TO_BASES);
       // C · las curvas. El empuje (revelar de más una película expuesta de menos) sube la pendiente,
-      // gana algo de sensibilidad y levanta el velo.
-      const centre = stock.gray;                                       // log10 H del centro de la curva, con el gris medio en 0
-      const curves = [0, 1, 2].map(c => layerCurve(stock.dmin[c] + 0.03 * Math.max(0, push), stock.dmax[c], stock.gamma[c] * (1 + 0.16 * push), -centre - 0.18 * push));
+      // gana sensibilidad (toda la que se le pide, en diapositiva; parte, en negativo: el resto lo pone
+      // la copia) y levanta el velo.
+      const centre = -stock.gray - (reversal ? 0.30103 : 0.18) * push;    // log10 H del centro de la curva, con el gris medio en 0
+      const curves = [0, 1, 2].map(c => layerCurve(stock.dmin[c] + (reversal ? 0 : 0.03 * Math.max(0, push)), stock.dmax[c], stock.gamma[c] * (1 + 0.16 * push), centre, stock.sub || SUB, reversal));
       // El gris medio expuesto con «ev» pasos de más o de menos, y empujado: su densidad en cada capa.
       const grayAt = ev => curves.map(cv => cv.D(0.30103 * (ev - push)));
-      return { key, stock, push, E, curves, grayAt };
+      // Lo que la ampliadora corrige al copiar un negativo expuesto de más o de menos (en una
+      // diapositiva no hay copia: nada).
+      const shiftAt = ev => (reversal ? [0, 0, 0] : grayAt(ev).map((d, c) => (d - grayAt(0)[c]) / curves[c].range));
+      return { key, stock, push, filter, mono, reversal, E, curves, grayAt, shiftAt };
     }
 
-    // ── La copia: del negativo al positivo, como tabla ──
-    // Para cada terna de densidades del negativo (por encima de su mínimo, de 0 a 1 de su recorrido):
-    // su transmisión espectral (tintes + máscara naranja, que se gasta al formarse el tinte), la luz de
-    // la ampliadora a través de él, la exposición de cada capa del papel, la curva del papel, sus
-    // tintes, y lo que refleja bajo luz de día. Las luces de la ampliadora se ajustan para que el gris
-    // medio del negativo salga gris medio en el papel.
-    function printTable(film, size = 32, grade = 1) {
-      // «grade»: el grado del papel (su contraste): 1 es el normal; menos, suave; más, duro.
-      const { stock, curves } = film, lamp = planck(3200), see = viewer(D65), pgamma = PAPER.gamma.map(g => g * grade);
-      // La curva del papel: una logística con el pie acortado (el papel real pasa de blanco a gris en
-      // poco recorrido; con una logística pura el blanco de la escena se quedaba en gris claro).
-      // Su pendiente (la «gamma» del papel) se mide donde se trabaja: en el gris medio.
+    // ── La copia: de la película a la imagen, como tabla ──
+    // Para cada terna de densidades (por encima de su mínimo, de 0 a 1 de su recorrido), el color que
+    // se acaba viendo. Cada clase de película llega por su camino.
+    // La curva de un papel: una logística con el pie acortado (el papel real pasa de blanco a gris en
+    // poco recorrido; con una logística pura el blanco de la escena se quedaba en gris claro). Su
+    // pendiente (la «gamma» del papel) se mide donde se trabaja: en el gris medio («target»).
+    function paperCurve(range, gamma, toe, shoulder, target) {
+      const shape = (kk, x) => range * (1 - Math.pow(1 - Math.pow(1 / (1 + Math.exp(-kk * x)), toe), shoulder));
+      const slopeAtGray = kk => { let a = -6, b = 6; for (let i = 0; i < 50; i++) { const m = 0.5 * (a + b); if (shape(kk, m) < target) a = m; else b = m; } const x = 0.5 * (a + b); return (shape(kk, x + 0.01) - shape(kk, x - 0.01)) / 0.02; };
+      let lo = 0.5, hi = 20;
+      for (let i = 0; i < 40; i++) { const kk = 0.5 * (lo + hi); if (slopeAtGray(kk) < gamma) lo = kk; else hi = kk; }
+      const kk = 0.5 * (lo + hi);
+      return x => shape(kk, x);
+    }
+    // El contraste que debe tener la copia de un negativo: el de la película —su gamma— por el del
+    // papel, algo rebajado por la luz parásita (las densidades de la ficha ya incluyen la máscara).
+    const copyContrast = (film, pgamma) => 0.92 * (1 + 0.16 * film.push) * (film.stock.gamma[0] + film.stock.gamma[1] + film.stock.gamma[2]) / 3 * pgamma * (film.stock.contrast || 1);
+
+    // Negativo de color: su transmisión espectral (tintes + máscara naranja, que se gasta al formarse
+    // el tinte, + la plata si no se blanqueó), la luz de la ampliadora a través de él, la exposición de
+    // cada capa del papel, la curva del papel, sus tintes, y lo que refleja bajo luz de día. Las luces
+    // de la ampliadora se ajustan para que el gris medio del negativo salga gris medio en el papel.
+    function negativePrint(film, grade) {
+      const { stock, curves } = film, lamp = planck(3200), see = viewer(D65), pgamma = PAPER.gamma.map(g => g * grade), form = stock.paper || PAPER;
       const target = 0.745 - PAPER.dmin;                                 // el gris medio en el papel refleja el 18 %
-      const paper = [0, 1, 2].map(k => {
-        const range = PAPER.dmax[k] - PAPER.dmin, shape = (kk, x) => range * (1 - Math.pow(1 - Math.pow(1 / (1 + Math.exp(-kk * x)), PAPER.toe), PAPER.shoulder));
-        const slopeAtGray = kk => { let a = -6, b = 6; for (let i = 0; i < 50; i++) { const m = 0.5 * (a + b); if (shape(kk, m) < target) a = m; else b = m; } const x = 0.5 * (a + b); return (shape(kk, x + 0.01) - shape(kk, x - 0.01)) / 0.02; };
-        let lo = 0.5, hi = 20;
-        for (let i = 0; i < 40; i++) { const kk = 0.5 * (lo + hi); if (slopeAtGray(kk) < pgamma[k]) lo = kk; else hi = kk; }
-        const kk = 0.5 * (lo + hi);
-        return { range, D: x => shape(kk, x) };
-      });
+      const paper = [0, 1, 2].map(k => paperCurve(PAPER.dmax[k] - PAPER.dmin, pgamma[k], form.toe, form.shoulder, target));
+      const dyeOf = stock.swap || [0, 1, 2], mask = stock.unmasked ? 0 : MASK, silver = stock.silver || 0;
       const grayN = film.grayAt(0).map((d, c) => (d - curves[c].dmin) / curves[c].range);
       const white = see(spec((l, i) => D65[i]));                          // el papel sin tinte es el blanco de pantalla
       // «gain»: cuánto pesa cada tinte del negativo para el papel (su densidad de copia, que no es la de
@@ -188,38 +398,78 @@
       const gain = [1, 1, 1], offset = [0, 0, 0];
       let base = [1, 1, 1];
       const through = n => spec((l, i) => {                              // n: densidad de cada capa, de 0 a 1 de su recorrido
-        let d = 0.06;
-        for (let c = 0; c < 3; c++) d += curves[c].range * gain[c] * (n[c] * NEG_DYES[c][i] + MASK * (1 - n[c]) * NEG_MASK[c][i]);
-        return Math.pow(10, -d);
+        let d = 0.06, ag = 0;
+        for (let c = 0; c < 3; c++) { const q = dyeOf[c]; d += curves[c].range * gain[q] * (n[c] * NEG_DYES[q][i] + mask * (1 - n[c]) * NEG_MASK[q][i]); ag += curves[c].range * n[c]; }
+        return Math.pow(10, -d - silver * ag / 3);
       });
       const print = nn => {
-        const T = through(nn), dens = [0, 1, 2].map(k => paper[k].D(Math.log10(dot(lamp, T, PAPER.sens[k]) / base[k]) + offset[k]));
+        const T = through(nn), dens = [0, 1, 2].map(k => paper[k](Math.log10(dot(lamp, T, PAPER.sens[k]) / base[k]) + offset[k]));
         const rgb = see(spec((l, i) => D65[i] * Math.pow(10, -(dens[0] * PAPER.dyes[0][i] + dens[1] * PAPER.dyes[1][i] + dens[2] * PAPER.dyes[2][i]))));
         return [rgb[0] / white[0], rgb[1] / white[1], rgb[2] / white[2]];
       };
       const nAt = ev => film.grayAt(ev).map((d, c) => (d - curves[c].dmin) / curves[c].range);
-      // (las densidades de la ficha ya incluyen la máscara: el contraste de la copia tiene que ser el de
-      //  la película —su gamma— por el del papel, algo rebajado por la luz parásita)
-      const lo = nAt(-1), hi = nAt(1), contrast = 0.92 * (1 + 0.16 * film.push) * (stock.gamma[0] + stock.gamma[1] + stock.gamma[2]) / 3 * (pgamma[0] + pgamma[1] + pgamma[2]) / 3;
+      const lo = nAt(-1), hi = nAt(1), contrast = copyContrast(film, (pgamma[0] + pgamma[1] + pgamma[2]) / 3);
+      const centre = () => { base = PAPER.sens.map(sn => dot(lamp, through(grayN), sn)); const g = print(grayN); for (let k = 0; k < 3; k++) offset[k] += 0.6 * Math.log10(Math.max(1e-4, g[k]) / 0.18) / pgamma[k]; };   // más luz en una capa del papel → más tinte → menos de ese color en la copia
       for (let it = 0; it < 90; it++) {
-        base = PAPER.sens.map(sn => dot(lamp, through(grayN), sn));
-        const g = print(grayN);
-        // más luz en una capa del papel → más tinte → menos de ese color en la copia
-        for (let k = 0; k < 3; k++) offset[k] += 0.6 * Math.log10(Math.max(1e-4, g[k]) / 0.18) / pgamma[k];
+        centre();
         if (it % 2) {
           const a = print(lo), z = print(hi);
-          for (let k = 0; k < 3; k++) { const slope = Math.log10(Math.max(1e-4, z[k]) / Math.max(1e-4, a[k])) / 0.60206; gain[k] = clamp(gain[k] * Math.pow(contrast / Math.max(0.05, slope), 0.5), 0.4, 4); }
+          for (let k = 0; k < 3; k++) { const slope = Math.log10(Math.max(1e-4, z[k]) / Math.max(1e-4, a[k])) / 0.60206; gain[k] = clamp(gain[k] * Math.pow(contrast / Math.max(0.05, slope), 0.5), 0.25, 4); }
         }
       }
+      // Capas con contraste distinto (proceso cruzado, película vieja): el gris medio sigue gris, pero
+      // hacia las luces y hacia las sombras cada capa se va por su lado.
+      if (stock.cross) { for (let k = 0; k < 3; k++) gain[k] *= stock.cross[k]; for (let it = 0; it < 40; it++) centre(); }
       if (stock.warm) offset[2] += stock.warm;
+      if (stock.cast) for (let k = 0; k < 3; k++) offset[k] += stock.cast[k];
+      return { print, grayN, gain, offset };
+    }
+
+    // Diapositiva: lo que no se reveló en el primer baño es lo que acaba formando tinte (cuanta más
+    // luz, menos tinte), y se mira a contraluz. La cantidad de cada tinte es la que deja gris el gris.
+    function slidePrint(film) {
+      // («clear»: con luz de sobra la película queda limpia del todo; una logística nunca llega)
+      const { stock, curves } = film, see = viewer(D65), gain = [1, 1, 1], dyeOf = stock.swap || [0, 1, 2], flare = 0.003, clear = 0.03;
+      const through = n => spec((l, i) => { let d = 0; for (let c = 0; c < 3; c++) { const q = dyeOf[c]; d += curves[c].range * gain[q] * Math.max(0, (1 - n[c] - clear) / (1 - clear)) * SLIDE_DYES[q][i]; } return D65[i] * Math.pow(10, -d); });
+      const white = see(through([1, 1, 1]));
+      const print = n => { const c = see(through(n)); return [0, 1, 2].map(k => (c[k] / white[k] + flare) / (1 + flare)); };
+      const grayN = film.grayAt(0).map((d, c) => (d - curves[c].dmin) / curves[c].range);
+      for (let it = 0; it < 80; it++) { const g = print(grayN); for (let k = 0; k < 3; k++) gain[k] = clamp(gain[k] * Math.pow(0.745 / Math.max(0.02, -Math.log10(Math.max(1e-4, g[k]))), 0.8), 0.1, 4); }
+      if (stock.tint) for (let k = 0; k < 3; k++) gain[k] *= stock.tint[k];
+      return { print, grayN, gain, offset: [0, 0, 0] };
+    }
+
+    // Blanco y negro: el negativo de plata es neutro; el papel lo vuelve positivo y el virado le da color.
+    function monoPrint(film, grade, toner) {
+      const { stock, curves } = film, cv = curves[0], tone = TONERS[clamp(Math.round(toner || 0), 0, TONERS.length - 1)], form = stock.paper || BW_PAPER;
+      const pgamma = BW_PAPER.gamma * grade, range = BW_PAPER.dmax * tone.dmax - BW_PAPER.dmin, paper = paperCurve(range, pgamma, form.toe, form.shoulder, 0.745 - BW_PAPER.dmin);
+      const lum = c => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+      let gain = 1, offset = 0;
+      const print = n => {
+        const D = paper(-cv.range * gain * (n[0] + n[1] + n[2]) / 3 + offset), t = D / range;
+        return [0, 1, 2].map(k => tone.base[k] * Math.pow(10, -D * (tone.lo[k] + (tone.hi[k] - tone.lo[k]) * t)));
+      };
+      const nAt = ev => film.grayAt(ev).map((d, c) => (d - curves[c].dmin) / curves[c].range);
+      const grayN = nAt(0), lo = nAt(-1), hi = nAt(1), contrast = copyContrast(film, pgamma);
+      for (let it = 0; it < 90; it++) {
+        offset += 0.6 * Math.log10(Math.max(1e-4, lum(print(grayN))) / 0.18) / pgamma;
+        if (it % 2) { const slope = Math.log10(Math.max(1e-4, lum(print(hi))) / Math.max(1e-4, lum(print(lo)))) / 0.60206; gain = clamp(gain * Math.pow(contrast / Math.max(0.05, slope), 0.5), 0.25, 4); }
+      }
+      return { print, grayN, gain: x3(gain), offset: x3(offset) };
+    }
+
+    // «grade»: el grado del papel (su contraste): 1 es el normal; menos, suave; más, duro (una
+    // diapositiva no lleva papel). «toner»: el virado de la copia en blanco y negro.
+    function printTable(film, size = 32, grade = 1, toner = 0) {
+      const made = film.mono ? monoPrint(film, grade, toner) : film.reversal ? slidePrint(film) : negativePrint(film, grade);
       const out = new Uint8Array(size * size * size * 4), n = [0, 0, 0];
       const enc = v => Math.round(255 * (v <= 0 ? 0 : v >= 1 ? 1 : v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055));
       for (let b = 0; b < size; b++) for (let g = 0; g < size; g++) for (let r = 0; r < size; r++) {
         n[0] = r / (size - 1); n[1] = g / (size - 1); n[2] = b / (size - 1);
-        const rgb = print(n), o = 4 * ((b * size + g) * size + r);
+        const rgb = made.print(n), o = 4 * ((b * size + g) * size + r);
         out[o] = enc(rgb[0]); out[o + 1] = enc(rgb[1]); out[o + 2] = enc(rgb[2]); out[o + 3] = 255;
       }
-      return { size, data: out, print, grayN, gain, offset };
+      return { size, data: out, print: made.print, grayN: made.grayN, gain: made.gain, offset: made.offset };
     }
 
     // ── Tablas de una dimensión para el sombreador ──
@@ -227,7 +477,7 @@
     // recorrido) y la desviación de su grano, por micra de lado del punto.
     const X0 = -4, X1 = 3.5, XN = 1024;
     function curveTable(film) {
-      const { stock, curves, push } = film, out = new Float32Array(XN * 4), noise = new Float32Array(XN * 4);
+      const { stock, curves, push } = film, sub = stock.sub || SUB, out = new Float32Array(XN * 4), noise = new Float32Array(XN * 4);
       for (let i = 0; i < XN; i++) {
         const x = X0 + (X1 - X0) * i / (XN - 1);
         for (let c = 0; c < 3; c++) {
@@ -236,9 +486,9 @@
           // Grano: los cristales revelados de cada sub-emulsión siguen una ley de Poisson (su varianza
           // es su media), frenada por el solape de las nubes de tinte. La capa azul lleva cristales
           // más grandes y menos numerosos; la roja, algo más grandes. Empujar agranda el grano.
-          const p = cv.p(x), size = c === 2 ? 0.65 : c === 0 ? 0.92 : 1;
+          const p = cv.p(x), size = film.mono ? 1 : c === 2 ? 0.65 : c === 0 ? 0.92 : 1;
           let v = 0;
-          for (let j = 0; j < 3; j++) v += Math.pow(cv.range * SUB.share[j], 2) * p[j] * (1 - stock.grain.sat * p[j]) / (stock.grain.rho[j] * size);
+          for (let j = 0; j < 3; j++) v += Math.pow(cv.range * sub.share[j], 2) * p[j] * (1 - stock.grain.sat * p[j]) / (stock.grain.rho[j] * size);
           noise[i * 4 + c] = Math.sqrt(v * (1 + 0.8 * Math.max(0, push))) / cv.range;                 // en unidades de «n» (0…1 del recorrido), por micra
         }
         out[i * 4 + 3] = 1; noise[i * 4 + 3] = 1;
@@ -247,7 +497,7 @@
     }
 
     // El revelado de UN punto, en JavaScript y sin atajos: la referencia contra la que se mide el
-    // sombreador. rgb lineal con el gris medio en 0,18. Devuelve densidades y la copia (RGB lineal).
+    // sombreador. rgb lineal con el gris medio en 0,18. Devuelve densidades y la imagen (RGB lineal).
     function develop(film, table, rgb, ev = 0) {
       const gain = Math.pow(2, ev - film.push) / 0.18, H = mul3(film.E, rgb).map(v => Math.max(1e-6, v * gain));
       const x = H.map(v => Math.log10(v));
@@ -258,12 +508,12 @@
       const d = (j, v) => film.curves[j].D(v) - film.curves[j].dmin;
       const eff = x.map((v, c) => v - film.stock.dir[c].reduce((s, m, j) => s + m * (d(j, x[j]) - d(j, v)), 0));
       const D = eff.map((v, c) => film.curves[c].D(v));
-      const shift = film.grayAt(ev).map((d, c) => (d - film.grayAt(0)[c]) / film.curves[c].range);
+      const shift = film.shiftAt(ev);
       const n = D.map((d, c) => clamp((d - film.curves[c].dmin) / film.curves[c].range - shift[c], 0, 1));
       return { H, D, n, print: table ? table.print(n) : null };
     }
 
-    return { LAM, STOCKS, PAPER, PAPERS, FORMATS, SUB, X0, X1, XN, prepare, printTable, curveTable, develop, upsample, planck, viewer, D65, clamp };
+    return { LAM, STOCKS, PAPER, PAPERS, FORMATS, FILTERS, TONERS, SUB, X0, X1, XN, prepare, printTable, curveTable, develop, upsample, planck, viewer, D65, clamp };
   })();
 
   if (typeof module !== 'undefined' && module.exports) { module.exports = physics; return; }
@@ -271,7 +521,7 @@
   // medio segundo largo en un teléfono) para que cambiar de película no detenga la cámara.
   if (typeof window === 'undefined') {
     self.onmessage = event => {
-      const { id, key, push, grade } = event.data, table = physics.printTable(physics.prepare(key, { push }), 32, grade);
+      const { id, key, push, grade, toner } = event.data, table = physics.printTable(physics.prepare(key, { push }), 32, grade, toner);
       self.postMessage({ id, data: table.data }, [table.data.buffer]);
     };
     return;
@@ -325,7 +575,7 @@
       void main() { o = vec4(curve(log10v(mix(textureLod(uH, vUv, 1.).rgb, mix(texture(uHalo, vUv).rgb, texture(uWide, vUv).rgb, .3), uK))), 1.); }`,
     final: simple => HEAD + (simple ? EXPOSE : 'uniform sampler2D uH, uHalo, uWide, uSpread;') + `
       uniform sampler3D uPrint; uniform vec3 uK, uRange, uShift, uNoise;   // uNoise = (¿grano?, lado del grumo en puntos, 1/lado en micras)
-      uniform vec3 uDirR, uDirG, uDirB; uniform float uSeed, uMode; uniform vec2 uRes;
+      uniform vec3 uDirR, uDirG, uDirB; uniform float uSeed, uMode, uMono; uniform vec2 uRes;
       vec3 gauss(vec2 cell, float salt) {
         vec3 a = vec3(hash(cell + salt), hash(cell + salt + 17.3), hash(cell + salt + 41.9)), b = vec3(hash(cell.yx + salt + 5.1), hash(cell.yx + salt + 23.7), hash(cell.yx + salt + 67.2));
         return sqrt(-2. * log(max(a, vec3(1e-4)))) * cos(6.2831853 * b);
@@ -350,6 +600,7 @@
         if (uNoise.x > .5) {
           vec2 p = gl_FragCoord.xy / uNoise.y;
           vec3 g = uNoise.y > 1.2 ? .8 * grumos(p, uSeed) + .6 * grumos(p * .43, uSeed + 91.) : .8 * gauss(floor(p), uSeed) + .6 * grumos(p * .43, uSeed + 91.);
+          if (uMono > .5) g = g.rrr;                                                   // una sola emulsión: un solo grano
           n += lookup(xe, .75) * uNoise.z * g;
         }
         if (uMode > .5) { o = vec4(clamp(n, 0., 1.), 1.); return; }                    // (pruebas: el negativo)
@@ -416,9 +667,9 @@
   const made = new Map(), waiting = new Map();
   let worker = null, workerDead = false;
   function put(id, data) {
-    const [key, push, paper] = id.split(':'), film = physics.prepare(key, { push: +push });
-    made.set(id, { id, film, curves: physics.curveTable(film), print: { size: 32, data: data || physics.printTable(film, 32, physics.PAPERS[+paper].grade).data } });
-    if (made.size > 10) made.delete(made.keys().next().value);
+    const [key, push, paper, filter, toner] = id.split(':'), film = physics.prepare(key, { push: +push, filter: +filter });
+    made.set(id, { id, film, curves: physics.curveTable(film), print: { size: 32, data: data || physics.printTable(film, 32, physics.PAPERS[+paper].grade, +toner).data } });
+    if (made.size > 24) made.delete(made.keys().next().value);
     return made.get(id);
   }
   function finish(id, data) {
@@ -427,31 +678,46 @@
     waiting.delete(id);
     wait.done(made.get(id) || put(id, data));
   }
-  function ask(id) {
+  // Las tablas se piden al hilo aparte de una en una. Lo que la cámara necesita YA pasa por delante de
+  // lo que solo se va adelantando (las demás películas, para que cambiar sea inmediato).
+  const queue = [];
+  let busy = '';
+  function pump() {
+    if (busy || !queue.length) return;
+    if (!worker) { for (const id of queue.splice(0)) finish(id, null); return; }
+    busy = queue.shift();
+    const [key, push, paper, , toner] = busy.split(':');
+    worker.postMessage({ id: busy, key, push: +push, grade: physics.PAPERS[+paper].grade, toner: +toner });
+  }
+  function ask(id, urgent) {
     if (made.has(id)) return Promise.resolve(made.get(id));
-    if (waiting.has(id)) return waiting.get(id).promise;
+    if (waiting.has(id)) { const at = queue.indexOf(id); if (urgent && at > 0) { queue.splice(at, 1); queue.unshift(id); } return waiting.get(id).promise; }
     let done; const promise = new Promise(ok => { done = ok; });
     waiting.set(id, { promise, done });
+    // (el blanco y negro es una sola curva: se calcula en el acto)
+    if (physics.STOCKS[id.split(':')[0]].kind === 'mono') { finish(id, null); return promise; }
     try {
       if (!worker && !workerDead) {
         worker = new Worker('./film.js');
-        worker.onmessage = event => finish(event.data.id, event.data.data);
-        worker.onerror = () => { workerDead = true; worker = null; for (const key of [...waiting.keys()]) finish(key, null); };
+        worker.onmessage = event => { busy = ''; finish(event.data.id, event.data.data); pump(); };
+        worker.onerror = () => { workerDead = true; worker = null; busy = ''; queue.length = 0; for (const key of [...waiting.keys()]) finish(key, null); };
       }
-      if (worker) { const [key, push, paper] = id.split(':'); worker.postMessage({ id, key, push: +push, grade: physics.PAPERS[+paper].grade }); }
-      else finish(id, null);
-    } catch (_) { workerDead = true; worker = null; finish(id, null); }
+      if (urgent) queue.unshift(id); else queue.push(id);
+      pump();
+    } catch (_) { workerDead = true; worker = null; busy = ''; queue.length = 0; for (const key of [...waiting.keys()]) finish(key, null); }
     return promise;
   }
-  const idOf = (key, push, paper) => key + ':' + push + ':' + paper;
+  // Qué tablas son: película, empuje, papel, filtro y virado. Lo que a una película no le toca se deja
+  // en su valor de fábrica (una diapositiva no lleva papel; el filtro y el virado son del blanco y negro).
+  const idOf = (key, push, paper, filter, toner) => { const kind = physics.STOCKS[key].kind, mono = kind === 'mono'; return [key, push, kind === 'reversal' ? 1 : paper, mono ? filter | 0 : 0, mono ? toner | 0 : 0].join(':'); };
   // Deja en la GPU las tablas de esa película. Si aún se están calculando: con «sync» las calcula en el
   // acto; sin él, devuelve la película que ya estaba cargada (o nada, si no había ninguna).
-  function loadFilm(key, push, paper, sync) {
-    const gl = G.gl, id = idOf(key, push, paper);
+  function loadFilm(key, push, paper, filter, toner, sync) {
+    const gl = G.gl, id = idOf(key, push, paper, filter, toner);
     if (G.film === id && made.has(id)) return made.get(id);
     if (!made.has(id)) {
       if (sync) put(id, null);
-      else { ask(id); return G.film && made.get(G.film) || null; }
+      else { ask(id, true); if (!made.has(id)) return G.film && made.get(G.film) || null; }
     }
     const set = made.get(id), rows = new Float32Array(physics.XN * 4 * 2);
     rows.set(set.curves.density, 0); rows.set(set.curves.noise, physics.XN * 4);
@@ -464,14 +730,14 @@
     return set;
   }
   // Revela «source» y lo deja en el lienzo del motor (w × h).
-  //   o: { stock, ev, push, format (0…3), grain, mirror, crop [x, y, w, h] en 0…1, seed, mode (0 copia, 1 negativo, 2 exposición) }
+  //   o: { stock, ev, push, format (0…3), paper (0…2), filter (0…4), toner (0…4), grain, mirror, crop [x, y, w, h] en 0…1, seed, mode (0 copia, 1 negativo, 2 exposición) }
   function develop(source, w, h, o) {
-    const gl = G.gl, set = loadFilm(o.stock, o.push, clamp(o.paper == null ? 1 : o.paper | 0, 0, 2), o.sync);
+    const gl = G.gl, set = loadFilm(o.stock, o.push, clamp(o.paper == null ? 1 : o.paper | 0, 0, 2), o.filter | 0, o.toner | 0, o.sync);
     if (!set) return null;
     const { film } = set, stock = film.stock;
     if (G.canvas.width !== w || G.canvas.height !== h) { G.canvas.width = w; G.canvas.height = h; }
     const upp = physics.FORMATS[clamp(o.format | 0, 0, 3)].mm * 1000 / Math.max(w, h);          // micras de película por punto
-    const range = film.curves.map(c => c.range), shift = film.grayAt(o.ev).map((d, c) => (d - film.grayAt(0)[c]) / range[c]);
+    const range = film.curves.map(c => c.range), shift = film.shiftAt(o.ev);
     const common = prog => {
       gl.useProgram(prog.p);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.tex.curves); gl.uniform1i(prog.u.uCurves, 0);
@@ -539,16 +805,18 @@
     // el grumo de grano mide unas 11 micras: en puntos, según el formato; su fuerza baja con su lado
     const cell = Math.max(1, 11 / upp);
     gl.uniform3f(P.u.uNoise, o.grain === false ? 0 : 1, cell, 1 / (cell * upp));
-    gl.uniform1f(P.u.uSeed, o.seed || 0); gl.uniform1f(P.u.uMode, o.mode || 0);
+    gl.uniform1f(P.u.uSeed, o.seed || 0); gl.uniform1f(P.u.uMode, o.mode || 0); gl.uniform1f(P.u.uMono, film.mono ? 1 : 0);
     gl.uniform2f(P.u.uRes, w, h);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return G.canvas;
   }
 
   // ── La cámara FILM ──────────────────────────────────────────────────────────────────────────────
-  const S = { ev: 0, push: 0, format: 1, paper: 1, grain: true, frame: 0, ms: 0 };
-  try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && typeof saved === 'object') { S.ev = clamp(+saved.ev || 0, -2, 2); S.push = clamp(Math.round(+saved.push || 0), -1, 2); S.format = clamp(Math.round(saved.format == null ? 1 : +saved.format), 0, 3); S.paper = clamp(Math.round(saved.paper == null ? 1 : +saved.paper), 0, 2); S.grain = saved.grain !== false; } } catch (_) {}
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, grain: S.grain })); } catch (_) {} };
+  const S = { ev: 0, push: 0, format: 1, paper: 1, filter: 0, toner: 0, grain: true, frame: 0, ms: 0 };
+  const NF = physics.FILTERS.length - 1, NT = physics.TONERS.length - 1;
+  try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && typeof saved === 'object') { S.ev = clamp(+saved.ev || 0, -2, 2); S.push = clamp(Math.round(+saved.push || 0), -1, 2); S.format = clamp(Math.round(saved.format == null ? 1 : +saved.format), 0, 3); S.paper = clamp(Math.round(saved.paper == null ? 1 : +saved.paper), 0, 2); S.filter = clamp(Math.round(+saved.filter || 0), 0, NF); S.toner = clamp(Math.round(+saved.toner || 0), 0, NT); S.grain = saved.grain !== false; } } catch (_) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain })); } catch (_) {} };
+  const mine = key => idOf(key, S.push, S.paper, S.filter, S.toner);
   function renderFilm(source, srcW, srcH, ctx, mirror, variant, options) {
     if (!ensureGl()) return false;
     const started = performance.now(), opts = options || {};
@@ -562,7 +830,7 @@
     let ready;
     try {
       // (la foto espera a su película; la vista previa sigue con la que hubiera mientras llega la nueva)
-      ready = develop(source, w, h, { stock, ev: S.ev, push: S.push, format: S.format, paper: S.paper, grain: S.grain, mirror, sync: capture, crop: [sx / srcW, sy / srcH, sw / srcW, sh / srcH], seed: capture ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
+      ready = develop(source, w, h, { stock, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain, mirror, sync: capture, crop: [sx / srcW, sy / srcH, sw / srcW, sh / srcH], seed: capture ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
     } catch (error) { console.warn(String(error && error.message || error)); G.failed = true; return false; }
     ctx.save();
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
@@ -574,13 +842,13 @@
       ctx.drawImage(source, sx, sy, sw, sh, 0, 0, outW, outH);
     }
     ctx.restore();
-    if (ready && !S.warmed) { S.warmed = true; for (const key of Object.keys(physics.STOCKS)) ask(idOf(key, S.push, S.paper)); }
+    if (ready && !S.warmed) { S.warmed = true; for (const key of Object.keys(physics.STOCKS)) ask(mine(key)); }
     if (ready) { S.frame++; S.ms += (performance.now() - started - S.ms) * 0.1; }
     return true;
   }
 
   // La película de siempre se va calculando en cuanto la app está quieta, para que entrar a FILM sea inmediato.
-  setTimeout(() => { try { ask(idOf(typeof camFamily !== 'undefined' && camFamily === 'FILM' && physics.STOCKS[camVariant] ? camVariant : 'RETRATO400', S.push, S.paper)); } catch (_) {} }, 1800);
+  setTimeout(() => { try { ask(mine(typeof camFamily !== 'undefined' && camFamily === 'FILM' && physics.STOCKS[camVariant] ? camVariant : 'RETRATO400')); } catch (_) {} }, 1800);
 
   // Los mandos (su panel está en la página; la consola los vuelve perillas).
   const signed = (v, digits) => (v > 0 ? '+' : v < 0 ? '-' : '') + (digits && Math.abs(v) % 1 ? Math.abs(v).toFixed(1) : String(Math.round(Math.abs(v))));
@@ -588,11 +856,22 @@
     ['filmEv', 'vFilmEv', () => Math.round(S.ev * 3), v => { S.ev = clamp(v / 3, -2, 2); }, v => signed(v / 3, 1)],
     ['filmPush', 'vFilmPush', () => S.push, v => { S.push = clamp(v, -1, 2); }, v => signed(v)],
     ['filmFormat', 'vFilmFormat', () => S.format, v => { S.format = clamp(v, 0, 3); }, v => physics.FORMATS[v].name],
-    ['filmPaper', 'vFilmPaper', () => S.paper, v => { S.paper = clamp(v, 0, 2); }, v => physics.PAPERS[v].name],
+    ['filmPaper', 'vFilmPaper', () => S.paper, v => { S.paper = clamp(v, 0, 2); }, v => physics.PAPERS[v].name, kind => kind !== 'reversal'],
+    ['filmFilter', 'vFilmFilter', () => S.filter, v => { S.filter = clamp(v, 0, NF); }, v => physics.FILTERS[v].name, kind => kind === 'mono'],
+    ['filmToner', 'vFilmToner', () => S.toner, v => { S.toner = clamp(v, 0, NT); }, v => physics.TONERS[v].name, kind => kind === 'mono'],
     ['filmGrain', 'vFilmGrain', () => (S.grain ? 1 : 0), v => { S.grain = v > 0; }, v => (v ? 'SÍ' : 'NO')],
   ];
+  // (cada película enseña solo los mandos que le tocan: una diapositiva no lleva papel; el filtro y el
+  //  virado son del blanco y negro)
   function syncUI() {
-    for (const [id, out, get, , text] of KNOBS) { const input = $(id), value = get(); if (!input) continue; if (+input.value !== value) input.value = value; const label = $(out); if (label) label.textContent = text(value); }
+    const stock = typeof camFamily !== 'undefined' && camFamily === 'FILM' && physics.STOCKS[camVariant], kind = stock ? stock.kind : 'negative';
+    for (const [id, out, get, , text, when] of KNOBS) {
+      const input = $(id), value = get(); if (!input) continue;
+      if (+input.value !== value) input.value = value;
+      const label = $(out); if (label) label.textContent = text(value);
+      const row = input.closest('.film-ctrl-row'), hide = !!when && !when(kind);
+      if (row && row.hidden !== hide) row.hidden = hide;
+    }
   }
   for (const [id, , , set] of KNOBS) { const input = $(id); if (input) input.addEventListener('input', event => { set(Math.round(+event.target.value)); save(); syncUI(); }); }
   syncUI();
@@ -604,14 +883,14 @@
     develop(source, options = {}) {
       if (!ensureGl()) return null;
       const w = options.w || source.width || source.videoWidth, h = options.h || source.height || source.videoHeight;
-      return develop(source, w, h, { stock: options.stock || 'RETRATO400', ev: options.ev || 0, push: options.push || 0, format: options.format == null ? 1 : options.format, paper: options.paper, grain: options.grain, mirror: false, sync: true, seed: options.seed == null ? 7.31 : options.seed, mode: options.mode || 0 });
+      return develop(source, w, h, { stock: options.stock || 'RETRATO400', ev: options.ev || 0, push: options.push || 0, format: options.format == null ? 1 : options.format, paper: options.paper, filter: options.filter, toner: options.toner, grain: options.grain, mirror: false, sync: true, seed: options.seed == null ? 7.31 : options.seed, mode: options.mode || 0 });
     },
     // Lee el lienzo del motor (RGBA de 8 bits, de arriba abajo).
     read() { const gl = G.gl, w = G.canvas.width, h = G.canvas.height, raw = new Uint8Array(w * h * 4), out = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, raw); for (let y = 0; y < h; y++) out.set(raw.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4); return { data: out, w, h }; },
-    set(values) { if (values.ev != null) S.ev = clamp(+values.ev, -2, 2); if (values.push != null) S.push = clamp(Math.round(+values.push), -1, 2); if (values.format != null) S.format = clamp(Math.round(+values.format), 0, 3); if (values.paper != null) S.paper = clamp(Math.round(+values.paper), 0, 2); if (values.grain != null) S.grain = !!values.grain; save(); syncUI(); return this.settings(); },
+    set(values) { if (values.ev != null) S.ev = clamp(+values.ev, -2, 2); if (values.push != null) S.push = clamp(Math.round(+values.push), -1, 2); if (values.format != null) S.format = clamp(Math.round(+values.format), 0, 3); if (values.paper != null) S.paper = clamp(Math.round(+values.paper), 0, 2); if (values.filter != null) S.filter = clamp(Math.round(+values.filter), 0, NF); if (values.toner != null) S.toner = clamp(Math.round(+values.toner), 0, NT); if (values.grain != null) S.grain = !!values.grain; save(); syncUI(); return this.settings(); },
     // Avisa cuando las tablas de una película están listas (por omisión, con los ajustes puestos).
-    ready: (stock, push = S.push, paper = S.paper) => ask(idOf(physics.STOCKS[stock] ? stock : 'RETRATO400', push, paper)).then(() => true),
-    settings: () => ({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, grain: S.grain }),
+    ready: (stock, push = S.push, paper = S.paper, filter = S.filter, toner = S.toner) => ask(idOf(physics.STOCKS[stock] ? stock : 'RETRATO400', push, paper, filter, toner)).then(() => true),
+    settings: () => ({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain }),
     state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film }),
   };
 })();

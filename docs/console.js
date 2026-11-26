@@ -176,7 +176,7 @@
     for (const id of FAMILY_PANES) {
       const pane = $(id);
       if (!pane) continue;
-      const slots = [...pane.querySelectorAll('.cs-slot')].filter(slot => !(/^(oscamStaticOnlyRow|pressRegRow|pressPairRow)$/.test(slot.id) && !slot.classList.contains('visible')));
+      const slots = [...pane.querySelectorAll('.cs-slot')].filter(slot => !slot.hidden && !(/^(oscamStaticOnlyRow|pressRegRow|pressPairRow)$/.test(slot.id) && !slot.classList.contains('visible')));
       // (OSCAM lleva seis perillas y además su fila de colores: en dos filas no cabría; van las seis en una)
       const six = id === 'oscamEditPanel' && slots.length === 6;
       const perRow = six ? 6 : slots.length > 5 ? Math.ceil(slots.length / 2) : Math.max(3, slots.length);

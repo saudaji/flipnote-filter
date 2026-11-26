@@ -50,6 +50,7 @@ body[data-tab="cam"] #palettes .cs-slot {
   flex: 0 0 calc(100% / var(--cs-n, 5)); max-width: calc(100% / var(--cs-n, 5)); height: calc(104 * var(--cu)); min-height: 0;
   margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; position: relative; gap: 0 !important;
 }
+body[data-tab="cam"] #palettes .cs-slot[hidden] { display: none !important; }   /* (una perilla que a esta cámara no le toca) */
 body[data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] .cs-slot { height: calc(89 * var(--cu)); }
 body[data-tab="cam"] #palettes .cs-slot > input[type="range"],
 body[data-tab="cam"] #palettes .cs-slot input[type="checkbox"] {
@@ -66,6 +67,9 @@ body[data-tab="cam"] #palettes .cs-pane[data-cs-n="6"] .cs-slot > [class$="-val"
 body[data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] { --cs-k: 62; }
 body[data-tab="cam"] #palettes .cs-pane[data-cs-n="3"], body[data-tab="cam"] #palettes .cs-pane[data-cs-n="4"], body[data-tab="cam"] #palettes #camMobileUtilityDock { --cs-k: 84; }
 body[data-tab="cam"] #palettes .cs-pane[data-cs-n="3"] .cs-slot, body[data-tab="cam"] #palettes .cs-pane[data-cs-n="4"] .cs-slot { height: calc(112 * var(--cu)); }
+/* (FILM en blanco y negro lleva siete perillas: cuatro y tres, del tamaño de dos filas) */
+body[data-tab="cam"] #palettes #filmEditPanel.cs-pane[data-cs-rows="2"] { --cs-k: 62; }
+body[data-tab="cam"] #palettes #filmEditPanel.cs-pane[data-cs-rows="2"] .cs-slot { height: calc(89 * var(--cu)); }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob[data-cs-kind="sel3"] { background-image: url('./body/console-sel3.webp'); cursor: pointer; }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob[data-cs-kind="sel2"] { background-image: url('./body/console-sel2.webp'); cursor: pointer; }
 :is(body[data-tab="cam"] #palettes, .cs-rack) .cs-knob > i {

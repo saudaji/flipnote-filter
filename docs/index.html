@@ -1388,6 +1388,7 @@
 
     #filmEditPanel { display:none; margin-bottom:3px; }
     .film-ctrl-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+    .film-ctrl-row[hidden] { display:none !important; }
     .film-lbl { color:var(--mid); font-family:monospace; font-size:7px; letter-spacing:.7px; min-width:64px; flex-shrink:0; }
     .film-val { color:var(--paper); font-family:monospace; font-size:7px; min-width:40px; text-align:right; flex-shrink:0; }
     .film-ctrl-row input[type="range"] { flex:1; height:2px; accent-color:var(--paper); cursor:pointer; }
@@ -3359,7 +3360,7 @@
     <button class="cam-fam-btn"        data-family="OSCAM"  title="OSCAM — Oscilloscope camera"><strong>OSCAM</strong><small>Osciloscopio</small></button>
     <button class="cam-fam-btn"        data-family="PRENSA" title="PRINT — Imprenta y sello postal"><strong>PRINT</strong><small>Imprenta: semitono, periódico, riso y sello postal</small></button>
     <button class="cam-fam-btn"        data-family="CONSOLA" title="VIRTUAL — Todo en polígonos"><strong>VIRTUAL</strong><small>Todo en polígonos, como un juego de otra generación</small></button>
-    <button class="cam-fam-btn"        data-family="FILM" title="FILM — Película revelada de verdad"><strong>FILM</strong><small>Negativo de color revelado y copiado en papel: su grano, su halo, sus colores</small></button>
+    <button class="cam-fam-btn"        data-family="FILM" title="FILM — Película revelada de verdad"><strong>FILM</strong><small>Película revelada de verdad: negativos, diapositivas, experimentales y blanco y negro</small></button>
     <button class="cam-fam-btn"        data-family="CLON" title="CLON — Copia el look de una imagen"><strong>CLON</strong><small>Enséñale una imagen y arma una cámara con su look</small></button>
   </div>
 </div>
@@ -3544,6 +3545,16 @@
       <span class="film-lbl">PAPEL</span>
       <span class="film-val" id="vFilmPaper">NORMAL</span>
       <input type="range" id="filmPaper" min="0" max="2" step="1" value="1">
+    </div>
+    <div class="film-ctrl-row" hidden>
+      <span class="film-lbl">FILTRO</span>
+      <span class="film-val" id="vFilmFilter">SIN</span>
+      <input type="range" id="filmFilter" min="0" max="4" step="1" value="0">
+    </div>
+    <div class="film-ctrl-row" hidden>
+      <span class="film-lbl">VIRADO</span>
+      <span class="film-val" id="vFilmToner">NEUTRO</span>
+      <input type="range" id="filmToner" min="0" max="4" step="1" value="0">
     </div>
     <div class="film-ctrl-row">
       <span class="film-lbl">GRANO</span>
@@ -5181,8 +5192,9 @@ const CAM_FAMILIES = {
     editMode:'consola',
     paletteContext:null,
   },
-  // FILM (film.js): negativo de color revelado paso a paso (exposición por capas, halación, freno
-  // entre capas, grano) y copiado en papel. Sus variantes son las películas.
+  // FILM (film.js): película revelada paso a paso (exposición por capas, halación, freno entre capas,
+  // grano) y copiada en papel o vista a contraluz. Sus variantes son las películas: negativos de
+  // color, diapositivas, experimentales y blanco y negro.
   FILM: {
     label:'FILM',
     displayLabel:'FILM',
@@ -5190,9 +5202,23 @@ const CAM_FAMILIES = {
       { id:'RETRATO400', label:'RETRATO 400', hint:'RETRATO 400 · negativo de luz de día: piel suave, sombras abiertas y mucho margen.' },
       { id:'CALIDO200', label:'CÁLIDO 200', hint:'CÁLIDO 200 · negativo de diario: dorado, con más contraste y color.' },
       { id:'CINE500T', label:'CINE 500T', hint:'CINE 500T · negativo de cine para luz de foco: las luces sangran en rojo.' },
+      { id:'CALLE400', label:'CALLE 400', hint:'CALLE 400 · negativo de calle: tonos duros, verdes hacia el cian, sombras frías y luces cálidas.' },
+      { id:'AMBAR160', label:'ÁMBAR 160', hint:'ÁMBAR 160 · negativo de álbum: luces ámbar y sombras con color.' },
+      { id:'CINE250D', label:'CINE 250D', hint:'CINE 250D · negativo de cine para luz de día: suave, poco color, sombras largas.' },
+      { id:'VIVA50', label:'DIAPO VIVA 50', hint:'DIAPO VIVA 50 · diapositiva de paisaje: color a tope y negros hondos. Poco margen: cuida la EXPOSICIÓN.' },
+      { id:'REPORTAJE64', label:'REPORTAJE 64', hint:'REPORTAJE 64 · diapositiva de reportero: color contenido, sombras duras, cielos hondos.' },
+      { id:'CRUZADO100', label:'CRUZADO 100', hint:'CRUZADO 100 · diapositiva revelada como negativo: luces verde-amarillas, sombras azules.' },
+      { id:'PLATA200', label:'PLATA 200', hint:'PLATA 200 · negativo sin blanquear: la plata se queda. Metálico, duro, casi sin color.' },
+      { id:'REVES200', label:'AL REVÉS 200', hint:'AL REVÉS 200 · el rollo cargado al revés: todo en rojos, naranjas y amarillos.' },
+      { id:'PURPURA400', label:'PÚRPURA 400', hint:'PÚRPURA 400 · colores cambiados de capa: follaje púrpura, cielo verde agua.' },
+      { id:'BNFINO100', label:'B/N FINO 100', hint:'B/N FINO 100 · blanco y negro de grano finísimo: sombras con detalle, luces firmes.' },
+      { id:'BNCLASICO400', label:'B/N CLÁSICO 400', hint:'B/N CLÁSICO 400 · el blanco y negro de reportero: grano con carácter.' },
+      { id:'BNORTO80', label:'B/N ORTO 80', hint:'B/N ORTO 80 · ciega al rojo: labios y piel oscuros, cielos blancos, mucho contraste.' },
+      { id:'BNNOCHE3200', label:'B/N NOCHE 3200', hint:'B/N NOCHE 3200 · para la noche: grano como arena y luces que se abren en un velo.' },
     ],
     grupo:'film',
     porVariante:true,                     // cada película es una diapositiva de la tira (no una tecla de variante)
+    soloVariante:true,                    // en el rótulo va solo el nombre de la película (el cajón ya dice FILM)
     editMode:'film',
     paletteContext:null,
   },

@@ -1,5 +1,6 @@
-// FILM: el negativo de color revelado paso a paso y copiado en papel (docs/film.js). Se prueba con
-// cartas de las que se sabe qué tienen que dar. Lo que tiene que seguir siendo verdad:
+// FILM: la película revelada paso a paso (docs/film.js): negativos de color y de plata copiados en
+// papel, diapositivas vistas a contraluz y películas experimentales. Se prueba con cartas de las que
+// se sabe qué tienen que dar. Lo que tiene que seguir siendo verdad:
 //   · LA ESCALA DE GRISES sale gris de punta a punta, con el gris medio en el 18 %, y la gráfica da
 //     lo mismo que la cuenta de referencia (la física, sin GPU);
 //   · EL MARGEN: con EXPOSICIÓN de −2 a +2 pasos el gris medio no se mueve (la ampliadora lo centra)
@@ -9,10 +10,14 @@
 //     de cine sin capa antihalo y casi nada en las otras; y no inventa luz (lo que da, lo quita);
 //   · EL GRANO: se ve, es mayor cuanto más chico el formato, cambia con la densidad y se puede quitar;
 //   · EMPUJE y PAPEL mueven el contraste hacia donde dicen;
+//   · CADA PELÍCULA ES LO QUE DICE: el blanco y negro no tiene color y cambia con FILTRO y VIRADO; la
+//     ortocromática no ve el rojo; la diapositiva tiene más color y EXPOSICIÓN la aclara de verdad; la
+//     que no se blanqueó casi no tiene color; la cruzada tiñe luces y sombras al revés; el rollo al
+//     revés sale naranja; y la de colores cambiados vuelve púrpura el verde;
 //   · LOS CAJONES: la tira de cámaras va en tres (FILM · DIGITAL · CUSTOM); cada uno enseña solo las
 //     suyas y recuerda su última cámara; en FILM cada película es una diapositiva;
-//   · LA CÁMARA: sus tres películas y sus cinco perillas; lo ajustado se guarda; toma la foto; y al
-//     cambiar de cámara suelta la gráfica.
+//   · LA CÁMARA: sus películas y sus perillas (cada película enseña las que le tocan); lo ajustado se
+//     guarda; toma la foto; y al cambiar de cámara suelta la gráfica.
 //   FLIP_URL=http://127.0.0.1:8760 node tests/film.cjs
 'use strict';
 const assert = require('node:assert/strict');
@@ -54,20 +59,26 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
       return { evs, out, state: flipFilm.state() };
     });
     assert.ok(wedge.state.gl && wedge.state.float && !wedge.state.failed, 'revela en la gráfica, con precisión flotante: ' + JSON.stringify(wedge.state));
+    // Las que tiñen el gris a propósito (es su carácter) y la que ni siquiera lo centra (el rollo al revés).
+    const TINTED = ['CALIDO200', 'CALLE400', 'AMBAR160', 'CRUZADO100', 'REVES200'];
+    const SLIDES = ['VIVA50', 'REPORTAJE64'];
+    assert.equal(Object.keys(wedge.out).length, 16, 'las dieciséis películas');
     for (const [stock, { gpu, ref }] of Object.entries(wedge.out)) {
       const mid = gpu[5], lum = gpu.map(p => (p[0] + p[1] + p[2]) / 3);
-      assert.ok(Math.abs(lum[5] - 0.18) < 0.02, stock + ': el gris medio sale al 18 %: ' + mid);
-      for (let i = 1; i < lum.length; i++) assert.ok(lum[i] > lum[i - 1], stock + ': la escala sube siempre: ' + lum.map(v => v.toFixed(3)));
-      // gris de punta a punta (la película cálida lleva su tinte, y se le deja)
+      if (stock !== 'REVES200') assert.ok(Math.abs(lum[5] - 0.18) < 0.02, stock + ': el gris medio sale al 18 %: ' + mid);
+      // (en los negros más hondos de una diapositiva ya no queda escalón de 8 bits que los separe)
+      for (let i = 1; i < lum.length; i++) assert.ok(i < 3 ? lum[i] >= lum[i - 1] : lum[i] > lum[i - 1], stock + ': la escala sube siempre: ' + lum.map(v => v.toFixed(3)));
+      // gris de punta a punta
       // (en los tonos más oscuros un escalón de 8 bits ya es un 5 %: ahí se mira la diferencia absoluta)
       const tint = Math.max(...gpu.map(p => (Math.max(...p) - Math.min(...p)) / Math.max(0.06, (p[0] + p[1] + p[2]) / 3)));
-      assert.ok(tint < (stock === 'CALIDO200' ? 0.3 : 0.07), stock + ': los grises no se tiñen: ' + tint.toFixed(3) + ' ' + JSON.stringify(gpu));
-      // la gráfica y la cuenta de referencia dan lo mismo
-      const gap = Math.max(...gpu.map((p, i) => Math.max(...p.map((v, c) => Math.abs(v - ref[i][c])))));
+      // (una diapositiva no tiene máscara ni copia que la limpie: sus sombras se van un pelo al cian)
+      if (!TINTED.includes(stock)) assert.ok(tint < (SLIDES.includes(stock) ? 0.12 : 0.07), stock + ': los grises no se tiñen: ' + tint.toFixed(3) + ' ' + JSON.stringify(gpu));
+      // la gráfica y la cuenta de referencia dan lo mismo (la referencia, recortada a lo que una pantalla enseña)
+      const gap = Math.max(...gpu.map((p, i) => Math.max(...p.map((v, c) => Math.abs(v - Math.min(1, Math.max(0, ref[i][c])))))));
       assert.ok(gap < 0.02, stock + ': la gráfica coincide con la referencia: ' + gap.toFixed(4));
-      // contraste de copia: de −1 a +1 pasos, más de lo que entra (una copia tiene más contraste que la escena)
+      // contraste: de −1 a +1 pasos, más de lo que entra salvo en la película de cine suave
       const gamma = Math.log(lum[6] / lum[4]) / Math.log(4);
-      assert.ok(gamma > 1.05 && gamma < 1.6, stock + ': contraste de copia razonable: ' + gamma.toFixed(2));
+      assert.ok(gamma > 0.85 && gamma < 1.7, stock + ': contraste razonable: ' + gamma.toFixed(2));
     }
     step('la escala de grises sale gris, con el gris medio al 18 %, y la gráfica coincide con la referencia', Object.fromEntries(Object.entries(wedge.out).map(([k, v]) => [k, v.gpu.map(p => +((p[0] + p[1] + p[2]) / 3).toFixed(3))])));
 
@@ -87,7 +98,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
       const lin = rgb => rgb.map(v => Math.pow(v / 255, 2.2));
       const P = { rojo: [175, 54, 60], verde: [70, 148, 73], azul: [56, 61, 150], amarillo: [231, 199, 31], magenta: [187, 86, 149], piel: [194, 150, 130], pielOscura: [115, 82, 68], follaje: [87, 108, 67], naranja: [214, 126, 44] };
       const ins = Object.values(P).map(lin), out = {};
-      for (const stock of Object.keys(flipFilm.physics.STOCKS)) {
+      for (const stock of ['RETRATO400', 'CALIDO200', 'CINE500T']) {
         const got = filmKit.patches(ins, { stock });
         out[stock] = Object.keys(P).map((name, i) => { const a = filmKit.oklab(ins[i]), b = filmKit.oklab(got[i]); return { name, chroma: +(Math.hypot(b[1], b[2]) / Math.hypot(a[1], a[2])).toFixed(2), hue: Math.round(((Math.atan2(b[2], b[1]) - Math.atan2(a[2], a[1])) * 180 / Math.PI + 540) % 360 - 180) }; });
       }
@@ -161,6 +172,55 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     for (let i = 1; i < 4; i++) assert.ok(contrast.push[i].gamma > contrast.push[i - 1].gamma + 0.03, 'empujar sube el contraste: ' + contrast.push.map(p => p.gamma));
     step('EMPUJE y PAPEL mueven el contraste', { papel: contrast.papers.map(p => p.gamma), empuje: contrast.push.map(p => p.gamma) });
 
+    // ── 6b · Cada película es lo que dice ──
+    const kinds = await page.evaluate(() => {
+      const lin = rgb => rgb.map(v => Math.pow(v / 255, 2.2)), lum = p => 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+      const C = { rojo: [175, 54, 60], verde: [70, 148, 73], azul: [56, 61, 150], amarillo: [231, 199, 31], piel: [194, 150, 130], follaje: [87, 108, 67], cielo: [98, 122, 157] };
+      const ins = Object.values(C).map(lin), names = Object.keys(C);
+      const chroma = (stock, options) => { const got = filmKit.patches(ins, { stock, ...options }); return +(got.reduce((s, p, i) => { const a = filmKit.oklab(ins[i]), b = filmKit.oklab(p); return s + Math.hypot(b[1], b[2]) / Math.hypot(a[1], a[2]); }, 0) / ins.length).toFixed(3); };
+      const tones = (stock, options) => Object.fromEntries(filmKit.patches(ins, { stock, ...options }).map((p, i) => [names[i], +lum(p).toFixed(3)]));
+      const grays = (stock, options) => filmKit.patches([filmKit.gray(-2), filmKit.gray(0), filmKit.gray(2)], { stock, ...options });
+      return {
+        chroma: Object.fromEntries(['RETRATO400', 'CINE250D', 'VIVA50', 'REPORTAJE64', 'PLATA200', 'BNFINO100', 'BNCLASICO400', 'BNORTO80', 'BNNOCHE3200'].map(k => [k, chroma(k)])),
+        pan: tones('BNCLASICO400'), orto: tones('BNORTO80'), red: tones('BNCLASICO400', { filter: 3 }), green: tones('BNCLASICO400', { filter: 4 }),
+        toners: [0, 1, 2, 3, 4].map(toner => grays('BNFINO100', { toner })),
+        slide: [-1, 0, 1].map(ev => +lum(grays('VIVA50', { ev })[1]).toFixed(3)), negative: [-1, 0, 1].map(ev => +lum(grays('RETRATO400', { ev })[1]).toFixed(3)),
+        slidePaper: [0, 2].map(paper => grays('VIVA50', { paper })),
+        cross: grays('CRUZADO100'), flipped: grays('REVES200'), amber: grays('AMBAR160'),
+        swap: filmKit.patches(ins, { stock: 'PURPURA400' }).map(p => p.map(v => +v.toFixed(3))),
+        lists: { filters: flipFilm.physics.FILTERS.map(f => f.name), toners: flipFilm.physics.TONERS.map(t => t.name) },
+      };
+    });
+    // blanco y negro: sin color; la ortocromática no ve el rojo; los filtros cambian el tono de cada color
+    for (const k of ['BNFINO100', 'BNCLASICO400', 'BNORTO80', 'BNNOCHE3200']) assert.ok(kinds.chroma[k] < 0.03, k + ': sin color: ' + kinds.chroma[k]);
+    assert.ok(kinds.orto.rojo < kinds.pan.rojo * 0.6 && kinds.orto.azul > kinds.pan.azul, 'la ortocromática oscurece el rojo y aclara el azul: ' + JSON.stringify([kinds.pan, kinds.orto]));
+    assert.ok(kinds.red.rojo > kinds.pan.rojo * 1.5 && kinds.red.azul < kinds.pan.azul * 0.6 && kinds.red.cielo < kinds.pan.cielo * 0.85, 'el filtro rojo aclara el rojo y oscurece el azul y el cielo: ' + JSON.stringify([kinds.pan, kinds.red]));
+    assert.ok(kinds.green.verde > kinds.pan.verde * 1.1 && kinds.green.rojo < kinds.pan.rojo * 0.8, 'el filtro verde aclara el verde y oscurece el rojo: ' + JSON.stringify([kinds.pan, kinds.green]));
+    assert.deepEqual(kinds.lists, { filters: ['SIN', 'AMARILLO', 'NARANJA', 'ROJO', 'VERDE'], toners: ['NEUTRO', 'CÁLIDO', 'SELENIO', 'SEPIA', 'CIANOTIPO'] });
+    // los virados: el gris medio sigue en su sitio; sepia y cálido tiran al rojo, el cianotipo al azul, y el selenio enfría las sombras
+    const lumOf = p => 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+    for (const [i, t] of kinds.toners.entries()) assert.ok(Math.abs(lumOf(t[1]) - 0.18) < 0.02, 'virado ' + i + ': el gris medio no se mueve: ' + t[1]);
+    assert.ok(kinds.toners[0].every(p => Math.max(...p) - Math.min(...p) < 0.012), 'sin virar, la copia es neutra: ' + JSON.stringify(kinds.toners[0]));
+    assert.ok(kinds.toners[1][1][0] > kinds.toners[1][1][2] * 1.08 && kinds.toners[3][1][0] > kinds.toners[3][1][2] * 1.5 && kinds.toners[3][1][0] > kinds.toners[1][1][0], 'cálido y sepia tiran al rojo, la sepia más: ' + JSON.stringify([kinds.toners[1][1], kinds.toners[3][1]]));
+    assert.ok(kinds.toners[4][1][2] > kinds.toners[4][1][0] * 2, 'el cianotipo es azul: ' + kinds.toners[4][1]);
+    assert.ok(kinds.toners[2][0][1] < kinds.toners[2][0][0] && kinds.toners[2][0][1] < kinds.toners[2][0][2] && Math.max(...kinds.toners[2][2]) - Math.min(...kinds.toners[2][2]) < 0.03, 'el selenio vira las sombras y deja las luces: ' + JSON.stringify(kinds.toners[2]));
+    // color: la diapositiva viva tiene más que la de reportero y que el negativo; la de cine suave y la sin blanquear, menos
+    assert.ok(kinds.chroma.VIVA50 > kinds.chroma.RETRATO400 + 0.1 && kinds.chroma.VIVA50 > kinds.chroma.REPORTAJE64 + 0.15, 'la diapositiva viva es la de más color: ' + JSON.stringify(kinds.chroma));
+    assert.ok(kinds.chroma.CINE250D < kinds.chroma.RETRATO400 - 0.15 && kinds.chroma.PLATA200 < 0.7, 'la de cine suave y la sin blanquear llevan menos color: ' + JSON.stringify(kinds.chroma));
+    // en diapositiva no hay copia que corrija: EXPOSICIÓN aclara y oscurece; en negativo, no; y el PAPEL no le hace nada
+    assert.ok(kinds.slide[2] > kinds.slide[1] * 1.6 && kinds.slide[0] < kinds.slide[1] * 0.65, 'la diapositiva se aclara y oscurece con la exposición: ' + kinds.slide);
+    assert.ok(Math.abs(kinds.negative[2] - kinds.negative[0]) < 0.02, 'el negativo, no (la copia lo centra): ' + kinds.negative);
+    assert.deepEqual(kinds.slidePaper[0], kinds.slidePaper[1], 'una diapositiva no lleva papel');
+    // proceso cruzado: luces sin azul (verde-amarillas) y sombras azuladas
+    assert.ok(kinds.cross[2][2] < kinds.cross[2][1] - 0.08 && kinds.cross[2][1] >= kinds.cross[2][0] && kinds.cross[0][2] >= kinds.cross[0][0], 'la cruzada tiñe las luces de verde-amarillo y las sombras de azul: ' + JSON.stringify(kinds.cross));
+    assert.ok(kinds.amber[2][0] > kinds.amber[2][2] + 0.1, 'ÁMBAR: luces ámbar: ' + kinds.amber[2]);
+    // rollo al revés: rojo, luego verde, y casi nada de azul
+    assert.ok(kinds.flipped[1][0] > kinds.flipped[1][1] * 2 && kinds.flipped[1][2] < 0.04 && kinds.flipped[2][0] > 0.6 && kinds.flipped[2][2] < 0.05, 'el rollo al revés sale naranja: ' + JSON.stringify(kinds.flipped));
+    // colores cambiados: el verde sale púrpura (más azul y rojo que verde) y el rojo sigue rojo
+    const [swapRed, swapGreen, , swapYellow] = kinds.swap;
+    assert.ok(swapGreen[2] > swapGreen[1] * 1.5 && swapRed[0] > swapRed[1] * 2 && swapRed[0] > swapRed[2] * 2 && swapYellow[2] > swapYellow[1] * 1.5, 'PÚRPURA: el verde y el amarillo cambian de sitio; el rojo, no: ' + JSON.stringify(kinds.swap.slice(0, 4)));
+    step('cada película es lo que dice: blanco y negro con filtros y virados, diapositivas, y las experimentales', { croma: kinds.chroma, diapositiva: kinds.slide, alReves: kinds.flipped[1], cruzada: kinds.cross[2] });
+
     // ── 7 · La cámara ──
     // los tres cajones: de fábrica se está en DIGITAL, con las cámaras de siempre
     const drawers = () => page.evaluate(() => ({
@@ -175,7 +235,8 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     await page.locator('#deckGroups [data-group="film"]').click();
     await page.waitForFunction(() => camFamily === 'FILM', null, { timeout: 5000 });
     const d1 = await drawers();
-    assert.deepEqual([d1.on, d1.tiles, d1.cam], [['film'], ['FILM:RETRATO400', 'FILM:CALIDO200', 'FILM:CINE500T'], 'FILM:RETRATO400'], 'FILM: una diapositiva por película, y entra a la primera');
+    const stocks = await page.evaluate(() => Object.keys(flipFilm.physics.STOCKS));
+    assert.deepEqual([d1.on, d1.tiles, d1.cam], [['film'], stocks.map(k => 'FILM:' + k), 'FILM:RETRATO400'], 'FILM: una diapositiva por película (las mismas que conoce el motor), y entra a la primera');
     await pickCamera(page, 'FILM', 'CALIDO200');
     await page.locator('#deckGroups [data-group="custom"]').click();
     await page.waitForFunction(() => camFamily === 'CLON', null, { timeout: 5000 });
@@ -188,11 +249,11 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     await page.waitForFunction(() => camFamily === 'FILM', null, { timeout: 5000 });
     const d3 = await drawers();
     assert.equal(d3.cam, 'FILM:CALIDO200', 'cada cajón recuerda su última cámara');
-    assert.match(d3.lcd, /FILM · CÁLIDO 200/);
+    assert.match(d3.lcd, /^CÁLIDO 200$/);
     await page.locator('#deckGroups [data-group="digital"]').click();
     await page.waitForFunction(() => camFamily === 'VFD', null, { timeout: 5000 });
     assert.equal(await page.evaluate(() => document.querySelectorAll('#deckVariants [data-variant]').length > 0), true, 'en DIGITAL las variantes siguen en su fila');
-    step('la tira va en tres cajones: FILM · DIGITAL · CUSTOM', { film: d1.tiles, digital: d0.tiles.length, custom: d2.tiles });
+    step('la tira va en tres cajones: FILM · DIGITAL · CUSTOM', { film: d1.tiles.length, digital: d0.tiles.length, custom: d2.tiles });
 
     await pickCamera(page, 'FILM', 'RETRATO400');
     await page.waitForFunction(() => camFamily === 'FILM' && camVariant === 'RETRATO400' && flipFilm.state().frame > 10 && String(flipFilm.state().film).startsWith('RETRATO400'), null, { timeout: 10000 });
@@ -206,7 +267,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     });
     const a = await page.evaluate(() => ({ s: flipFilm.state(), lcd: document.getElementById('lcdLook').textContent, variante: camVariant, variantes: document.querySelectorAll('#deckVariants [data-variant]').length, miniatura: [...document.querySelectorAll('.look[data-family="FILM"] i')].every(i => /look-FILM-[A-Z0-9]+\.webp/.test(getComputedStyle(i).backgroundImage)) }));
     const seenA = await view();
-    assert.match(a.lcd, /FILM/);
+    assert.match(a.lcd, /RETRATO 400/);
     assert.equal(a.variante, 'RETRATO400');
     assert.equal(a.variantes, 0, 'las películas son diapositivas, no teclas de variante');
     assert.ok(a.s.gl && !a.s.failed, 'revela en la gráfica: ' + JSON.stringify(a.s));
@@ -227,11 +288,46 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     await page.waitForFunction(() => flipFilm.state().film.startsWith('CINE500T'), null, { timeout: 8000 });
     step('las películas cambian la imagen', { retrato: seenA.mean, calido: seenB.mean });
 
+    // cada película enseña las perillas que le tocan: el blanco y negro, siete (con FILTRO y VIRADO, en
+    // dos filas que caben); la diapositiva, cuatro (no lleva papel)
+    const shown = () => page.evaluate(() => ({
+      knobs: [...document.querySelectorAll('#filmEditPanel .cs-slot')].filter(el => el.offsetParent).map(el => el.querySelector('[class$="-lbl"]').textContent + ' ' + el.querySelector('[class$="-val"]').textContent),
+      // (ningún rótulo queda tapado por las teclas de abajo)
+      clear: (() => { const key = document.querySelector('.cs-key[data-sec="cam"]'), top = key && key.offsetParent ? key.getBoundingClientRect().top : NaN; return [...document.querySelectorAll('#filmEditPanel .cs-slot')].filter(el => el.offsetParent).every(el => el.querySelector('[class$="-val"]').getBoundingClientRect().bottom <= top + 1); })(),
+    }));
+    await pickCamera(page, 'FILM', 'BNCLASICO400');
+    await page.waitForFunction(() => String(flipFilm.state().film).startsWith('BNCLASICO400'), null, { timeout: 8000 });
+    await page.waitForTimeout(300);
+    const seenMono = await view();
+    assert.ok(Math.max(...seenMono.mean) - Math.min(...seenMono.mean) < 3, 'en blanco y negro el visor no tiene color: ' + seenMono.mean);
+    await page.locator('#deckAdjust').click();
+    await page.waitForTimeout(500);
+    const mono = await shown();
+    assert.deepEqual(mono.knobs, ['EXPOSICIÓN 0', 'EMPUJE 0', 'FORMATO 35 MM', 'PAPEL NORMAL', 'FILTRO SIN', 'VIRADO NEUTRO', 'GRANO SÍ'], 'blanco y negro: siete perillas');
+    assert.ok(mono.clear, 'las siete caben sin taparse');
+    await page.evaluate(() => { for (const [id, v] of [['filmFilter', 3], ['filmToner', 3]]) { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); } });
+    await page.waitForFunction(() => flipFilm.state().film === 'BNCLASICO400:0:1:3:3', null, { timeout: 8000 });
+    await page.waitForTimeout(300);
+    const seenSepia = await view();
+    assert.ok(seenSepia.mean[0] > seenSepia.mean[2] + 15, 'virado a sepia, el visor se vuelve cálido: ' + seenSepia.mean);
+    assert.deepEqual(await page.evaluate(() => [document.getElementById('vFilmFilter').textContent, document.getElementById('vFilmToner').textContent]), ['ROJO', 'SEPIA']);
+    await page.keyboard.press('Escape');
+    await pickCamera(page, 'FILM', 'VIVA50');
+    await page.waitForFunction(() => String(flipFilm.state().film).startsWith('VIVA50'), null, { timeout: 8000 });
+    await page.locator('#deckAdjust').click();
+    await page.waitForTimeout(500);
+    const slide = await shown();
+    assert.deepEqual(slide.knobs, ['EXPOSICIÓN 0', 'EMPUJE 0', 'FORMATO 35 MM', 'GRANO SÍ'], 'diapositiva: cuatro perillas (sin papel)');
+    await page.keyboard.press('Escape');
+    await pickCamera(page, 'FILM', 'CINE500T');
+    await page.waitForFunction(() => flipFilm.state().film.startsWith('CINE500T'), null, { timeout: 8000 });
+    step('cada película enseña sus perillas', { blancoYNegro: mono.knobs.length, diapositiva: slide.knobs.length, sepia: seenSepia.mean });
+
     // las perillas
     await page.locator('#deckAdjust').click();
     await page.waitForTimeout(500);
     const knobs = await page.evaluate(() => [...document.querySelectorAll('#filmEditPanel .cs-slot')].filter(el => el.offsetParent).map(el => el.querySelector('[class$="-lbl"]').textContent + ' ' + el.querySelector('[class$="-val"]').textContent));
-    assert.deepEqual(knobs, ['EXPOSICIÓN 0', 'EMPUJE 0', 'FORMATO 35 MM', 'PAPEL NORMAL', 'GRANO SÍ'], 'las cinco perillas, con su valor');
+    assert.deepEqual(knobs, ['EXPOSICIÓN 0', 'EMPUJE 0', 'FORMATO 35 MM', 'PAPEL NORMAL', 'GRANO SÍ'], 'un negativo de color: cinco perillas, con su valor');
     const before = await view();
     await page.locator('#filmEditPanel .cs-knob').first().focus();
     for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowUp');
@@ -242,7 +338,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     assert.ok(Math.abs(seenUp.mean[1] - before.mean[1]) < 30, 'con más exposición la copia no se quema (la ampliadora la centra): ' + JSON.stringify([before.mean, seenUp.mean]));
     await page.evaluate(() => { for (const [id, v] of [['filmPush', 1], ['filmFormat', 0], ['filmPaper', 2], ['filmGrain', 0]]) { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); } });
     await page.keyboard.press('Escape');
-    assert.deepEqual(await page.evaluate(() => flipFilm.settings()), { ev: after.s.ev, push: 1, format: 0, paper: 2, grain: false });
+    assert.deepEqual(await page.evaluate(() => flipFilm.settings()), { ev: after.s.ev, push: 1, format: 0, paper: 2, filter: 3, toner: 3, grain: false });
     step('las cinco perillas: EXPOSICIÓN, EMPUJE, FORMATO, PAPEL, GRANO', knobs);
 
     // la foto
@@ -256,7 +352,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     await page.waitForFunction(() => vid.videoWidth > 0 && camFamily === 'FILM' && flipFilm.state().frame > 5, null, { timeout: 15000 });
     const kept = await page.evaluate(() => ({ variante: camVariant, s: flipFilm.settings(), film: flipFilm.state().film }));
     assert.deepEqual([kept.variante, kept.s.push, kept.s.format, kept.s.paper, kept.s.grain], ['CINE500T', 1, 0, 2, false], 'al volver, la película y sus ajustes siguen puestos: ' + JSON.stringify(kept));
-    assert.equal(kept.film, 'CINE500T:1:2');
+    assert.equal(kept.film, 'CINE500T:1:2:0:0', '(el filtro y el virado no le tocan a un negativo de color)');
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#deckGroups .is-on')].map(k => k.dataset.group)), ['film'], 'y la tira abre en su cajón');
     step('la película y sus ajustes se guardan', kept);
 

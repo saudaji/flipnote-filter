@@ -364,3 +364,30 @@ body[data-haptic="vis"][data-piel="interfaz"] :is(.si-chip, .deck-variants .hw-k
   body[data-piel="interfaz"] :is(.si-filtros, .deck-variants) { flex-wrap: wrap; }
   body[data-piel="interfaz"] :is(.deck-variants .hw-keycap, .si-chip) { flex: 1 1 40%; max-width: none; }
 }
+
+/* ── CLON · la galería de looks, en la piel INTERFAZ: plana, sobre la banda, con la esquina cortada ── */
+body[data-piel="interfaz"] .clon-galeria { background: var(--si-banda); color: var(--si-marfil); border-radius: 0; border-top: 1px solid #2A2B36; box-shadow: 0 -14px 30px rgba(0, 0, 0, .45); font-family: 'Chivo', 'Archivo', system-ui, sans-serif; }
+body[data-piel="interfaz"] .clon-galeria header small { font: 800 9.5px/1 'Chivo', sans-serif; color: var(--si-banda-suave); opacity: 1; }
+body[data-piel="interfaz"] .clon-tecla { height: 36px; border-radius: 0; background: transparent; color: var(--si-marfil); font: var(--si-rotulo); letter-spacing: .1em; box-shadow: inset 0 0 0 1.5px var(--si-banda-raya); clip-path: polygon(0 0, calc(100% - var(--si-corte)) 0, 100% var(--si-corte), 100% 100%, 0 100%); }
+body[data-piel="interfaz"] .clon-tecla:active { transform: none; background: rgba(255, 243, 223, .12); box-shadow: inset 0 0 0 1.5px var(--si-marfil); }
+body[data-piel="interfaz"] .clon-estrella { color: var(--si-banda-raya); }
+body[data-piel="interfaz"] .clon-estrella.is-on { background: var(--si-acento); color: var(--si-sobre-acento); box-shadow: none; }
+body[data-piel="interfaz"] #clonNombre { height: 36px; border-radius: 0; background: #151727; color: var(--si-marfil); font: 800 13px/1 'Chivo', sans-serif; letter-spacing: .08em; box-shadow: inset 0 -2px 0 var(--si-banda-raya); }
+body[data-piel="interfaz"] #clonNombre:focus { box-shadow: inset 0 -2px 0 var(--si-acento); }
+body[data-piel="interfaz"] .clon-elegido p { color: var(--si-banda-suave); opacity: 1; }
+body[data-piel="interfaz"] .clon-carta-ver { padding: 0 0 7px; gap: 6px; border-radius: 0; background: #151727; color: var(--si-marfil); box-shadow: none; clip-path: polygon(0 0, calc(100% - var(--si-corte)) 0, 100% var(--si-corte), 100% 100%, 0 100%); }
+body[data-piel="interfaz"] .clon-carta-ver:active { transform: none; background: #1F2236; }
+body[data-piel="interfaz"] .clon-carta-ver i { border-radius: 0; box-shadow: none; }
+body[data-piel="interfaz"] .clon-tintas, body[data-piel="interfaz"] .clon-carta-ver b { padding: 0 7px; }
+body[data-piel="interfaz"] .clon-tintas u { border-radius: 0; box-shadow: 0 0 0 1px rgba(255, 243, 223, .3); }
+body[data-piel="interfaz"] .clon-carta-ver b { font: 800 9.5px/1.15 'Chivo', sans-serif; }
+body[data-piel="interfaz"] .clon-carta.is-on .clon-carta-ver { background: var(--si-acento); color: var(--si-sobre-acento); box-shadow: none; }
+body[data-piel="interfaz"] .clon-carta-fav { top: 5px; right: 11px; width: 24px; height: 24px; line-height: 24px; border-radius: 0; background: rgba(11, 12, 20, .62); }
+body[data-piel="interfaz"] .clon-carta.is-fav .clon-carta-fav { background: var(--si-marfil); color: var(--si-acento); }
+body[data-piel="interfaz"] .clon-deshacer { border-radius: 0; background: #151727; box-shadow: inset 3px 0 0 var(--si-acento); }
+body[data-piel="interfaz"] .clon-galeria.escribiendo { border-radius: 0; border-top: 0; border-bottom: 1px solid #2A2B36; }
+body[data-piel="interfaz"] .clon-abre-galeria em { margin-left: 0; border-radius: 0; background: var(--si-acento); color: var(--si-sobre-acento); }
+/* En la banda no cabe otra palabra: la tecla de la galería es una rejilla y la cuenta. */
+body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria span { display: none; }
+body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria::before { content: '' !important; display: block !important; flex: 0 0 11px; width: 11px; height: 11px; background: linear-gradient(currentColor, currentColor) 0 0 / 5px 5px no-repeat, linear-gradient(currentColor, currentColor) 100% 0 / 5px 5px no-repeat, linear-gradient(currentColor, currentColor) 0 100% / 5px 5px no-repeat, linear-gradient(currentColor, currentColor) 100% 100% / 5px 5px no-repeat; }
+body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria em { padding: 2px 5px; }

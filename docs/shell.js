@@ -313,7 +313,8 @@
       const active = looks.querySelector('.look.is-on');
       if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
-    const list = custom ? [] : (cfg.variants || []);
+    // (una variante «oculta» vale, pero no va en la fila: los looks de CLON que viven en su galería)
+    const all = custom ? [] : (cfg.variants || []), list = all.filter(v => !v.oculta);
     const signature = (custom || camFamily) + ':' + list.map(v => v.id).join(',');
     if (variants.dataset.signature !== signature) {
       variants.dataset.signature = signature;
@@ -326,7 +327,7 @@
       key.classList.toggle('is-on', on);
       key.setAttribute('aria-selected', String(on));
     });
-    const variantLabel = list.find(v => v.id === camVariant)?.label || '';
+    const variantLabel = all.find(v => v.id === camVariant)?.label || '';
     const name = lookLabel.text || (cfg.soloVariante && variantLabel && camVariant !== 'NUEVO' ? variantLabel : (cfg.displayLabel || cfg.label) + (list.length > 1 ? ' · ' + variantLabel : ''));
     $('lcdLook').textContent = (document.body.classList.contains('portal-mode') ? 'PORTAL ' : '') + name;
     syncFormat();

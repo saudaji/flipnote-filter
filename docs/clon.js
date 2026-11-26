@@ -34,7 +34,7 @@
 // ilustración, la tipografía, el contenido). Eso pediría un modelo generativo.
 (function () {
   'use strict';
-  const KEY = 'flip.clon', MAX_LOOKS = 4, FFT_N = 256, FIT_N = 128, COLOR_FAR = 0.1;
+  const KEY = 'flip.clon', MAX_LOOKS = 30, A_MANO = 4, FFT_N = 256, FIT_N = 128, COLOR_FAR = 0.1;
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   const $ = id => document.getElementById(id);
 
@@ -1020,15 +1020,22 @@
   try { const saved = JSON.parse(localStorage.getItem(KEY) || '[]'); if (Array.isArray(saved)) S.looks = saved.filter(l => l && l.v === 1 && l.id && Array.isArray(l.palette)); } catch (_) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S.looks)); } catch (_) {} };
   const family = () => (typeof CAM_FAMILIES !== 'undefined' ? CAM_FAMILIES.CLON : null);
+  // Caben MAX_LOOKS looks; a la mano, en la fila de variantes, van A_MANO: el que está puesto, luego
+  // los favoritos y luego los últimos. Los demás siguen siendo variantes válidas (se eligen en la
+  // galería), pero la fila no los pinta («oculta»). Quiénes van a la mano solo se recalcula al tocar
+  // la galería, no al pasar de uno a otro en la fila: si no, las teclas bailarían bajo el dedo.
   function syncVariants() {
     const fam = family();
     if (!fam) return;
-    fam.variants = S.looks.length ? S.looks.map(l => ({ id: l.id, label: l.name, hint: l.name + ' · ' + describe(l) })) : [{ id: 'NUEVO', label: 'NUEVO', hint: 'CLON · apunta a una imagen y toca COPIAR, o abre una con ABRIR: FLIP arma una cámara con su look.' }];
+    const cur = typeof camVariant !== 'undefined' ? camVariant : '';
+    const hand = new Set(S.looks.slice().sort((a, b) => (b.id === cur) - (a.id === cur) || (!!b.fav) - (!!a.fav) || (b.at || 0) - (a.at || 0)).slice(0, A_MANO).map(l => l.id));
+    fam.variants = S.looks.length ? S.looks.map(l => ({ id: l.id, label: l.name, hint: l.name + ' · ' + describe(l), oculta: !hand.has(l.id) })) : [{ id: 'NUEVO', label: 'NUEVO', hint: 'CLON · apunta a una imagen y toca COPIAR, o abre una con ABRIR: FLIP arma una cámara con su look.' }];
   }
   syncVariants();
   const current = () => S.looks.find(l => l.id === (typeof camVariant !== 'undefined' ? camVariant : '')) || null;
   const mine = () => typeof camFamily !== 'undefined' && camFamily === 'CLON';
-  const apply = () => { if (typeof _applyCamState === 'function') _applyCamState(); };
+  // (y se anota en los ajustes cuál quedó puesto: si no, al volver a abrir FLIP la cámara arrancaba apuntando)
+  const apply = () => { if (typeof _applyCamState === 'function') _applyCamState(); if (typeof saveSettings === 'function') saveSettings(); };
   const say = (text, ms) => { if (window.flipShell && flipShell.hint) flipShell.hint(text, ms || 2600); };
 
   // Aprender de una imagen (lienzo, imagen o cuadro de cámara): mide, se pone a prueba y guarda.
@@ -1086,6 +1093,13 @@
     if (light) look.light = { bx: +light.bx.toFixed(3), by: +light.by.toFixed(3), r2: light.r2 };
     look = fit(look, fineCanvas.canvas, span, ref.canvas);
     look.name = nameOf(look);
+    // La miniatura para la galería: el centro de la referencia, 96 × 96 (unos 3 KB; no sale del teléfono).
+    try {
+      const mini = surface({ canvas: null, ctx: null }, 96, 96), m = Math.min(tw, th);
+      mini.ctx.imageSmoothingEnabled = true; mini.ctx.imageSmoothingQuality = 'high';
+      mini.ctx.drawImage(thumb.canvas, (tw - m) / 2, (th - m) / 2, m, m, 0, 0, 96, 96);
+      look.thumb = mini.canvas.toDataURL('image/jpeg', 0.72);
+    } catch (_) {}
     return look;
   }
   function keep(look) {
@@ -1096,17 +1110,62 @@
     look.at = Date.now();
     if (S.looks.some(l => l.name === look.name)) { let k = 2; while (S.looks.some(l => l.name === look.name + ' ' + k)) k++; look.name += ' ' + k; }
     S.looks.push(look);
-    while (S.looks.length > MAX_LOOKS) S.looks.shift();
+    // Llena: sale el más viejo que no sea favorito (si todos lo son, el más viejo).
+    S.out = null;
+    while (S.looks.length > MAX_LOOKS) { const i = S.looks.findIndex(l => !l.fav && l !== look); S.out = S.looks.splice(i < 0 ? 0 : i, 1)[0]; }
+    if (mine()) camVariant = look.id;
     save(); syncVariants();
-    if (mine()) { camVariant = look.id; apply(); }
+    if (mine()) apply();
     paint();
     return look;
   }
+  // Borrar deja el look en la mano un momento, por si fue sin querer (restore lo devuelve a su sitio).
   function forget(id) {
-    S.looks = S.looks.filter(l => l.id !== id);
+    const at = S.looks.findIndex(l => l.id === id);
+    if (at < 0) return null;
+    const was = current() && current().id === id, look = S.looks.splice(at, 1)[0];
+    S.undo = { look, at, was };
+    if (mine() && was) camVariant = S.looks.length ? S.looks[Math.min(at, S.looks.length - 1)].id : 'NUEVO';
     save(); syncVariants();
-    if (mine()) { camVariant = S.looks.length ? S.looks[S.looks.length - 1].id : 'NUEVO'; apply(); }
+    if (mine()) apply();
     paint();
+    return look;
+  }
+  function restore() {
+    const u = S.undo;
+    if (!u || S.looks.length >= MAX_LOOKS) return null;
+    S.undo = null;
+    S.looks.splice(Math.min(u.at, S.looks.length), 0, u.look);
+    if (mine() && u.was) camVariant = u.look.id;
+    save(); syncVariants();
+    if (mine()) apply();
+    paint();
+    return u.look;
+  }
+  function rename(id, text) {
+    const look = S.looks.find(l => l.id === id), name = String(text == null ? '' : text).replace(/\s+/g, ' ').trim().toUpperCase().slice(0, 18);
+    if (!look || !name || name === look.name) return look ? look.name : null;
+    look.name = name; look.named = true;
+    save(); syncVariants();
+    if (mine()) apply();
+    paint();
+    return name;
+  }
+  function fav(id, on) {
+    const look = S.looks.find(l => l.id === id);
+    if (!look) return false;
+    look.fav = on == null ? !look.fav : !!on;
+    save(); syncVariants();
+    if (mine()) apply();
+    paint();
+    return look.fav;
+  }
+  function use(id) {
+    if (!S.looks.some(l => l.id === id)) return false;
+    if (typeof camFamily !== 'undefined' && camFamily !== 'CLON' && typeof _setCamFamily === 'function') _setCamFamily('CLON');
+    camVariant = id; S.aim = false;
+    syncVariants(); apply(); paint();
+    return true;
   }
   // Aprender, guardar y revelar; con la mascota «mirando» mientras tanto.
   function adopt(source, sw, sh, region) {
@@ -1117,7 +1176,7 @@
     say('Mirando la referencia…', 4000);
     return new Promise(resolve => setTimeout(() => {
       let look = null;
-      try { look = keep(learn(source, sw, sh, region)); S.aim = false; S.revealAt = performance.now(); say(look.name + ' · ' + describe(look), 5200); }
+      try { look = keep(learn(source, sw, sh, region)); S.aim = false; S.revealAt = performance.now(); say(look.name + ' · ' + describe(look) + (S.out ? ' · la galería estaba llena: salió ' + S.out.name : ''), S.out ? 7000 : 5200); }
       catch (error) { console.warn('CLON:', error); say('No pude leer esa imagen', 2600); }
       S.busy = false;
       if (shutter) shutter.classList.remove('mirando');
@@ -1211,10 +1270,79 @@
     }
     picker.click();
   }
+  // ── La galería: todos los looks guardados, para usarlos, nombrarlos, marcarlos o borrarlos ──
+  // Una hoja que sube desde abajo y deja el visor a la vista: al tocar un look se pone en la cámara
+  // y se ve en vivo arriba. El de arriba de la hoja es el elegido: ahí se le cambia el nombre.
+  let sheet = null, undoTimer = 0;
+  const html = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ink = c => 'rgb(' + fromLab(c[0], c[1], c[2]).join(',') + ')';
+  const ordered = () => S.looks.slice().sort((a, b) => (!!b.fav) - (!!a.fav) || (b.at || 0) - (a.at || 0));
+  function galleryPaint() {
+    if (!sheet) return;
+    const cur = current(), list = ordered();
+    sheet.querySelector('#clonCuenta').textContent = 'LOOKS · ' + S.looks.length + ' / ' + MAX_LOOKS;
+    sheet.classList.toggle('is-vacia', !list.length);
+    sheet.querySelector('#clonRejilla').innerHTML = list.map(l => {
+      // la miniatura de la referencia; un look antiguo sin ella enseña sus tintas
+      const back = l.thumb && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(l.thumb) ? 'background-image:url(' + l.thumb + ')' : 'background:linear-gradient(135deg,' + l.palette.map(ink).join(',') + ')';
+      return `<div class="clon-carta${cur && cur.id === l.id ? ' is-on' : ''}${l.fav ? ' is-fav' : ''}" role="option" aria-selected="${!!(cur && cur.id === l.id)}" data-id="${html(l.id)}"><button class="hw clon-carta-ver" type="button" data-feel="key" aria-label="Usar ${html(l.name)}"><i style="${back}"></i><span class="clon-tintas">${l.palette.slice(0, 6).map(c => `<u style="background:${ink(c)}"></u>`).join('')}</span><b>${html(l.name)}</b></button><button class="hw clon-carta-fav" type="button" data-feel="soft" aria-pressed="${!!l.fav}" aria-label="${l.fav ? 'Quitar de favoritos' : 'Marcar favorito'}: ${html(l.name)}">★</button></div>`;
+    }).join('');
+    const bar = sheet.querySelector('.clon-elegido'), name = sheet.querySelector('#clonNombre');
+    bar.hidden = !cur;
+    if (cur && document.activeElement !== name) name.value = cur.name;
+    const star = sheet.querySelector('[data-clon="fav"]');
+    star.setAttribute('aria-pressed', String(!!(cur && cur.fav))); star.classList.toggle('is-on', !!(cur && cur.fav));
+    sheet.querySelector('#clonDice').textContent = cur ? describe(cur) : '';
+    const un = sheet.querySelector('.clon-deshacer');
+    un.hidden = !S.undo;
+    if (S.undo) un.querySelector('span').textContent = 'BORRADO · ' + S.undo.look.name;
+  }
+  function gallery(open) {
+    if (!sheet) return false;
+    const want = open == null ? sheet.hidden : !!open;
+    if (want === !sheet.hidden) return want;
+    sheet.hidden = !want;
+    document.body.classList.toggle('clon-galeria-abierta', want);
+    if (want) { syncVariants(); galleryPaint(); const on = sheet.querySelector('.clon-carta.is-on'); if (on) on.scrollIntoView({ block: 'nearest' }); }
+    else { sheet.classList.remove('escribiendo'); clearTimeout(undoTimer); S.undo = null; if (document.activeElement && sheet.contains(document.activeElement)) document.activeElement.blur(); }
+    paint();
+    return want;
+  }
+  function galleryBuild() {
+    sheet = flipShell.el('div', { class: 'clon-galeria', id: 'clonGaleria', role: 'dialog', 'aria-label': 'Galería de looks', hidden: '' }, `
+      <header><small id="clonCuenta"></small><button class="hw clon-tecla" type="button" data-clon="cerrar" data-feel="soft">LISTO</button></header>
+      <div class="clon-elegido"><input id="clonNombre" type="text" maxlength="18" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Nombre del look"><button class="hw clon-tecla clon-estrella" type="button" data-clon="fav" data-feel="soft" aria-pressed="false" aria-label="Favorito">★</button><button class="hw clon-tecla" type="button" data-clon="borrar" data-feel="stop">BORRAR</button><p id="clonDice"></p></div>
+      <div class="clon-rejilla" id="clonRejilla" role="listbox" aria-label="Looks guardados"></div>
+      <p class="clon-vacio">Todavía no hay looks. Apunta a una imagen y toca CAPTURAR, o abre una con ABRIR.</p>
+      <div class="clon-deshacer" hidden><span></span><button class="hw clon-tecla" type="button" data-clon="deshacer" data-feel="key">DESHACER</button></div>`);
+    sheet.hidden = true;
+    document.body.appendChild(sheet);
+    const name = sheet.querySelector('#clonNombre');
+    sheet.addEventListener('click', event => {
+      const cardKey = event.target.closest('.clon-carta'), act = event.target.closest('[data-clon]'), cur = current();
+      if (cardKey) { const id = cardKey.dataset.id; if (event.target.closest('.clon-carta-fav')) fav(id); else use(id); galleryPaint(); return; }
+      if (!act) return;
+      const what = act.dataset.clon;
+      if (what === 'cerrar') gallery(false);
+      else if (what === 'fav' && cur) { fav(cur.id); galleryPaint(); }
+      else if (what === 'borrar' && cur) {
+        forget(cur.id); galleryPaint();
+        clearTimeout(undoTimer); undoTimer = setTimeout(() => { S.undo = null; galleryPaint(); }, 6000);
+      } else if (what === 'deshacer') { clearTimeout(undoTimer); restore(); galleryPaint(); }
+    });
+    const commit = () => { const cur = current(); if (cur) { const set = rename(cur.id, name.value); name.value = set || cur.name; } galleryPaint(); };
+    name.addEventListener('focus', () => { sheet.classList.add('escribiendo'); name.select(); });
+    name.addEventListener('blur', () => { sheet.classList.remove('escribiendo'); commit(); });
+    name.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); name.blur(); } else if (event.key === 'Escape') { const cur = current(); name.value = cur ? cur.name : ''; name.blur(); } event.stopPropagation(); });
+    addEventListener('keydown', event => { if (event.key === 'Escape' && !sheet.hidden) gallery(false); });
+    // tocar fuera (el visor) la cierra
+    addEventListener('pointerdown', event => { if (!sheet.hidden && !event.target.closest('#clonGaleria, [data-clon="galeria"]')) gallery(false); }, true);
+  }
   function paint() {
     const on = mine();
     document.body.classList.toggle('con-rapidas-clon', on);
     if (!on && S.aim) S.aim = false;
+    if (!on && sheet && !sheet.hidden) gallery(false);
     const label = S.busy ? 'MIRANDO…' : S.aim || (on && !current()) ? 'CAPTURAR' : 'COPIAR';
     for (const host of [band, row]) {
       if (!host) continue;
@@ -1222,20 +1350,35 @@
       const key = host.querySelector('[data-clon="copiar"]');
       key.lastChild.textContent = label;
       key.classList.toggle('is-on', S.aim || (on && !current()));
+      const shelf = host.querySelector('[data-clon="galeria"]');
+      shelf.querySelector('em').textContent = String(S.looks.length);
+      shelf.classList.toggle('is-on', !!sheet && !sheet.hidden);
+      shelf.setAttribute('aria-label', 'Galería: ' + S.looks.length + ' looks guardados');
     }
+    if (sheet && !sheet.hidden) galleryPaint();
   }
   function mount() {
     if (!window.flipShell || band) return;
-    const keys = '<button class="hw KEY" type="button" data-clon="copiar"><span>COPIAR</span></button><button class="hw KEY" type="button" data-clon="abrir"><span>ABRIR</span></button>';
+    const keys = '<button class="hw KEY" type="button" data-clon="copiar"><span>COPIAR</span></button><button class="hw KEY" type="button" data-clon="abrir"><span>ABRIR</span></button><button class="hw KEY clon-abre-galeria" type="button" data-clon="galeria" data-feel="slide" aria-haspopup="dialog"><span>LOOKS</span><em>0</em></button>';
     const head = document.querySelector('.si-banda-cabeza'), tray = document.querySelector('#camDeck .deck-looks');
     if (head) { band = flipShell.el('div', { class: 'si-rapidas clon-rapidas', role: 'group', 'aria-label': 'Clonar un look' }, keys.replace(/KEY/g, 'si-chip')); head.insertBefore(band, head.querySelector('.si-abrir')); }
     if (tray) { row = flipShell.el('div', { class: 'deck-variants reaccion-teclas clon-teclas', role: 'group', 'aria-label': 'Clonar un look' }, keys.replace(/KEY/g, 'hw-keycap')); tray.before(row); }
+    galleryBuild();
     for (const host of [band, row]) {
       if (!host) continue;
       host.querySelector('[data-clon="copiar"]').addEventListener('click', copyKey);
       host.querySelector('[data-clon="abrir"]').addEventListener('click', openKey);
+      host.querySelector('[data-clon="galeria"]').addEventListener('click', () => gallery());
     }
     for (const id of ['deckLooks', 'deckVariants']) { const node = $(id); if (node) new MutationObserver(() => queueMicrotask(() => { if (mine() && !current() && S.looks.length) { camVariant = S.looks[S.looks.length - 1].id; apply(); } paint(); })).observe(node, { subtree: true, attributes: true, attributeFilter: ['class'] }); }
+    // Al abrir FLIP los ajustes se leen antes de que este archivo cargue, cuando CLON aún no tiene sus
+    // looks: el que estaba puesto no pasaba la comprobación y la cámara arrancaba apuntando. Se repone aquí.
+    if (mine() && !current() && S.looks.length) {
+      let saved = '';
+      try { saved = JSON.parse(localStorage.getItem('flipSettings') || '{}').camVariant || ''; } catch (_) {}
+      camVariant = S.looks.some(l => l.id === saved) ? saved : S.looks[S.looks.length - 1].id;
+      syncVariants(); apply();
+    } else syncVariants();                   // ya se sabe qué look estaba puesto: que quede a la mano
     paint();
   }
   if (document.readyState === 'complete') mount(); else addEventListener('load', mount);
@@ -1245,7 +1388,7 @@
     analyze, describe, nameOf, release, _fit: fit, _tone: (look, hist, amount) => Array.from(toneCurve(look, hist, amount == null ? 0.8 : amount, new Uint8Array(256))),
     learn: (source, w, h, region) => learn(source, w || source.width, h || source.height, region),
     adopt: (source, w, h, region) => adopt(source, w || source.width, h || source.height, region),
-    keep, forget, capture,
+    keep, forget, restore, rename, fav, use, gallery, capture, MAX: MAX_LOOKS,
     looks: () => JSON.parse(JSON.stringify(S.looks)),
     aim(on) { if (on != null) { S.aim = !!on; paint(); } return S.aim; },
     state: () => ({ looks: S.looks.length, aim: S.aim, busy: S.busy, frame: S.frame, ms: +S.ms.toFixed(2), gl: !!G.gl, failed: G.failed, lost: G.lost, current: current() ? current().id : null }),

@@ -1198,8 +1198,6 @@
     .oscam-val { color:#79ffb5; font-family:monospace; font-size:7px; min-width:24px; text-align:right; flex-shrink:0; }
     .oscam-ctrl-row input[type="range"] { flex:1; height:2px; accent-color:#79ffb5; cursor:pointer; }
     .oscam-mode-row { display:flex; gap:4px; }
-    #oscamLegacyRow { display:none; }
-    #oscamLegacyRow.visible { display:flex; }
     #oscamStaticOnlyRow { display:none; }
     #oscamStaticOnlyRow.visible { display:flex; }
     .oscam-mode-btn {
@@ -1388,46 +1386,8 @@
       color:#eaf5ff;
     }
 
-    /* ── SLHT SILHOUETTE edit panel ── */
-    #slhtEditPanel { display:none; margin-bottom:3px; }
     #pressRegRow, #pressPairRow { display:none; }
     #pressRegRow.visible, #pressPairRow.visible { display:flex; }
-    .slht-ctrl-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
-    .slht-lbl {
-      color:#606060;
-      font-family:monospace;
-      font-size:7px;
-      letter-spacing:.7px;
-      min-width:64px;
-      flex-shrink:0;
-      text-transform:uppercase;
-    }
-    .slht-val {
-      color:#d8d8d8;
-      font-family:monospace;
-      font-size:7px;
-      min-width:24px;
-      text-align:right;
-      flex-shrink:0;
-    }
-    .slht-ctrl-row input[type="range"] {
-      flex:1;
-      height:2px;
-      accent-color:#c0c0c0;
-      cursor:pointer;
-    }
-    /* SLHT body theme — minimal monochrome */
-    body.slht-mode { --ink:#080808; --dark:#181818; --mid:#484848; --paper:#c8c8c8; }
-    body.slht-mode .tab.active { background:rgba(200,200,200,.06); }
-    body.slht-mode .cam-fam-btn.active {
-      border-color:#c8c8c8; color:#e0e0e0;
-      background:rgba(200,200,200,.10);
-    }
-    body.slht-mode .cam-var-btn.active {
-      border-color:#a0a0a0;
-      background:rgba(180,180,180,.10);
-    }
-    body.slht-mode #btnCamEditDock { color:#d8d8d8; }
 
     /* UPLOAD palette context badge */
     #palettes::before {
@@ -3387,15 +3347,13 @@
 <div id="camFamilyTray">
   <div id="camFamilyStrip">
     <button class="cam-fam-btn active" data-family="DSI"    title="DSi — Flipnote original"><strong>DSI</strong><small>Dibujo a dos tintas</small></button>
-    <button class="cam-fam-btn"        data-family="STAMP"  title="STAMP — Postal engraving print"><strong>STAMP</strong><small>Grabado postal</small></button>
     <button class="cam-fam-btn"        data-family="AUTO03" title="AUTO 03 — CCD Digicam"><strong>AUTO 03</strong><small>Digicam CCD</small></button>
     <button class="cam-fam-btn"        data-family="DLPHN"  title="DLPHN — OEL Y2K"><strong>DLPHN</strong><small>Pantalla OEL</small></button>
     <button class="cam-fam-btn"        data-family="CASKIA" title="CASKIA — LCD retro"><strong>CASKIA</strong><small>LCD y tinta electrónica</small></button>
     <button class="cam-fam-btn"        data-family="VFD"    title="VFD — Vacuum Fluorescent"><strong>VFD</strong><small>Fósforo fluorescente</small></button>
     <button class="cam-fam-btn"        data-family="OSCAM"  title="OSCAM — Oscilloscope camera"><strong>OSCAM</strong><small>Osciloscopio</small></button>
-    <button class="cam-fam-btn"        data-family="SLHT"   title="SLHT — Silhouette field"><strong>SLHT</strong><small>Campo de siluetas</small></button>
-    <button class="cam-fam-btn"        data-family="PRENSA" title="PRENSA — Semitono de imprenta"><strong>PRENSA</strong><small>Semitono de imprenta</small></button>
-    <button class="cam-fam-btn"        data-family="CONSOLA" title="CONSOLA — Todo en polígonos"><strong>CONSOLA</strong><small>Todo en polígonos, como un juego de otra generación</small></button>
+    <button class="cam-fam-btn"        data-family="PRENSA" title="PRINT — Imprenta y sello postal"><strong>PRINT</strong><small>Imprenta: semitono, periódico, riso y sello postal</small></button>
+    <button class="cam-fam-btn"        data-family="CONSOLA" title="VIRTUAL — Todo en polígonos"><strong>VIRTUAL</strong><small>Todo en polígonos, como un juego de otra generación</small></button>
     <button class="cam-fam-btn"        data-family="CLON" title="CLON — Copia el look de una imagen"><strong>CLON</strong><small>Enséñale una imagen y arma una cámara con su look</small></button>
   </div>
 </div>
@@ -3452,10 +3410,6 @@
       <button class="oscam-mode-btn oscam-color-btn active" data-osccol="GREEN">GREEN</button>
       <button class="oscam-mode-btn oscam-color-btn" data-osccol="BLUE">BLUE</button>
       <button class="oscam-mode-btn oscam-color-btn" data-osccol="RED">RED</button>
-    </div>
-    <div id="oscamLegacyRow" class="oscam-mode-row">
-      <button class="oscam-mode-btn active" data-oscmode="WAVE">WAVE</button>
-      <button class="oscam-mode-btn" data-oscmode="STATIC">STATIC</button>
     </div>
   </div>
   <div id="caskiaEditPanel" style="display:none;">
@@ -3601,56 +3555,8 @@
   <button id="btnMode"    style="display:none;" aria-hidden="true">DSi</button>
   <button id="btnDolphin" style="display:none;" aria-hidden="true">DLPHN</button>
 
-  <!-- SLHT edit panel -->
-  <div id="slhtEditPanel" style="display:none;">
-    <div class="slht-ctrl-row">
-      <span class="slht-lbl">DENSITY</span>
-      <span class="slht-val" id="vSlhtDensity">60</span>
-      <input type="range" id="slhtDensitySlider" min="10" max="100" value="60">
-    </div>
-    <div class="slht-ctrl-row">
-      <span class="slht-lbl">HALO</span>
-      <span class="slht-val" id="vSlhtHalo">40</span>
-      <input type="range" id="slhtHaloSlider" min="0" max="100" value="40">
-    </div>
-    <div class="slht-ctrl-row">
-      <span class="slht-lbl">FLOW</span>
-      <span class="slht-val" id="vSlhtFlow">55</span>
-      <input type="range" id="slhtFlowSlider" min="0" max="100" value="55">
-    </div>
-    <div class="slht-ctrl-row">
-      <span class="slht-lbl">CONTOUR</span>
-      <span class="slht-val" id="vSlhtContour">65</span>
-      <input type="range" id="slhtContourSlider" min="0" max="100" value="65">
-    </div>
-    <div class="slht-ctrl-row">
-      <span class="slht-lbl">MOTION</span>
-      <span class="slht-val" id="vSlhtMotion">40</span>
-      <input type="range" id="slhtMotionSlider" min="0" max="100" value="40">
-    </div>
-    <div class="slht-ctrl-row">
-      <span class="slht-lbl">SIZE</span>
-      <span class="slht-val" id="vSlhtSize">8</span>
-      <input type="range" id="slhtSizeSlider" min="5" max="18" value="8">
-    </div>
-    <div class="slht-ctrl-row">
-      <span class="slht-lbl">NOISE</span>
-      <span class="slht-val" id="vSlhtNoise">20</span>
-      <input type="range" id="slhtNoiseSlider" min="0" max="100" value="20">
-    </div>
-    <div class="slht-ctrl-row">
-      <span class="slht-lbl">FILL</span>
-      <span class="slht-val" id="vSlhtFill">70</span>
-      <input type="range" id="slhtFillSlider" min="0" max="100" value="70">
-    </div>
-    <div class="slht-ctrl-row">
-      <span class="slht-lbl">SMOOTH</span>
-      <span class="slht-val" id="vSlhtSmooth">60</span>
-      <input type="range" id="slhtSmoothSlider" min="0" max="100" value="60">
-    </div>
-  </div>
 
-  <!-- CAM Stickers — all cam families DSi/DLPHN/CASKIA/VFD/OSCAM/SLHT -->
+  <!-- CAM Stickers — all cam families -->
   <div id="camStickerPanel">
     <div class="cam-sticker-header">STICKERS</div>
     <div class="cam-stk-tools" id="camStickerToolRow">
@@ -5126,7 +5032,6 @@ let oscamDetailVal = 56;
 let oscamPresenceVal = 62;
 let oscamTraceVal = 48;
 let oscamDefinitionVal = 46;
-let oscamLegacyMode = 'WAVE';
 let oscamColorMode = 'GREEN';
 // PRENSA: tamaño del punto (1–10), tinta, papel, descuadre de planchas y par de tintas de RISO.
 let pressDotVal = 3, pressInkVal = 50, pressPaperVal = 35, pressRegVal = 15, pressPairVal = 0;
@@ -5149,10 +5054,6 @@ let stampPaletteMode = 'POSTAL';
 let stampFrameMode = 'ON';
 let _caskiaEInkPrimed = false;
 let _caskiaSeikoPrimed = false;
-let _oscamPersistCvs = document.createElement('canvas');
-let _oscamPersistCtx = _oscamPersistCvs.getContext('2d');
-let _oscamOverlayCvs = document.createElement('canvas');
-let _oscamOverlayCtx = _oscamOverlayCvs.getContext('2d');
 
 const CAM_FAMILIES = {
   DSI: {
@@ -5161,17 +5062,6 @@ const CAM_FAMILIES = {
     variants:[{ id:'STD', label:'STD' }, { id:'LGCY', label:'LGCY' }],
     editMode:'duotone',
     paletteContext:'DSI',
-  },
-  STAMP: {
-    label:'STAMP',
-    displayLabel:'STAMP',
-    variants:[
-      { id:'ENGR', label:'ENGR' },
-      { id:'INK', label:'INK' },
-      { id:'ISSUE', label:'ISSUE' },
-    ],
-    editMode:'stamp',
-    paletteContext:null,
   },
   AUTO03: {
     label:'AUTO03',
@@ -5217,32 +5107,31 @@ const CAM_FAMILIES = {
   OSCAM: {
     label:'OSCAM',
     displayLabel:'OSCAM',
-    variants:[{ id:'STD', label:'VECTOR' }, { id:'XY', label:'X–Y' }, { id:'FFT', label:'FFT' }, { id:'TIME', label:'TIEMPO' }, { id:'LGCY', label:'LGCY' }],
+    variants:[{ id:'STD', label:'VECTOR' }],
     editMode:'oscam',
     paletteContext:null,
   },
-  SLHT: {
-    label:'SLHT',
-    displayLabel:'SLHT',
-    variants:[{ id:'STD', label:'STD' }],
-    editMode:'slht',
-    paletteContext:null,
-  },
+  // PRINT: todo lo que sale de una imprenta. La clave interna sigue siendo PRENSA (ajustes guardados,
+  // miniatura, pruebas). Sus tres primeras variantes las pinta press.js; las tres del sello postal
+  // (antes la cámara STAMP), stamp.js: ver _esSello().
   PRENSA: {
-    label:'PRENSA',
-    displayLabel:'PRENSA',
+    label:'PRINT',
+    displayLabel:'PRINT',
     variants:[
       { id:'CMYK', label:'CMYK', hint:'CMYK · cuatricromía: cian, magenta, amarillo y negro, cada tinta con su trama girada.' },
       { id:'DIARIO', label:'DIARIO', hint:'DIARIO · una sola tinta negra y trama gruesa sobre papel de periódico.' },
       { id:'RISO', label:'RISO', hint:'RISO · dos tintas planas que se pisan, como en una duplicadora de fanzine.' },
+      { id:'ENGR', label:'GRABADO', hint:'GRABADO · un sello postal grabado a buril, con su marco y su papel.' },
+      { id:'INK', label:'TINTA', hint:'TINTA · el mismo sello, entintado a mano: más mancha y menos línea.' },
+      { id:'ISSUE', label:'EMISIÓN', hint:'EMISIÓN · sello de emisión, con su rótulo y su valor.' },
     ],
     editMode:'press',
     paletteContext:null,
   },
-  // CONSOLA (consola.js): la escena en polígonos con textura pegada; la cara, con su propia malla.
+  // VIRTUAL (consola.js; la clave interna sigue siendo CONSOLA): la escena en polígonos con textura pegada; la cara, con su propia malla.
   CONSOLA: {
-    label:'CONSOLA',
-    displayLabel:'CONSOLA',
+    label:'VIRTUAL',
+    displayLabel:'VIRTUAL',
     variants:[
       { id:'B128', label:'128 BITS', hint:'128 BITS · polígonos con textura suave, estelas, resplandor y un atardecer que no se acaba.' },
       { id:'B32', label:'32 BITS', hint:'32 BITS · píxel duro, pocos colores con tramado y polígonos que tiemblan.' },
@@ -5262,6 +5151,10 @@ const CAM_FAMILIES = {
   },
 };
 
+// Las variantes de PRINT que son el sello postal (las pinta stamp.js, con su propio panel de ajustes).
+const SELLO_VARIANTS = new Set(['ENGR', 'INK', 'ISSUE']);
+function _esSello(fam = camFamily, variant = camVariant) { return fam === 'PRENSA' && SELLO_VARIANTS.has(variant); }
+
 function _getSafeActiveTab() {
   try { return activeTab; }
   catch (_) { return 'cam'; }
@@ -5271,13 +5164,11 @@ function _getCamFamilyConfig(fam = camFamily) {
 }
 const CAMERA_ENGINE_RENDERERS = Object.freeze({
   DSI: 'dsi',
-  STAMP: 'stamp',
   AUTO03: 'auto03',
   DLPHN: 'dolphin',
   CASKIA: 'caskia',
   VFD: 'vfd',
   OSCAM: 'oscam',
-  SLHT: 'slht',
   PRENSA: 'press',
   CONSOLA: 'consola',
   CLON: 'clon',
@@ -5304,7 +5195,7 @@ function _getCamEngineProfile(fam = camFamily, variant = camVariant) {
     familyLabel: familyCfg.displayLabel || familyCfg.label || fam,
     variant: variantCfg.id,
     variantLabel: variantCfg.label || variantCfg.id,
-    renderer: CAMERA_ENGINE_RENDERERS[fam] || CAMERA_ENGINE_RENDERERS.DSI,
+    renderer: _esSello(fam, variantCfg.id) ? 'stamp' : CAMERA_ENGINE_RENDERERS[fam] || CAMERA_ENGINE_RENDERERS.DSI,
     internalId: variantCfg.internalId || familyCfg.internalId || null,
     subtitle: variantCfg.subtitle || familyCfg.subtitle || null,
   };
@@ -5499,16 +5390,7 @@ function drawCameraFrame(frame) {
       renderVFD(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.now);
       return frame;
     case 'oscam':
-      if (frame.profile.variant !== 'LGCY') {
-        plotOpticalScope(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant, frame.now);
-        return frame;
-      }
-      const oscState = _getOscamRenderState(frame.options.outW || frame.targetCtx.canvas.width,
-        frame.options.outH || frame.targetCtx.canvas.height, frame.path);
-      _withOscamRenderState(oscState, () => renderOscam(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror));
-      return frame;
-    case 'slht':
-      renderSlht(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
+      plotOpticalScope(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant, frame.now);
       return frame;
     case 'consola':
       if (!(window.renderConsola && renderConsola(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
@@ -5563,6 +5445,7 @@ function _getCamEditMode() {
   const fam = _getCamFamilyConfig();
   if (camFamily === 'VFD' && camVariant !== 'STD') return null;
   if (camFamily === 'CASKIA' && camVariant !== 'SEIKO') return null;
+  if (_esSello()) return 'stamp';
   return fam.editMode;
 }
 function _getCamPaletteContext() {
@@ -5920,12 +5803,11 @@ function _syncCamThemeClasses() {
   document.body.classList.toggle('dolphin-mode', isDolphin);
   document.body.classList.toggle('dlp-lgcy-mode', isDolphin && camVariant === 'LGCY');
   document.body.classList.toggle('dlp-warm-mode', isDolphin && dlpColorMode === 'WARM');
-  document.body.classList.toggle('stamp-mode', isCam && camFamily === 'STAMP');
+  document.body.classList.toggle('stamp-mode', isCam && _esSello());
   document.body.classList.toggle('auto03-mode', isCam && camFamily === 'AUTO03');
   document.body.classList.toggle('caskia-mode', isCam && camFamily === 'CASKIA');
   document.body.classList.toggle('vfd-mode', isCam && camFamily === 'VFD');
   document.body.classList.toggle('oscam-mode', isCam && camFamily === 'OSCAM');
-  document.body.classList.toggle('slht-mode',  isCam && camFamily === 'SLHT');
 }
 
 // Syncs derived vars and body/UI state from camFamily + camVariant
@@ -5946,8 +5828,6 @@ function _applyCamState() {
   _syncCamThemeClasses();
   if (!(camFamily === 'CASKIA' && camVariant === 'E-INK')) _caskiaEInkPrimed = false;
   if (!(camFamily === 'CASKIA' && camVariant === 'SEIKO')) _caskiaSeikoPrimed = false;
-  if (camFamily !== 'OSCAM' && typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
-  if (camFamily !== 'SLHT' && typeof _resetSlht === 'function') _resetSlht();
   document.querySelectorAll('.cam-fam-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.family === camFamily);
     b.setAttribute('aria-pressed', String(b.dataset.family === camFamily));
@@ -5961,8 +5841,6 @@ function _applyCamState() {
   const auto03Panel = document.getElementById('auto03EditPanel');
   const stampPanel = document.getElementById('stampEditPanel');
   const oscamPanel = document.getElementById('oscamEditPanel');
-  const slhtPanel = document.getElementById('slhtEditPanel');
-  const oscamLegacyRow = document.getElementById('oscamLegacyRow');
   const oscamStaticOnlyRow = document.getElementById('oscamStaticOnlyRow');
   dlpPanel.style.display = editMode === 'dolphin' ? 'block' : 'none';
   caskiaPanel.style.display = editMode === 'caskia' ? 'block' : 'none';
@@ -5972,17 +5850,14 @@ function _applyCamState() {
   document.getElementById('dsiEditPanel').style.display = (camFamily === 'DSI' && camVariant === 'STD') ? 'block' : 'none';
   _syncDsiTramaUI();
   oscamPanel.style.display = editMode === 'oscam' ? 'block' : 'none';
-  slhtPanel.style.display = editMode === 'slht' ? 'block' : 'none';
   // PRENSA: el descuadre de planchas hace falta con más de una tinta; el par de tintas es de RISO.
   document.getElementById('pressEditPanel').style.display = editMode === 'press' ? 'block' : 'none';
   document.getElementById('pressRegRow').classList.toggle('visible', editMode === 'press' && camVariant !== 'DIARIO');
   document.getElementById('pressPairRow').classList.toggle('visible', editMode === 'press' && camVariant === 'RISO');
   _syncPressUI();
-  oscamLegacyRow.classList.toggle('visible', editMode === 'oscam' && camVariant === 'LGCY');
-  oscamStaticOnlyRow.classList.toggle('visible', editMode === 'oscam' && camVariant !== 'TIME');
-  oscamStaticOnlyRow.querySelector('.oscam-lbl').textContent = ({ FFT:'FILA', XY:'SEPARACIÓN', STD:'DETALLE' })[camVariant] || 'SCAN';
-  document.getElementById('oscamPresence').closest('.oscam-ctrl-row').querySelector('.oscam-lbl').textContent =
-    camVariant === 'LGCY' ? 'LOCK' : 'PERSISTENCIA';
+  oscamStaticOnlyRow.classList.toggle('visible', editMode === 'oscam');
+  oscamStaticOnlyRow.querySelector('.oscam-lbl').textContent = 'DETALLE';
+  document.getElementById('oscamPresence').closest('.oscam-ctrl-row').querySelector('.oscam-lbl').textContent = 'PERSISTENCIA';
   document.getElementById('caskiaGhost').value = caskiaSeikoGhostVal;
   document.getElementById('vCaskiaGhost').textContent = caskiaSeikoGhostVal;
   document.getElementById('caskiaDither').value = caskiaSeikoDitherVal;
@@ -6003,9 +5878,6 @@ function _applyCamState() {
   document.getElementById('vOscamTrace').textContent = oscamTraceVal;
   document.getElementById('oscamDefinition').value = oscamDefinitionVal;
   document.getElementById('vOscamDefinition').textContent = oscamDefinitionVal;
-  document.querySelectorAll('.oscam-mode-btn[data-oscmode]').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.oscmode === oscamLegacyMode);
-  });
   document.querySelectorAll('.oscam-color-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.osccol === oscamColorMode);
   });
@@ -6042,25 +5914,6 @@ function _applyCamState() {
   if (mb) { mb.textContent = legacyMode ? 'LGCY' : 'DSi'; mb.classList.toggle('legacy', legacyMode); }
   const db = document.getElementById('btnDolphin');
   if (db) db.classList.toggle('active', dolphinMode);
-  // Sync SLHT panel values
-  document.getElementById('slhtDensitySlider').value  = slhtDensity;
-  document.getElementById('vSlhtDensity').textContent = slhtDensity;
-  document.getElementById('slhtHaloSlider').value     = slhtHaloReach;
-  document.getElementById('vSlhtHalo').textContent    = slhtHaloReach;
-  document.getElementById('slhtFlowSlider').value     = slhtFlowStr;
-  document.getElementById('vSlhtFlow').textContent    = slhtFlowStr;
-  document.getElementById('slhtContourSlider').value  = slhtContourLk;
-  document.getElementById('vSlhtContour').textContent = slhtContourLk;
-  document.getElementById('slhtMotionSlider').value   = slhtMotionR;
-  document.getElementById('vSlhtMotion').textContent  = slhtMotionR;
-  document.getElementById('slhtSizeSlider').value     = slhtGlyphSz;
-  document.getElementById('vSlhtSize').textContent    = slhtGlyphSz;
-  document.getElementById('slhtNoiseSlider').value    = slhtNoiseAmt;
-  document.getElementById('vSlhtNoise').textContent   = slhtNoiseAmt;
-  document.getElementById('slhtFillSlider').value     = slhtFillAmt;
-  document.getElementById('vSlhtFill').textContent    = slhtFillAmt;
-  document.getElementById('slhtSmoothSlider').value   = slhtSmoothAmt;
-  document.getElementById('vSlhtSmooth').textContent  = slhtSmoothAmt;
   _syncPaletteModeUI();
   _syncCamPanels();
   if (_getSafeActiveTab() === 'cam' && typeof renderFlipNav === 'function') renderFlipNav('cam');
@@ -6097,49 +5950,33 @@ document.getElementById('palFreePaper').addEventListener('input', _updateFreePal
 document.getElementById('oscamIntensity').addEventListener('input', e => {
   oscamIntensityVal = Number(e.target.value);
   document.getElementById('vOscamIntensity').textContent = oscamIntensityVal;
-  if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
   saveSettings();
 });
 document.getElementById('oscamDetail').addEventListener('input', e => {
   oscamDetailVal = parseInt(e.target.value, 10) || 0;
   document.getElementById('vOscamDetail').textContent = oscamDetailVal;
-  if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
   saveSettings();
 });
 document.getElementById('oscamPresence').addEventListener('input', e => {
   oscamPresenceVal = parseInt(e.target.value, 10) || 0;
   document.getElementById('vOscamPresence').textContent = oscamPresenceVal;
-  if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
   saveSettings();
 });
 document.getElementById('oscamTrace').addEventListener('input', e => {
   oscamTraceVal = parseInt(e.target.value, 10) || 0;
   document.getElementById('vOscamTrace').textContent = oscamTraceVal;
-  if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
   saveSettings();
 });
 document.getElementById('oscamDefinition').addEventListener('input', e => {
   oscamDefinitionVal = parseInt(e.target.value, 10) || 0;
   document.getElementById('vOscamDefinition').textContent = oscamDefinitionVal;
-  if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
   saveSettings();
-});
-document.querySelectorAll('.oscam-mode-btn[data-oscmode]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    oscamLegacyMode = btn.dataset.oscmode || 'WAVE';
-    document.querySelectorAll('.oscam-mode-btn[data-oscmode]').forEach(b =>
-      b.classList.toggle('active', b.dataset.oscmode === oscamLegacyMode));
-    if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
-    _applyCamState();
-    saveSettings();
-  });
 });
 document.querySelectorAll('.oscam-color-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     oscamColorMode = btn.dataset.osccol || 'GREEN';
     document.querySelectorAll('.oscam-color-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.osccol === oscamColorMode));
-    if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence();
     saveSettings();
   });
 });
@@ -6328,54 +6165,6 @@ document.getElementById('dlpContr').addEventListener('input', function() {
   document.getElementById('vDlpContr').textContent = this.value;
 });
 
-// ── SLHT edit panel parameters & handlers ─────────────────────────
-let slhtDensity   = 60;
-let slhtHaloReach = 40;
-let slhtFlowStr   = 55;
-let slhtContourLk = 65;
-let slhtMotionR   = 40;
-let slhtGlyphSz   = 8;
-let slhtNoiseAmt  = 20;
-let slhtFillAmt   = 70;
-let slhtSmoothAmt = 60;
-
-document.getElementById('slhtDensitySlider').addEventListener('input', function() {
-  slhtDensity = +this.value;
-  document.getElementById('vSlhtDensity').textContent = this.value;
-});
-document.getElementById('slhtHaloSlider').addEventListener('input', function() {
-  slhtHaloReach = +this.value;
-  document.getElementById('vSlhtHalo').textContent = this.value;
-  _slhtFieldOK = false; // rebuild field on next seg frame
-});
-document.getElementById('slhtFlowSlider').addEventListener('input', function() {
-  slhtFlowStr = +this.value;
-  document.getElementById('vSlhtFlow').textContent = this.value;
-});
-document.getElementById('slhtContourSlider').addEventListener('input', function() {
-  slhtContourLk = +this.value;
-  document.getElementById('vSlhtContour').textContent = this.value;
-});
-document.getElementById('slhtMotionSlider').addEventListener('input', function() {
-  slhtMotionR = +this.value;
-  document.getElementById('vSlhtMotion').textContent = this.value;
-});
-document.getElementById('slhtSizeSlider').addEventListener('input', function() {
-  slhtGlyphSz = +this.value;
-  document.getElementById('vSlhtSize').textContent = this.value;
-});
-document.getElementById('slhtNoiseSlider').addEventListener('input', function() {
-  slhtNoiseAmt = +this.value;
-  document.getElementById('vSlhtNoise').textContent = this.value;
-});
-document.getElementById('slhtFillSlider').addEventListener('input', function() {
-  slhtFillAmt = +this.value;
-  document.getElementById('vSlhtFill').textContent = this.value;
-});
-document.getElementById('slhtSmoothSlider').addEventListener('input', function() {
-  slhtSmoothAmt = +this.value;
-  document.getElementById('vSlhtSmooth').textContent = this.value;
-});
 
 // ════════════════════════════════════════════════════════════════════
 // CORE: dithering render
@@ -7405,9 +7194,8 @@ _camLayerSets.press = { used: 0, parked: false, canvases: () => [], build: () =>
 _camLayerSets.clon = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipClon) flipClon.release(); } };
 _camLayerSets.consola = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipConsola) flipConsola.release(); } };
 _camLayerSets.stamp = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (typeof _stampRelease === 'function') _stampRelease(); } };
-_camLayerSets.oscam = { used: 0, parked: false, canvases: () => [_oscamPersistCvs, _oscamOverlayCvs, _oscamFrameCvs],
-  build: () => { if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence(); if (typeof _buildOscamOverlay === 'function') _buildOscamOverlay(); },
-  drop: () => { if (typeof releaseOpticalScopes === 'function') releaseOpticalScopes(); if (typeof _resetOscamCaptureStates === 'function') _resetOscamCaptureStates(); } };
+_camLayerSets.oscam = { used: 0, parked: false, canvases: () => [], build: () => {},
+  drop: () => { if (typeof releaseOpticalScopes === 'function') releaseOpticalScopes(); } };
 
 function _getVfdRenderTarget(sampleW, sampleH) {
   if (sampleW === DSI_W && sampleH === DSI_H) return { canvas: small, ctx: ctxS, buffer: lowBuf };
@@ -8310,2436 +8098,15 @@ function renderAuto03(source, srcW, srcH, targetCtx, mirror, now = 0) {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// OSCAM RENDER -- signal-derived instrument camera
+// OSCAM: queda solo VECTOR, que vive en optical-scope.js. Aquí, el color de su fósforo.
 const OSCAM_COLOR_BASES = {
   GREEN:{ base:[116,255,216], accent:[72,214,168], hot:[236,255,247], bg:[2,10,10] },
   BLUE: { base:[122,194,255], accent:[78,138,255], hot:[238,246,255], bg:[2,7,18] },
   RED:  { base:[255,138,116], accent:[255,88,72], hot:[255,239,232], bg:[18,4,4] },
 };
-const OSCAM_GRID_BASE_W = 38;
-let _oscamNormBuf = new Float32Array(DSI_W * DSI_H);
-let _oscamBlurBuf = new Float32Array(DSI_W * DSI_H);
-let _oscamEdgeBuf = new Float32Array(DSI_W * DSI_H);
-let _oscamDetailBuf = new Float32Array(DSI_W * DSI_H);
-let _oscamPresenceBuf = new Float32Array(DSI_W * DSI_H);
-let _oscamTmpBuf = new Float32Array(DSI_W * DSI_H);
-let _oscamRowMean = new Float32Array(DSI_H);
-let _oscamRowEdge = new Float32Array(DSI_H);
-let _oscamColMean = new Float32Array(DSI_W);
-let _oscamColEdge = new Float32Array(DSI_W);
-let _oscamRowCentroid = new Float32Array(DSI_H);
-let _oscamColCentroid = new Float32Array(DSI_W);
-let _oscamFrameCvs = document.createElement('canvas');
-let _oscamFrameCtx = _oscamFrameCvs.getContext('2d');
-let _oscamRasterCvs = document.createElement('canvas');
-let _oscamRasterCtx = _oscamRasterCvs.getContext('2d', { willReadFrequently:true });
-let _oscamStaticMem = new Float32Array(0);
-let _oscamStaticRaw = new Float32Array(0);
-let _oscamStaticHot = new Float32Array(0);
-let _oscamStaticMemW = 0;
-let _oscamStaticMemH = 0;
-let _oscamStaticToneLow = 0;
-let _oscamStaticToneHigh = 1;
-let _oscamStaticToneReady = false;
-let _oscamPersistSignature = '';
-let _oscamOverlaySignature = '';
-let _oscamStateScope = 'preview';
-const _oscamCaptureStates = new Map();
-const OSCAM_STATIC_DITHER_4X4 = [
-  0,  8,  2, 10,
- 12,  4, 14,  6,
-  3, 11,  1,  9,
- 15,  7, 13,  5,
-];
-
-function _oscamClamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
-function _oscamSmoothstep(a, b, v) {
-  const t = _oscamClamp01((v - a) / (b - a || 1));
-  return t * t * (3 - 2 * t);
-}
-function _oscamRGBA(rgb, alpha) {
-  return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${Math.max(0, Math.min(1, alpha)).toFixed(3)})`;
-}
-function _oscamGetModeKey() {
-  return renderVariant() === 'STD' ? 'STD' : oscamLegacyMode;
-}
 function _oscamColorBasis() {
   return OSCAM_COLOR_BASES[oscamColorMode] || OSCAM_COLOR_BASES.GREEN;
 }
-function _oscamGetConfig() {
-  const staticDefN = _oscamClamp01(oscamDefinitionVal / 100);
-  const staticDefCurve = _oscamSmoothstep(0.08, 0.92, staticDefN);
-  const staticLockN = _oscamSmoothstep(0.42, 0.98, staticDefN);
-  const sensitivityN = _oscamClamp01(oscamIntensityVal / 100);
-  const lineWidthN = _oscamClamp01(oscamDetailVal / 100);
-  const lockN = _oscamClamp01(oscamPresenceVal / 100);
-  const glowN = _oscamClamp01(oscamTraceVal / 100);
-  const scanN = _oscamClamp01(oscamDefinitionVal / 100);
-  return {
-    sensitivityN,
-    lineWidthN,
-    lockN,
-    glowN,
-    scanN,
-    intensityN:sensitivityN,
-    detailN:lineWidthN,
-    presenceN:lockN,
-    traceN:glowN,
-    staticDefN,
-    staticDefCurve,
-    staticLockN,
-    staticResolveN:staticDefCurve * 0.42 + staticLockN * 0.58,
-  };
-}
-function _oscamGetStaticProfile(cfg) {
-  const defCurve = cfg.staticDefCurve;
-  const defLock = cfg.staticLockN;
-  const defResolve = cfg.staticResolveN;
-  const lineLock = _oscamSmoothstep(0.56, 0.995, cfg.staticDefN);
-  return {
-    structureW:Math.min(DSI_W, Math.max(104, Math.round(104 + cfg.intensityN * 42 + defCurve * 44 + defLock * 70))),
-    rasterW:Math.min(DSI_W, Math.max(88, Math.round(88 + cfg.intensityN * 72 + defCurve * 44 + defLock * 58))),
-    cleanupPasses:defCurve < 0.34 ? 0 : (defLock > 0.78 ? 2 : 1),
-    cleanupMix:0.08 + defCurve * 0.24 + defLock * 0.20,
-    toneFollow:Math.max(0.08, 0.34 - defCurve * 0.10 - defLock * 0.10),
-    holdDecay:Math.max(0.50, 0.70 + cfg.traceN * 0.20 - defResolve * 0.14),
-    settleMix:_oscamClamp01(0.24 + defCurve * 0.18 + defLock * 0.22 - cfg.traceN * 0.04),
-    holdBlend:_oscamClamp01(1 - defResolve * 0.72),
-    quantLevels:Math.max(5, Math.round(5 + cfg.detailN * 3 + defCurve * 6 + defLock * 10)),
-    quantDither:Math.max(0.012, 0.10 - defCurve * 0.04 - defLock * 0.03),
-    scanAlpha:Math.max(0.06, 1 - defCurve * 0.52 - defLock * 0.42),
-    scanTickAlpha:Math.max(0.02, 1 - defCurve * 0.62 - defLock * 0.52),
-    glowAlphaA:Math.max(0.06, 0.18 + cfg.traceN * 0.14 - defResolve * 0.07),
-    glowAlphaB:Math.max(0.02, 0.09 + cfg.traceN * 0.08 - defResolve * 0.04),
-    glowBlurA:Math.max(1.2, 4.2 + cfg.traceN * 2.6 - defCurve * 1.4 - defLock * 1.2),
-    glowBlurB:Math.max(3.2, 9.0 + cfg.traceN * 5.0 - defCurve * 2.8 - defLock * 2.4),
-    structureSoftness:Math.max(0.028, 0.092 - defCurve * 0.022 - defLock * 0.030),
-    structureClosePasses:defCurve < 0.44 ? 0 : 1,
-    structureOpenPasses:defLock > 0.74 ? 1 : 0,
-    fillMaskBoost:0.08 + defCurve * 0.12 + defLock * 0.16,
-    contourGain:0.58 + defCurve * 0.24 + defLock * 0.34,
-    fillCoherence:0.10 + defCurve * 0.12 + defLock * 0.14,
-    contourRefine:0.12 + defCurve * 0.18 + defLock * 0.26,
-    lineLock,
-    lineFieldPasses:defCurve < 0.30 ? 1 : (defLock > 0.82 ? 3 : 2),
-    lineIso:0.48 - defCurve * 0.04 - defLock * 0.05,
-    lineAlpha:0.10 + defCurve * 0.10 + defLock * 0.18,
-    lineBeamAlpha:0.06 + defCurve * 0.06 + defLock * 0.12,
-    lineHotAlpha:0.04 + defCurve * 0.06 + defLock * 0.10,
-    lineRasterSuppress:0.06 + defCurve * 0.10 + defLock * 0.18,
-  };
-}
-function _oscamGetModePalette() {
-  const basis = _oscamColorBasis();
-  const mode = _oscamGetModeKey();
-  const cfg = _oscamGetConfig();
-  const staticProfile = mode === 'STATIC' ? _oscamGetStaticProfile(cfg) : null;
-  const scanAlpha = staticProfile ? staticProfile.scanAlpha : 1;
-  const bg = _mixRGB(basis.bg, basis.base, mode === 'STATIC' ? 0.12 : mode === 'STD' ? 0.06 : 0.08);
-  const floor = _mixRGB(bg, basis.base, mode === 'STATIC' ? 0.22 : 0.14);
-  const core = _mixRGB(basis.base, [255,255,255], mode === 'STD' ? 0.10 : 0.18);
-  const hot = _mixRGB(basis.hot, basis.base, mode === 'STATIC' ? 0.28 : 0.16);
-  const accent = _mixRGB(basis.accent, [255,255,255], mode === 'STD' ? 0.08 : 0.12);
-  return {
-    bg,
-    floor,
-    core,
-    hot,
-    accent,
-    beam: _mixRGB(core, [255,255,255], 0.14),
-    gridMajor: _oscamRGBA(_mixRGB(bg, basis.base, mode === 'STD' ? 0.48 : 0.42), mode === 'STD' ? 0.26 : (mode === 'STATIC' ? 0.22 * scanAlpha : 0.18)),
-    gridMinor: _oscamRGBA(_mixRGB(bg, basis.base, 0.28), mode === 'STD' ? 0.12 : 0.07),
-    cross: _oscamRGBA(_mixRGB(core, [255,255,255], 0.22), mode === 'STD' ? 0.28 : (mode === 'STATIC' ? 0.22 * (0.82 + scanAlpha * 0.18) : 0.22)),
-    vignette: _oscamRGBA(_mixRGB(bg, [0,0,0], 0.7), mode === 'STATIC' ? (0.18 * (0.84 + scanAlpha * 0.16)) : 0.10),
-  };
-}
-function _createOscamRenderState(outW, outH, scope = 'capture') {
-  const persistCvs = document.createElement('canvas');
-  const overlayCvs = document.createElement('canvas');
-  const frameCvs = document.createElement('canvas');
-  const rasterCvs = document.createElement('canvas');
-  return {
-    scope,
-    outW,
-    outH,
-    persistCvs,
-    persistCtx: persistCvs.getContext('2d'),
-    overlayCvs,
-    overlayCtx: overlayCvs.getContext('2d'),
-    frameCvs,
-    frameCtx: frameCvs.getContext('2d'),
-    rasterCvs,
-    rasterCtx: rasterCvs.getContext('2d', { willReadFrequently:true }),
-    staticMem: new Float32Array(0),
-    staticRaw: new Float32Array(0),
-    staticHot: new Float32Array(0),
-    staticMemW: 0,
-    staticMemH: 0,
-    staticToneLow: 0,
-    staticToneHigh: 1,
-    staticToneReady: false,
-    persistSignature: '',
-    overlaySignature: '',
-  };
-}
-function _getOscamRenderState(outW, outH, scope = 'capture') {
-  if (scope === 'preview' && outW === OUT_W && outH === OUT_H) return null;
-  const key = `${scope}:${outW}x${outH}`;
-  let state = _oscamCaptureStates.get(key);
-  if (!state) {
-    state = _createOscamRenderState(outW, outH, scope);
-    _oscamCaptureStates.set(key, state);
-  }
-  return state;
-}
-function _pushOscamStateToGlobals(state) {
-  OUT_W = state.outW;
-  OUT_H = state.outH;
-  _oscamPersistCvs = state.persistCvs;
-  _oscamPersistCtx = state.persistCtx;
-  _oscamOverlayCvs = state.overlayCvs;
-  _oscamOverlayCtx = state.overlayCtx;
-  _oscamFrameCvs = state.frameCvs;
-  _oscamFrameCtx = state.frameCtx;
-  _oscamRasterCvs = state.rasterCvs;
-  _oscamRasterCtx = state.rasterCtx;
-  _oscamStaticMem = state.staticMem;
-  _oscamStaticRaw = state.staticRaw;
-  _oscamStaticHot = state.staticHot;
-  _oscamStaticMemW = state.staticMemW;
-  _oscamStaticMemH = state.staticMemH;
-  _oscamStaticToneLow = state.staticToneLow;
-  _oscamStaticToneHigh = state.staticToneHigh;
-  _oscamStaticToneReady = state.staticToneReady;
-  _oscamPersistSignature = state.persistSignature;
-  _oscamOverlaySignature = state.overlaySignature;
-}
-function _pullOscamStateFromGlobals(state) {
-  state.outW = OUT_W;
-  state.outH = OUT_H;
-  state.persistCvs = _oscamPersistCvs;
-  state.persistCtx = _oscamPersistCtx;
-  state.overlayCvs = _oscamOverlayCvs;
-  state.overlayCtx = _oscamOverlayCtx;
-  state.frameCvs = _oscamFrameCvs;
-  state.frameCtx = _oscamFrameCtx;
-  state.rasterCvs = _oscamRasterCvs;
-  state.rasterCtx = _oscamRasterCtx;
-  state.staticMem = _oscamStaticMem;
-  state.staticRaw = _oscamStaticRaw;
-  state.staticHot = _oscamStaticHot;
-  state.staticMemW = _oscamStaticMemW;
-  state.staticMemH = _oscamStaticMemH;
-  state.staticToneLow = _oscamStaticToneLow;
-  state.staticToneHigh = _oscamStaticToneHigh;
-  state.staticToneReady = _oscamStaticToneReady;
-  state.persistSignature = _oscamPersistSignature;
-  state.overlaySignature = _oscamOverlaySignature;
-}
-function _withOscamRenderState(state, fn) {
-  if (!state) return fn();
-  const prev = {
-    outW: OUT_W,
-    outH: OUT_H,
-    persistCvs: _oscamPersistCvs,
-    persistCtx: _oscamPersistCtx,
-    overlayCvs: _oscamOverlayCvs,
-    overlayCtx: _oscamOverlayCtx,
-    frameCvs: _oscamFrameCvs,
-    frameCtx: _oscamFrameCtx,
-    rasterCvs: _oscamRasterCvs,
-    rasterCtx: _oscamRasterCtx,
-    staticMem: _oscamStaticMem,
-    staticRaw: _oscamStaticRaw,
-    staticHot: _oscamStaticHot,
-    staticMemW: _oscamStaticMemW,
-    staticMemH: _oscamStaticMemH,
-    staticToneLow: _oscamStaticToneLow,
-    staticToneHigh: _oscamStaticToneHigh,
-    staticToneReady: _oscamStaticToneReady,
-    persistSignature: _oscamPersistSignature,
-    overlaySignature: _oscamOverlaySignature,
-  };
-  const prevScope = _oscamStateScope;
-  _pushOscamStateToGlobals(state);
-  _oscamStateScope = state.scope || 'capture';
-  try {
-    return fn();
-  } finally {
-    _pullOscamStateFromGlobals(state);
-    OUT_W = prev.outW;
-    OUT_H = prev.outH;
-    _oscamPersistCvs = prev.persistCvs;
-    _oscamPersistCtx = prev.persistCtx;
-    _oscamOverlayCvs = prev.overlayCvs;
-    _oscamOverlayCtx = prev.overlayCtx;
-    _oscamFrameCvs = prev.frameCvs;
-    _oscamFrameCtx = prev.frameCtx;
-    _oscamRasterCvs = prev.rasterCvs;
-    _oscamRasterCtx = prev.rasterCtx;
-    _oscamStaticMem = prev.staticMem;
-    _oscamStaticRaw = prev.staticRaw;
-    _oscamStaticHot = prev.staticHot;
-    _oscamStaticMemW = prev.staticMemW;
-    _oscamStaticMemH = prev.staticMemH;
-    _oscamStaticToneLow = prev.staticToneLow;
-    _oscamStaticToneHigh = prev.staticToneHigh;
-    _oscamStaticToneReady = prev.staticToneReady;
-    _oscamPersistSignature = prev.persistSignature;
-    _oscamOverlaySignature = prev.overlaySignature;
-    _oscamStateScope = prevScope;
-  }
-}
-function _resetOscamCaptureStates() {
-  _oscamCaptureStates.clear();
-}
-function _ensureOscamBuffers() {
-  const len = DSI_W * DSI_H;
-  if (_oscamNormBuf.length !== len) _oscamNormBuf = new Float32Array(len);
-  if (_oscamBlurBuf.length !== len) _oscamBlurBuf = new Float32Array(len);
-  if (_oscamEdgeBuf.length !== len) _oscamEdgeBuf = new Float32Array(len);
-  if (_oscamDetailBuf.length !== len) _oscamDetailBuf = new Float32Array(len);
-  if (_oscamPresenceBuf.length !== len) _oscamPresenceBuf = new Float32Array(len);
-  if (_oscamTmpBuf.length !== len) _oscamTmpBuf = new Float32Array(len);
-  if (_oscamRowMean.length !== DSI_H) _oscamRowMean = new Float32Array(DSI_H);
-  if (_oscamRowEdge.length !== DSI_H) _oscamRowEdge = new Float32Array(DSI_H);
-  if (_oscamColMean.length !== DSI_W) _oscamColMean = new Float32Array(DSI_W);
-  if (_oscamColEdge.length !== DSI_W) _oscamColEdge = new Float32Array(DSI_W);
-  if (_oscamRowCentroid.length !== DSI_H) _oscamRowCentroid = new Float32Array(DSI_H);
-  if (_oscamColCentroid.length !== DSI_W) _oscamColCentroid = new Float32Array(DSI_W);
-  if (_oscamFrameCvs.width !== OUT_W || _oscamFrameCvs.height !== OUT_H) {
-    _oscamFrameCvs.width = OUT_W;
-    _oscamFrameCvs.height = OUT_H;
-  }
-}
-function _ensureOscamStaticMem(w, h) {
-  if (_oscamStaticMemW !== w || _oscamStaticMemH !== h || _oscamStaticMem.length !== w * h) {
-    _oscamStaticMemW = w;
-    _oscamStaticMemH = h;
-    _oscamStaticMem = new Float32Array(w * h);
-    _oscamStaticRaw = new Float32Array(w * h);
-    _oscamStaticHot = new Float32Array(w * h);
-    _oscamStaticToneReady = false;
-  }
-}
-function _resetOscamPersistence() {
-  _oscamPersistCvs.width = OUT_W;
-  _oscamPersistCvs.height = OUT_H;
-  _oscamPersistCtx.clearRect(0, 0, OUT_W, OUT_H);
-  _oscamFrameCvs.width = OUT_W;
-  _oscamFrameCvs.height = OUT_H;
-  _oscamFrameCtx.clearRect(0, 0, OUT_W, OUT_H);
-  _oscamStaticMem = new Float32Array(0);
-  _oscamStaticRaw = new Float32Array(0);
-  _oscamStaticHot = new Float32Array(0);
-  _oscamStaticMemW = 0;
-  _oscamStaticMemH = 0;
-  _oscamStaticToneLow = 0;
-  _oscamStaticToneHigh = 1;
-  _oscamStaticToneReady = false;
-  _oscamPersistSignature = '';
-  _oscamOverlaySignature = '';
-  if (_oscamStateScope === 'preview') {
-    try {
-      if (typeof _oscamWebGLEngine !== 'undefined' && _oscamWebGLEngine && typeof _oscamWebGLEngine.reset === 'function') _oscamWebGLEngine.reset();
-    } catch (_) {}
-  }
-}
-function _buildOscamOverlay() {
-  _oscamOverlayCvs.width = OUT_W;
-  _oscamOverlayCvs.height = OUT_H;
-  _oscamOverlayCtx.clearRect(0, 0, OUT_W, OUT_H);
-  const palette = _oscamGetModePalette();
-  const mode = _oscamGetModeKey();
-  const cfg = _oscamGetConfig();
-  const staticProfile = mode === 'STATIC' ? _oscamGetStaticProfile(cfg) : null;
-  const xDiv = 8;
-  const yDiv = 6;
-  const xStep = OUT_W / xDiv;
-  const yStep = OUT_H / yDiv;
-  if (mode === 'STD') {
-    _oscamOverlayCtx.strokeStyle = palette.gridMinor;
-    _oscamOverlayCtx.lineWidth = 1;
-    for (let x = xStep / 2; x < OUT_W; x += xStep / 2) {
-      _oscamOverlayCtx.beginPath();
-      _oscamOverlayCtx.moveTo(x, 0);
-      _oscamOverlayCtx.lineTo(x, OUT_H);
-      _oscamOverlayCtx.stroke();
-    }
-    for (let y = yStep / 2; y < OUT_H; y += yStep / 2) {
-      _oscamOverlayCtx.beginPath();
-      _oscamOverlayCtx.moveTo(0, y);
-      _oscamOverlayCtx.lineTo(OUT_W, y);
-      _oscamOverlayCtx.stroke();
-    }
-  }
-  _oscamOverlayCtx.strokeStyle = palette.gridMajor;
-  _oscamOverlayCtx.lineWidth = 1;
-  for (let x = 0; x <= OUT_W; x += xStep) {
-    _oscamOverlayCtx.beginPath();
-    _oscamOverlayCtx.moveTo(x, 0);
-    _oscamOverlayCtx.lineTo(x, OUT_H);
-    _oscamOverlayCtx.stroke();
-  }
-  for (let y = 0; y <= OUT_H; y += yStep) {
-    _oscamOverlayCtx.beginPath();
-    _oscamOverlayCtx.moveTo(0, y);
-    _oscamOverlayCtx.lineTo(OUT_W, y);
-    _oscamOverlayCtx.stroke();
-  }
-  _oscamOverlayCtx.strokeStyle = palette.cross;
-  _oscamOverlayCtx.lineWidth = mode === 'STD' ? 1.25 : 1;
-  _oscamOverlayCtx.beginPath();
-  _oscamOverlayCtx.moveTo(OUT_W / 2, 0);
-  _oscamOverlayCtx.lineTo(OUT_W / 2, OUT_H);
-  _oscamOverlayCtx.moveTo(0, OUT_H / 2);
-  _oscamOverlayCtx.lineTo(OUT_W, OUT_H / 2);
-  _oscamOverlayCtx.stroke();
-  if (mode === 'STATIC') {
-    _oscamOverlayCtx.fillStyle = _oscamRGBA(_oscamColorBasis().base, 0.18 * (staticProfile ? staticProfile.scanTickAlpha : 1));
-    for (let x = 0; x <= OUT_W; x += xStep / 4) _oscamOverlayCtx.fillRect(x, OUT_H / 2 - 0.5, 1, 1);
-    for (let y = 0; y <= OUT_H; y += yStep / 4) _oscamOverlayCtx.fillRect(OUT_W / 2 - 0.5, y, 1, 1);
-  }
-  const vg = _oscamOverlayCtx.createRadialGradient(
-    OUT_W / 2, OUT_H / 2, OUT_H * 0.24,
-    OUT_W / 2, OUT_H / 2, OUT_H * 0.88
-  );
-  vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, palette.vignette);
-  _oscamOverlayCtx.fillStyle = vg;
-  _oscamOverlayCtx.fillRect(0, 0, OUT_W, OUT_H);
-  _oscamOverlaySignature = `${OUT_W}x${OUT_H}:${_oscamGetModeKey()}:${oscamColorMode}:${_oscamGetModeKey() === 'STATIC' ? oscamDefinitionVal : 'base'}`;
-}
-function _oscamSmoothGrid(src, w, h, passes) {
-  let a = src.slice();
-  let b = new Float32Array(src.length);
-  for (let pass = 0; pass < passes; pass++) {
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        let sum = 0;
-        let weight = 0;
-        for (let oy = -1; oy <= 1; oy++) {
-          const yy = y + oy;
-          if (yy < 0 || yy >= h) continue;
-          for (let ox = -1; ox <= 1; ox++) {
-            const xx = x + ox;
-            if (xx < 0 || xx >= w) continue;
-            const wgt = ox === 0 && oy === 0 ? 4 : (ox === 0 || oy === 0 ? 2 : 1);
-            sum += a[yy * w + xx] * wgt;
-            weight += wgt;
-          }
-        }
-        b[y * w + x] = sum / Math.max(1, weight);
-      }
-    }
-    const t = a;
-    a = b;
-    b = t;
-  }
-  return a;
-}
-function _oscamMorphGrid(src, w, h, mode, passes) {
-  let a = src.slice();
-  let b = new Float32Array(src.length);
-  for (let pass = 0; pass < passes; pass++) {
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        let acc = mode === 'max' ? 0 : 1;
-        for (let oy = -1; oy <= 1; oy++) {
-          const yy = y + oy;
-          if (yy < 0 || yy >= h) continue;
-          for (let ox = -1; ox <= 1; ox++) {
-            const xx = x + ox;
-            if (xx < 0 || xx >= w) continue;
-            const v = a[yy * w + xx];
-            if (mode === 'max') acc = Math.max(acc, v);
-            else acc = Math.min(acc, v);
-          }
-        }
-        b[y * w + x] = acc;
-      }
-    }
-    const t = a;
-    a = b;
-    b = t;
-  }
-  return a;
-}
-function _oscamIsoInterp(a, b, iso) {
-  const span = b - a;
-  if (Math.abs(span) < 1e-4) return 0.5;
-  return _oscamClamp01((iso - a) / span);
-}
-function _oscamBuildIsoSegments(values, w, h, iso) {
-  const segments = [];
-  const edgePoint = (edge, x, y, tl, tr, br, bl) => {
-    if (edge === 0) {
-      const t = _oscamIsoInterp(tl, tr, iso);
-      return { x:x + t, y };
-    }
-    if (edge === 1) {
-      const t = _oscamIsoInterp(tr, br, iso);
-      return { x:x + 1, y:y + t };
-    }
-    if (edge === 2) {
-      const t = _oscamIsoInterp(bl, br, iso);
-      return { x:x + t, y:y + 1 };
-    }
-    const t = _oscamIsoInterp(tl, bl, iso);
-    return { x, y:y + t };
-  };
-  const pushSegment = (x, y, tl, tr, br, bl, e0, e1, strength) => {
-    segments.push({
-      a:edgePoint(e0, x, y, tl, tr, br, bl),
-      b:edgePoint(e1, x, y, tl, tr, br, bl),
-      strength,
-    });
-  };
-  for (let y = 0; y < h - 1; y++) {
-    const row = y * w;
-    const nextRow = (y + 1) * w;
-    for (let x = 0; x < w - 1; x++) {
-      const tl = values[row + x];
-      const tr = values[row + x + 1];
-      const br = values[nextRow + x + 1];
-      const bl = values[nextRow + x];
-      const state = (tl >= iso ? 1 : 0) | (tr >= iso ? 2 : 0) | (br >= iso ? 4 : 0) | (bl >= iso ? 8 : 0);
-      if (state === 0 || state === 15) continue;
-      const center = (tl + tr + br + bl) * 0.25;
-      const strength = _oscamClamp01((Math.max(tl, tr, br, bl) - iso) * 2.2 + Math.abs(center - iso) * 0.6 + 0.16);
-      switch (state) {
-        case 1: pushSegment(x, y, tl, tr, br, bl, 3, 0, strength); break;
-        case 2: pushSegment(x, y, tl, tr, br, bl, 0, 1, strength); break;
-        case 3: pushSegment(x, y, tl, tr, br, bl, 3, 1, strength); break;
-        case 4: pushSegment(x, y, tl, tr, br, bl, 1, 2, strength); break;
-        case 5:
-          if (center >= iso) {
-            pushSegment(x, y, tl, tr, br, bl, 3, 2, strength);
-            pushSegment(x, y, tl, tr, br, bl, 0, 1, strength);
-          } else {
-            pushSegment(x, y, tl, tr, br, bl, 3, 0, strength);
-            pushSegment(x, y, tl, tr, br, bl, 2, 1, strength);
-          }
-          break;
-        case 6: pushSegment(x, y, tl, tr, br, bl, 0, 2, strength); break;
-        case 7: pushSegment(x, y, tl, tr, br, bl, 3, 2, strength); break;
-        case 8: pushSegment(x, y, tl, tr, br, bl, 2, 3, strength); break;
-        case 9: pushSegment(x, y, tl, tr, br, bl, 0, 2, strength); break;
-        case 10:
-          if (center >= iso) {
-            pushSegment(x, y, tl, tr, br, bl, 3, 0, strength);
-            pushSegment(x, y, tl, tr, br, bl, 2, 1, strength);
-          } else {
-            pushSegment(x, y, tl, tr, br, bl, 3, 2, strength);
-            pushSegment(x, y, tl, tr, br, bl, 0, 1, strength);
-          }
-          break;
-        case 11: pushSegment(x, y, tl, tr, br, bl, 1, 2, strength); break;
-        case 12: pushSegment(x, y, tl, tr, br, bl, 1, 3, strength); break;
-        case 13: pushSegment(x, y, tl, tr, br, bl, 0, 1, strength); break;
-        case 14: pushSegment(x, y, tl, tr, br, bl, 3, 0, strength); break;
-      }
-    }
-  }
-  return segments;
-}
-function _oscamBuildStaticStructure(sig, cfg, staticProfile) {
-  const sw = staticProfile.structureW;
-  const sh = Math.max(64, Math.round(sw * DSI_H / DSI_W));
-  const sx = DSI_W / sw;
-  const sy = DSI_H / sh;
-  const len = sw * sh;
-  const field = new Float32Array(len);
-  const hot = new Float32Array(len);
-  let sumField = 0;
-  let maxField = 0;
-  for (let cy = 0; cy < sh; cy++) {
-    const y0 = Math.floor(cy * sy);
-    const y1 = Math.min(DSI_H, Math.ceil((cy + 1) * sy));
-    for (let cx = 0; cx < sw; cx++) {
-      const x0 = Math.floor(cx * sx);
-      const x1 = Math.min(DSI_W, Math.ceil((cx + 1) * sx));
-      let presenceSum = 0;
-      let blurSum = 0;
-      let detailSum = 0;
-      let edgeSum = 0;
-      let cnt = 0;
-      for (let y = y0; y < y1; y++) {
-        const rowBase = y * DSI_W;
-        for (let x = x0; x < x1; x++) {
-          const idx = rowBase + x;
-          presenceSum += sig.presence[idx];
-          blurSum += sig.blur[idx];
-          detailSum += sig.detail[idx];
-          edgeSum += sig.edge[idx];
-          cnt++;
-        }
-      }
-      const presenceAvg = cnt ? presenceSum / cnt : 0;
-      const blurAvg = cnt ? blurSum / cnt : 0;
-      const detailAvg = cnt ? detailSum / cnt : 0;
-      const edgeAvg = cnt ? edgeSum / cnt : 0;
-      const structureVal = _oscamClamp01(
-        presenceAvg * (0.54 + cfg.presenceN * 0.20) +
-        blurAvg * (0.10 + staticProfile.fillCoherence * 0.10) +
-        detailAvg * (0.18 + cfg.detailN * 0.22 + staticProfile.contourRefine * 0.16) +
-        edgeAvg * (0.20 + staticProfile.contourGain * 0.18)
-      );
-      const idx = cy * sw + cx;
-      field[idx] = structureVal;
-      hot[idx] = _oscamClamp01(detailAvg * 0.54 + edgeAvg * 0.46);
-      sumField += structureVal;
-      if (structureVal > maxField) maxField = structureVal;
-    }
-  }
-  const meanField = sumField / Math.max(1, len);
-  const threshold = Math.min(0.92, meanField + (maxField - meanField) * (0.18 + cfg.staticResolveN * 0.12));
-  const soft = staticProfile.structureSoftness;
-  let mask = new Float32Array(len);
-  for (let i = 0; i < len; i++) mask[i] = _oscamSmoothstep(threshold - soft, threshold + soft, field[i]);
-  if (staticProfile.structureClosePasses > 0) {
-    const dilated = _oscamMorphGrid(mask, sw, sh, 'max', staticProfile.structureClosePasses);
-    mask = _oscamMorphGrid(dilated, sw, sh, 'min', staticProfile.structureClosePasses);
-  }
-  if (staticProfile.structureOpenPasses > 0) {
-    const eroded = _oscamMorphGrid(mask, sw, sh, 'min', staticProfile.structureOpenPasses);
-    mask = _oscamMorphGrid(eroded, sw, sh, 'max', staticProfile.structureOpenPasses);
-  }
-  const maskSoft = _oscamSmoothGrid(mask, sw, sh, 1 + (staticProfile.lineLock > 0.36 ? 1 : 0));
-  const fillBase = _oscamSmoothGrid(field, sw, sh, 1 + (staticProfile.fillCoherence > 0.42 ? 1 : 0));
-  const fill = new Float32Array(len);
-  const contour = new Float32Array(len);
-  const lineFieldRaw = new Float32Array(len);
-  for (let y = 0; y < sh; y++) {
-    for (let x = 0; x < sw; x++) {
-      const idx = y * sw + x;
-      const left = x ? maskSoft[idx - 1] : maskSoft[idx];
-      const right = x + 1 < sw ? maskSoft[idx + 1] : maskSoft[idx];
-      const up = y ? maskSoft[idx - sw] : maskSoft[idx];
-      const down = y + 1 < sh ? maskSoft[idx + sw] : maskSoft[idx];
-      const leftF = x ? fillBase[idx - 1] : fillBase[idx];
-      const rightF = x + 1 < sw ? fillBase[idx + 1] : fillBase[idx];
-      const upF = y ? fillBase[idx - sw] : fillBase[idx];
-      const downF = y + 1 < sh ? fillBase[idx + sw] : fillBase[idx];
-      const contourVal = _oscamClamp01(
-        (Math.hypot(right - left, down - up) * 0.64 + Math.hypot(rightF - leftF, downF - upF) * 0.52) *
-        (0.76 + staticProfile.contourGain) +
-        hot[idx] * 0.16
-      );
-      contour[idx] = contourVal;
-      const maskGuided = mask[idx] * (0.32 + fillBase[idx] * 0.36 + hot[idx] * 0.22);
-      fill[idx] = _oscamClamp01(
-        fillBase[idx] * (0.74 + staticProfile.fillCoherence * 0.10) +
-        maskGuided * (0.10 + staticProfile.fillMaskBoost * 0.26) +
-        contourVal * staticProfile.contourRefine * 0.10
-      );
-      lineFieldRaw[idx] = _oscamClamp01(
-        maskSoft[idx] * (0.62 + staticProfile.lineLock * 0.12) +
-        fillBase[idx] * (0.20 + staticProfile.fillCoherence * 0.10) +
-        hot[idx] * (0.04 + cfg.detailN * 0.06) +
-        contourVal * 0.08
-      );
-    }
-  }
-  const lineField = _oscamSmoothGrid(lineFieldRaw, sw, sh, staticProfile.lineFieldPasses);
-  return { w:sw, h:sh, fill, contour, hot, mask, maskSoft, lineField };
-}
-function _oscamRenderStaticContours(structure, palette, staticProfile) {
-  if (staticProfile.lineLock <= 0.02) return;
-  const segments = _oscamBuildIsoSegments(structure.lineField, structure.w, structure.h, staticProfile.lineIso);
-  if (!segments.length) return;
-  const stepX = OUT_W / Math.max(1, structure.w);
-  const stepY = OUT_H / Math.max(1, structure.h);
-  const baseStep = Math.min(stepX, stepY);
-  const beamWidth = Math.max(1.35, baseStep * (0.34 + (1 - staticProfile.lineLock) * 0.08));
-  const hotWidth = Math.max(0.85, baseStep * (0.22 + (1 - staticProfile.lineLock) * 0.05));
-  const coreWidth = Math.max(0.72, baseStep * (0.17 + (1 - staticProfile.lineLock) * 0.04));
-  _oscamFrameCtx.save();
-  _oscamFrameCtx.lineCap = 'round';
-  _oscamFrameCtx.lineJoin = 'round';
-  _oscamFrameCtx.globalCompositeOperation = 'screen';
-  const strokeSegments = (width, color, alphaScale) => {
-    _oscamFrameCtx.strokeStyle = _oscamRGBA(color, alphaScale);
-    _oscamFrameCtx.lineWidth = width;
-    _oscamFrameCtx.beginPath();
-    for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
-      const ax = (seg.a.x + 0.5) * stepX;
-      const ay = (seg.a.y + 0.5) * stepY;
-      const bx = (seg.b.x + 0.5) * stepX;
-      const by = (seg.b.y + 0.5) * stepY;
-      _oscamFrameCtx.moveTo(ax, ay);
-      _oscamFrameCtx.lineTo(bx, by);
-    }
-    _oscamFrameCtx.stroke();
-  };
-  strokeSegments(beamWidth, palette.beam, staticProfile.lineBeamAlpha);
-  strokeSegments(hotWidth, palette.hot, staticProfile.lineHotAlpha);
-  strokeSegments(coreWidth, palette.core, staticProfile.lineAlpha);
-  _oscamFrameCtx.restore();
-}
-function _oscamBuildComponentBoundary(compMap, gw, gh, id, comp) {
-  const left = [];
-  const right = [];
-  for (let y = comp.minY; y <= comp.maxY; y++) {
-    let minX = -1;
-    let maxX = -1;
-    for (let x = comp.minX; x <= comp.maxX; x++) {
-      if (compMap[y * gw + x] !== id) continue;
-      if (minX < 0) minX = x;
-      maxX = x;
-    }
-    if (minX < 0) continue;
-    left.push({ x:minX + 0.5, y:y + 0.5, w:1 });
-    if (maxX !== minX) right.push({ x:maxX + 0.5, y:y + 0.5, w:1 });
-  }
-  const outline = left.concat(right.reverse());
-  if (outline.length < 3) return outline;
-  const smooth = outline.map((p, i) => {
-    const prev = outline[(i - 1 + outline.length) % outline.length];
-    const next = outline[(i + 1) % outline.length];
-    return {
-      x:(prev.x + p.x * 2 + next.x) * 0.25,
-      y:(prev.y + p.y * 2 + next.y) * 0.25,
-      w:1,
-    };
-  });
-  return smooth;
-}
-function _oscamBuildComponentRuns(compMap, gw, gh, id, axis) {
-  const points = [];
-  if (axis === 'row') {
-    for (let y = 0; y < gh; y++) {
-      let sum = 0;
-      let weight = 0;
-      let count = 0;
-      for (let x = 0; x < gw; x++) {
-        if (compMap[y * gw + x] !== id) continue;
-        sum += x + 0.5;
-        weight += 1;
-        count++;
-      }
-      if (count > 0) points.push({ x:sum / Math.max(1, weight), y:y + 0.5, w:0.5 + count * 0.10 });
-    }
-  } else {
-    for (let x = 0; x < gw; x++) {
-      let sum = 0;
-      let weight = 0;
-      let count = 0;
-      for (let y = 0; y < gh; y++) {
-        if (compMap[y * gw + x] !== id) continue;
-        sum += y + 0.5;
-        weight += 1;
-        count++;
-      }
-      if (count > 0) points.push({ x:x + 0.5, y:sum / Math.max(1, weight), w:0.5 + count * 0.10 });
-    }
-  }
-  return points;
-}
-function _oscamBuildSignalGrid(sig, cfg) {
-  const len = sig.grid.w * sig.grid.h;
-  const out = new Float32Array(len);
-  for (let i = 0; i < len; i++) {
-    out[i] = _oscamClamp01(
-      sig.grid.detail[i] * (0.58 + cfg.detailN * 0.20) +
-      sig.grid.edge[i] * 0.34 +
-      sig.grid.presence[i] * (0.08 + cfg.presenceN * 0.06)
-    );
-  }
-  return out;
-}
-function _oscamBuildScanSegments(values, w, h, threshold, axis, maxPerLine) {
-  const segments = [];
-  if (axis === 'row') {
-    for (let y = 0; y < h; y++) {
-      const line = [];
-      let x = 0;
-      while (x < w) {
-        while (x < w && values[y * w + x] <= threshold) x++;
-        if (x >= w) break;
-        const start = x;
-        let sum = 0;
-        let count = 0;
-        while (x < w && values[y * w + x] > threshold) {
-          sum += values[y * w + x];
-          count++;
-          x++;
-        }
-        const end = x - 1;
-        line.push({ x0:start, x1:end, y, strength:sum / Math.max(1, count), span:end - start + 1 });
-      }
-      line.sort((a, b) => (b.span * b.strength) - (a.span * a.strength));
-      for (let i = 0; i < Math.min(maxPerLine, line.length); i++) segments.push(line[i]);
-    }
-  } else {
-    for (let x = 0; x < w; x++) {
-      const line = [];
-      let y = 0;
-      while (y < h) {
-        while (y < h && values[y * w + x] <= threshold) y++;
-        if (y >= h) break;
-        const start = y;
-        let sum = 0;
-        let count = 0;
-        while (y < h && values[y * w + x] > threshold) {
-          sum += values[y * w + x];
-          count++;
-          y++;
-        }
-        const end = y - 1;
-        line.push({ y0:start, y1:end, x, strength:sum / Math.max(1, count), span:end - start + 1 });
-      }
-      line.sort((a, b) => (b.span * b.strength) - (a.span * a.strength));
-      for (let i = 0; i < Math.min(maxPerLine, line.length); i++) segments.push(line[i]);
-    }
-  }
-  return segments;
-}
-function _oscamAnalyzeFrame(src, cfg) {
-  const lum = _fillCamLumBuf(src);
-  _ensureOscamBuffers();
-  let minL = 255;
-  let maxL = 0;
-  for (let i = 0; i < lum.length; i++) {
-    const v = lum[i];
-    if (v < minL) minL = v;
-    if (v > maxL) maxL = v;
-  }
-  const range = maxL - minL || 1;
-  for (let i = 0; i < lum.length; i++) _oscamNormBuf[i] = (lum[i] - minL) / range;
-
-  for (let y = 0; y < DSI_H; y++) {
-    const rowBase = y * DSI_W;
-    for (let x = 0; x < DSI_W; x++) {
-      const idx = rowBase + x;
-      const l2 = x > 1 ? _oscamNormBuf[idx - 2] : _oscamNormBuf[idx];
-      const l1 = x ? _oscamNormBuf[idx - 1] : _oscamNormBuf[idx];
-      const c = _oscamNormBuf[idx];
-      const r1 = x + 1 < DSI_W ? _oscamNormBuf[idx + 1] : c;
-      const r2 = x + 2 < DSI_W ? _oscamNormBuf[idx + 2] : c;
-      _oscamTmpBuf[idx] = (l2 + l1 * 2 + c * 3 + r1 * 2 + r2) / 9;
-    }
-  }
-  for (let x = 0; x < DSI_W; x++) {
-    for (let y = 0; y < DSI_H; y++) {
-      const idx = y * DSI_W + x;
-      const u2 = y > 1 ? _oscamTmpBuf[idx - DSI_W * 2] : _oscamTmpBuf[idx];
-      const u1 = y ? _oscamTmpBuf[idx - DSI_W] : _oscamTmpBuf[idx];
-      const c = _oscamTmpBuf[idx];
-      const d1 = y + 1 < DSI_H ? _oscamTmpBuf[idx + DSI_W] : c;
-      const d2 = y + 2 < DSI_H ? _oscamTmpBuf[idx + DSI_W * 2] : c;
-      _oscamBlurBuf[idx] = (u2 + u1 * 2 + c * 3 + d1 * 2 + d2) / 9;
-    }
-  }
-
-  const gw = Math.max(24, Math.round(OSCAM_GRID_BASE_W + cfg.intensityN * 14));
-  const gh = Math.max(14, Math.round(gw * DSI_H / DSI_W));
-  const cellW = DSI_W / gw;
-  const cellH = DSI_H / gh;
-  const cellCount = gw * gh;
-  const blurCell = new Float32Array(cellCount);
-  const edgeCell = new Float32Array(cellCount);
-  const detailCell = new Float32Array(cellCount);
-  const energyCell = new Float32Array(cellCount);
-  const active = new Uint8Array(cellCount);
-  const compMap = new Int16Array(cellCount);
-  compMap.fill(-1);
-
-  let sumEnergy = 0;
-  let sumDetail = 0;
-  let sumEdge = 0;
-  let maxEnergy = 0;
-  for (let y = 0; y < DSI_H; y++) {
-    const rowBase = y * DSI_W;
-    for (let x = 0; x < DSI_W; x++) {
-      const idx = rowBase + x;
-      const left = x ? _oscamBlurBuf[idx - 1] : _oscamBlurBuf[idx];
-      const right = x + 1 < DSI_W ? _oscamBlurBuf[idx + 1] : _oscamBlurBuf[idx];
-      const up = y ? _oscamBlurBuf[idx - DSI_W] : _oscamBlurBuf[idx];
-      const down = y + 1 < DSI_H ? _oscamBlurBuf[idx + DSI_W] : _oscamBlurBuf[idx];
-      const edge = _oscamClamp01(Math.hypot(right - left, down - up) * 1.58);
-      const detail = _oscamClamp01(Math.abs(_oscamNormBuf[idx] - _oscamBlurBuf[idx]) * (1.9 + cfg.detailN * 0.9) + edge * 0.28);
-      _oscamEdgeBuf[idx] = edge;
-      _oscamDetailBuf[idx] = detail;
-      const cx = Math.min(gw - 1, Math.floor(x / cellW));
-      const cy = Math.min(gh - 1, Math.floor(y / cellH));
-      const cidx = cy * gw + cx;
-      blurCell[cidx] += _oscamBlurBuf[idx];
-      edgeCell[cidx] += edge;
-      detailCell[cidx] += detail;
-    }
-  }
-
-  for (let cy = 0; cy < gh; cy++) {
-    const y0 = Math.floor(cy * cellH);
-    const y1 = Math.min(DSI_H, Math.floor((cy + 1) * cellH));
-    for (let cx = 0; cx < gw; cx++) {
-      const x0 = Math.floor(cx * cellW);
-      const x1 = Math.min(DSI_W, Math.floor((cx + 1) * cellW));
-      const cidx = cy * gw + cx;
-      const cnt = Math.max(1, (x1 - x0) * (y1 - y0));
-      blurCell[cidx] /= cnt;
-      edgeCell[cidx] /= cnt;
-      detailCell[cidx] /= cnt;
-      const energy = _oscamClamp01(
-        blurCell[cidx] * 0.08 +
-        edgeCell[cidx] * (0.50 + cfg.detailN * 0.10) +
-        detailCell[cidx] * (0.42 + cfg.detailN * 0.18)
-      );
-      energyCell[cidx] = energy;
-      sumEnergy += energy;
-      sumDetail += detailCell[cidx];
-      sumEdge += edgeCell[cidx];
-      if (energy > maxEnergy) maxEnergy = energy;
-    }
-  }
-
-  const meanEnergy = sumEnergy / Math.max(1, cellCount);
-  const meanDetail = sumDetail / Math.max(1, cellCount);
-  const meanEdge = sumEdge / Math.max(1, cellCount);
-  const baseThreshold = Math.min(0.88, meanEnergy * (0.96 - cfg.detailN * 0.10) + maxEnergy * 0.08);
-  for (let i = 0; i < cellCount; i++) {
-    active[i] = (energyCell[i] > baseThreshold && (edgeCell[i] > meanEdge * 0.88 || detailCell[i] > meanDetail * (0.84 - cfg.detailN * 0.06))) ? 1 : 0;
-  }
-
-  const components = [];
-  const qx = new Int16Array(cellCount);
-  const qy = new Int16Array(cellCount);
-  let compId = 0;
-  for (let cy = 0; cy < gh; cy++) {
-    for (let cx = 0; cx < gw; cx++) {
-      const startIdx = cy * gw + cx;
-      if (!active[startIdx] || compMap[startIdx] !== -1) continue;
-      let head = 0;
-      let tail = 0;
-      qx[tail] = cx;
-      qy[tail] = cy;
-      tail++;
-      compMap[startIdx] = compId;
-      let area = 0;
-      let sumE = 0;
-      let sumD = 0;
-      let sumB = 0;
-      let sumCX = 0;
-      let sumCY = 0;
-      let minX = cx;
-      let maxX = cx;
-      let minY = cy;
-      let maxY = cy;
-      while (head < tail) {
-        const x = qx[head];
-        const y = qy[head];
-        head++;
-        const idx = y * gw + x;
-        const e = energyCell[idx];
-        const d = detailCell[idx];
-        const b = blurCell[idx];
-        const w = e * 0.62 + d * 0.28 + b * 0.10 + 1e-4;
-        area++;
-        sumE += e;
-        sumD += d;
-        sumB += b;
-        sumCX += (x + 0.5) * w;
-        sumCY += (y + 0.5) * w;
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-        const neighbors = [[1,0],[-1,0],[0,1],[0,-1]];
-        for (let n = 0; n < neighbors.length; n++) {
-          const nx = x + neighbors[n][0];
-          const ny = y + neighbors[n][1];
-          if (nx < 0 || nx >= gw || ny < 0 || ny >= gh) continue;
-          const nidx = ny * gw + nx;
-          if (!active[nidx] || compMap[nidx] !== -1) continue;
-          compMap[nidx] = compId;
-          qx[tail] = nx;
-          qy[tail] = ny;
-          tail++;
-        }
-      }
-      const areaNorm = area / Math.max(1, cellCount);
-      const spanNorm = (((maxX - minX + 1) / gw) + ((maxY - minY + 1) / gh)) * 0.5;
-      const meanEComp = sumE / Math.max(1, area);
-      const meanDComp = sumD / Math.max(1, area);
-      const meanBComp = sumB / Math.max(1, area);
-      components.push({
-        id: compId,
-        area,
-        areaNorm,
-        meanEnergy: meanEComp,
-        meanDetail: meanDComp,
-        meanBlur: meanBComp,
-        score: meanEComp * (0.50 + cfg.presenceN * 0.18) + meanDComp * (0.20 + cfg.detailN * 0.10) + areaNorm * (0.42 + cfg.presenceN * 0.24) + spanNorm * 0.16,
-        minX,
-        maxX,
-        minY,
-        maxY,
-        centerGX: sumCX / Math.max(1e-4, sumE * 0.62 + sumD * 0.28 + sumB * 0.10 + 1e-4),
-        centerGY: sumCY / Math.max(1e-4, sumE * 0.62 + sumD * 0.28 + sumB * 0.10 + 1e-4),
-      });
-      compId++;
-    }
-  }
-
-  components.sort((a, b) => b.score - a.score);
-  const compById = new Array(compId);
-  const maxScore = components.length ? components[0].score : 1;
-  for (let i = 0; i < components.length; i++) {
-    const comp = components[i];
-    comp.rank = i;
-    comp.normScore = comp.score / Math.max(1e-4, maxScore);
-    comp.boundary = _oscamBuildComponentBoundary(compMap, gw, gh, comp.id, comp);
-    comp.rowTrace = _oscamBuildComponentRuns(compMap, gw, gh, comp.id, 'row');
-    comp.colTrace = _oscamBuildComponentRuns(compMap, gw, gh, comp.id, 'col');
-    compById[comp.id] = comp;
-  }
-
-  let cellPresence = new Float32Array(cellCount);
-  for (let i = 0; i < cellCount; i++) {
-    const comp = compMap[i] >= 0 ? compById[compMap[i]] : null;
-    const boost = comp ? comp.normScore : 0;
-    let presence = energyCell[i] * (0.34 + cfg.detailN * 0.06) + blurCell[i] * 0.12 + detailCell[i] * (0.16 + cfg.detailN * 0.20);
-    presence += boost * (0.22 + cfg.presenceN * 0.34);
-    if (!comp) presence *= 0.52 - cfg.presenceN * 0.14;
-    else presence *= 0.78 + cfg.presenceN * 0.42 * boost;
-    cellPresence[i] = _oscamClamp01(presence);
-  }
-  cellPresence = _oscamSmoothGrid(cellPresence, gw, gh, 2);
-
-  _oscamRowMean.fill(0);
-  _oscamRowEdge.fill(0);
-  _oscamColMean.fill(0);
-  _oscamColEdge.fill(0);
-  _oscamRowCentroid.fill(0);
-  _oscamColCentroid.fill(0);
-  let sumW = 0;
-  let sumX = 0;
-  let sumY = 0;
-  for (let y = 0; y < DSI_H; y++) {
-    const rowBase = y * DSI_W;
-    const gy = Math.min(gh - 1, Math.floor(y / cellH));
-    for (let x = 0; x < DSI_W; x++) {
-      const idx = rowBase + x;
-      const gx = Math.min(gw - 1, Math.floor(x / cellW));
-      const cidx = gy * gw + gx;
-      const comp = compMap[cidx] >= 0 ? compById[compMap[cidx]] : null;
-      let presence = cellPresence[cidx] * (0.68 + cfg.presenceN * 0.24) + _oscamBlurBuf[idx] * 0.08 + _oscamDetailBuf[idx] * (0.08 + cfg.detailN * 0.12);
-      if (!comp) presence *= 0.78 - cfg.presenceN * 0.24;
-      _oscamPresenceBuf[idx] = _oscamClamp01(presence);
-      const w = _oscamPresenceBuf[idx] * 0.72 + _oscamDetailBuf[idx] * 0.28 + 1e-4;
-      _oscamRowMean[y] += _oscamPresenceBuf[idx];
-      _oscamColMean[x] += _oscamPresenceBuf[idx];
-      _oscamRowEdge[y] += _oscamDetailBuf[idx];
-      _oscamColEdge[x] += _oscamDetailBuf[idx];
-      _oscamRowCentroid[y] += x * w;
-      _oscamColCentroid[x] += y * w;
-      sumW += w;
-      sumX += x * w;
-      sumY += y * w;
-    }
-  }
-  for (let y = 0; y < DSI_H; y++) {
-    _oscamRowMean[y] /= DSI_W;
-    _oscamRowEdge[y] /= DSI_W;
-    _oscamRowCentroid[y] = _oscamRowCentroid[y] / Math.max(1e-4, (_oscamRowMean[y] + _oscamRowEdge[y]) * DSI_W + 1e-4);
-  }
-  for (let x = 0; x < DSI_W; x++) {
-    _oscamColMean[x] /= DSI_H;
-    _oscamColEdge[x] /= DSI_H;
-    _oscamColCentroid[x] = _oscamColCentroid[x] / Math.max(1e-4, (_oscamColMean[x] + _oscamColEdge[x]) * DSI_H + 1e-4);
-  }
-
-  return {
-    lum,
-    norm:_oscamNormBuf,
-    blur:_oscamBlurBuf,
-    edge:_oscamEdgeBuf,
-    detail:_oscamDetailBuf,
-    presence:_oscamPresenceBuf,
-    rowMean:_oscamRowMean,
-    rowEdge:_oscamRowEdge,
-    rowCentroid:_oscamRowCentroid,
-    colMean:_oscamColMean,
-    colEdge:_oscamColEdge,
-    colCentroid:_oscamColCentroid,
-    centerX: sumW > 1e-4 ? sumX / sumW : DSI_W / 2,
-    centerY: sumW > 1e-4 ? sumY / sumW : DSI_H / 2,
-    contrast: range / 255,
-    components,
-    grid:{ w:gw, h:gh, blur:blurCell, edge:edgeCell, detail:detailCell, energy:energyCell, presence:cellPresence, active, compMap },
-  };
-}
-function _oscamThinPoints(points, step) {
-  if (!points || points.length <= 2 || step <= 1) return points || [];
-  const out = [];
-  for (let i = 0; i < points.length; i += step) out.push(points[i]);
-  if (out.length && points.length > 2 && out[out.length - 1] !== points[points.length - 1]) out.push(points[points.length - 1]);
-  return out;
-}
-function _oscamToScreenPoints(points, scaleX, scaleY, jitter, now, phase) {
-  return points.map((p, i) => {
-    const w = p.w || 1;
-    return {
-      x:p.x * scaleX + Math.cos(now * 1.62 + phase + i * 0.37) * jitter * (0.22 + w * 0.32),
-      y:p.y * scaleY + Math.sin(now * 1.29 + phase + i * 0.31) * jitter * (0.22 + w * 0.32),
-    };
-  });
-}
-function _oscamTracePath(ctx, points, closed) {
-  if (!points || points.length < 2) return;
-  if (!closed) {
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length - 1; i++) {
-      const midX = (points[i].x + points[i + 1].x) * 0.5;
-      const midY = (points[i].y + points[i + 1].y) * 0.5;
-      ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
-    }
-    const last = points[points.length - 1];
-    ctx.lineTo(last.x, last.y);
-    return;
-  }
-  ctx.beginPath();
-  const firstMidX = (points[0].x + points[1].x) * 0.5;
-  const firstMidY = (points[0].y + points[1].y) * 0.5;
-  ctx.moveTo(firstMidX, firstMidY);
-  for (let i = 1; i < points.length; i++) {
-    const next = points[(i + 1) % points.length];
-    const midX = (points[i].x + next.x) * 0.5;
-    const midY = (points[i].y + next.y) * 0.5;
-    ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
-  }
-  ctx.closePath();
-}
-function _oscamRenderWave(sig, palette, cfg, now) {
-  _oscamFrameCtx.clearRect(0, 0, OUT_W, OUT_H);
-  const cellW = OUT_W / sig.grid.w;
-  const cellH = OUT_H / sig.grid.h;
-  const signal = _oscamBuildSignalGrid(sig, cfg);
-  const threshold = 0.20 + (1 - cfg.detailN) * 0.06;
-  const rowSegments = _oscamBuildScanSegments(signal, sig.grid.w, sig.grid.h, threshold, 'row', Math.max(2, Math.round(2 + cfg.detailN * 3)));
-  const colSegments = _oscamBuildScanSegments(signal, sig.grid.w, sig.grid.h, threshold + 0.03, 'col', Math.max(1, Math.round(1 + cfg.detailN * 2)));
-  const jitter = 0.12 + (1 - cfg.intensityN) * 0.16 + cfg.traceN * 0.14;
-
-  for (let i = 0; i < rowSegments.length; i++) {
-    const seg = rowSegments[i];
-    const y = (seg.y + 0.5) * cellH;
-    const x0 = seg.x0 * cellW + cellW * 0.15;
-    const x1 = (seg.x1 + 1) * cellW - cellW * 0.15;
-    const bend = Math.sin(now * 1.05 + seg.y * 0.26 + i * 0.11) * jitter * 10 * seg.strength;
-    _oscamFrameCtx.strokeStyle = _oscamRGBA(palette.beam, 0.12 + seg.strength * 0.82);
-    _oscamFrameCtx.lineWidth = 0.5 + seg.strength * (1.0 + cfg.intensityN * 0.8);
-    _oscamFrameCtx.beginPath();
-    _oscamFrameCtx.moveTo(x0, y);
-    _oscamFrameCtx.quadraticCurveTo((x0 + x1) * 0.5, y + bend, x1, y);
-    _oscamFrameCtx.stroke();
-  }
-  for (let i = 0; i < colSegments.length; i++) {
-    const seg = colSegments[i];
-    const x = (seg.x + 0.5) * cellW;
-    const y0 = seg.y0 * cellH + cellH * 0.15;
-    const y1 = (seg.y1 + 1) * cellH - cellH * 0.15;
-    const bend = Math.cos(now * 0.94 + seg.x * 0.24 + i * 0.09) * jitter * 8 * seg.strength;
-    _oscamFrameCtx.strokeStyle = _oscamRGBA(palette.core, 0.08 + seg.strength * 0.46);
-    _oscamFrameCtx.lineWidth = 0.35 + seg.strength * 0.72;
-    _oscamFrameCtx.beginPath();
-    _oscamFrameCtx.moveTo(x, y0);
-    _oscamFrameCtx.quadraticCurveTo(x + bend, (y0 + y1) * 0.5, x, y1);
-    _oscamFrameCtx.stroke();
-  }
-
-  const comps = sig.components.slice(0, Math.max(1, Math.min(3, Math.round(1 + cfg.presenceN * 2))));
-  for (let i = 0; i < comps.length; i++) {
-    const comp = comps[i];
-    const spanW = Math.max(1, comp.maxX - comp.minX + 1);
-    const spanH = Math.max(1, comp.maxY - comp.minY + 1);
-    const aspect = Math.max(spanW / spanH, spanH / spanW);
-    const outlineGain = aspect > 3.2 ? 0.05 : aspect > 2.2 ? 0.18 : aspect > 1.6 ? 0.42 : 1;
-    if (outlineGain <= 0.06) continue;
-    const outer = _oscamToScreenPoints(comp.boundary, cellW, cellH, jitter * 0.24, now, i * 0.6);
-    _oscamFrameCtx.strokeStyle = _oscamRGBA(palette.accent, (0.08 + comp.normScore * 0.22) * outlineGain);
-    _oscamFrameCtx.lineWidth = (0.6 + comp.normScore * 0.6) * (0.72 + outlineGain * 0.28);
-    _oscamTracePath(_oscamFrameCtx, outer, true);
-    _oscamFrameCtx.stroke();
-  }
-
-  _oscamPersistCtx.fillStyle = _oscamRGBA(palette.bg, 0.30 - cfg.traceN * 0.18);
-  _oscamPersistCtx.fillRect(0, 0, OUT_W, OUT_H);
-  _oscamPersistCtx.drawImage(_oscamFrameCvs, 0, 0);
-}
-function _oscamRenderStatic(sig, palette, cfg) {
-  _oscamFrameCtx.clearRect(0, 0, OUT_W, OUT_H);
-  const staticProfile = _oscamGetStaticProfile(cfg);
-  const structure = _oscamBuildStaticStructure(sig, cfg, staticProfile);
-  const rw = staticProfile.rasterW;
-  const rh = Math.max(54, Math.round(rw * DSI_H / DSI_W));
-  _ensureOscamStaticMem(rw, rh);
-  if (_oscamRasterCvs.width !== rw || _oscamRasterCvs.height !== rh) {
-    _oscamRasterCvs.width = rw;
-    _oscamRasterCvs.height = rh;
-  }
-  const img = _oscamRasterCtx.createImageData(rw, rh);
-  const px = img.data;
-  const raw = _oscamStaticRaw;
-  const hot = _oscamStaticHot;
-  const sx = structure.w / rw;
-  const sy = structure.h / rh;
-  const decay = staticProfile.holdDecay;
-  let minEmit = 1e9;
-  let maxEmit = -1e9;
-  for (let cy = 0; cy < rh; cy++) {
-    const y0 = Math.floor(cy * sy);
-    const y1 = Math.min(structure.h, Math.ceil((cy + 1) * sy));
-    for (let cx = 0; cx < rw; cx++) {
-      const x0 = Math.floor(cx * sx);
-      const x1 = Math.min(structure.w, Math.ceil((cx + 1) * sx));
-      let fillSum = 0;
-      let contourSum = 0;
-      let hotSum = 0;
-      let cnt = 0;
-      for (let y = y0; y < y1; y++) {
-        const rowBase = y * structure.w;
-        for (let x = x0; x < x1; x++) {
-          const idx = rowBase + x;
-          fillSum += structure.fill[idx];
-          contourSum += structure.contour[idx];
-          hotSum += structure.hot[idx];
-          cnt++;
-        }
-      }
-      const fillAvg = cnt ? fillSum / cnt : 0;
-      const contourAvg = cnt ? contourSum / cnt : 0;
-      const hotAvg = cnt ? hotSum / cnt : 0;
-      const contourRasterMix = (0.18 + staticProfile.contourGain * 0.20) * (1 - staticProfile.lineRasterSuppress * 0.78);
-      const rawVal = _oscamClamp01(
-        fillAvg * (0.58 + cfg.presenceN * 0.12 + staticProfile.fillCoherence * 0.05) +
-        contourAvg * contourRasterMix +
-        hotAvg * (0.10 + cfg.detailN * 0.14 + staticProfile.contourRefine * 0.10)
-      );
-      const idx = cy * rw + cx;
-      raw[idx] = rawVal;
-      hot[idx] = _oscamClamp01(hotAvg * 0.72 + contourAvg * 0.28);
-      if (rawVal < minEmit) minEmit = rawVal;
-      if (rawVal > maxEmit) maxEmit = rawVal;
-    }
-  }
-  if (staticProfile.cleanupPasses > 0) {
-    const smoothRaw = _oscamSmoothGrid(raw, rw, rh, staticProfile.cleanupPasses);
-    const smoothHot = _oscamSmoothGrid(hot, rw, rh, Math.min(2, staticProfile.cleanupPasses));
-    for (let i = 0; i < raw.length; i++) {
-      raw[i] = raw[i] * (1 - staticProfile.cleanupMix) + smoothRaw[i] * staticProfile.cleanupMix;
-      hot[i] = hot[i] * (1 - staticProfile.cleanupMix * 0.72) + smoothHot[i] * (staticProfile.cleanupMix * 0.72);
-    }
-    minEmit = 1e9;
-    maxEmit = -1e9;
-    for (let i = 0; i < raw.length; i++) {
-      if (raw[i] < minEmit) minEmit = raw[i];
-      if (raw[i] > maxEmit) maxEmit = raw[i];
-    }
-  }
-  const span = Math.max(0.08, maxEmit - minEmit);
-  const nextLow = minEmit + span * (0.05 - cfg.staticResolveN * 0.02);
-  const nextHigh = maxEmit - span * (0.02 + cfg.staticResolveN * 0.01);
-  if (!_oscamStaticToneReady) {
-    _oscamStaticToneLow = nextLow;
-    _oscamStaticToneHigh = nextHigh;
-    _oscamStaticToneReady = true;
-  } else {
-    const toneFollow = staticProfile.toneFollow;
-    _oscamStaticToneLow += (nextLow - _oscamStaticToneLow) * toneFollow;
-    _oscamStaticToneHigh += (nextHigh - _oscamStaticToneHigh) * toneFollow;
-  }
-  const low = _oscamStaticToneLow;
-  const high = Math.max(low + 0.05, _oscamStaticToneHigh);
-  const inv = 1 / Math.max(0.05, high - low);
-  for (let cy = 0; cy < rh; cy++) {
-    for (let cx = 0; cx < rw; cx++) {
-      const idx = cy * rw + cx;
-      let emit = _oscamClamp01((raw[idx] - low) * inv);
-      emit = Math.pow(emit, 0.90 - cfg.staticResolveN * 0.16 + (1 - cfg.presenceN) * 0.10);
-      emit *= 0.58 + raw[idx] * (0.64 + cfg.presenceN * 0.48);
-      emit = _oscamClamp01(emit);
-      const prev = _oscamStaticMem[idx] || 0;
-      const hold = Math.max(emit, prev * decay);
-      const settle = prev + (emit - prev) * staticProfile.settleMix;
-      let mem = hold * staticProfile.holdBlend + settle * (1 - staticProfile.holdBlend);
-      const ordered = (OSCAM_STATIC_DITHER_4X4[((cy & 3) << 2) | (cx & 3)] / 15 - 0.5) * staticProfile.quantDither;
-      mem = _oscamClamp01(Math.round(_oscamClamp01(mem + ordered) * staticProfile.quantLevels) / staticProfile.quantLevels);
-      _oscamStaticMem[idx] = mem;
-      const hotMix = _oscamClamp01((mem - 0.58) * 1.6 + hot[idx] * (0.18 + cfg.detailN * 0.34));
-      let c;
-      if (mem < 0.22) c = _mixRGB(palette.floor, palette.core, mem / 0.22 * 0.30);
-      else if (mem < 0.72) c = _mixRGB(palette.floor, palette.core, (mem - 0.22) / 0.50);
-      else c = _mixRGB(palette.core, palette.hot, _oscamClamp01(((mem - 0.72) / 0.28) * (0.8 + hotMix * 0.5)));
-      const p = idx << 2;
-      px[p] = c[0];
-      px[p + 1] = c[1];
-      px[p + 2] = c[2];
-      px[p + 3] = 255;
-    }
-  }
-  _oscamRasterCtx.putImageData(img, 0, 0);
-  _oscamFrameCtx.save();
-  _oscamFrameCtx.imageSmoothingEnabled = true;
-  _oscamFrameCtx.imageSmoothingQuality = 'high';
-  _oscamFrameCtx.drawImage(_oscamRasterCvs, 0, 0, OUT_W, OUT_H);
-  _oscamRenderStaticContours(structure, palette, staticProfile);
-  _oscamFrameCtx.globalAlpha = staticProfile.glowAlphaA;
-  _oscamFrameCtx.filter = `blur(${staticProfile.glowBlurA.toFixed(2)}px)`;
-  _oscamFrameCtx.drawImage(_oscamRasterCvs, 0, 0, OUT_W, OUT_H);
-  _oscamFrameCtx.globalAlpha = staticProfile.glowAlphaB;
-  _oscamFrameCtx.filter = `blur(${staticProfile.glowBlurB.toFixed(2)}px)`;
-  _oscamFrameCtx.drawImage(_oscamRasterCvs, 0, 0, OUT_W, OUT_H);
-  _oscamFrameCtx.restore();
-}
-function _oscamRenderDigital(sig, palette, cfg, now) {
-  _oscamFrameCtx.clearRect(0, 0, OUT_W, OUT_H);
-  const gw = sig.grid.w;
-  const gh = sig.grid.h;
-  const cellW = OUT_W / gw;
-  const cellH = OUT_H / gh;
-  const signal = _oscamBuildSignalGrid(sig, cfg);
-  const threshold = 0.18 + (1 - cfg.detailN) * 0.05;
-  const rowSegments = _oscamBuildScanSegments(signal, gw, gh, threshold, 'row', Math.max(2, Math.round(2 + cfg.detailN * 3)));
-  const colSegments = _oscamBuildScanSegments(signal, gw, gh, threshold + 0.03, 'col', Math.max(1, Math.round(1 + cfg.detailN * 2)));
-
-  for (let gy = 0; gy < gh; gy++) {
-    for (let gx = 0; gx < gw; gx++) {
-      const idx = gy * gw + gx;
-      const presence = sig.grid.presence[idx];
-      const detail = sig.grid.detail[idx];
-      if (presence < 0.03 && detail < 0.05) continue;
-      const x = gx * cellW;
-      const y = gy * cellH;
-      _oscamFrameCtx.fillStyle = _oscamRGBA(palette.core, 0.015 + presence * (0.06 + cfg.presenceN * 0.03));
-      _oscamFrameCtx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.ceil(cellW - 1)), Math.max(1, Math.ceil(cellH - 1)));
-    }
-  }
-
-  for (let i = 0; i < rowSegments.length; i++) {
-    const seg = rowSegments[i];
-    const y = (seg.y + 0.5) * cellH;
-    const x0 = seg.x0 * cellW + cellW * 0.12;
-    const x1 = (seg.x1 + 1) * cellW - cellW * 0.12;
-    _oscamFrameCtx.strokeStyle = _oscamRGBA(palette.beam, 0.10 + seg.strength * 0.74);
-    _oscamFrameCtx.lineWidth = 0.5 + seg.strength * 1.1;
-    _oscamFrameCtx.beginPath();
-    _oscamFrameCtx.moveTo(x0, y);
-    _oscamFrameCtx.lineTo(x1, y);
-    _oscamFrameCtx.stroke();
-  }
-  for (let i = 0; i < colSegments.length; i++) {
-    const seg = colSegments[i];
-    const x = (seg.x + 0.5) * cellW;
-    const y0 = seg.y0 * cellH + cellH * 0.12;
-    const y1 = (seg.y1 + 1) * cellH - cellH * 0.12;
-    _oscamFrameCtx.strokeStyle = _oscamRGBA(palette.accent, 0.08 + seg.strength * 0.34);
-    _oscamFrameCtx.lineWidth = 0.35 + seg.strength * 0.7;
-    _oscamFrameCtx.beginPath();
-    _oscamFrameCtx.moveTo(x, y0);
-    _oscamFrameCtx.lineTo(x, y1);
-    _oscamFrameCtx.stroke();
-  }
-
-  const comps = sig.components.slice(0, Math.max(1, Math.min(3, Math.round(1 + cfg.presenceN * 2))));
-  for (let i = 0; i < comps.length; i++) {
-    const comp = comps[i];
-    const spanW = Math.max(1, comp.maxX - comp.minX + 1);
-    const spanH = Math.max(1, comp.maxY - comp.minY + 1);
-    const aspect = Math.max(spanW / spanH, spanH / spanW);
-    const outlineGain = aspect > 3.2 ? 0.04 : aspect > 2.2 ? 0.14 : aspect > 1.6 ? 0.36 : 1;
-    if (outlineGain <= 0.05) continue;
-    const outer = comp.boundary.map(p => ({ x:p.x * cellW, y:p.y * cellH }));
-    _oscamFrameCtx.strokeStyle = _oscamRGBA(palette.beam, (0.06 + comp.normScore * 0.24) * outlineGain);
-    _oscamFrameCtx.lineWidth = (0.7 + comp.normScore * 0.8) * (0.72 + outlineGain * 0.28);
-    _oscamTracePath(_oscamFrameCtx, outer, true);
-    _oscamFrameCtx.stroke();
-  }
-
-  const bars = Math.max(10, Math.round(12 + cfg.intensityN * 22));
-  const baseY = OUT_H * 0.93;
-  for (let i = 0; i < bars; i++) {
-    const x0 = Math.floor(i * DSI_W / bars);
-    const x1 = Math.min(DSI_W, Math.ceil((i + 1) * DSI_W / bars));
-    let energy = 0;
-    let presence = 0;
-    let cnt = 0;
-    for (let x = x0; x < x1; x++) {
-      energy += sig.colEdge[x];
-      presence += sig.colMean[x];
-      cnt++;
-    }
-    energy = cnt ? energy / cnt : 0;
-    presence = cnt ? presence / cnt : 0;
-    const h = OUT_H * (0.03 + energy * 0.18 + presence * 0.08);
-    const x = ((x0 + x1) * 0.5 / DSI_W) * OUT_W;
-    _oscamFrameCtx.strokeStyle = _oscamRGBA(palette.core, 0.14 + energy * 0.22);
-    _oscamFrameCtx.lineWidth = 1;
-    _oscamFrameCtx.beginPath();
-    _oscamFrameCtx.moveTo(x, baseY);
-    _oscamFrameCtx.lineTo(x, baseY - h);
-    _oscamFrameCtx.stroke();
-  }
-
-  _oscamPersistCtx.fillStyle = _oscamRGBA(palette.bg, 0.46 - cfg.traceN * 0.16);
-  _oscamPersistCtx.fillRect(0, 0, OUT_W, OUT_H);
-  _oscamPersistCtx.drawImage(_oscamFrameCvs, 0, 0);
-}
-function _oscamCompose(targetCtx, palette, sourceCanvas, mode, traceN) {
-  targetCtx.fillStyle = _oscamRGBA(palette.bg, 1);
-  targetCtx.fillRect(0, 0, OUT_W, OUT_H);
-  targetCtx.drawImage(sourceCanvas, 0, 0);
-  targetCtx.save();
-  targetCtx.globalCompositeOperation = 'screen';
-  if (mode === 'STATIC') {
-    const staticProfile = _oscamGetStaticProfile(_oscamGetConfig());
-    targetCtx.globalAlpha = staticProfile.glowAlphaA;
-    targetCtx.filter = `blur(${staticProfile.glowBlurA.toFixed(2)}px)`;
-    targetCtx.drawImage(sourceCanvas, 0, 0);
-    targetCtx.globalAlpha = staticProfile.glowAlphaB;
-    targetCtx.filter = `blur(${staticProfile.glowBlurB.toFixed(2)}px)`;
-    targetCtx.drawImage(sourceCanvas, 0, 0);
-  } else if (mode === 'WAVE') {
-    targetCtx.globalAlpha = 0.16 + traceN * 0.18;
-    targetCtx.filter = `blur(${2.0 + traceN * 2.4}px)`;
-    targetCtx.drawImage(sourceCanvas, 0, 0);
-    targetCtx.globalAlpha = 0.07 + traceN * 0.09;
-    targetCtx.filter = `blur(${4.8 + traceN * 4.2}px)`;
-    targetCtx.drawImage(sourceCanvas, 0, 0);
-  } else {
-    targetCtx.globalAlpha = 0.07 + traceN * 0.08;
-    targetCtx.filter = `blur(${0.8 + traceN * 1.4}px)`;
-    targetCtx.drawImage(sourceCanvas, 0, 0);
-    targetCtx.globalAlpha = 0.04 + traceN * 0.05;
-    targetCtx.filter = `blur(${2.4 + traceN * 2.2}px)`;
-    targetCtx.drawImage(sourceCanvas, 0, 0);
-  }
-  targetCtx.filter = 'none';
-  targetCtx.globalAlpha = 1;
-  targetCtx.globalCompositeOperation = 'source-over';
-  targetCtx.restore();
-  if (_oscamOverlaySignature !== `${OUT_W}x${OUT_H}:${_oscamGetModeKey()}:${oscamColorMode}:${_oscamGetModeKey() === 'STATIC' ? oscamDefinitionVal : 'base'}`) _buildOscamOverlay();
-  targetCtx.drawImage(_oscamOverlayCvs, 0, 0);
-}
-function _renderOscamLegacy(source, srcW, srcH, targetCtx, mirror) {
-  const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
-  ctxS.save();
-  if (mirror) {
-    ctxS.translate(DSI_W, 0);
-    ctxS.scale(-1, 1);
-  }
-  ctxS.drawImage(source, sx, sy, sw, sh, 0, 0, DSI_W, DSI_H);
-  ctxS.restore();
-  const { data: src } = ctxS.getImageData(0, 0, DSI_W, DSI_H);
-  const cfg = _oscamGetConfig();
-  const sig = _oscamAnalyzeFrame(src, cfg);
-  const mode = _oscamGetModeKey();
-  const palette = _oscamGetModePalette();
-  const sigKey = `${OUT_W}x${OUT_H}:${mode}:${oscamColorMode}:${oscamIntensityVal}:${oscamDetailVal}:${oscamPresenceVal}:${oscamTraceVal}:${oscamDefinitionVal}`;
-  if (_oscamPersistCvs.width !== OUT_W || _oscamPersistCvs.height !== OUT_H || _oscamPersistSignature !== sigKey) {
-    _resetOscamPersistence();
-    _oscamPersistSignature = sigKey;
-    _buildOscamOverlay();
-  }
-  const now = performance.now() * 0.001;
-  if (mode === 'STATIC') {
-    _oscamRenderStatic(sig, palette, cfg);
-    _oscamCompose(targetCtx, palette, _oscamFrameCvs, mode, cfg.traceN);
-  } else if (mode === 'WAVE') {
-    _oscamRenderWave(sig, palette, cfg, now);
-    _oscamCompose(targetCtx, palette, _oscamPersistCvs, mode, cfg.traceN);
-  } else {
-    _oscamRenderDigital(sig, palette, cfg, now);
-    _oscamCompose(targetCtx, palette, _oscamPersistCvs, mode, cfg.traceN);
-  }
-}
-function _oscamDrawOverlayOnly(targetCtx) {
-  if (_oscamOverlaySignature !== `${OUT_W}x${OUT_H}:${_oscamGetModeKey()}:${oscamColorMode}:${_oscamGetModeKey() === 'STATIC' ? oscamDefinitionVal : 'base'}`) _buildOscamOverlay();
-  targetCtx.drawImage(_oscamOverlayCvs, 0, 0);
-}
-const _oscamWebGLEngine = (() => {
-  const PROC_W = 384;
-  const PROC_H = 288;
-  const inputCvs = document.createElement('canvas');
-  inputCvs.width = PROC_W;
-  inputCvs.height = PROC_H;
-  const inputCtx = inputCvs.getContext('2d', { willReadFrequently:true });
-  let canvas = document.createElement('canvas');
-  let gl = null;
-  let ready = false;
-  let failed = false;
-  let quad = null;
-  let sourceTex = null;
-  let lumaTarget = null;
-  let gradTarget = null;
-  let lineTarget = null;
-  let finalTargets = [null, null];
-  let finalIndex = 0;
-  let sizeKey = '';
-  let preProgram = null;
-  let gradProgram = null;
-  let lineProgram = null;
-  let finalProgram = null;
-  let blitProgram = null;
-  let warned = false;
-
-  const vertSrc = `
-    attribute vec2 a_position;
-    varying vec2 v_uv;
-    void main() {
-      v_uv = a_position * 0.5 + 0.5;
-      gl_Position = vec4(a_position, 0.0, 1.0);
-    }
-  `;
-  const preFrag = `
-    precision mediump float;
-    varying vec2 v_uv;
-    uniform sampler2D u_source;
-    uniform vec2 u_texel;
-    float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
-    void main() {
-      vec3 sum =
-        texture2D(u_source, v_uv + u_texel * vec2(-1.0, -1.0)).rgb * 1.0 +
-        texture2D(u_source, v_uv + u_texel * vec2( 0.0, -1.0)).rgb * 2.0 +
-        texture2D(u_source, v_uv + u_texel * vec2( 1.0, -1.0)).rgb * 1.0 +
-        texture2D(u_source, v_uv + u_texel * vec2(-1.0,  0.0)).rgb * 2.0 +
-        texture2D(u_source, v_uv).rgb * 4.0 +
-        texture2D(u_source, v_uv + u_texel * vec2( 1.0,  0.0)).rgb * 2.0 +
-        texture2D(u_source, v_uv + u_texel * vec2(-1.0,  1.0)).rgb * 1.0 +
-        texture2D(u_source, v_uv + u_texel * vec2( 0.0,  1.0)).rgb * 2.0 +
-        texture2D(u_source, v_uv + u_texel * vec2( 1.0,  1.0)).rgb * 1.0;
-      float y = luma(sum / 16.0);
-      gl_FragColor = vec4(y, y, y, 1.0);
-    }
-  `;
-  const gradFrag = `
-    precision mediump float;
-    varying vec2 v_uv;
-    uniform sampler2D u_luma;
-    uniform vec2 u_texel;
-    float tap(vec2 o) { return texture2D(u_luma, v_uv + o * u_texel).r; }
-    void main() {
-      float tl = tap(vec2(-1.0, -1.0));
-      float tc = tap(vec2( 0.0, -1.0));
-      float tr = tap(vec2( 1.0, -1.0));
-      float ml = tap(vec2(-1.0,  0.0));
-      float mc = tap(vec2( 0.0,  0.0));
-      float mr = tap(vec2( 1.0,  0.0));
-      float bl = tap(vec2(-1.0,  1.0));
-      float bc = tap(vec2( 0.0,  1.0));
-      float br = tap(vec2( 1.0,  1.0));
-      float gx = -tl - 2.0 * ml - bl + tr + 2.0 * mr + br;
-      float gy = -tl - 2.0 * tc - tr + bl + 2.0 * bc + br;
-      float mag = clamp(length(vec2(gx, gy)) * 0.72, 0.0, 1.0);
-      float local = (tl + tc + tr + ml + mc + mr + bl + bc + br) / 9.0;
-      gl_FragColor = vec4(mag, mc, local, 1.0);
-    }
-  `;
-  const lineFrag = `
-    precision mediump float;
-    varying vec2 v_uv;
-    uniform sampler2D u_grad;
-    uniform vec2 u_texel;
-    uniform float u_sensitivity;
-    uniform float u_width;
-    uniform float u_lock;
-    uniform float u_mode;
-    uniform float u_time;
-    vec4 sampleGrad(vec2 uv) { return texture2D(u_grad, uv); }
-    void main() {
-      vec4 base = sampleGrad(v_uv);
-      float staticMix = step(1.5, u_mode);
-      float waveMix = step(0.5, u_mode) - staticMix;
-      vec2 warp = vec2(0.0);
-      if (waveMix > 0.0) {
-        warp = vec2(
-          sin(v_uv.y * 22.0 + u_time * 2.4) * 0.0022 * (0.25 + base.r),
-          cos(v_uv.x * 17.0 + u_time * 1.7) * 0.0014 * (0.20 + base.r)
-        );
-      }
-      vec2 uv = clamp(v_uv + warp, 0.0, 1.0);
-      vec4 g0 = sampleGrad(uv);
-      float mag = g0.r;
-      float luma = g0.g;
-      float local = g0.b;
-      vec2 offset = u_texel * mix(0.70, 2.20, u_width);
-      float g1 = sampleGrad(clamp(uv + vec2( offset.x, 0.0), 0.0, 1.0)).r;
-      float g2 = sampleGrad(clamp(uv - vec2( offset.x, 0.0), 0.0, 1.0)).r;
-      float g3 = sampleGrad(clamp(uv + vec2(0.0,  offset.y), 0.0, 1.0)).r;
-      float g4 = sampleGrad(clamp(uv - vec2(0.0,  offset.y), 0.0, 1.0)).r;
-      float g5 = sampleGrad(clamp(uv + offset, 0.0, 1.0)).r;
-      float g6 = sampleGrad(clamp(uv - offset, 0.0, 1.0)).r;
-      float g7 = sampleGrad(clamp(uv + vec2( offset.x, -offset.y), 0.0, 1.0)).r;
-      float g8 = sampleGrad(clamp(uv + vec2(-offset.x,  offset.y), 0.0, 1.0)).r;
-      float wide = max(mag, max(max(g1, g2), max(max(g3, g4), max(max(g5, g6), max(g7, g8)))));
-      float threshold = mix(0.34, 0.08, u_sensitivity);
-      float band = mix(0.17, 0.020, u_lock);
-      float line = smoothstep(threshold - band, threshold + band, wide);
-      float core = smoothstep(threshold, threshold + band * 0.75, wide);
-      float fillSeed = smoothstep(0.12, 0.80, local);
-      float fillAmount = 0.06 + waveMix * 0.06 + staticMix * 0.18;
-      float fill = fillSeed * fillAmount * mix(0.68, 1.0, u_lock) * (0.30 + line * 0.70);
-      float hot = smoothstep(threshold * 0.82, threshold + band * 1.18, wide) * (0.32 + core * 0.68);
-      hot += clamp((luma - 0.68) * 0.45, 0.0, 0.22) * staticMix;
-      gl_FragColor = vec4(line, core, clamp(fill + hot * 0.18, 0.0, 1.0), clamp(hot, 0.0, 1.0));
-    }
-  `;
-  const finalFrag = `
-    precision mediump float;
-    varying vec2 v_uv;
-    uniform sampler2D u_line;
-    uniform sampler2D u_prev;
-    uniform vec3 u_bg;
-    uniform vec3 u_floor;
-    uniform vec3 u_core;
-    uniform vec3 u_hot;
-    uniform float u_glow;
-    uniform float u_scan;
-    uniform float u_lock;
-    uniform float u_mode;
-    uniform float u_time;
-    uniform vec2 u_resolution;
-    float hash(vec2 p) {
-      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-    }
-    void main() {
-      vec4 lineTex = texture2D(u_line, v_uv);
-      float beam = lineTex.r;
-      float core = lineTex.g;
-      float fill = lineTex.b;
-      float hot = lineTex.a;
-      float staticMix = step(1.5, u_mode);
-      float waveMix = step(0.5, u_mode) - staticMix;
-      float stdMix = 1.0 - step(0.5, u_mode);
-      vec2 px = 1.0 / u_resolution;
-      float halo =
-        texture2D(u_line, v_uv + vec2( px.x, 0.0)).r * 0.18 +
-        texture2D(u_line, v_uv + vec2(-px.x, 0.0)).r * 0.18 +
-        texture2D(u_line, v_uv + vec2(0.0,  px.y)).r * 0.18 +
-        texture2D(u_line, v_uv + vec2(0.0, -px.y)).r * 0.18 +
-        texture2D(u_line, v_uv + vec2( px.x,  px.y)).r * 0.08 +
-        texture2D(u_line, v_uv + vec2(-px.x,  px.y)).r * 0.08 +
-        texture2D(u_line, v_uv + vec2( px.x, -px.y)).r * 0.08 +
-        texture2D(u_line, v_uv + vec2(-px.x, -px.y)).r * 0.08;
-      halo = clamp(halo, 0.0, 1.0);
-      float fillMix = 0.04 + waveMix * 0.06 + staticMix * 0.18;
-      float emit = clamp(
-        beam * (0.68 + stdMix * 0.18 + staticMix * 0.06) +
-        core * 0.26 +
-        fill * fillMix +
-        hot * (0.10 + u_glow * 0.20) +
-        halo * (0.06 + u_glow * 0.34 + staticMix * 0.08),
-        0.0, 1.0
-      );
-      vec3 color = mix(u_bg, u_floor, clamp(fill * 0.92 + halo * 0.12, 0.0, 1.0));
-      color = mix(color, u_core, clamp(emit, 0.0, 1.0));
-      color = mix(color, u_hot, clamp(hot * (0.22 + u_glow * 0.40) + halo * (0.08 + staticMix * 0.10), 0.0, 1.0));
-      float scanWave = 0.5 + 0.5 * sin(v_uv.y * u_resolution.y * 1.55 + u_time * 0.35);
-      float scan = 1.0 - u_scan * (0.04 + staticMix * 0.05 + waveMix * 0.02) * scanWave;
-      float noise = (hash(v_uv * u_resolution + vec2(u_time * 61.0, u_time * 37.0)) - 0.5) *
-        (0.010 + waveMix * 0.010 + staticMix * 0.006) *
-        (0.25 + u_scan * 0.75);
-      color = color * scan + noise;
-      vec3 prev = texture2D(u_prev, v_uv).rgb;
-      float persistence = (0.06 + waveMix * 0.08 + staticMix * 0.10) + u_lock * (0.08 + staticMix * 0.04);
-      persistence = clamp(persistence, 0.0, 0.28);
-      vec3 prevCarry = 1.0 - (1.0 - color) * (1.0 - prev * (0.84 + u_glow * 0.10 + staticMix * 0.04));
-      vec3 outColor = mix(color, prevCarry, persistence);
-      gl_FragColor = vec4(clamp(outColor, 0.0, 1.0), 1.0);
-    }
-  `;
-  const blitFrag = `
-    precision mediump float;
-    varying vec2 v_uv;
-    uniform sampler2D u_tex;
-    void main() {
-      gl_FragColor = texture2D(u_tex, v_uv);
-    }
-  `;
-
-  function compile(type, src) {
-    const shader = gl.createShader(type);
-    gl.shaderSource(shader, src);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const info = gl.getShaderInfoLog(shader) || 'unknown shader error';
-      gl.deleteShader(shader);
-      throw new Error(info);
-    }
-    return shader;
-  }
-  function makeProgram(fragmentSrc) {
-    const vs = compile(gl.VERTEX_SHADER, vertSrc);
-    const fs = compile(gl.FRAGMENT_SHADER, fragmentSrc);
-    const program = gl.createProgram();
-    gl.attachShader(program, vs);
-    gl.attachShader(program, fs);
-    gl.linkProgram(program);
-    gl.deleteShader(vs);
-    gl.deleteShader(fs);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      const info = gl.getProgramInfoLog(program) || 'unknown program link error';
-      gl.deleteProgram(program);
-      throw new Error(info);
-    }
-    return program;
-  }
-  function createTexture(w, h, source) {
-    const tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    if (source) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-    return tex;
-  }
-  function createTarget(w, h) {
-    const tex = createTexture(w, h, null);
-    const fbo = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-      throw new Error('OSCAM framebuffer incomplete');
-    }
-    return { tex, fbo, w, h };
-  }
-  function disposeTarget(target) {
-    if (!target) return;
-    if (target.tex) gl.deleteTexture(target.tex);
-    if (target.fbo) gl.deleteFramebuffer(target.fbo);
-  }
-  function useProgram(program) {
-    gl.useProgram(program);
-    const posLoc = gl.getAttribLocation(program, 'a_position');
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-  }
-  function bindTexture(program, uniformName, tex, unit) {
-    gl.activeTexture(gl.TEXTURE0 + unit);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.uniform1i(gl.getUniformLocation(program, uniformName), unit);
-  }
-  function runPass(program, target, setup) {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fbo : null);
-    gl.viewport(0, 0, target ? target.w : canvas.width, target ? target.h : canvas.height);
-    useProgram(program);
-    if (setup) setup(program);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  }
-  function ensureTargets() {
-    const nextKey = `${OUT_W}x${OUT_H}:${PROC_W}x${PROC_H}`;
-    if (sizeKey === nextKey && lumaTarget && gradTarget && lineTarget && finalTargets[0] && finalTargets[1]) return;
-    sizeKey = nextKey;
-    canvas.width = OUT_W;
-    canvas.height = OUT_H;
-    disposeTarget(lumaTarget);
-    disposeTarget(gradTarget);
-    disposeTarget(lineTarget);
-    disposeTarget(finalTargets[0]);
-    disposeTarget(finalTargets[1]);
-    lumaTarget = createTarget(PROC_W, PROC_H);
-    gradTarget = createTarget(PROC_W, PROC_H);
-    lineTarget = createTarget(PROC_W, PROC_H);
-    finalTargets = [createTarget(OUT_W, OUT_H), createTarget(OUT_W, OUT_H)];
-    finalIndex = 0;
-    clearHistory();
-  }
-  function clearHistory() {
-    if (!gl || !finalTargets[0] || !finalTargets[1]) return;
-    for (let i = 0; i < finalTargets.length; i++) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, finalTargets[i].fbo);
-      gl.viewport(0, 0, finalTargets[i].w, finalTargets[i].h);
-      gl.clearColor(0.0, 0.0, 0.0, 1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-    }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  }
-  function init() {
-    if (ready) return true;
-    if (failed) return false;
-    try {
-      gl = canvas.getContext('webgl', { alpha:false, antialias:false, premultipliedAlpha:false, preserveDrawingBuffer:true }) ||
-           canvas.getContext('experimental-webgl', { alpha:false, antialias:false, premultipliedAlpha:false, preserveDrawingBuffer:true });
-      if (!gl) throw new Error('WebGL unavailable');
-      quad = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-      gl.disable(gl.DEPTH_TEST);
-      gl.disable(gl.BLEND);
-      sourceTex = createTexture(PROC_W, PROC_H, inputCvs);
-      preProgram = makeProgram(preFrag);
-      gradProgram = makeProgram(gradFrag);
-      lineProgram = makeProgram(lineFrag);
-      finalProgram = makeProgram(finalFrag);
-      blitProgram = makeProgram(blitFrag);
-      ensureTargets();
-      ready = true;
-      return true;
-    } catch (err) {
-      if (!warned) {
-        console.warn('OSCAM WebGL init failed, using legacy fallback.', err);
-        warned = true;
-      }
-      failed = true;
-      ready = false;
-      return false;
-    }
-  }
-  function drawSource(source, srcW, srcH, mirror) {
-    const [sx, sy, sw, sh] = cropCoords(srcW, srcH);
-    inputCtx.setTransform(1, 0, 0, 1, 0, 0);
-    inputCtx.clearRect(0, 0, PROC_W, PROC_H);
-    if (mirror) {
-      inputCtx.translate(PROC_W, 0);
-      inputCtx.scale(-1, 1);
-    }
-    inputCtx.drawImage(source, sx, sy, sw, sh, 0, 0, PROC_W, PROC_H);
-    inputCtx.setTransform(1, 0, 0, 1, 0, 0);
-  }
-  function render(source, srcW, srcH, mirror, mode, cfg, palette) {
-    if (!init()) return false;
-    try {
-      ensureTargets();
-      drawSource(source, srcW, srcH, mirror);
-      gl.bindTexture(gl.TEXTURE_2D, sourceTex);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, inputCvs);
-
-      const modeId = mode === 'STATIC' ? 2 : mode === 'WAVE' ? 1 : 0;
-      runPass(preProgram, lumaTarget, program => {
-        bindTexture(program, 'u_source', sourceTex, 0);
-        gl.uniform2f(gl.getUniformLocation(program, 'u_texel'), 1 / PROC_W, 1 / PROC_H);
-      });
-      runPass(gradProgram, gradTarget, program => {
-        bindTexture(program, 'u_luma', lumaTarget.tex, 0);
-        gl.uniform2f(gl.getUniformLocation(program, 'u_texel'), 1 / PROC_W, 1 / PROC_H);
-      });
-      runPass(lineProgram, lineTarget, program => {
-        bindTexture(program, 'u_grad', gradTarget.tex, 0);
-        gl.uniform2f(gl.getUniformLocation(program, 'u_texel'), 1 / PROC_W, 1 / PROC_H);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_sensitivity'), cfg.sensitivityN);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_width'), cfg.lineWidthN);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_lock'), cfg.lockN);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_mode'), modeId);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_time'), performance.now() * 0.001);
-      });
-      const prevTarget = finalTargets[finalIndex];
-      const nextIndex = finalIndex ? 0 : 1;
-      const nextTarget = finalTargets[nextIndex];
-      runPass(finalProgram, nextTarget, program => {
-        bindTexture(program, 'u_line', lineTarget.tex, 0);
-        bindTexture(program, 'u_prev', prevTarget.tex, 1);
-        gl.uniform3f(gl.getUniformLocation(program, 'u_bg'), palette.bg[0] / 255, palette.bg[1] / 255, palette.bg[2] / 255);
-        gl.uniform3f(gl.getUniformLocation(program, 'u_floor'), palette.floor[0] / 255, palette.floor[1] / 255, palette.floor[2] / 255);
-        gl.uniform3f(gl.getUniformLocation(program, 'u_core'), palette.core[0] / 255, palette.core[1] / 255, palette.core[2] / 255);
-        gl.uniform3f(gl.getUniformLocation(program, 'u_hot'), palette.hot[0] / 255, palette.hot[1] / 255, palette.hot[2] / 255);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_glow'), cfg.glowN);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_scan'), cfg.scanN);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_lock'), cfg.lockN);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_mode'), modeId);
-        gl.uniform1f(gl.getUniformLocation(program, 'u_time'), performance.now() * 0.001);
-        gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), OUT_W, OUT_H);
-      });
-      runPass(blitProgram, null, program => {
-        bindTexture(program, 'u_tex', nextTarget.tex, 0);
-      });
-      gl.flush();
-      finalIndex = nextIndex;
-      return true;
-    } catch (err) {
-      if (!warned) {
-        console.warn('OSCAM WebGL runtime failed, using legacy fallback.', err);
-        warned = true;
-      }
-      failed = true;
-      ready = false;
-      return false;
-    }
-  }
-  function reset() {
-    if (!init()) return;
-    clearHistory();
-  }
-  return {
-    canvas,
-    render,
-    reset,
-    isReady:() => ready && !failed,
-  };
-})();
-function renderOscam(source, srcW, srcH, targetCtx, mirror) {
-  const cfg = _oscamGetConfig();
-  const mode = _oscamGetModeKey();
-  const palette = _oscamGetModePalette();
-  const sigKey = `${OUT_W}x${OUT_H}:${mode}:${oscamColorMode}:${oscamIntensityVal}:${oscamDetailVal}:${oscamPresenceVal}:${oscamTraceVal}:${oscamDefinitionVal}`;
-  if (_oscamPersistSignature !== sigKey) {
-    _resetOscamPersistence();
-    _oscamPersistSignature = sigKey;
-    _buildOscamOverlay();
-  }
-  const forceLegacy = /Android/i.test(navigator.userAgent);
-  if (!forceLegacy && _oscamWebGLEngine.render(source, srcW, srcH, mirror, mode, cfg, palette)) {
-    targetCtx.drawImage(_oscamWebGLEngine.canvas, 0, 0, OUT_W, OUT_H);
-    _oscamDrawOverlayOnly(targetCtx);
-    return;
-  }
-  _renderOscamLegacy(source, srcW, srcH, targetCtx, mirror);
-}
-
-// ════════════════════════════════════════════════════════════════════
-// SLHT CAM — Silhouette Field Camera
-// Real-time silhouette-reactive typographic field
-// Android-safe: reduced analysis res, decoupled segmentation cadence
-// ════════════════════════════════════════════════════════════════════
-
-// ── Analysis dimensions ────────────
-const SLHT_AW = 144;
-const SLHT_AH = 108;
-
-// ── Segmentador: el detector de siluetas compartido (silhouette.js) ──
-let _slhtMaskSeq = -1;
-const silhouetteMatte = document.createElement('canvas');
-silhouetteMatte.width = SLHT_AW; silhouetteMatte.height = SLHT_AH;
-const silhouetteMatteCtx = silhouetteMatte.getContext('2d');
-const _slhtLocalMatte = new Float32Array(SLHT_AW*SLHT_AH);
-const silhouettePixels = silhouetteMatteCtx.createImageData(SLHT_AW, SLHT_AH);
-let silhouetteGeometry = '', silhouetteLastInference = -Infinity;
-let silhouetteLocal = true;
-// Offscreen canvas for sampling video at analysis resolution
-let _slhtAnasCvs   = null;
-let _slhtAnasCtx   = null;
-
-// ── Typed field buffers at analysis resolution ────────────────────
-let _slhtMask      = new Float32Array(SLHT_AW * SLHT_AH);
-let _slhtPrevMask  = new Float32Array(SLHT_AW * SLHT_AH);
-let _slhtDist      = new Float32Array(SLHT_AW * SLHT_AH);
-let _slhtNx        = new Float32Array(SLHT_AW * SLHT_AH);
-let _slhtNy        = new Float32Array(SLHT_AW * SLHT_AH);
-let _slhtPrevLuma  = new Uint8Array(SLHT_AW * SLHT_AH);
-let _slhtMotion    = new Float32Array(SLHT_AW * SLHT_AH);
-let _slhtFieldOK   = false;
-let _slhtMaxDist   = 1;
-
-// ── Particle pool (typed arrays for GC-free operation) ────────────
-const _slhtIsMob = EARLY_IS_ANDROID || (window.innerWidth <= 768);
-const SLHT_MAX_P = EARLY_IS_ANDROID ? 550 : (_slhtIsMob ? 850 : 1350);
-const _slhtPX = new Float32Array(SLHT_MAX_P);  // position x (canvas px)
-const _slhtPY = new Float32Array(SLHT_MAX_P);  // position y
-const _slhtVX = new Float32Array(SLHT_MAX_P);  // velocity x
-const _slhtVY = new Float32Array(SLHT_MAX_P);  // velocity y
-const _slhtPA = new Float32Array(SLHT_MAX_P);  // angle (radians)
-const _slhtPC = new Float32Array(SLHT_MAX_P);  // cos(angle) — cached for render
-const _slhtPS = new Float32Array(SLHT_MAX_P);  // sin(angle)
-const _slhtPL = new Float32Array(SLHT_MAX_P);  // life [0,1]
-const _slhtPG = new Uint8Array(SLHT_MAX_P);    // glyph index
-let   _slhtPInited  = false;
-let   _slhtActiveP  = SLHT_MAX_P;
-
-// ── Cheap pseudo-noise LUT (LCG) ──────────────────────────────────
-const _SLHT_NLUT = (() => {
-  const lut = new Float32Array(1024);
-  let s = 0xdeadbeef >>> 0;
-  for (let i = 0; i < 1024; i++) {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    lut[i] = (s >>> 0) / 0x100000000 * 2.0 - 1.0;
-  }
-  return lut;
-})();
-function _slhtNoise(xi, yi) {
-  return _SLHT_NLUT[((xi & 31) * 32 + (yi & 31)) & 1023];
-}
-
-// ── Glyph vocabulary (weighted toward dashes) ─────────────────────
-// Repeated directions weight the field toward short horizontal dashes.
-const SLHT_STROKES = [
-  [.35, 0], [.35, 0], [.35, 0], [.35, 0], [.35, 0],
-  [.52, 0], [.52, 0], [.36, -.4], [.36, .4], [0, .46],
-];
-const SLHT_NG = SLHT_STROKES.length;
-
-// ── Ensure analysis canvas ────────────────────────────────────────
-function _slhtEnsureAnas() {
-  if (_slhtAnasCvs) return;
-  _slhtAnasCvs = document.createElement('canvas');
-  _slhtAnasCvs.width  = SLHT_AW;
-  _slhtAnasCvs.height = SLHT_AH;
-  _slhtAnasCtx = _slhtAnasCvs.getContext('2d', { willReadFrequently: true });
-  _slhtAnasCtx.imageSmoothingEnabled = true;
-}
-
-// ── Chamfer distance + Sobel gradient field ───────────────────────
-// mask: Float32Array[SLHT_AW*SLHT_AH] — 1=person, 0=background
-// Fills _slhtDist, _slhtNx, _slhtNy in-place; both inside & outside body
-function _slhtBuildField(mask, maxDist) {
-  const W = SLHT_AW, H = SLHT_AH, N = W * H;
-  const dist = _slhtDist;
-  const LARGE = 9999.0;
-  dist.fill(LARGE);
-
-  // Boundary: all pixels adjacent to the body/background edge → dist=0
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x;
-      const v = mask[i];
-      if (v < 0.5) {
-        // outside — check if adjacent to inside
-        if ((x > 0   && mask[i-1] >= 0.5) ||
-            (x < W-1 && mask[i+1] >= 0.5) ||
-            (y > 0   && mask[i-W] >= 0.5) ||
-            (y < H-1 && mask[i+W] >= 0.5)) { dist[i] = 0; }
-        else { dist[i] = LARGE; }
-      } else {
-        // inside — check if adjacent to outside
-        if ((x > 0   && mask[i-1] < 0.5) ||
-            (x < W-1 && mask[i+1] < 0.5) ||
-            (y > 0   && mask[i-W] < 0.5) ||
-            (y < H-1 && mask[i+W] < 0.5)) { dist[i] = 0; }
-        else { dist[i] = LARGE; }
-      }
-    }
-  }
-
-  // Two-pass chamfer (cardinal=1, diagonal≈1.414)
-  for (let y = 1; y < H; y++) {
-    for (let x = 1; x < W - 1; x++) {
-      const i = y * W + x;
-      let d = dist[i];
-      const a = dist[(y-1)*W+(x-1)] + 1.414;
-      const b = dist[(y-1)*W+ x   ] + 1.0;
-      const c = dist[(y-1)*W+(x+1)] + 1.414;
-      const dd = dist[y*W+(x-1)] + 1.0;
-      if (a < d) d = a;
-      if (b < d) d = b;
-      if (c < d) d = c;
-      if (dd < d) d = dd;
-      dist[i] = d;
-    }
-  }
-  for (let y = H - 2; y >= 0; y--) {
-    for (let x = W - 2; x >= 0; x--) {
-      const i = y * W + x;
-      let d = dist[i];
-      const a = dist[(y+1)*W+(x+1)] + 1.414;
-      const b = dist[(y+1)*W+ x   ] + 1.0;
-      const c = dist[(y+1)*W+(x-1)] + 1.414;
-      const dd = dist[y*W+(x+1)] + 1.0;
-      if (a < d) d = a;
-      if (b < d) d = b;
-      if (c < d) d = c;
-      if (dd < d) d = dd;
-      dist[i] = d;
-    }
-  }
-
-  // Clamp and track max
-  let maxActual = 0;
-  for (let i = 0; i < N; i++) {
-    if (dist[i] > maxDist) dist[i] = maxDist;
-    if (dist[i] > maxActual && dist[i] < maxDist) maxActual = dist[i];
-  }
-  _slhtMaxDist = Math.max(1, maxActual);
-
-  // Sobel on dist → gradient (outward normal direction)
-  const nx = _slhtNx, ny = _slhtNy;
-  nx.fill(0); ny.fill(0);
-  for (let y = 1; y < H - 1; y++) {
-    for (let x = 1; x < W - 1; x++) {
-      const i = y * W + x;
-      if (dist[i] >= maxDist) continue;
-      const tl=dist[(y-1)*W+(x-1)], tc=dist[(y-1)*W+x], tr=dist[(y-1)*W+(x+1)];
-      const ml=dist[ y   *W+(x-1)],                      mr=dist[ y   *W+(x+1)];
-      const bl=dist[(y+1)*W+(x-1)], bc=dist[(y+1)*W+x], br=dist[(y+1)*W+(x+1)];
-      const gx = (-tl - 2*ml - bl + tr + 2*mr + br);
-      const gy = (-tl - 2*tc - tr + bl + 2*bc + br);
-      const len = Math.sqrt(gx*gx + gy*gy) || 1;
-      const sign = mask[i] >= .5 ? -1 : 1;
-      nx[i] = sign*gx / len;
-      ny[i] = sign*gy / len;
-    }
-  }
-  _slhtFieldOK = true;
-}
-
-// ── Motion map update ─────────────────────────────────────────────
-function _slhtUpdateMotion(imgData) {
-  const pix = imgData.data;
-  for (let i = 0, p = 0; i < SLHT_AW * SLHT_AH; i++, p += 4) {
-    const luma = (pix[p]*77 + pix[p+1]*150 + pix[p+2]*29) >> 8;
-    const diff = Math.abs(luma - _slhtPrevLuma[i]);
-    _slhtMotion[i] = Math.min(1.0, diff * 0.025);
-    _slhtPrevLuma[i] = luma;
-  }
-}
-
-// ── Particle initialization ───────────────────────────────────────
-function _slhtInitParticles(CW, CH) {
-  for (let i = 0; i < SLHT_MAX_P; i++) {
-    _slhtPX[i] = Math.random() * CW;
-    _slhtPY[i] = Math.random() * CH;
-    _slhtVX[i] = 0; _slhtVY[i] = 0;
-    const a = Math.random() * Math.PI * 2;
-    _slhtPA[i] = a;
-    _slhtPC[i] = Math.cos(a);
-    _slhtPS[i] = Math.sin(a);
-    _slhtPL[i] = Math.random();
-    _slhtPG[i] = Math.floor(Math.random() * SLHT_NG);
-  }
-  _slhtPInited = true;
-}
-
-// ── Spawn one particle ────────────────────────────────────────────
-function _slhtSpawnParticle(i, CW, CH) {
-  const fillN = slhtFillAmt / 100;
-  const W = SLHT_AW, H = SLHT_AH;
-  let px = null, py = null;
-  // Try to spawn inside body (scales with fillAmt)
-  if (_slhtFieldOK && Math.random() < 0.5 + 0.45 * fillN) {
-    for (let k = 0; k < 8; k++) {
-      const rx = (Math.random() * W) | 0;
-      const ry = (Math.random() * H) | 0;
-      if (_slhtMask[ry * W + rx] >= 0.5) {
-        px = (rx / W) * CW + (Math.random() - 0.5) * (CW / W) * 2;
-        py = (ry / H) * CH + (Math.random() - 0.5) * (CH / H) * 2;
-        break;
-      }
-    }
-  }
-  if (px == null) {
-    px = Math.random() * CW;
-    py = Math.random() * CH;
-  }
-  _slhtPX[i] = px;
-  _slhtPY[i] = py;
-  _slhtVX[i] = (Math.random() - 0.5) * 0.5;
-  _slhtVY[i] = (Math.random() - 0.5) * 0.5;
-  const a = Math.random() * Math.PI * 2;
-  _slhtPA[i] = a;
-  _slhtPC[i] = Math.cos(a);
-  _slhtPS[i] = Math.sin(a);
-  _slhtPL[i] = 0.25 + Math.random() * 0.75;
-  _slhtPG[i] = Math.floor(Math.random() * SLHT_NG);
-}
-
-// ── Main SLHT renderer ────────────────────────────────────────────
-function renderSlht(source, srcW, srcH, targetCtx, mirror) {
-  const CW = targetCtx.canvas.width;
-  const CH = targetCtx.canvas.height;
-  if (!CW || !CH || !srcW || !srcH) return;
-
-  _slhtEnsureAnas();
-
-  flipSilhouette.start();
-
-  // ── Sample video at analysis resolution ──
-  const geometry = [CW, CH, srcW, srcH, mirror].join(':');
-  if (geometry !== silhouetteGeometry) {
-    silhouetteGeometry = geometry;
-    _slhtFieldOK = false; _slhtPInited = false; silhouetteLastInference = -Infinity;
-    _slhtPrevMask.fill(0);
-  }
-  const [asx, asy, asw, ash] = cropCoordsForDims(srcW, srcH, CW, CH);
-  _slhtAnasCtx.save();
-  if (mirror) {
-    _slhtAnasCtx.translate(SLHT_AW, 0);
-    _slhtAnasCtx.scale(-1, 1);
-  }
-  _slhtAnasCtx.drawImage(source, asx, asy, asw, ash, 0, 0, SLHT_AW, SLHT_AH);
-  _slhtAnasCtx.restore();
-  const imgData = _slhtAnasCtx.getImageData(0, 0, SLHT_AW, SLHT_AH);
-
-  // ── Motion every frame ──
-  _slhtUpdateMotion(imgData);
-
-  // ── Segmentación ──
-  // El detector trabaja en su worker: aquí solo se le ofrece el cuadro y se recoge la última
-  // máscara. Mientras carga, o si falla, un mate local por contraste da una silueta óptica.
-  const instant = performance.now();
-  flipSilhouette.push(source, asx, asy, asw, ash, mirror);
-  const detected = flipSilhouette.latest();
-  const freshMask = !!detected && detected.seq !== _slhtMaskSeq;
-  if (freshMask || (!detected && (!_slhtFieldOK || instant - silhouetteLastInference >= 80))) {
-    silhouetteLastInference = instant;
-    let rawMask, mW, mH;
-    if (detected) {
-      _slhtMaskSeq = detected.seq;
-      rawMask = detected.data; mW = detected.width; mH = detected.height;
-    }
-    silhouetteLocal = !rawMask;
-    if (!rawMask) {
-      // Local contrast matte gives an immediate optical silhouette even offline.
-      mW = SLHT_AW; mH = SLHT_AH;
-      rawMask = _slhtLocalMatte;
-      const pix = imgData.data;
-      let rr=0, gg=0, bb=0, count=0;
-      for (let y=0; y<mH; y+=3) for (const x of [0,mW-1]) {
-        const i=4*(y*mW+x); rr+=pix[i]; gg+=pix[i+1]; bb+=pix[i+2]; count++;
-      }
-      rr/=count; gg/=count; bb/=count;
-      for(let j=0;j<rawMask.length;j++){
-        const i=4*j, delta=(Math.abs(pix[i]-rr)+Math.abs(pix[i+1]-gg)+Math.abs(pix[i+2]-bb))/3;
-        rawMask[j]=Math.max(0, Math.min(1,(delta-15)/48));
-      }
-    }
-    if (rawMask && mW > 0 && mH > 0) {
-      // Downsample + temporal smooth mask into _slhtMask
-      const W = SLHT_AW, H = SLHT_AH;
-      const smooth = Math.min(0.88, 0.05 + slhtSmoothAmt / 100 * 0.83);
-      for (let y = 0; y < H; y++) {
-        for (let x = 0; x < W; x++) {
-          const mx = (x / (W - 1)) * (mW - 1);
-          const my = (y / (H - 1)) * (mH - 1);
-          const mx0 = mx | 0, mx1 = Math.min(mx0 + 1, mW - 1);
-          const my0 = my | 0, my1 = Math.min(my0 + 1, mH - 1);
-          const fx = mx - mx0, fy = my - my0;
-          const v =
-            rawMask[my0 * mW + mx0] * (1 - fx) * (1 - fy) +
-            rawMask[my0 * mW + mx1] * fx        * (1 - fy) +
-            rawMask[my1 * mW + mx0] * (1 - fx) * fy        +
-            rawMask[my1 * mW + mx1] * fx        * fy;
-          const i = y * W + x;
-          const previous = _slhtPrevMask[i];
-          const keep = _slhtFieldOK ? smooth * Math.max(.15, 1 - Math.abs(v - previous)) : 0;
-          _slhtMask[i] = previous * keep + v * (1 - keep);
-          _slhtPrevMask[i] = _slhtMask[i];
-        }
-      }
-      // Rebuild distance + gradient field
-      const haloPixels = Math.max(3, Math.round(slhtHaloReach / 100 * (EARLY_IS_ANDROID ? 12 : 18)));
-      _slhtBuildField(_slhtMask, haloPixels);
-    }
-  }
-
-  // ── Init particles on first valid frame ──
-  if (!_slhtPInited) _slhtInitParticles(CW, CH);
-
-  // ── Update particle physics ──
-  if (_slhtFieldOK) {
-    const W = SLHT_AW, H = SLHT_AH;
-    const haloMax     = Math.max(1, _slhtMaxDist);
-    const contourBand = Math.max(1, haloMax * 0.35);
-    const flowN       = slhtFlowStr  / 100;
-    const lockN       = slhtContourLk / 100;
-    const noiseN      = slhtNoiseAmt  / 100;
-    const motN        = slhtMotionR   / 100;
-    const fillN       = slhtFillAmt   / 100;
-    const damping     = 0.88;
-    const maxSpd      = 2.4;
-    const lifeLoss    = 0.0035;
-    const now         = performance.now() * 0.001;
-
-    _slhtActiveP = Math.round(SLHT_MAX_P * Math.max(0.12, slhtDensity / 100));
-
-    for (let i = 0; i < _slhtActiveP; i++) {
-      let px = _slhtPX[i], py = _slhtPY[i];
-      let vx = _slhtVX[i], vy = _slhtVY[i];
-      let angle = _slhtPA[i];
-      let life  = _slhtPL[i];
-
-      // Map to mask space
-      const mx = Math.max(0, Math.min(W - 1, ((px / CW) * W) | 0));
-      const my = Math.max(0, Math.min(H - 1, ((py / CH) * H) | 0));
-      const mi = my * W + mx;
-
-      const inside = _slhtMask[mi] >= 0.5;
-      const d      = _slhtDist[mi];          // distance to contour
-      const normX  = _slhtNx[mi];            // outward normal x
-      const normY  = _slhtNy[mi];            // outward normal y
-      const tanX   = -normY;                 // tangent (perpendicular to normal)
-      const tanY   =  normX;
-      const mot    = _slhtMotion[mi];
-
-      if (inside) {
-        if (d <= contourBand) {
-          // Contour inner band: strong tangent lock + body-hugging
-          const str = lockN * (1.0 - d / contourBand) * 1.3 * flowN;
-          vx += tanX * str;
-          vy += tanY * str;
-          // Soft inward nudge to prevent drift outward
-          vx -= normX * lockN * 0.12;
-          vy -= normY * lockN * 0.12;
-          // Motion amplification at contour
-          vx += tanX * mot * motN * 1.6;
-          vy += tanY * mot * motN * 1.6;
-        } else if (fillN > 0.05) {
-          // Interior fill zone: soft wandering
-          const ni = ((mx * 7 + (now * 5.3) | 0)) & 31;
-          const nj = ((my * 5 + (now * 4.1) | 0)) & 31;
-          const nv = _slhtNoise(ni, nj) * noiseN * 0.22 * fillN;
-          const na = angle + nv * Math.PI;
-          vx += Math.cos(na) * 0.18 * fillN;
-          vy += Math.sin(na) * 0.18 * fillN;
-          vx += mot * normX * motN * 0.5;
-          vy += mot * normY * motN * 0.5;
-        } else {
-          // Low fill: slowly drift toward contour
-          vx -= normX * 0.15;
-          vy -= normY * 0.15;
-        }
-      } else {
-        // Outside body
-        if (d < haloMax) {
-          // Halo band: tangent flow + gentle inward pull
-          const hStr = 1.0 - d / haloMax;
-          vx += tanX * hStr * flowN * 0.65;
-          vy += tanY * hStr * flowN * 0.65;
-          vx -= normX * hStr * 0.22;   // pull toward body
-          vy -= normY * hStr * 0.22;
-          vx += tanX * mot * motN * 0.9;
-          vy += tanY * mot * motN * 0.9;
-        } else {
-          // Far outside: die faster
-          life -= 0.05;
-        }
-      }
-
-      // Secondary noise (texture term, low weight)
-      if (noiseN > 0.02) {
-        const ni2 = ((mx + (now * 3.7) | 0)) & 31;
-        const nj2 = ((my + (now * 2.9) | 0)) & 31;
-        vx += _slhtNoise(ni2, nj2) * noiseN * 0.15;
-        vy += _slhtNoise((ni2+7)&31, (nj2+13)&31) * noiseN * 0.15;
-      }
-
-      // Damping + speed clamp
-      vx *= damping; vy *= damping;
-      const spd2 = vx * vx + vy * vy;
-      if (spd2 > maxSpd * maxSpd) {
-        const inv = maxSpd / Math.sqrt(spd2);
-        vx *= inv; vy *= inv;
-      }
-
-      // Integrate
-      px += vx; py += vy;
-
-      // Angle tracks velocity lazily (smooth orientation update)
-      const spd = Math.sqrt(vx * vx + vy * vy);
-      if (spd > 0.04) {
-        const targetA = Math.atan2(vy, vx);
-        let da = targetA - angle;
-        if (da >  Math.PI) da -= Math.PI * 2;
-        if (da < -Math.PI) da += Math.PI * 2;
-        angle += da * 0.10;
-      }
-
-      life -= lifeLoss + (inside ? 0 : 0.002);
-
-      // Recycle dead / OOB particles
-      if (life <= 0 || px < -25 || px > CW + 25 || py < -25 || py > CH + 25) {
-        _slhtSpawnParticle(i, CW, CH);
-        continue;
-      }
-
-      _slhtPX[i] = px; _slhtPY[i] = py;
-      _slhtVX[i] = vx; _slhtVY[i] = vy;
-      _slhtPA[i] = angle;
-      _slhtPC[i] = Math.cos(angle);
-      _slhtPS[i] = Math.sin(angle);
-      _slhtPL[i] = life;
-    }
-  }
-
-  // ══ RENDER ════════════════════════════════════════════════════════
-  const ctx = targetCtx;
-
-  // 1. Black background
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, CW, CH);
-
-  // The subject forms a light printing surface for dark type; the halo is luminous outside it.
-  const plate = silhouettePixels.data;
-  for (let j=0; j<_slhtMask.length; j++) {
-    const t = Math.max(0,Math.min(1,(_slhtMask[j]-.22)/.56));
-    const coverage = t*t*(3-2*t);
-    const shade = 7 + coverage*(135+_slhtPrevLuma[j]*.34);
-    const rim = Math.max(0,1-_slhtDist[j]/2.5)*42;
-    const i=j*4;
-    plate[i]=shade+rim; plate[i+1]=shade+rim*1.12; plate[i+2]=shade+rim*.96; plate[i+3]=255;
-  }
-  silhouetteMatteCtx.putImageData(silhouettePixels,0,0);
-  ctx.save(); ctx.imageSmoothingEnabled=true;
-  ctx.drawImage(silhouetteMatte,0,0,CW,CH);
-  if (silhouetteLocal) {
-    ctx.fillStyle='#c6d5ce';ctx.font=Math.max(11,CW/70)+'px monospace';
-    ctx.fillText(flipSilhouette.status().phase === 'failed' ? 'CONTORNO LOCAL · toca para reintentar' : 'CONTORNO LOCAL · cargando detector',CW*.025,CH*.052);
-  }
-  ctx.restore();
-
-  // 4. Draw particles — crisp black glyph marks
-  if (!_slhtFieldOK) return;
-
-  const W = SLHT_AW, H = SLHT_AH;
-  const haloMax     = _slhtMaxDist;
-  const contourBand = Math.max(1, haloMax * 0.35);
-  const fillN       = slhtFillAmt / 100;
-  const glyphSz     = slhtGlyphSz;
-
-  // Bucket ink strokes by opacity so a full particle field takes at most eight strokes.
-  const marks = Array.from({length:8}, () => new Path2D());
-  for (let i = 0; i < _slhtActiveP; i++) {
-    const life = _slhtPL[i];
-    if (life <= 0) continue;
-
-    const px = _slhtPX[i], py = _slhtPY[i];
-    const mx = Math.max(0, Math.min(W - 1, ((px / CW) * W) | 0));
-    const my = Math.max(0, Math.min(H - 1, ((py / CH) * H) | 0));
-    const mi = my * W + mx;
-
-    const inside = _slhtMask[mi] >= 0.5;
-    const d      = _slhtDist[mi];
-
-    let alpha = life;
-    if (inside) {
-      if (d > contourBand) {
-        // Interior: visibility scales with fill amount
-        alpha *= 0.25 + 0.75 * fillN;
-      }
-      // Contour band: full opacity (alpha = life)
-    } else {
-      if (d < haloMax) {
-        // Halo: fade with distance
-        alpha *= 0.15 + 0.70 * (1.0 - d / haloMax);
-      } else {
-        continue; // too far outside, invisible
-      }
-    }
-    if (alpha < 0.04) continue;
-
-    const [localX, localY] = SLHT_STROKES[_slhtPG[i]];
-    const ux = _slhtPC[i], uy = _slhtPS[i];
-    const dx=glyphSz*(ux*localX-uy*localY), dy=glyphSz*(uy*localX+ux*localY);
-    const path=marks[(inside?0:4)+Math.min(3,Math.floor(alpha*4))];
-    path.moveTo(px-dx,py-dy);path.lineTo(px+dx,py+dy);
-  }
-  ctx.save();
-  ctx.lineWidth=Math.max(.8,glyphSz*.13);ctx.lineCap='round';
-  for(let k=0;k<marks.length;k++){
-    ctx.strokeStyle=k<4?'#0c1111':'#cee8dc';
-    ctx.globalAlpha=((k%4)+1)/4;
-    ctx.stroke(marks[k]);
-  }
-  ctx.restore();
-}
-
-// ── SLHT reset (called when switching away from SLHT family) ──────
-function _resetSlht() {
-  _slhtPInited = false;
-  _slhtFieldOK = false;
-  _slhtMaskSeq = -1;
-  _slhtPrevMask.fill(0);
-  _slhtMask.fill(0);
-  _slhtPrevLuma.fill(0);
-  _slhtMotion.fill(0);
-  // Keep segmenter alive for fast re-activation
-}
-display.addEventListener('click', () => {
-  if (activeTab !== 'cam' || camFamily !== 'SLHT' || flipSilhouette.status().phase !== 'failed') return;
-  flipSilhouette.retry();
-});
 
 // ════════════════════════════════════════════════════════════════════
 // AUDIO SOURCE FRAME — a color image driven by the live audio, used as
@@ -13132,7 +10499,7 @@ let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 let customCameraFps = false;
-const cameraCadence = { DSI:8, STAMP:24, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, SLHT:24, PRENSA:24, CONSOLA:24, CLON:30 };
+const cameraCadence = { DSI:8, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, PRENSA:24, CONSOLA:24, CLON:30 };
 function syncCameraCadence() {
   document.getElementById('camFpsVal').textContent = camFpsTarget;
   document.getElementById('camFpsSlider').value = camFpsTarget;
@@ -16374,7 +13741,7 @@ function _getCamRecordingOptions() {
   }
   options.renderFrame = ({ ctx, width, height, now }) => {
     // These effects accumulate history on the live canvas; sample the exact presented frame.
-    if (camFamily === 'SLHT' || (camFamily === 'OSCAM' && camVariant === 'TIME') || (camFamily === 'CASKIA' && camVariant !== 'STD')) {
+    if (camFamily === 'CASKIA' && camVariant !== 'STD') {
       ctx.drawImage(display, 0, 0, width, height);
       return;
     }
@@ -16386,7 +13753,6 @@ function _getCamRecordingOptions() {
   };
   options.onStop = () => {
     _resetCamEngineState('capture');
-    _resetOscamCaptureStates();
   };
   return options;
 }
@@ -16509,7 +13875,7 @@ btnCap.addEventListener('click', async () => {
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
     const shot = await cameraPhoto();
     if (!shot) return;
-    await saveBlob(shot, _flipName(camFamily === 'SLHT' ? 'slht' : 'cam', 'jpg'));
+    await saveBlob(shot, _flipName('cam', 'jpg'));
   } else {
     // Toggle video recording
     if (!recorder || recorder.state === 'inactive') {
@@ -16541,7 +13907,7 @@ btnCap.addEventListener('click', async () => {
           lastBlob=new Blob(recChunks,{type:recMime});
           // Si la toma se cerró porque la página pasó a segundo plano, se guarda al volver.
           await whenVisible();
-          await saveBlob(lastBlob, _flipName(camFamily === 'SLHT' ? 'slht' : 'cam', ext));
+          await saveBlob(lastBlob, _flipName('cam', ext));
         }
       });
       recorder.start(250);
@@ -20472,8 +17838,7 @@ function saveSettings() {
       stampEngraveVal, stampInkVal, stampDetailVal, stampPaperVal, stampPaletteMode, stampFrameMode,
       dsiTramaVal, dsiCeldaVal,
       pressDotVal, pressInkVal, pressPaperVal, pressRegVal, pressPairVal,
-      dlpColorMode, dlpResonanceVal, dlpContrastVal, oscamIntensityVal, oscamDetailVal, oscamPresenceVal, oscamTraceVal, oscamDefinitionVal, oscamLegacyMode, oscamColorMode,
-      slhtDensity, slhtHaloReach, slhtFlowStr, slhtContourLk, slhtMotionR, slhtGlyphSz, slhtNoiseAmt, slhtFillAmt, slhtSmoothAmt,
+      dlpColorMode, dlpResonanceVal, dlpContrastVal, oscamIntensityVal, oscamDetailVal, oscamPresenceVal, oscamTraceVal, oscamDefinitionVal, oscamColorMode,
       sonoPreset, sonoMixVal, sonoChaosVal,
       wmpPreset: wmpPreset, wmpSensVal, wmpTrailsVal,
       uploadMode,
@@ -20504,6 +17869,7 @@ function loadSettings() {
     if (s.uploadActivePal !== undefined) uploadActivePal = s.uploadActivePal;
     if (s.vfdActivePal !== undefined) vfdActivePal = s.vfdActivePal;
     // CAM family/variant (new system — takes priority over legacy legacyMode flag)
+    if (s.camFamily === 'STAMP') s.camFamily = 'PRENSA';               // la cámara STAMP ahora son tres variantes de PRINT (misma id de variante)
     if (s.camFamily  && CAM_FAMILIES[s.camFamily])  camFamily  = s.camFamily;
     if (s.camVariant) {
       const variants = (CAM_FAMILIES[camFamily] && CAM_FAMILIES[camFamily].variants) || [];
@@ -20637,24 +18003,10 @@ function loadSettings() {
         document.getElementById('vOscamDefinition').textContent = oscamDefinitionVal;
       }
     }
-    if (s.oscamLegacyMode && ['WAVE', 'STATIC'].includes(s.oscamLegacyMode)) {
-      oscamLegacyMode = s.oscamLegacyMode;
-      document.querySelectorAll('.oscam-mode-btn[data-oscmode]').forEach(b => b.classList.toggle('active', b.dataset.oscmode === oscamLegacyMode));
-    }
     if (s.oscamColorMode && ['GREEN', 'BLUE', 'RED'].includes(s.oscamColorMode)) {
       oscamColorMode = s.oscamColorMode;
       document.querySelectorAll('.oscam-color-btn').forEach(b => b.classList.toggle('active', b.dataset.osccol === oscamColorMode));
     }
-    // SLHT params
-    if (s.slhtDensity   !== undefined) { slhtDensity   = s.slhtDensity; }
-    if (s.slhtHaloReach !== undefined) { slhtHaloReach = s.slhtHaloReach; }
-    if (s.slhtFlowStr   !== undefined) { slhtFlowStr   = s.slhtFlowStr; }
-    if (s.slhtContourLk !== undefined) { slhtContourLk = s.slhtContourLk; }
-    if (s.slhtMotionR   !== undefined) { slhtMotionR   = s.slhtMotionR; }
-    if (s.slhtGlyphSz   !== undefined) { slhtGlyphSz   = s.slhtGlyphSz; }
-    if (s.slhtNoiseAmt  !== undefined) { slhtNoiseAmt  = s.slhtNoiseAmt; }
-    if (s.slhtFillAmt   !== undefined) { slhtFillAmt   = s.slhtFillAmt; }
-    if (s.slhtSmoothAmt !== undefined) { slhtSmoothAmt = s.slhtSmoothAmt; }
     _applyCamState();
     // SONO
     if (s.sonoPreset !== undefined) { sonoPreset = s.sonoPreset; document.querySelectorAll('.sono-preset-btn').forEach((b,i)=>b.classList.toggle('active',i===sonoPreset)); }
@@ -22005,7 +19357,7 @@ _fusionLoop.maxFps = 24;
   Object.keys(CAM_FAMILIES).forEach(fam => {
     const btn = document.createElement('button');
     btn.className = 'fusion-fam-pill' + (fam === camFamily ? ' active' : '');
-    btn.textContent = CAM_FAMILIES[fam].label;
+    btn.textContent = CAM_FAMILIES[fam].displayLabel || CAM_FAMILIES[fam].label;
     btn.dataset.family = fam;
     btn.addEventListener('click', () => _setCamFamily(fam));
     famRow.appendChild(btn);
@@ -22374,7 +19726,7 @@ _editLoop.maxFps = 24;
 
   // ── Layer list UI ────────────────────────────────────────────────────
   function _editLayerLabel(step) {
-    if (step.engine === 'cam') return 'CAM · ' + (step.family || camFamily);
+    if (step.engine === 'cam') { const fam = step.family || camFamily; return 'CAM · ' + ((CAM_FAMILIES[fam] && CAM_FAMILIES[fam].displayLabel) || fam); }
     if (step.engine === 'glitch') return 'GLITCH';
     if (step.engine === 'ascii') return 'ASCII';
     if (step.engine === 'flowblob') return 'FLOW';

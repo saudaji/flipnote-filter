@@ -99,8 +99,10 @@ const DEFAULTS = { pressDot: 3, pressInk: 50, pressPaper: 35, pressReg: 0, press
     await page.addInitScript(KIT);
     await page.evaluate(KIT);
     await page.evaluate(values => PressKit.set(values), DEFAULTS);
-    const variants = await page.evaluate(() => CAM_FAMILIES.PRENSA.variants.map(v => v.id));
-    assert.deepEqual(variants, ['CMYK', 'DIARIO', 'RISO']);
+    const todas = await page.evaluate(() => CAM_FAMILIES.PRENSA.variants.map(v => v.id));
+    const variants = todas.slice(0, 3);                                 // las de imprenta: lo que esta prueba mide (el sello va en material-audit)
+    assert.deepEqual(todas, ['CMYK', 'DIARIO', 'RISO', 'ENGR', 'INK', 'ISSUE'], 'PRINT: tres de imprenta (press.js) y las tres del sello postal (stamp.js)');
+    assert.deepEqual(await page.evaluate(() => ['CMYK', 'RISO', 'ENGR', 'ISSUE'].map(v => [_getCamEngineProfile('PRENSA', v).renderer, _esSello('PRENSA', v)])), [['press', false], ['press', false], ['stamp', true], ['stamp', true]], 'cada variante, con su motor');
     const first = await page.evaluate(() => { PressKit.print(PressKit.field('#808080'), 'CMYK'); return flipPress.state(); });
     assert.ok(first.ready && !first.failed, 'PRENSA pinta en la gráfica: ' + JSON.stringify(first));
 
@@ -178,7 +180,7 @@ const DEFAULTS = { pressDot: 3, pressInk: 50, pressPaper: 35, pressReg: 0, press
     await page.waitForFunction(() => camFamily === 'PRENSA' && flipPress.state().mode === 'CMYK');
     await page.waitForTimeout(500);
     const live = await page.evaluate(() => ({ lcd: document.getElementById('lcdLook').textContent, thumb: getComputedStyle(document.querySelector('#deckLooks .look[data-family="PRENSA"]').firstChild).backgroundImage, stats: PressKit.stats(display), fps: camFpsTarget }));
-    assert.match(live.lcd, /PRENSA/i);
+    assert.match(live.lcd, /PRINT/i);
     assert.match(live.thumb, /look-PRENSA\.webp/);
     assert.ok(live.stats.vivid > 0.05, 'el visor está impreso a color: ' + JSON.stringify(live.stats));
     if (shots) await page.screenshot({ path: path.join(shots, 'prensa-cmyk.png') });

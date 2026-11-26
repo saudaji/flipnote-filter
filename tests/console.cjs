@@ -75,7 +75,7 @@ async function main() {
     step('CAM: cada sección de cada cámara cabe en la placa, sin scroll', seen);
 
     // 2 · Gestos.
-    await page.evaluate(() => { _setCamFamily('STAMP'); });
+    await page.evaluate(() => { _setCamFamily('PRENSA'); camVariant = 'ENGR'; _applyCamState(); });       // el sello postal de PRINT
     await page.locator('#deckAdjust').click();
     await settle(450);
     const before = await value('stampEngrave');

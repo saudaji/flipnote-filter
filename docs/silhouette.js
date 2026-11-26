@@ -1,4 +1,4 @@
-// Detector de siluetas compartido por SLHT (familia de CAM) y FLOW.
+// Detector de siluetas compartido por STAGE (la clave SILUETA) y FLOW.
 //
 // Un solo segmentador de personas para toda la app, en un worker y con el delegado de CPU.
 // Antes cada módulo creaba el suyo con el delegado de GPU: en la PowerVR del Pixel 10 la

@@ -172,9 +172,9 @@ async function main() {
     console.log('cámara simulada a ' + camFps + ' cuadros/s · ' + (hz ? 'pantalla simulada de ' + hz + ' Hz · ' : '') + seconds + ' s por medida · CPU en núcleos (1,00 = un núcleo entero)');
     if (want('cam')) {
       await measure('cam DSI (recién abierta)');
-      for (const [family, variant] of [['STAMP', 'ENGR'], ['AUTO03', 'NIGHT'], ['DLPHN', 'STD'], ['CASKIA', 'SEIKO'], ['VFD', 'STD'], ['VFD', 'CRT'], ['OSCAM', 'STD'], ['PRENSA', 'CMYK'], ['SLHT', null]]) {
+      for (const [family, variant] of [['PRENSA', 'ENGR'], ['AUTO03', 'NIGHT'], ['DLPHN', 'STD'], ['CASKIA', 'SEIKO'], ['VFD', 'STD'], ['VFD', 'CRT'], ['OSCAM', 'STD'], ['PRENSA', 'CMYK']]) {
         await pick(family, variant);
-        await measure('cam ' + family + (variant ? ' ' + variant : ''), family === 'SLHT' ? 5000 : 1600);
+        await measure('cam ' + family + (variant ? ' ' + variant : ''), 1600);
       }
       await pick('DSI', 'STD');
       await page.locator('#shellSettings').click();

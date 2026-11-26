@@ -515,11 +515,12 @@ const flipPortal = (() => {
     else if (style.extra === 'SONO') _editRenderSonoSource(ctx, w, h, now);
     else if (style.extra === 'WMP') _editRenderWmpSource(ctx, w, h, now);
     else {
-      // De STAMP entra la trama, no el marco del sello.
+      // Del sello de PRINT entra la trama, no el marco.
       const frame = typeof stampFrameMode === 'string' ? stampFrameMode : null;
-      if (frame !== null && style.family === 'STAMP') stampFrameMode = 'OFF';
+      const sello = typeof _esSello === 'function' && _esSello(style.family, style.variant);
+      if (frame !== null && sello) stampFrameMode = 'OFF';
       try { _renderCamEngineFrame(base, base.width, base.height, ctx, false, { path: 'capture', now, outW: w, outH: h, resolution: 'medium', family: style.family, variant: style.variant }); }
-      finally { if (frame !== null && style.family === 'STAMP') stampFrameMode = frame; }
+      finally { if (frame !== null && sello) stampFrameMode = frame; }
     }
     entry.at = now; entry.dirty = true; entry.drawn = true;
   }
@@ -1138,7 +1139,6 @@ void main() { o = uColor; }`;
     for (const slot of state.bases) if (slot) slot.shot = 0;
     gfx.head = -1; gfx.lastUp = -Infinity; gfx.seq = -1; state.baseAt = -Infinity; state.baseShot = 0; sync.lastT = 0; trk.sentShot = 0;
     document.body.classList.add('portal-mode');
-    if (typeof camFamily === 'string' && camFamily === 'SLHT') _setCamFamily('DSI');
     const looks = flipShell.looks;
     if (!looks.querySelector('[data-look]')) {
       for (const [key, spec] of Object.entries(EXTRA)) {

@@ -37,11 +37,9 @@
     PRENSA: { dice: 'El bajo descuadra las planchas; los medios cargan la tinta', mandos: [
       mando(() => pressRegVal, v => { pressRegVal = v; }, 'bass', 60, 0, 100),
       mando(() => pressInkVal, v => { pressInkVal = v; }, 'mid', 30, 0, 100)] },
-    SLHT: { dice: 'El bajo agranda las letras; los agudos las agitan', mandos: [
-      mando(() => slhtGlyphSz, v => { slhtGlyphSz = v; }, 'bass', 8, 5, 18),
-      mando(() => slhtNoiseAmt, v => { slhtNoiseAmt = v; }, 'high', 55, 0, 100)] },
   };
-  const mapaDe = family => { const m = MAPA[family]; return m && (!m.solo || camVariant === m.solo) ? m : null; };
+  // (el sello postal es una variante de PRINT, pero sus mandos son otros: se busca por «STAMP»)
+  const mapaDe = family => { const m = MAPA[family === 'PRENSA' && typeof _esSello === 'function' && _esSello('PRENSA', camVariant) ? 'STAMP' : family]; return m && (!m.solo || camVariant === m.solo) ? m : null; };
 
   // ── Oído: tres bandas y el golpe, del micrófono que ya está abierto ─────────
   // Un analizador propio, sin suavizado, colgado de la misma cadena (el de la app suaviza y borra

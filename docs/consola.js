@@ -436,7 +436,7 @@
   function hudMount() {
     const cajon = document.getElementById('siCajon'), looks = document.getElementById('deckLooks');
     if (!cajon || !window.flipShell || hudRow) return;
-    hudRow = flipShell.el('div', { class: 'si-cajon-fila si-consola' }, '<small>CONSOLA</small><div class="si-filtros"><button class="hw si-chip" type="button" id="consolaMarco" aria-pressed="true">MARCO DE JUEGO</button></div>');
+    hudRow = flipShell.el('div', { class: 'si-cajon-fila si-consola' }, '<small>VIRTUAL</small><div class="si-filtros"><button class="hw si-chip" type="button" id="consolaMarco" aria-pressed="true">MARCO DE JUEGO</button></div>');
     cajon.insertBefore(hudRow, cajon.querySelector(':scope > .grano'));
     hudRow.querySelector('button').addEventListener('click', () => window.flipConsola.hud(!hud.on));
     if (looks) new MutationObserver(() => queueMicrotask(hudPaint)).observe(looks, { subtree: true, attributes: true, attributeFilter: ['class'] });

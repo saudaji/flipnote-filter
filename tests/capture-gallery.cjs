@@ -23,10 +23,9 @@ const SHOTS = [
   shot('oscam-vector-cupNoise', 'OSCAM', 'STD', 'cupNoise', { frames: 60, clip: true }),
   shot('oscam-vector-enterExit', 'OSCAM', 'STD', 'enterExit', { frames: 120, clip: true }),
   shot('oscam-vector-handWave', 'OSCAM', 'STD', 'handWave', { frames: 72, clip: true }),
-  ...['XY', 'FFT', 'TIME', 'LGCY'].map(v => shot('oscam-' + v + '-hand', 'OSCAM', v, 'hand', { frames: 30 })),
-  // STAMP: tres variantes, cuatro materiales, visor y exportación.
+  // El sello postal de PRINT: tres variantes, cuatro materiales, visor y exportación.
   ...['ENGR', 'INK', 'ISSUE'].flatMap(v => ['portrait', 'text', 'ramp', 'flat'].map(s =>
-    shot('stamp-' + v + '-' + s, 'STAMP', v, s, { export: s === 'portrait' || s === 'flat' }))),
+    shot('stamp-' + v + '-' + s, 'PRENSA', v, s, { export: s === 'portrait' || s === 'flat' }))),
   // CASKIA: materiales y respuesta temporal.
   ...['STD', 'E-INK', 'SEIKO'].flatMap(v => [
     ...['text', 'portrait', 'ramp'].map(s => shot('caskia-' + v + '-' + s, 'CASKIA', v, s, { frames: 20, export: s === 'portrait' })),

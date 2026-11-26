@@ -48,9 +48,8 @@ async function main() {
     await page.evaluate(() => { _setCamFamily('DSI'); flipPortal.tune({ dwell: false }); flipPortal.form('quad'); });
     await hands([]);
     await settle(700);
-    let st = await page.evaluate(() => ({ ...flipPortal.status(), tab: activeTab, module: flipShell.module(), slht: getComputedStyle(document.querySelector('.look[data-family="SLHT"]')).display, extra: document.querySelectorAll('.portal-look').length, fast: flipPortal.fast }));
+    let st = await page.evaluate(() => ({ ...flipPortal.status(), tab: activeTab, module: flipShell.module(), extra: document.querySelectorAll('.portal-look').length, fast: flipPortal.fast }));
     assert.equal(st.active, true); assert.equal(st.tab, 'cam'); assert.equal(st.module, 'portal');
-    assert.equal(st.slht, 'none', 'SLHT no se ofrece en PORTAL');
     assert.equal(st.extra, 3, 'ASCII y las dos de sonido se suman a la bandeja');
     assert.equal(st.gl, true, 'dibujo acelerado'); assert.equal(st.fast, true);
     // 2 · Sin manos: la cámara tal cual, a la cadencia de la pantalla.
@@ -121,11 +120,12 @@ async function main() {
     assert.equal(photo.type, 'image/jpeg');
     assert.ok(photo.green > greenness(plain) + 18, 'la foto lleva la ventana: ' + photo.green.toFixed(1));
 
-    // 5 · STAMP entra con su trama, sin el marco del sello, y no cambia el ajuste del usuario.
-    await page.locator('#deckLooks [data-family="STAMP"]').click();
+    // 5 · El sello de PRINT entra con su trama, sin el marco, y no cambia el ajuste del usuario.
+    await page.locator('#deckLooks [data-family="PRENSA"]').click();
+    await page.evaluate(() => { camVariant = 'ENGR'; _applyCamState(); });
     await settle(700);
     const stamp = await page.evaluate(() => ({ frame: stampFrameMode, status: flipPortal.status() }));
-    assert.equal(stamp.frame, 'ON', 'el marco de STAMP sigue como estaba');
+    assert.equal(stamp.frame, 'ON', 'el marco del sello sigue como estaba');
     assert.ok(stamp.status.amount > 0.95);
     // 6 · Las diapositivas propias: ASCII y sonido.
     for (const look of ['ASCII', 'SONO', 'WMP']) {
@@ -355,9 +355,8 @@ async function main() {
 
     // 12 · Salir devuelve CAM a su estado.
     await openModule(page, 'cam');
-    st = await page.evaluate(() => ({ active: flipPortal.active, module: flipShell.module(), slht: getComputedStyle(document.querySelector('.look[data-family="SLHT"]')).display, mode: document.body.classList.contains('portal-mode'), bar: getComputedStyle(document.getElementById('portalBar')).display }));
+    st = await page.evaluate(() => ({ active: flipPortal.active, module: flipShell.module(), mode: document.body.classList.contains('portal-mode'), bar: getComputedStyle(document.getElementById('portalBar')).display }));
     assert.deepEqual([st.active, st.module, st.mode, st.bar], [false, 'cam', false, 'none']);
-    assert.notEqual(st.slht, 'none');
 
     // 12b · Al salir se sueltan los estilos pintados para las ventanas.
     assert.equal(await page.evaluate(() => flipPortal.status().kept), 0, 'fuera de PORTAL no queda ningún estilo guardado');

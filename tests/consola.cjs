@@ -36,7 +36,7 @@ const fakeFace = () => {
       for (let i = 0; i < d.length; i += 4) { if (d[i] + d[i + 1] + d[i + 2] > 60) lit++; seen.add((d[i] >> 4) << 8 | (d[i + 1] >> 4) << 4 | d[i + 2] >> 4); }
       return { s: flipConsola.state(), lcd: document.getElementById('lcdLook').textContent, lit: +(lit / (d.length / 4)).toFixed(2), colores: seen.size, variante: camVariant, miniatura: getComputedStyle(document.querySelector('.look[data-family="CONSOLA"] i')).backgroundImage.includes('look-CONSOLA.webp') };
     });
-    assert.match(a.lcd, /CONSOLA/);
+    assert.match(a.lcd, /VIRTUAL/);
     assert.equal(a.variante, 'B128');
     assert.ok(a.s.gl && !a.s.failed, 'pinta en la gráfica');
     assert.ok(a.s.tris >= 300, 'una malla de cientos de polígonos: ' + a.s.tris);

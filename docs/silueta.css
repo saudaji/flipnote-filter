@@ -141,7 +141,7 @@ body[data-piel="interfaz"] .deck-looks::before { display: none !important; }
 body[data-piel="interfaz"] .deck-looks-track { position: static !important; inset: auto !important; display: flex; gap: 11px !important; padding: 0 calc(50% - 91px) !important; height: 98px !important; border-radius: 0 !important; -webkit-mask-image: none !important; mask-image: none !important; overflow-x: auto; scroll-snap-type: x proximity; align-items: flex-start; }
 body[data-piel="interfaz"] .look { flex: 0 0 82px !important; width: 82px !important; height: 98px !important; padding: 0 !important; display: grid; grid-template-rows: 54px 1fr; background: none !important; box-shadow: none !important; border-radius: 0 !important; scroll-snap-align: center; transition: flex-basis .18s ease, width .18s ease; color: var(--si-marfil) !important; }
 /* Las cámaras que no tocan (las propias de PORTAL fuera de PORTAL, las ocultas) siguen sin verse. */
-body[data-piel="interfaz"] .look[hidden], body[data-piel="interfaz"]:not(.portal-mode) .portal-look, body[data-piel="interfaz"].portal-mode .look[data-family="SLHT"] { display: none; }
+body[data-piel="interfaz"] .look[hidden], body[data-piel="interfaz"]:not(.portal-mode) .portal-look { display: none; }
 body[data-piel="interfaz"] .look::before { content: none !important; }
 /* Una marca bajo cada cámara; la elegida, en acento. */
 body[data-piel="interfaz"] .look::after { content: '' !important; position: absolute !important; inset: auto auto 2px 50% !important; width: 3px !important; height: 3px !important; margin-left: -1.5px; border: 0 !important; border-image: none !important; border-radius: 50% !important; background: #BBB2A6 !important; opacity: .7; z-index: 0 !important; }

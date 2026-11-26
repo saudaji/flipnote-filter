@@ -837,7 +837,6 @@ html:not(.flow-hud-closed) #sflowAdjust { background: var(--coral); color: #fff;
 /* ── PORTAL ──────────────────────────────────────────────────────────────── */
 .portal-look { display: none; }
 body.portal-mode .portal-look { display: flex; }
-body.portal-mode .look[data-family="SLHT"] { display: none; }
 .portal-look i { display: grid; place-items: center; background: #17181a; color: #f4f1ea; }
 .portal-look i svg { width: 22px; height: 22px; }
 .portal-tip {

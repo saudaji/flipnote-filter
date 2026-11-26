@@ -35,35 +35,6 @@ async function main() {
         }
         input.putImageData(frame, 0, 0);
       }
-      const draw = (mode, t) => plotOpticalScope(chart, 256, 192, ctx, false, mode, t);
-      const peaks = [0, 4, 12, 32].map((cycles) => {
-        signal(cycles);
-        draw('FFT', 1000);
-        return opticalScopes.get(ctx).peak;
-      });
-      // Compare the actual beam image with the y=-x line through its center.
-      const spreads = [0, Math.PI / 2].map((phase, k) => {
-        signal(4, phase);
-        draw('XY', 2000 + k * 1000);
-        const pixels = opticalScopes
-          .get(ctx)
-          .beam.getContext('2d')
-          .getImageData(0, 0, 256, 192).data;
-        let spread = 0;
-        for (let y = 0; y < 192; y++)
-          for (let x = 0; x < 256; x++) {
-            if (pixels[(256 * y + x) * 4 + 1] > 40)
-              spread = Math.max(spread, Math.abs(x - 128 + y - 96));
-          }
-        return spread;
-      });
-      for (let i = 0; i < 90; i++) {
-        const v = Math.round(128 + 80 * Math.sin((2 * Math.PI * i) / 10));
-        input.fillStyle = 'rgb(' + [v, v, v].join(',') + ')';
-        input.fillRect(0, 0, 256, 192);
-        draw('TIME', 5000 + (i * 1000) / 30);
-      }
-      const hz = opticalScopes.get(ctx).hz;
       _setCamFamily('AUTO03');
       camVariant = 'FLASH';
       _applyCamState();
@@ -81,11 +52,8 @@ async function main() {
       camVariant = 'NIGHT';
       _applyCamState();
       const night = await cameraPhoto();
-      return { peaks, spreads, hz, calls, duplicate, jpeg: [flash.type, night.type] };
+      return { calls, duplicate, jpeg: [flash.type, night.type] };
     });
-    assert.deepEqual(result.peaks, [0, 4, 12, 32]);
-    assert.ok(result.spreads[0] <= 3 && result.spreads[1] > 25, JSON.stringify(result.spreads));
-    assert.ok(Math.abs(result.hz - 3) < 0.03);
     assert.deepEqual(result.calls, [true, false]);
     assert.equal(result.duplicate, null);
     assert.deepEqual(result.jpeg, ['image/jpeg', 'image/jpeg']);

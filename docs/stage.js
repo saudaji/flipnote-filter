@@ -75,7 +75,7 @@ const flipStage = (() => {
   const DIVS = [[1 / 32, '8 COMPASES'], [1 / 16, '4 COMPASES'], [1 / 8, '2 COMPASES'], [1 / 4, '1 COMPÁS'], [1 / 2, '1/2'], [1, '1/4'], [2, '1/8'], [4, '1/16']];
   const LOOKS = (() => {
     const list = [{ key: 'RAW', label: 'DIRECTA' }];
-    if (typeof CAM_FAMILIES === 'object') for (const [key, cfg] of Object.entries(CAM_FAMILIES)) if (key !== 'SLHT') list.push({ key, label: (cfg.displayLabel || cfg.label || key).toUpperCase() });
+    if (typeof CAM_FAMILIES === 'object') for (const [key, cfg] of Object.entries(CAM_FAMILIES)) list.push({ key, label: (cfg.displayLabel || cfg.label || key).toUpperCase() });
     list.push({ key: 'ASCII', label: 'ASCII' });
     return list;
   })();
@@ -529,13 +529,14 @@ void main() {
       try {
         if (key === 'ASCII') FLIP_STEP_ENGINES.ascii.renderStep(base, look.ctx, { cols: 96 }, null, now);
         else {
-          // De STAMP entra la trama, no el marco del sello.
+          // Del sello de PRINT entra la trama, no el marco.
           const frame = typeof stampFrameMode === 'string' ? stampFrameMode : null;
-          if (frame !== null && key === 'STAMP') stampFrameMode = 'OFF';
+          const variant = key === camFamily ? camVariant : (CAM_FAMILIES[key].variants && CAM_FAMILIES[key].variants[0] && CAM_FAMILIES[key].variants[0].id);
+          const sello = typeof _esSello === 'function' && _esSello(key, variant);
+          if (frame !== null && sello) stampFrameMode = 'OFF';
           try {
-            const variant = key === camFamily ? camVariant : (CAM_FAMILIES[key].variants && CAM_FAMILIES[key].variants[0] && CAM_FAMILIES[key].variants[0].id);
             _renderCamEngineFrame(base, w, h, look.ctx, false, { path: 'capture', now, outW: w, outH: h, resolution: 'medium', family: key, variant });
-          } finally { if (frame !== null && key === 'STAMP') stampFrameMode = frame; }
+          } finally { if (frame !== null && sello) stampFrameMode = frame; }
         }
         gl.bindTexture(gl.TEXTURE_2D, eng.texA);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, look.canvas);

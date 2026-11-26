@@ -32,7 +32,8 @@ async function main() {
     await page.goto(process.env.FLIP_URL || 'http://127.0.0.1:8742');
     await page.locator('#btnSplashOriginal').click();
     await hasImage(page, 'display');
-    await page.locator('#deckLooks [data-family="STAMP"]').click();
+    await page.locator('#deckLooks [data-family="PRENSA"]').click();
+    await page.evaluate(() => { camVariant = 'ENGR'; _applyCamState(); });       // el sello postal: ahora, una variante de PRINT
     const geometry = await page.evaluate(async () => {
       flipAudioSettings.resolution = 'high';
       const bitmap = await createImageBitmap(await cameraPhoto());

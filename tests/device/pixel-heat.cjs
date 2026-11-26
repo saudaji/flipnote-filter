@@ -96,7 +96,7 @@ const cores = (a, b, key) => +(((b[key] - a[key]) / 100) / ((b.at - a.at) / 1000
   const scenarios = [
     ['cam DSI', async () => { await go('cam'); await pick('DSI', 'STD'); }],
     ['cam VFD CRT', async () => { await go('cam'); await pick('VFD', 'CRT'); }],
-    ['cam STAMP', async () => { await go('cam'); await pick('STAMP', 'ENGR'); }],
+    ['cam SELLO', async () => { await go('cam'); await pick('PRENSA', 'ENGR'); }],
     ['cam PRENSA', async () => { await go('cam'); await pick('PRENSA', 'CMYK'); }],
     ['glitch', async () => { await go('scrash'); }],
     ['fusion', async () => { await go('fusion'); }],

@@ -14,9 +14,9 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const { launch, openFlip } = require('./lib/harness.cjs');
 
-const CADENCE = { DSI: 8, STAMP: 24, AUTO03: 30, DLPHN: 24, CASKIA: 15, VFD: 30, OSCAM: 30 };
+const CADENCE = { DSI: 8, PRENSA: 24, AUTO03: 30, DLPHN: 24, CASKIA: 15, VFD: 30, OSCAM: 30 };
 const VARIANTS = [
-  ['DSI', 'STD'], ['DSI', 'LGCY'], ['STAMP', 'ENGR'], ['STAMP', 'INK'], ['STAMP', 'ISSUE'],
+  ['DSI', 'STD'], ['DSI', 'LGCY'], ['PRENSA', 'ENGR'], ['PRENSA', 'INK'], ['PRENSA', 'ISSUE'],
   ['AUTO03', 'DAY'], ['AUTO03', 'FLASH'], ['AUTO03', 'NIGHT'], ['DLPHN', 'STD'], ['DLPHN', 'LGCY'],
   ['CASKIA', 'STD'], ['CASKIA', 'E-INK'], ['CASKIA', 'SEIKO'], ['VFD', 'STD'], ['VFD', 'THRML'], ['VFD', 'CRT'],
 ];
@@ -35,7 +35,7 @@ async function main() {
           base += 5000;
           for (let i = 0; i < frames; i++) { FlipKit.frame(scene, i / fps, base + i * 1000 / fps, options); if (each) each(i); }
         };
-        const frame = stampFrameMode === 'ON' && family === 'STAMP' ? 0.1 : 0;   // margen del marco postal
+        const frame = stampFrameMode === 'ON' && _esSello(family, variant) ? 0.1 : 0;   // margen del marco postal
         const inner = (x, y, w, h) => [frame + x * (1 - 2 * frame), frame + y * (1 - 2 * frame), w * (1 - 2 * frame), h * (1 - 2 * frame)];
         const row = { family, variant };
         // Cuña de 16 grises (tercio inferior de la escena ramp).

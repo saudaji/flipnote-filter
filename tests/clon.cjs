@@ -21,7 +21,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { launch, openFlip } = require('./lib/harness.cjs');
+const { launch, pickCamera, openFlip } = require('./lib/harness.cjs');
 const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JSON.stringify(detail) : ''));
 const REFS = path.join(__dirname, 'lib', 'clon-refs.js');
 // Las tintas de las referencias, en RGB.
@@ -139,8 +139,7 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     step('la curva de tonos no da saltos', curva);
 
     // ── 3 · La cámara arranca apuntando; CAPTURAR aprende de lo que ve ──
-    await page.locator('#deckLooks [data-family="CLON"]').scrollIntoViewIfNeeded();
-    await page.locator('#deckLooks [data-family="CLON"]').click();
+    await pickCamera(page, 'CLON');
     await page.waitForFunction(() => camFamily === 'CLON');
     await page.waitForTimeout(700);
     const inicio = await page.evaluate(() => ({ st: flipClon.state(), keys: [...document.querySelectorAll('.si-rapidas.clon-rapidas [data-clon]')].map(k => k.textContent.trim()), variante: camVariant, banda: document.body.classList.contains('con-rapidas-clon') }));
@@ -322,8 +321,7 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     // ── 7 · En la piel OBJETO: sus teclas, en una fila del aparato ──
     const objeto = await openFlip(browser, { piel: 'objeto', sceneCamera: { scene: 'roomLit', w: 1280, h: 720, fps: 30 } });
     await objeto.page.waitForTimeout(600);
-    await objeto.page.locator('#deckLooks [data-family="CLON"]').scrollIntoViewIfNeeded();
-    await objeto.page.locator('#deckLooks [data-family="CLON"]').click();
+    await pickCamera(objeto.page, 'CLON');
     await objeto.page.waitForFunction(() => camFamily === 'CLON');
     await objeto.page.waitForTimeout(600);
     const fila = await objeto.page.evaluate(() => { const row = document.querySelector('.clon-teclas'), r = row.getBoundingClientRect(); return { visible: !row.hidden && r.height > 20, teclas: [...row.querySelectorAll('button')].map(k => k.textContent.trim()), cabe: r.right <= innerWidth + 1, banda: getComputedStyle(document.querySelector('.clon-rapidas')).display }; });

@@ -306,7 +306,7 @@
     const paleta = () => { const ids = Object.keys(PALETTES); set({ palette: ids[(ids.indexOf(opt.palette) + 1) % ids.length] }); say('Paleta ' + PALETTES[opt.palette].label); };
     row.querySelector('#reaccionInvertir').addEventListener('click', invertir);
     row.querySelector('#reaccionPaleta').addEventListener('click', paleta);
-    const tira = document.querySelector('#camDeck .deck-looks');
+    const tira = document.querySelector('#camDeck .deck-groups') || document.querySelector('#camDeck .deck-looks');   // (sus teclas van encima de los cajones de cámaras)
     if (tira) {
       objeto = flipShell.el('div', { class: 'deck-variants reaccion-teclas', role: 'group', 'aria-label': 'Opciones de REACCIÓN' },
         '<button class="hw hw-keycap" type="button" data-reaccion="invertir" aria-pressed="false">INVERTIR</button>' +

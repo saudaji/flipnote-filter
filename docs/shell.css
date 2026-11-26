@@ -390,6 +390,21 @@ html[data-consola="abierta"] body[data-tab="wmp"] #wmpTransport { bottom: calc(1
 .reaccion-teclas [data-paleta="brasa"] i { background: #FF9424; }
 .reaccion-teclas [data-paleta="orquidea"] i { background: #F056BC; }
 
+/* Los tres cajones de cámaras (FILM · DIGITAL · CUSTOM): un interruptor de tres posiciones, hundido
+   en la carcasa; la tapa añil marca el cajón puesto. */
+.deck-groups {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; height: 22px; flex: none; padding: 2px; margin: 0 1px;
+  border-radius: 6px; background: linear-gradient(180deg, #c4bca6, #d6cfbc); box-shadow: inset 0 1px 3px rgba(70, 60, 30, .42), 0 1px 0 rgba(255, 255, 255, .5);
+}
+.deck-group {
+  appearance: none; border: 0; margin: 0; padding: 0 0 0 .12em; min-width: 0; background: none; border-radius: 4px; cursor: pointer;
+  display: grid; place-items: center; font: 800 8.5px/1 var(--font-ui); font-stretch: 85%; letter-spacing: .12em; color: rgba(58, 56, 51, .66);
+  -webkit-tap-highlight-color: transparent; transition: background-color .09s ease, color .09s ease;
+}
+.deck-group.is-on { background: linear-gradient(180deg, #4a4f9c, #33376f); color: #fff; box-shadow: 0 1px 2px rgba(20, 20, 50, .5), inset 0 1px 0 rgba(255, 255, 255, .28); }
+.deck-group:active { transform: translateY(.5px); }
+.deck-group:focus-visible { outline: 2px solid #33376f; outline-offset: 1px; }
+
 /* Bandeja de diapositivas: cada cámara es una diapositiva con su muestra y su rótulo. */
 .deck-looks {
   position: relative; height: 76px;
@@ -431,6 +446,8 @@ html[data-consola="abierta"] body[data-tab="wmp"] #wmpTransport { bottom: calc(1
 .look.is-on::before, .look.is-on::after { border-image-source: url('./brand/rollo-en-anil/materiales/perfil-anil.webp'); }
 .look.is-on span { color: #fff; }
 .look[hidden] { display: none; }
+.look[data-variant] { flex-basis: 92px; }               /* (una película: su nombre es más largo que el de una cámara) */
+.look[data-variant] span { white-space: nowrap; }
 
 .deck-main { position: relative; height: 104px; display: grid; grid-template-columns: 1fr 104px 1fr; align-items: center; }
 .deck-left { display: flex; align-items: center; justify-content: flex-start; gap: 9px; }

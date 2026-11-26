@@ -1182,7 +1182,7 @@ void main() { o = uColor; }`;
       if (!state.active) return false;
       if (tile.dataset.look) { setLook(tile.dataset.look); flipShell.hint(EXTRA[tile.dataset.look].hint, 2200); state.shown = null; return true; }
       if (state.look) setLook('');
-      if (tile.dataset.family === camFamily) { flipShell.syncCam(); return true; }
+      if (tile.dataset.family === camFamily && (!tile.dataset.variant || tile.dataset.variant === camVariant)) { flipShell.syncCam(); return true; }
       return false;
     });
     display.addEventListener('pointerdown', event => {

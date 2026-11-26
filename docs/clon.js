@@ -1509,7 +1509,7 @@
   function mount() {
     if (!window.flipShell || band) return;
     const keys = '<button class="hw KEY" type="button" data-clon="copiar"><span>COPIAR</span></button><button class="hw KEY" type="button" data-clon="abrir"><span>ABRIR</span></button><button class="hw KEY clon-abre-galeria" type="button" data-clon="galeria" data-feel="drawerOpen" aria-haspopup="dialog"><span>LOOKS</span><em>0</em></button>';
-    const head = document.querySelector('.si-banda-cabeza'), tray = document.querySelector('#camDeck .deck-looks');
+    const head = document.querySelector('.si-banda-cabeza'), tray = document.querySelector('#camDeck .deck-groups') || document.querySelector('#camDeck .deck-looks');
     if (head) { band = flipShell.el('div', { class: 'si-rapidas clon-rapidas', role: 'group', 'aria-label': 'Clonar un look' }, keys.replace(/KEY/g, 'si-chip')); head.insertBefore(band, head.querySelector('.si-abrir')); }
     if (tray) { row = flipShell.el('div', { class: 'deck-variants reaccion-teclas clon-teclas', role: 'group', 'aria-label': 'Clonar un look' }, keys.replace(/KEY/g, 'hw-keycap')); tray.before(row); }
     galleryBuild();

@@ -72,6 +72,17 @@ async function pickVariant(page, id) {
   await key.click();
   if (await page.evaluate(() => document.body.classList.contains('banda-abierta'))) await page.locator('.si-abrir').click();
 }
+// Elige una cámara como lo hace una persona: primero su cajón (FILM · DIGITAL · CUSTOM), luego su
+// diapositiva en la tira. Con «variant», la diapositiva de esa variante (las películas de FILM).
+async function pickCamera(page, family, variant) {
+  const group = await page.evaluate(f => (CAM_FAMILIES[f] && CAM_FAMILIES[f].grupo) || 'digital', family);
+  const tab = page.locator('#deckGroups [data-group="' + group + '"]');
+  if (!(await tab.evaluate(el => el.classList.contains('is-on')))) { await tab.click(); await page.waitForTimeout(250); }
+  const tile = page.locator('#deckLooks [data-family="' + family + '"]' + (variant ? '[data-variant="' + variant + '"]' : '')).first();
+  await tile.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(250);
+  if (!(await tile.evaluate(el => el.classList.contains('is-on')))) await tile.click();   // (en la piel INTERFAZ, tocar la que ya está puesta abre el cajón)
+}
 // Abre un módulo del TALLER de STAGE como una persona: si STAGE está en la vista FÁCIL, primero TALLER.
 async function stageTab(page, id) {
   const tab = page.locator('#rigTabs [data-page="' + id + '"]');
@@ -96,4 +107,4 @@ function probe(file) {
   return JSON.parse(raw);
 }
 
-module.exports = { URL, PIXEL, launch, openFlip, openModule, pickVariant, stageTab, saveDataUrl, encodeClip, probe };
+module.exports = { URL, PIXEL, launch, openFlip, openModule, pickVariant, pickCamera, stageTab, saveDataUrl, encodeClip, probe };

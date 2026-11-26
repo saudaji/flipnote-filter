@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { launch, openFlip, probe, openModule, pickVariant } = require('./lib/harness.cjs');
+const { pickCamera, launch, openFlip, probe, openModule, pickVariant } = require('./lib/harness.cjs');
 
 const out = path.resolve(process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), 'flip-flows-')));
 fs.mkdirSync(out, { recursive: true });
@@ -133,7 +133,7 @@ async function main() {
 
     // ── 7 · NIGHT y FLASH desde los controles; el LED solo se enciende al disparar en FLASH ──
     if (facing[1] !== 'environment') await flip();
-    await page.locator('#deckLooks [data-family="AUTO03"]').click();
+    await pickCamera(page, 'AUTO03');
     await pickVariant(page, 'NIGHT');
     const hint = await page.locator('.flip-toast').last().textContent();
     assert.match(hint, /no usa infrarrojo/);
@@ -158,7 +158,7 @@ async function main() {
     const sheetOpen = () => page.evaluate(() => document.body.classList.contains('cam-edit-open') && getComputedStyle(document.getElementById('palettes')).display !== 'none');
     const opened = [];
     for (const family of await page.evaluate(() => Object.keys(CAM_FAMILIES))) {
-      await page.locator('#deckLooks [data-family="' + family + '"]').click();
+      await pickCamera(page, family);
       await page.locator('#deckAdjust').click();
       assert.ok(await sheetOpen(), 'AJUSTES no abre la hoja en ' + family);
       // Tocar dentro de la consola (otra sección y su primera perilla) no la cierra.
@@ -170,7 +170,7 @@ async function main() {
       assert.equal(await sheetOpen(), false, 'LISTO no cierra la hoja en ' + family);
       opened.push(family);
     }
-    await page.locator('#deckLooks [data-family="AUTO03"]').click();
+    await pickCamera(page, 'AUTO03');
     step('ajustes de cada cámara', { abre: opened.length });
 
     // ── 8 · Cambios rápidos de familia, variante y módulo ──

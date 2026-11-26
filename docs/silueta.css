@@ -133,6 +133,13 @@ body[data-piel="interfaz"]:is(.con-rapidas, .con-rapidas-clon) .si-abrir span { 
 body[data-piel="interfaz"]:is(.con-rapidas, .con-rapidas-clon) .si-abrir { min-width: 40px; justify-content: center; }
 /* CLON: mientras mira la referencia, la mascota entrecierra el ojo (en las dos pieles: shell.css). */
 body[data-piel="interfaz"] #deckShutter.mirando:not(.guino, :active) .silueta .ojo { transform: scaleY(.5); }
+/* Los tres cajones de cámaras: tres rótulos sobre la tira; el puesto lleva la raya de acento. */
+body[data-piel="interfaz"] .deck-groups { display: flex; gap: 20px; height: 24px; margin: 0 !important; padding: 0 13px !important; align-items: stretch; background: var(--si-banda) !important; border-radius: 0 !important; box-shadow: inset 0 1px 0 var(--si-banda-raya) !important; }
+body[data-piel="interfaz"] .deck-group { position: relative; padding: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; font: 800 9.5px/1 'Chivo', sans-serif !important; font-stretch: normal; letter-spacing: .16em !important; color: var(--si-banda-suave) !important; display: flex; align-items: center; }
+body[data-piel="interfaz"] .deck-group.is-on { color: var(--si-marfil) !important; }
+body[data-piel="interfaz"] .deck-group.is-on::after { content: ''; position: absolute; left: 0; right: .16em; top: 0; height: 2px; background: var(--si-acento); }
+body[data-piel="interfaz"] .deck-group:active { transform: none; opacity: .72; }
+body[data-piel="interfaz"] .deck-group:focus-visible { outline: 2px solid var(--si-acento); outline-offset: 2px; }
 body[data-piel="interfaz"] .deck-looks { position: relative; background: var(--si-banda); margin: 0 !important; padding: 4px 0 8px !important; height: auto !important; border: 0 !important; border-image: none !important; border-radius: 0 !important; }
 body[data-piel="interfaz"] .deck-looks-track { counter-reset: camara; }
 body[data-piel="interfaz"] .look { counter-increment: camara; }

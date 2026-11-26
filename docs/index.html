@@ -5191,6 +5191,8 @@ const CAM_FAMILIES = {
       { id:'CALIDO200', label:'CÁLIDO 200', hint:'CÁLIDO 200 · negativo de diario: dorado, con más contraste y color.' },
       { id:'CINE500T', label:'CINE 500T', hint:'CINE 500T · negativo de cine para luz de foco: las luces sangran en rojo.' },
     ],
+    grupo:'film',
+    porVariante:true,                     // cada película es una diapositiva de la tira (no una tecla de variante)
     editMode:'film',
     paletteContext:null,
   },
@@ -5200,6 +5202,7 @@ const CAM_FAMILIES = {
     label:'CLON',
     displayLabel:'CLON',
     variants:[{ id:'NUEVO', label:'NUEVO' }],
+    grupo:'custom',
     soloVariante:true,                    // en el rótulo va solo el nombre del look (ya dice lo que es)
     editMode:'consola',
     paletteContext:null,

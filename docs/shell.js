@@ -91,6 +91,7 @@
     <div id="osdHint" role="status"></div>`);
   const deck = el('footer', { id: 'camDeck' }, `
     <div class="deck-variants" id="deckVariants" role="tablist" aria-label="Variante"></div>
+    <div class="deck-groups" id="deckGroups" role="tablist" aria-label="Tipo de cámara"></div>
     <div class="deck-looks"><div class="deck-looks-track" id="deckLooks" role="listbox" aria-label="Cámaras"></div></div>
     <div class="deck-main">
       <div class="deck-left">
@@ -241,10 +242,37 @@
   const looks = $('deckLooks'), variants = $('deckVariants');
   const describe = {};
   document.querySelectorAll('.cam-fam-btn').forEach(btn => { describe[btn.dataset.family] = btn.querySelector('small')?.textContent || ''; });
+  // Las cámaras van en tres cajones: FILM (película revelada), DIGITAL (las de siempre) y CUSTOM (el
+  // clonador). La tira enseña las del cajón puesto; cada cajón recuerda cuál fue su última cámara.
+  const GROUPS = [['film', 'FILM'], ['digital', 'DIGITAL'], ['custom', 'CUSTOM']];
+  const groupOf = family => (CAM_FAMILIES[family] && CAM_FAMILIES[family].grupo) || 'digital';
+  const groups = $('deckGroups');
+  groups.innerHTML = GROUPS.map(([id, label]) => `<button class="deck-group" type="button" role="tab" data-group="${id}"><span>${label}</span></button>`).join('');
+  let camOfGroup = {};
+  try { camOfGroup = JSON.parse(localStorage.getItem('flip.grupos') || '{}') || {}; } catch (_) {}
   Object.entries(CAM_FAMILIES).forEach(([key, cfg]) => {
-    const tile = el('button', { class: 'hw look', type: 'button', role: 'option', 'data-family': key, title: describe[key] || '' }, `<i></i><span>${cfg.displayLabel || cfg.label}</span>`);
-    tile.firstChild.style.backgroundImage = `url('./body/look-${key}.webp')`;
-    looks.appendChild(tile);
+    // (una familia «por variante» pone una diapositiva por cada una: las películas de FILM)
+    for (const variant of cfg.porVariante ? cfg.variants : [null]) {
+      const attrs = { class: 'hw look', type: 'button', role: 'option', 'data-family': key, 'data-group': groupOf(key), title: variant ? variant.hint || '' : describe[key] || '' };
+      if (variant) attrs['data-variant'] = variant.id;
+      const tile = el('button', attrs, `<i></i><span>${variant ? variant.label : cfg.displayLabel || cfg.label}</span>`);
+      tile.firstChild.style.backgroundImage = `url('./body/look-${key}${variant ? '-' + variant.id : ''}.webp')`;
+      looks.appendChild(tile);
+    }
+  });
+  // Pone una cámara (y, si se pide y existe, una variante suya).
+  function pickCam(family, variant) {
+    if (family !== camFamily) _setCamFamily(family);
+    if (variant && variant !== camVariant && _getCamFamilyConfig().variants.some(v => v.id === variant)) { camVariant = variant; _applyCamState(); saveSettings(); }
+  }
+  groups.addEventListener('click', event => {
+    const key = event.target.closest('[data-group]');
+    if (!key) return;
+    const group = key.dataset.group;
+    if (document.body.dataset.look) return;                          // (una cámara propia de PORTAL no es de ningún cajón)
+    if (group === groupOf(camFamily)) { const on = looks.querySelector('.look.is-on'); if (on) on.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); return; }
+    const [family, variant] = String(camOfGroup[group] || '').split(':');
+    pickCam(CAM_FAMILIES[family] && groupOf(family) === group ? family : Object.keys(CAM_FAMILIES).find(k => groupOf(k) === group), variant);
   });
   let hintTimer = 0;
   function hint(text, ms = 1900) {
@@ -261,9 +289,9 @@
     const tile = event.target.closest('.look');
     if (!tile) return;
     for (const handler of lookHandlers) if (handler(tile) === true) return;
-    if (!tile.dataset.family || tile.dataset.family === camFamily) return;
-    _setCamFamily(tile.dataset.family);
-    hint(describe[tile.dataset.family]);
+    if (!tile.dataset.family || tile.classList.contains('is-on')) return;
+    pickCam(tile.dataset.family, tile.dataset.variant);
+    hint(tile.dataset.variant ? tile.title : describe[tile.dataset.family]);
   });
   variants.addEventListener('click', event => {
     const key = event.target.closest('[data-variant]');
@@ -302,19 +330,27 @@
   const lookLabel = { text: null };
   function syncCam() {
     const cfg = _getCamFamilyConfig();
-    const custom = document.body.dataset.look || '';
+    const custom = document.body.dataset.look || '', group = groupOf(camFamily);
     looks.querySelectorAll('.look').forEach(tile => {
-      const on = custom ? tile.dataset.look === custom : tile.dataset.family === camFamily;
+      const on = custom ? tile.dataset.look === custom : tile.dataset.family === camFamily && (!tile.dataset.variant || tile.dataset.variant === camVariant);
       tile.classList.toggle('is-on', on);
       tile.setAttribute('aria-selected', String(on));
+      if (tile.dataset.group) tile.hidden = tile.dataset.group !== group;
     });
-    if (shownFamily !== camFamily + custom) {
-      shownFamily = camFamily + custom;
+    groups.querySelectorAll('[data-group]').forEach(key => {
+      const on = key.dataset.group === group;
+      key.classList.toggle('is-on', on);
+      key.setAttribute('aria-selected', String(on));
+    });
+    const mine = camFamily + (cfg.porVariante ? ':' + camVariant : '');
+    if (camOfGroup[group] !== mine) { camOfGroup[group] = mine; try { localStorage.setItem('flip.grupos', JSON.stringify(camOfGroup)); } catch (_) {} }
+    if (shownFamily !== mine + custom) {
+      shownFamily = mine + custom;
       const active = looks.querySelector('.look.is-on');
       if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
     // (una variante «oculta» vale, pero no va en la fila: los looks de CLON que viven en su galería)
-    const all = custom ? [] : (cfg.variants || []), list = all.filter(v => !v.oculta);
+    const all = custom ? [] : (cfg.variants || []), list = cfg.porVariante ? [] : all.filter(v => !v.oculta);
     const signature = (custom || camFamily) + ':' + list.map(v => v.id).join(',');
     if (variants.dataset.signature !== signature) {
       variants.dataset.signature = signature;
@@ -328,7 +364,7 @@
       key.setAttribute('aria-selected', String(on));
     });
     const variantLabel = all.find(v => v.id === camVariant)?.label || '';
-    const name = lookLabel.text || (cfg.soloVariante && variantLabel && camVariant !== 'NUEVO' ? variantLabel : (cfg.displayLabel || cfg.label) + (list.length > 1 ? ' · ' + variantLabel : ''));
+    const name = lookLabel.text || (cfg.soloVariante && variantLabel && camVariant !== 'NUEVO' ? variantLabel : (cfg.displayLabel || cfg.label) + (list.length > 1 || (cfg.porVariante && variantLabel) ? ' · ' + variantLabel : ''));
     $('lcdLook').textContent = (document.body.classList.contains('portal-mode') ? 'PORTAL ' : '') + name;
     syncFormat();
   }

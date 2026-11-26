@@ -9,12 +9,14 @@
 //     de cine sin capa antihalo y casi nada en las otras; y no inventa luz (lo que da, lo quita);
 //   · EL GRANO: se ve, es mayor cuanto más chico el formato, cambia con la densidad y se puede quitar;
 //   · EMPUJE y PAPEL mueven el contraste hacia donde dicen;
-//   · LA CÁMARA: FILM se elige como una cámara más, con sus tres películas y sus cinco perillas; lo
-//     ajustado se guarda; toma la foto; y al cambiar de cámara suelta la gráfica.
+//   · LOS CAJONES: la tira de cámaras va en tres (FILM · DIGITAL · CUSTOM); cada uno enseña solo las
+//     suyas y recuerda su última cámara; en FILM cada película es una diapositiva;
+//   · LA CÁMARA: sus tres películas y sus cinco perillas; lo ajustado se guarda; toma la foto; y al
+//     cambiar de cámara suelta la gráfica.
 //   FLIP_URL=http://127.0.0.1:8760 node tests/film.cjs
 'use strict';
 const assert = require('node:assert/strict');
-const { launch, openFlip, pickVariant } = require('./lib/harness.cjs');
+const { launch, openFlip, pickCamera } = require('./lib/harness.cjs');
 const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JSON.stringify(detail) : ''));
 
 (async () => {
@@ -160,10 +162,41 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     step('EMPUJE y PAPEL mueven el contraste', { papel: contrast.papers.map(p => p.gamma), empuje: contrast.push.map(p => p.gamma) });
 
     // ── 7 · La cámara ──
-    await page.locator('#deckLooks [data-family="FILM"]').scrollIntoViewIfNeeded();
+    // los tres cajones: de fábrica se está en DIGITAL, con las cámaras de siempre
+    const drawers = () => page.evaluate(() => ({
+      on: [...document.querySelectorAll('#deckGroups .is-on')].map(k => k.dataset.group), tabs: [...document.querySelectorAll('#deckGroups [data-group]')].map(k => k.textContent.trim()),
+      tiles: [...document.querySelectorAll('#deckLooks .look[data-group]')].filter(t => getComputedStyle(t).display !== 'none').map(t => t.dataset.family + (t.dataset.variant ? ':' + t.dataset.variant : '')),
+      cam: camFamily + ':' + camVariant, lcd: document.getElementById('lcdLook').textContent,
+    }));
+    const d0 = await drawers();
+    assert.deepEqual(d0.tabs, ['FILM', 'DIGITAL', 'CUSTOM']);
+    assert.deepEqual(d0.on, ['digital']);
+    assert.deepEqual(d0.tiles, ['DSI', 'AUTO03', 'DLPHN', 'CASKIA', 'VFD', 'OSCAM', 'PRENSA', 'CONSOLA'], 'DIGITAL: las cámaras de siempre, con VIRTUAL');
+    await page.locator('#deckGroups [data-group="film"]').click();
+    await page.waitForFunction(() => camFamily === 'FILM', null, { timeout: 5000 });
+    const d1 = await drawers();
+    assert.deepEqual([d1.on, d1.tiles, d1.cam], [['film'], ['FILM:RETRATO400', 'FILM:CALIDO200', 'FILM:CINE500T'], 'FILM:RETRATO400'], 'FILM: una diapositiva por película, y entra a la primera');
+    await pickCamera(page, 'FILM', 'CALIDO200');
+    await page.locator('#deckGroups [data-group="custom"]').click();
+    await page.waitForFunction(() => camFamily === 'CLON', null, { timeout: 5000 });
+    const d2 = await drawers();
+    assert.deepEqual([d2.on, d2.tiles], [['custom'], ['CLON']], 'CUSTOM: el clonador');
+    await page.locator('#deckGroups [data-group="digital"]').click();
+    await page.waitForFunction(() => camFamily === 'DSI', null, { timeout: 5000 });
+    await pickCamera(page, 'VFD');
+    await page.locator('#deckGroups [data-group="film"]').click();
+    await page.waitForFunction(() => camFamily === 'FILM', null, { timeout: 5000 });
+    const d3 = await drawers();
+    assert.equal(d3.cam, 'FILM:CALIDO200', 'cada cajón recuerda su última cámara');
+    assert.match(d3.lcd, /FILM · CÁLIDO 200/);
+    await page.locator('#deckGroups [data-group="digital"]').click();
+    await page.waitForFunction(() => camFamily === 'VFD', null, { timeout: 5000 });
+    assert.equal(await page.evaluate(() => document.querySelectorAll('#deckVariants [data-variant]').length > 0), true, 'en DIGITAL las variantes siguen en su fila');
+    step('la tira va en tres cajones: FILM · DIGITAL · CUSTOM', { film: d1.tiles, digital: d0.tiles.length, custom: d2.tiles });
+
+    await pickCamera(page, 'FILM', 'RETRATO400');
+    await page.waitForFunction(() => camFamily === 'FILM' && camVariant === 'RETRATO400' && flipFilm.state().frame > 10 && String(flipFilm.state().film).startsWith('RETRATO400'), null, { timeout: 10000 });
     await page.waitForTimeout(300);
-    await page.locator('#deckLooks [data-family="FILM"]').click();
-    await page.waitForFunction(() => camFamily === 'FILM' && flipFilm.state().frame > 10, null, { timeout: 10000 });
     const view = () => page.evaluate(() => {
       const g = document.createElement('canvas'); g.width = 96; g.height = 72;
       const c = g.getContext('2d', { willReadFrequently: true }); c.drawImage(display, 0, 0, 96, 72);
@@ -171,26 +204,26 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
       for (let i = 0; i < d.length; i += 4) { if (d[i] + d[i + 1] + d[i + 2] > 60) lit++; for (let k = 0; k < 3; k++) mean[k] += d[i + k]; seen.add((d[i] >> 4) << 8 | (d[i + 1] >> 4) << 4 | d[i + 2] >> 4); }
       return { lit: +(lit / (d.length / 4)).toFixed(2), colores: seen.size, mean: mean.map(v => Math.round(v / (d.length / 4))) };
     });
-    const a = await page.evaluate(() => ({ s: flipFilm.state(), lcd: document.getElementById('lcdLook').textContent, variante: camVariant, variantes: [...document.querySelectorAll('#deckVariants [data-variant]')].map(b => b.dataset.variant), miniatura: getComputedStyle(document.querySelector('.look[data-family="FILM"] i')).backgroundImage.includes('look-FILM.webp') }));
+    const a = await page.evaluate(() => ({ s: flipFilm.state(), lcd: document.getElementById('lcdLook').textContent, variante: camVariant, variantes: document.querySelectorAll('#deckVariants [data-variant]').length, miniatura: [...document.querySelectorAll('.look[data-family="FILM"] i')].every(i => /look-FILM-[A-Z0-9]+\.webp/.test(getComputedStyle(i).backgroundImage)) }));
     const seenA = await view();
     assert.match(a.lcd, /FILM/);
     assert.equal(a.variante, 'RETRATO400');
-    assert.deepEqual(a.variantes, ['RETRATO400', 'CALIDO200', 'CINE500T'], 'sus tres películas');
+    assert.equal(a.variantes, 0, 'las películas son diapositivas, no teclas de variante');
     assert.ok(a.s.gl && !a.s.failed, 'revela en la gráfica: ' + JSON.stringify(a.s));
     // una película que aún no se había pedido: su tabla de copia se calcula en un hilo aparte
     const aside = await page.evaluate(async () => { const t0 = performance.now(); await flipFilm.ready('CALIDO200', -1, 0); return { ms: Math.round(performance.now() - t0), s: flipFilm.state() }; });
     assert.ok(aside.s.worker && aside.s.waiting === 0, 'las tablas se calculan sin detener la cámara: ' + JSON.stringify(aside));
-    assert.ok(a.miniatura, 'tiene su miniatura en la tira');
+    assert.ok(a.miniatura, 'cada película tiene su miniatura en la tira');
     assert.ok(seenA.lit > 0.5 && seenA.colores > 40, 'el visor no queda en negro ni liso: ' + JSON.stringify(seenA));
     step('FILM se elige como una cámara más', { estado: a.s, visor: seenA });
 
     // otra película: cambia la imagen (la de diario es más cálida)
-    await pickVariant(page, 'CALIDO200');
+    await pickCamera(page, 'FILM', 'CALIDO200');
     await page.waitForFunction(() => camVariant === 'CALIDO200' && flipFilm.state().film.startsWith('CALIDO200'), null, { timeout: 8000 });
     await page.waitForTimeout(300);
     const seenB = await view();
     assert.ok(seenB.mean[0] - seenB.mean[2] > seenA.mean[0] - seenA.mean[2] + 3, 'CÁLIDO 200 es más cálida que RETRATO 400: ' + JSON.stringify([seenA.mean, seenB.mean]));
-    await pickVariant(page, 'CINE500T');
+    await pickCamera(page, 'FILM', 'CINE500T');
     await page.waitForFunction(() => flipFilm.state().film.startsWith('CINE500T'), null, { timeout: 8000 });
     step('las películas cambian la imagen', { retrato: seenA.mean, calido: seenB.mean });
 
@@ -224,6 +257,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     const kept = await page.evaluate(() => ({ variante: camVariant, s: flipFilm.settings(), film: flipFilm.state().film }));
     assert.deepEqual([kept.variante, kept.s.push, kept.s.format, kept.s.paper, kept.s.grain], ['CINE500T', 1, 0, 2, false], 'al volver, la película y sus ajustes siguen puestos: ' + JSON.stringify(kept));
     assert.equal(kept.film, 'CINE500T:1:2');
+    assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('#deckGroups .is-on')].map(k => k.dataset.group)), ['film'], 'y la tira abre en su cajón');
     step('la película y sus ajustes se guardan', kept);
 
     // al cambiar de cámara, suelta la gráfica (pasados unos segundos sin usarse)

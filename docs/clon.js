@@ -34,7 +34,7 @@
 // ilustración, la tipografía, el contenido). Eso pediría un modelo generativo.
 (function () {
   'use strict';
-  const KEY = 'flip.clon', MAX_LOOKS = 4, FFT_N = 256, FIT_N = 128;
+  const KEY = 'flip.clon', MAX_LOOKS = 4, FFT_N = 256, FIT_N = 128, COLOR_FAR = 0.1;
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   const $ = id => document.getElementById(id);
 
@@ -134,7 +134,7 @@
     let list = cents.map((c, k) => ({ c, w: counts[k] / pts.length })).filter(e => e.w > 0);
     for (let merged = true; merged && list.length > 2;) {
       merged = false;
-      let bi = -1, bj = -1, bd = 0.05 * 0.05;
+      let bi = -1, bj = -1, bd = 0.065 * 0.065;
       for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
         const a = list[i].c, b = list[j].c, d = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
         if (d < bd) { bd = d; bi = i; bj = j; }
@@ -145,13 +145,124 @@
         list.splice(bj, 1); merged = true;
       }
     }
-    list = list.filter(e => e.w >= 0.012);
+    list = list.filter(e => e.w >= 0.008);                         // (una tinta de verdad puede ocupar el 1 % de la imagen)
     list.sort((x, y) => x.c[0] - y.c[0]);
     // Cuánto se aparta la imagen de su paleta: poco = paleta cerrada (tintas planas).
     let err = 0;
     for (let i = 0; i < pts.length; i++) { let bd = 1e9; for (const e of list) { const d = dist(pts[i], e.c); if (d < bd) bd = d; } err += Math.sqrt(bd); }
     return { colors: list.map(e => e.c), shares: list.map(e => e.w), error: err / pts.length };
   }
+
+  // ── Rejilla de píxel ────────────────────────────────────────────────────────
+  // Un píxel art tiene sus saltos de luz en una rejilla: cada p puntos, en columnas y en filas. Se
+  // busca así: el perfil de saltos por columna (y por fila) se correlaciona consigo mismo; su primer
+  // pico da el periodo, que no tiene por qué ser entero (una imagen reescalada, una pantalla
+  // fotografiada). Como la rejilla puede venir algo girada, se prueban nueve inclinaciones y se queda
+  // la que mejor la alinea. Y para no confundirla con otras cosas periódicas:
+  //   · los saltos tienen que estar CONCENTRADOS en la rejilla (dentro de un bloque no pasa nada): eso
+  //     descarta las tramas de puntos;
+  //   · tienen que ser saltos de verdad: los bloques de 8 × 8 de una foto en JPEG también forman
+  //     rejilla, pero sus saltos son mínimos.
+  function pixelGrid(lum, N) {
+    const axis = vertical => {
+      let best = null;
+      for (let s = -4; s <= 4; s++) {
+        const tan = Math.tan(s * Math.PI / 180), g = new Float32Array(N);
+        for (let a = 0; a < N - 1; a++) {
+          const off = (a - N / 2) * tan;
+          for (let b = 0; b < N - 1; b++) {
+            const d = vertical ? Math.abs(lum[a * N + b + 1] - lum[a * N + b]) : Math.abs(lum[(b + 1) * N + a] - lum[b * N + a]);
+            const at = Math.round(b - off);
+            if (at >= 0 && at < N) g[at] += d;
+          }
+        }
+        let mean = 0;
+        for (let i = 8; i < N - 8; i++) mean += g[i];
+        mean /= N - 16;
+        let varg = 0;
+        for (let i = 8; i < N - 8; i++) varg += (g[i] - mean) ** 2;
+        if (varg < 1e-9) continue;
+        const r = new Float32Array(82);
+        let rmax = 0;
+        for (let lag = 3; lag <= 80; lag++) { let acc = 0; for (let i = 8; i < N - 8 - lag; i++) acc += (g[i] - mean) * (g[i + lag] - mean); r[lag] = acc / varg; if (r[lag] > rmax) rmax = r[lag]; }
+        let lag = 0;
+        for (let k = 4; k < 80; k++) if (r[k] > r[k - 1] && r[k] >= r[k + 1] && r[k] > 0.3 && r[k] >= 0.6 * rmax) { lag = k; break; }   // el primer pico fuerte: el periodo, no un múltiplo
+        if (!lag) continue;
+        const den = r[lag - 1] - 2 * r[lag] + r[lag + 1], p = lag + (Math.abs(den) > 1e-9 ? clamp(0.5 * (r[lag - 1] - r[lag + 1]) / den, -0.5, 0.5) : 0);
+        // ¿Cuánto de los saltos cae en la rejilla (con su mejor arranque)?
+        // (con ventana estrecha si el periodo es corto; y se mide lo que EXCEDE del azar: con periodos
+        //  cortos la ventana ya cubre media rejilla y cualquier cosa «se concentra»)
+        const win = p >= 8 ? 1.5 : p >= 5 ? 1 : 0.5;
+        let total = 0, top = 0, teeth = 0;
+        for (let i = 8; i < N - 8; i++) total += g[i];
+        for (let ph = 0; ph < p; ph += 0.5) {
+          let on = 0, n = 0;
+          for (let i = 8; i < N - 8; i++) { const d = ((i - ph) % p + p) % p; if (Math.min(d, p - d) <= win) on += g[i]; }
+          for (let t = ph; t < N - 8; t += p) if (t >= 8) n++;
+          if (on > top) { top = on; teeth = n; }
+        }
+        const cover = Math.min(0.95, (2 * win + 1) / p), raw = total > 0 ? top / total : 0, conc = Math.max(0, (raw - cover) / (1 - cover));
+        const jump = teeth ? top / (teeth * (N - 1)) : 0, quality = r[lag] * conc;
+        if (!best || quality > best.quality) best = { p, r: r[lag], conc, jump, shear: s, quality };
+      }
+      return best;
+    };
+    const x = axis(true), y = axis(false);
+    if (!x || !y) return null;
+    const period = (x.p + y.p) / 2, jump = (x.jump + y.jump) / 2;
+    if (Math.abs(x.p - y.p) / period > 0.08 || x.conc < 0.45 || y.conc < 0.45) return null;
+    if (jump < 0.03 || (Math.abs(period - 8) < 0.3 && jump < 0.06)) return null;      // bloques de compresión, no píxeles
+    return { period, jump: +jump.toFixed(3), conc: +Math.min(x.conc, y.conc).toFixed(2), shear: [x.shear, y.shear] };
+  }
+
+  // ── Luz desigual ────────────────────────────────────────────────────────────
+  // Un cartel fotografiado casi nunca está iluminado por igual: de un lado sale más claro que del
+  // otro, y entonces cada tinta parece dos o tres. Se busca un plano de luz: los puntos de un mismo
+  // color (misma cromaticidad, que no cambia con la luz) deberían tener la misma luminosidad, así que
+  // lo que varíe dentro de cada color, de un lado a otro de la imagen, es la luz. Se ajusta ese plano
+  // (en logaritmo, con pesos que ignoran lo que se sale) y solo se usa si de verdad explica la
+  // variación; y quien lo llama solo lo acepta si la paleta mejora. Así no «aplana» un duotono ni una foto.
+  // pts: [x, y, r, g, b] por muestra, con x e y de −0,5 a 0,5.
+  function lightPlane(pts, n) {
+    const groups = new Map();
+    for (let i = 0; i < n; i++) {
+      const o = i * 5, r = LIN[pts[o + 2]], g = LIN[pts[o + 3]], b = LIN[pts[o + 4]], sum = r + g + b;
+      if (sum < 0.04 || (pts[o + 2] > 250 && pts[o + 3] > 250 && pts[o + 4] > 250)) continue;         // ni lo negro (sin color que medir) ni un reflejo quemado
+      const key = (Math.min(11, (r / sum * 12) | 0) << 4) | Math.min(11, (g / sum * 12) | 0);
+      let arr = groups.get(key);
+      if (!arr) { arr = []; groups.set(key, arr); }
+      arr.push(pts[o], pts[o + 1], Math.log(0.2126 * r + 0.7152 * g + 0.0722 * b + 1e-4));
+    }
+    const obs = [];
+    for (const a of groups.values()) {
+      const m = a.length / 3;
+      if (m < 20) continue;
+      let mx = 0, my = 0, ml = 0, minX = 1, maxX = -1, minY = 1, maxY = -1;
+      for (let i = 0; i < a.length; i += 3) { mx += a[i]; my += a[i + 1]; ml += a[i + 2]; if (a[i] < minX) minX = a[i]; if (a[i] > maxX) maxX = a[i]; if (a[i + 1] < minY) minY = a[i + 1]; if (a[i + 1] > maxY) maxY = a[i + 1]; }
+      if (maxX - minX < 0.25 && maxY - minY < 0.25) continue;      // un color que solo está en un rincón no dice nada de la luz
+      mx /= m; my /= m; ml /= m;
+      for (let i = 0; i < a.length; i += 3) obs.push(a[i] - mx, a[i + 1] - my, a[i + 2] - ml);
+    }
+    if (obs.length < 450) return null;
+    let bx = 0, by = 0;
+    for (let it = 0; it < 5; it++) {
+      let sxx = 0, sxy = 0, syy = 0, sxl = 0, syl = 0;
+      for (let i = 0; i < obs.length; i += 3) {
+        const dx = obs[i], dy = obs[i + 1], dl = obs[i + 2], res = Math.abs(dl - (bx * dx + by * dy)), wt = it === 0 || res < 0.08 ? 1 : 0.08 / res;
+        sxx += wt * dx * dx; sxy += wt * dx * dy; syy += wt * dy * dy; sxl += wt * dx * dl; syl += wt * dy * dl;
+      }
+      const det = sxx * syy - sxy * sxy;
+      if (Math.abs(det) < 1e-9) return null;
+      bx = (syy * sxl - sxy * syl) / det; by = (sxx * syl - sxy * sxl) / det;
+    }
+    let ssT = 0, ssR = 0;
+    for (let i = 0; i < obs.length; i += 3) { ssT += obs[i + 2] ** 2; ssR += (obs[i + 2] - bx * obs[i] - by * obs[i + 1]) ** 2; }
+    const r2 = ssT > 1e-6 ? 1 - ssR / ssT : 0;
+    if (r2 < 0.65 || Math.exp(0.5 * (Math.abs(bx) + Math.abs(by))) < 1.12) return null;
+    return { bx, by, r2: +r2.toFixed(2) };
+  }
+  // Lo que hay que multiplicar un valor (0…255) en (x, y) para deshacer esa luz.
+  const lightGain = (plane, x, y) => clamp(Math.exp(-(plane.bx * x + plane.by * y) / 2.2), 0.55, 1.9);
 
   // ── El análisis ─────────────────────────────────────────────────────────────
   // thumb: { data, width, height } de la referencia reducida (lado mayor ≤ 256).
@@ -166,7 +277,13 @@
     const n = thumb.width * thumb.height, lab = labImage(thumb.data, n);
     const sn2 = sparse ? sparse.n : n, slab = sparse ? labImage(sparse.data, sn2) : lab;
     const pal = palette(slab, sn2);
-    const K = pal.colors.length, limited = K <= 6 && pal.error < 0.04;
+    // ¿Paleta cerrada? Pocas tintas y la imagen pegada a ellas. «Pegada» se mide contra lo que separa
+    // a las tintas entre sí: una foto de poco contraste también se queda en tres o cuatro centros y con
+    // poco error absoluto, pero sus centros están casi tan cerca unos de otros como los puntos de ellos.
+    const K = pal.colors.length;
+    let gap = 1e9;
+    for (let i = 0; i < K; i++) for (let j = i + 1; j < K; j++) gap = Math.min(gap, Math.hypot(pal.colors[i][0] - pal.colors[j][0], pal.colors[i][1] - pal.colors[j][1], pal.colors[i][2] - pal.colors[j][2]));
+    const limited = K <= 6 && pal.error < 0.04 && pal.error < 0.2 * gap;
 
     // Tonos: los cuantiles de la luz de la referencia.
     const Ls = new Float32Array(n);
@@ -204,61 +321,55 @@
 
     // Lo fino: rejilla de píxel y trama, sobre el recorte sin reducir.
     const N = fine.n, lum = fine.lum, perWidth = fine.span / N;    // cuántas veces cabe el recorte a lo ancho
-    const gx = new Float32Array(N), gy = new Float32Array(N);
-    for (let y = 0; y < N - 1; y++) for (let x = 0; x < N - 1; x++) {
-      const v = lum[y * N + x];
-      gx[x] += Math.abs(lum[y * N + x + 1] - v); gy[y] += Math.abs(lum[(y + 1) * N + x] - v);
-    }
-    // Un píxel art tiene sus saltos concentrados cada p columnas (y filas): se busca el periodo p cuya
-    // mejor fase se lleva casi toda la energía de los saltos.
-    const grid = g => {
-      let sum = 0;
-      for (let i = 0; i < N - 1; i++) sum += g[i];
-      if (sum < 1e-6) return { p: 0, q: 0 };
-      let best = { p: 0, q: 0 };
-      for (let p = 3; p <= 40; p++) {
-        const phase = new Float32Array(p);
-        for (let i = 0; i < N - 1; i++) phase[i % p] += g[i];
-        let top = 0;
-        for (let k = 0; k < p; k++) if (phase[k] > top) top = phase[k];
-        const q = top / sum;                                       // 1/p si no hay rejilla; cerca de 1 si la hay
-        const lift = (q - 1 / p) / (1 - 1 / p);
-        // los divisores del periodo verdadero concentran igual: gana el más largo de los que empatan
-        if (lift > best.q + 0.02 || (lift > 0.6 && lift >= best.q - 0.03)) best = { p, q: Math.max(lift, best.q) };
-      }
-      return best;
-    };
-    const px = grid(gx), py = grid(gy);
+    let grid = pixelGrid(lum, N);
+    // (una referencia pequeña se amplió sin suavizar para medirla: esos «bloques» son del ampliado, no suyos)
+    if (grid && fine.zoom > 1 && grid.period <= fine.zoom * 1.25) grid = null;
     let pixel = 0, period = 0;
-    if (px.q > 0.62 && py.q > 0.62 && Math.abs(px.p - py.p) <= 1) { period = (px.p + py.p) / 2; pixel = clamp(Math.round(fine.span / period), 8, 320); }
+    if (grid) { period = grid.period; pixel = clamp(Math.round(fine.span / period), 8, 320); }
 
     const pow = spectrum(lum, N);
     let ac = 0;
     for (let i = 1; i < N * N; i++) ac += pow[i];
+    const P = (u, v) => pow[((v + N) % N) * N + ((u + N) % N)];
     const screen = { type: 'none', freq: 0, angle: 0, strength: 0 };
     if (!pixel && ac > 1e-6) {
       let top = 0, tu = 0, tv = 0;
       for (let v = -N / 2; v < N / 2; v++) for (let u = 0; u < N / 2; u++) {      // medio plano: el espectro es simétrico
         const r = Math.hypot(u, v);
         if (r < 7 || r > N * 0.42) continue;
-        const p = pow[((v + N) % N) * N + u];
+        const p = P(u, v);
         if (p > top) { top = p; tu = u; tv = v; }
       }
-      // ¿Sobresale ese pico de lo que hay a su misma distancia del centro?
-      const r0 = Math.hypot(tu, tv);
-      let ring = 0, ringN = 0, lobe = 0;
+      // ¿Sobresale ese pico de lo que hay a su misma distancia del centro? Se compara con la MEDIANA
+      // del anillo: una media se la comen el propio pico, su pareja en cruz y las otras tramas de
+      // una impresión a varias tintas, y entonces una trama clarísima parecía no sobresalir.
+      const r0 = Math.hypot(tu, tv), ring = [];
+      let lobe = 0;
       for (let v = -N / 2; v < N / 2; v++) for (let u = -N / 2; u < N / 2; u++) {
-        const r = Math.hypot(u, v), p = pow[((v + N) % N) * N + ((u + N) % N)];
-        if (Math.abs(r - r0) < 3) { ring += p; ringN++; }
-        if (Math.hypot(u - tu, v - tv) <= 2 || Math.hypot(u + tu, v + tv) <= 2) lobe += p;
+        const r = Math.hypot(u, v);
+        if (Math.abs(r - r0) < 3) ring.push(P(u, v));
+        if (Math.hypot(u - tu, v - tv) <= 3 || Math.hypot(u + tu, v + tv) <= 3) lobe += P(u, v);   // radio 3: una foto en perspectiva ensancha el pico
       }
-      const prominence = top / Math.max(1e-9, (ring - lobe) / Math.max(1, ringN - 26)), share = lobe / ac;
-      if (prominence > 60 && share > 0.012) {
-        let cross = 0;                                            // ¿hay otro pico en cruz? entonces son puntos
-        for (let dv = -2; dv <= 2; dv++) for (let du = -2; du <= 2; du++) { const u = -tv + du, v = tu + dv, p = pow[((v + N) % N) * N + ((u + N) % N)]; if (p > cross) cross = p; }
-        screen.type = cross > top * 0.2 ? 'dot' : 'line';
-        screen.freq = +(r0 * perWidth).toFixed(2);
-        screen.angle = +Math.atan2(tv, tu).toFixed(4);
+      ring.sort((a, b) => a - b);
+      const prominence = top / Math.max(1e-9, ring[ring.length >> 1]), share = lobe / ac;
+      if (prominence > 45 && share > 0.008) {
+        // ¿Hay otro pico en cruz? Entonces son puntos. Se busca con holgura (±12°, ±15 % de radio):
+        // en una foto con algo de perspectiva la cruz no cae a 90° exactos.
+        const a0 = Math.atan2(tv, tu) + Math.PI / 2;
+        let cross = 0;
+        for (let v = -N / 2; v < N / 2; v++) for (let u = -N / 2; u < N / 2; u++) {
+          const r = Math.hypot(u, v);
+          if (r < r0 * 0.85 || r > r0 * 1.15) continue;
+          let da = Math.abs(Math.atan2(v, u) - a0) % Math.PI;
+          if (da > Math.PI / 2) da = Math.PI - da;
+          if (da < 0.21) { const p = P(u, v); if (p > cross) cross = p; }
+        }
+        // El pico afinado por debajo de la celda del espectro (parábola sobre el logaritmo de sus vecinos).
+        const fineAt = (m, c, pl) => { const a = Math.log(m + 1e-12), b = Math.log(c + 1e-12), d = Math.log(pl + 1e-12), den = a - 2 * b + d; return Math.abs(den) > 1e-9 ? clamp(0.5 * (a - d) / den, -0.5, 0.5) : 0; };
+        const fu = tu + fineAt(P(tu - 1, tv), top, P(tu + 1, tv)), fv = tv + fineAt(P(tu, tv - 1), top, P(tu, tv + 1));
+        screen.type = cross > top * 0.15 ? 'dot' : 'line';
+        screen.freq = +(Math.hypot(fu, fv) * perWidth).toFixed(2);
+        screen.angle = +Math.atan2(fv, fu).toFixed(4);
         screen.strength = limited ? 1 : +clamp(Math.sqrt(share) * 2.2, 0.15, 1).toFixed(3);
         period = N / r0;
       }
@@ -278,40 +389,77 @@
       if (alt > 0.22) { screen.type = 'bayer'; screen.freq = pixel; screen.strength = +clamp(alt * 2.2, 0.4, 1).toFixed(3); }
     }
 
-    // Grano: lo que queda al quitarle a cada punto la media de sus vecinos, solo en zonas lisas.
+    // Grano: lo que queda al quitarle a cada punto la media de sus vecinos, solo en zonas lisas (las
+    // zonas se eligen sobre la imagen suavizada: si no, un grano fuerte se excluiría a sí mismo).
+    // Se mide a dos escalas, porque hay que separar el grano de la REFERENCIA del ruido de la cámara
+    // que la fotografía: el ruido de sensor no tiene tamaño (cada punto va por su cuenta: al promediar
+    // de 2 × 2 cae a la mitad), y el grano de película sí (va en grumos: al promediar apenas baja).
     const grain = { amount: 0, cells: 0 };
     if (!pixel && screen.type === 'none') {
-      let sum = 0, sum2 = 0, cnt = 0, lag = 0;
-      let prev = 0;
-      for (let y = 2; y < N - 2; y += 2) for (let x = 2; x < N - 2; x++) {
-        const i = y * N + x, mean = (lum[i - 1] + lum[i + 1] + lum[i - N] + lum[i + N] + lum[i - N - 1] + lum[i - N + 1] + lum[i + N - 1] + lum[i + N + 1]) / 8;
-        const slope = Math.abs(lum[i + 2] - lum[i - 2]) + Math.abs(lum[i + 2 * N] - lum[i - 2 * N]);
-        if (slope > 0.06) { prev = 0; continue; }
-        const r = lum[i] - mean;
-        sum += r; sum2 += r * r; lag += r * prev; cnt++; prev = r;
+      const residual = (img, n) => {
+        const soft = new Float32Array(n * n);
+        for (let y = 1; y < n - 1; y++) for (let x = 1; x < n - 1; x++) { const i = y * n + x; soft[i] = (img[i] * 4 + (img[i - 1] + img[i + 1] + img[i - n] + img[i + n]) * 2 + img[i - n - 1] + img[i - n + 1] + img[i + n - 1] + img[i + n + 1]) / 16; }
+        let sum = 0, sum2 = 0, cnt = 0, lag = 0, prev = 0, had = false;
+        const all = new Float32Array(n * n);
+        for (let y = 3; y < n - 3; y++) { had = false; for (let x = 3; x < n - 3; x++) {
+          const i = y * n + x;
+          if (Math.abs(soft[i + 2] - soft[i - 2]) + Math.abs(soft[i + 2 * n] - soft[i - 2 * n]) > 0.05) { had = false; continue; }
+          const r = img[i] - (img[i - 1] + img[i + 1] + img[i - n] + img[i + n] + img[i - n - 1] + img[i - n + 1] + img[i + n - 1] + img[i + n + 1]) / 8;
+          sum += r; sum2 += r * r; all[cnt++] = Math.abs(r);
+          if (had) lag += r * prev;
+          prev = r; had = true;
+        } }
+        if (cnt < n) return null;
+        // La fuerza sale de la MEDIANA del residuo, no de su media: el grano está en todas partes; el
+        // borde de una línea de tinta deja residuos enormes en unos pocos puntos, y con la media un
+        // cartel de tinta plana «tenía grano».
+        const varr = Math.max(0, sum2 / cnt - (sum / cnt) ** 2), sorted = all.subarray(0, cnt).sort();
+        return { sd: 1.4826 * sorted[cnt >> 1], rho: varr > 1e-9 ? lag / cnt / varr : 0 };
+      };
+      // Cuatro escalas (1, 2, 4 y 8 puntos): el grano se ve más fuerte en la escala de su tamaño.
+      const levels = [{ img: lum, n: N }];
+      for (let k = 1; k < 4; k++) {
+        const up = levels[k - 1], m = up.n >> 1, img = new Float32Array(m * m);
+        for (let y = 0; y < m; y++) for (let x = 0; x < m; x++) img[y * m + x] = (up.img[2 * y * up.n + 2 * x] + up.img[2 * y * up.n + 2 * x + 1] + up.img[(2 * y + 1) * up.n + 2 * x] + up.img[(2 * y + 1) * up.n + 2 * x + 1]) / 4;
+        levels.push({ img, n: m });
       }
-      if (cnt > N) {
-        const sd = Math.sqrt(Math.max(0, sum2 / cnt - (sum / cnt) ** 2));
-        if (sd > 0.008) {
-          grain.amount = +clamp(sd * 3.2, 0, 0.5).toFixed(3);
-          const rho = clamp(lag / Math.max(1e-9, sum2), 0, 0.9);                 // grano gordo: vecinos parecidos
-          grain.cells = Math.round(fine.span / (1 + rho * 3));
+      const res = levels.map(l => residual(l.img, l.n)), sd = res.map(r => (r ? r.sd : 0)), one = res[0], two = res[1];
+      let top = 0;
+      for (let k = 1; k < 4; k++) if (sd[k] > sd[top]) top = k;
+      if (analyze.debug) analyze.debug.grain = { sd: sd.map(v => +v.toFixed(4)), rho: res.map(r => (r ? +r.rho.toFixed(2) : null)) };
+      if (one && two && sd[top] > 0.008) {
+        // (el residuo contra los vecinos sale anticorrelado de por sí: se corrige antes de juzgar)
+        const ratio = two.sd / Math.max(1e-6, one.sd), rho = clamp((one.rho + 0.125) / 1.125, 0, 0.95);
+        const sensor = top === 0 && ratio < 0.62 && rho < 0.12 && one.sd < 0.034;
+        if (sensor) grain.sensor = +one.sd.toFixed(3);       // ruido de la cámara que la retrató: no es del look
+        if (!sensor) {
+          // El tamaño: la escala donde más se ve, afinada con sus dos vecinas (parábola sobre el logaritmo).
+          const y0 = Math.log(Math.max(1e-5, sd[Math.max(0, top - 1)])), y1 = Math.log(sd[top]), y2 = Math.log(Math.max(1e-5, sd[Math.min(3, top + 1)]));
+          const bend = y0 - 2 * y1 + y2, shift = top > 0 && top < 3 && bend < -1e-6 ? clamp(0.5 * (y0 - y2) / bend, -0.5, 0.5) : top === 0 ? clamp((y2 - y1 + 0.69) * 0.7, 0, 0.5) : 0;
+          const size = Math.pow(2, top + shift);
+          // La fuerza: la de todas las escalas juntas (un grano grueso reparte su energía entre varias;
+          // con solo la mayor se quedaba en dos tercios). 1,328 = 1 + ¼ + 1/16 + 1/64: lo que suma el ruido blanco.
+          const all = Math.sqrt((sd[0] * sd[0] + sd[1] * sd[1] + sd[2] * sd[2] + sd[3] * sd[3]) / 1.328);
+          grain.amount = +clamp(all * 3.2, 0, 0.5).toFixed(3);
+          grain.cells = Math.round(fine.span / size);
+          grain.ratio = +ratio.toFixed(2); grain.rho = +rho.toFixed(2);
         }
       }
     }
     if (limited && screen.type === 'none' && grain.amount > 0.05) { screen.type = 'noise'; screen.strength = +clamp(grain.amount * 4, 0.3, 1).toFixed(3); screen.freq = grain.cells; }
 
-    // Líneas de tinta: puntos bastante más oscuros que su entorno, sobre la referencia reducida.
+    // Líneas de tinta: puntos bastante más oscuros que su entorno, sobre la referencia reducida. Se mira
+    // a dos distancias (una línea desenfocada es más ancha) y el umbral sigue al contraste de la imagen.
     const w = thumb.width, h = thumb.height;
-    let ink = 0, inkN = 0, edgeSum = 0;
-    for (let y = 3; y < h - 3; y += 2) for (let x = 3; x < w - 3; x += 2) {
-      const i = y * w + x, around = (Ls[i - 3] + Ls[i + 3] + Ls[i - 3 * w] + Ls[i + 3 * w]) / 4;
+    const spread = sorted[Math.round((tn - 1) * 0.9)] - sorted[Math.round((tn - 1) * 0.1)], dip = Math.max(0.11, 0.22 * spread);
+    let ink = 0, inkN = 0;
+    for (let y = 4; y < h - 4; y += 2) for (let x = 4; x < w - 4; x += 2) {
+      const i = y * w + x, near = (Ls[i - 2] + Ls[i + 2] + Ls[i - 2 * w] + Ls[i + 2 * w]) / 4, far = (Ls[i - 4] + Ls[i + 4] + Ls[i - 4 * w] + Ls[i + 4 * w]) / 4, around = Math.max(near, far);
       inkN++;
-      if (Ls[i] < around - 0.16 && around > 0.35) ink++;
-      edgeSum += Math.abs(Ls[i + 1] - Ls[i - 1]) + Math.abs(Ls[i + w] - Ls[i - w]);
+      if (Ls[i] < around - dip && around > 0.35) ink++;
     }
     const inkShare = ink / Math.max(1, inkN);
-    const edge = !pixel && screen.type === 'none' && inkShare > 0.012 ? +clamp(inkShare * 9, 0.25, 1).toFixed(3) : 0;
+    const edge = !pixel && (screen.type === 'none' || screen.type === 'noise') && inkShare > 0.012 ? +clamp(inkShare * 9, 0.25, 1).toFixed(3) : 0;
 
     // Viñeta: esquinas más oscuras que el centro.
     const box = (x0, y0, x1, y1) => { let s = 0, c = 0; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { s += Ls[y * w + x]; c++; } return s / Math.max(1, c); };
@@ -371,6 +519,7 @@
     uniform vec2 uRes;             // tamaño de la salida, en píxeles
     uniform float uMirror, uCells, uScale, uSeed, uReveal, uAim, uLimited, uEdge, uVig, uSat, uRampMix, uPalN, uFlat;
     uniform vec3 uPal[8];
+    uniform vec3 uPalRgb[8];       // las mismas tintas, ya en RGB de pantalla
     uniform vec3 uInk;
     uniform vec4 uDither;          // tipo (0 nada, 1 ordenado, 2 puntos, 3 líneas, 4 ruido), celdas a lo ancho, ángulo, fuerza
     uniform vec2 uGrain;           // cantidad, celdas a lo ancho
@@ -387,7 +536,8 @@
       return pow(clamp(l, 0., 1.), vec3(1. / 2.2));
     }
     float hash(vec2 p) { p = fract(p * vec2(.1031, .1030)); p += dot(p, p.yx + 33.33); return fract((p.x + p.y) * p.x); }
-    float bayer2(vec2 a) { a = floor(a); return fract(a.x / 2. + a.y * a.y * .75); }
+    // (mod 4 antes de elevar al cuadrado: con precisión media, 300² ya desborda y saldría negro)
+    float bayer2(vec2 a) { a = mod(floor(a), 4.); return fract(a.x / 2. + a.y * a.y * .75); }
     float bayer4(vec2 a) { return bayer2(.5 * a) * .25 + bayer2(a); }
     vec3 source(vec2 q) { return texture2D(uSrc, uCrop.xy + vec2(uMirror > .5 ? 1. - q.x : q.x, q.y) * uCrop.zw).rgb; }
     void main() {
@@ -396,7 +546,7 @@
       float cells = uCells * uScale;
       vec2 grid = vec2(cells, max(1., floor(cells / aspect + .5)));
       if (cells > 0.) q = (floor(uv * grid) + .5) / grid;
-      vec3 src = source(q);
+      vec3 src = source(q), raw = src;
       if (uAim > .5) {                                             // apuntando: la cámara tal cual, con su encuadre
         vec2 d = abs(uv - .5);
         float inside = step(d.x, .38) * step(d.y, .38);
@@ -407,7 +557,7 @@
       // Tinta plana sin trama: el ruido de la cámara haría bailar el borde entre dos tintas. Se lee la
       // escena un poco emborronada (nueve puntos) y las manchas salen limpias.
       if (uFlat > .5 && cells <= 0.) {
-        vec2 b = vec2(.0034, .0034 * aspect), a = vec2(.0056, .0056 * aspect);   // en fracción del ancho: igual en la vista que en la foto
+        vec2 b = vec2(.0034, .0034 * aspect) / uScale, a = vec2(.0056, .0056 * aspect) / uScale;   // en fracción del ancho: igual en la vista que en la foto
         src = (src * 2. + source(q + vec2(b.x, b.y)) + source(q + vec2(-b.x, b.y)) + source(q + vec2(b.x, -b.y)) + source(q + vec2(-b.x, -b.y))
           + source(q + vec2(a.x, 0.)) + source(q - vec2(a.x, 0.)) + source(q + vec2(0., a.y)) + source(q - vec2(0., a.y))) / 10.;
       }
@@ -415,11 +565,15 @@
       // Tonos: la luz de la escena, llevada a la distribución de la referencia.
       p.x = texture2D(uTone, vec2(clamp(p.x, .002, .998), .5)).r;
       // Contorno, medido en la fuente.
-      float e = 0.;
+      float e = 0., eg = 0.;
       if (uEdge > 0.) {
-        vec2 st = cells > 0. ? 1. / grid : 1.6 / uRes;
-        float lx = lab(source(q + vec2(st.x, 0.))).x - lab(source(q - vec2(st.x, 0.))).x, ly = lab(source(q + vec2(0., st.y))).x - lab(source(q - vec2(0., st.y))).x;
-        e = smoothstep(.07, .2, length(vec2(lx, ly))) * uEdge;
+        // (el paso va en fracción del ancho: la línea pesa lo mismo en la vista que en la foto; y la
+        //  diferencia se mide en luma con raíz, sin pasar cuatro veces por OKLab)
+        vec2 st = cells > 0. ? 1. / grid : vec2(.0024, .0024 * aspect) / uScale;
+        vec3 Y = vec3(.299, .587, .114);
+        float lx = sqrt(dot(source(q + vec2(st.x, 0.)), Y)) - sqrt(dot(source(q - vec2(st.x, 0.)), Y)), ly = sqrt(dot(source(q + vec2(0., st.y)), Y)) - sqrt(dot(source(q - vec2(0., st.y)), Y));
+        eg = smoothstep(.07, .2, length(vec2(lx, ly)));
+        e = eg * uEdge;
       }
       // Color: el de la escena, desplazado al de la referencia; y cuanto más mande la luz en ella,
       // más sale del color que la referencia le pone a cada nivel.
@@ -430,39 +584,69 @@
       vec2 c = uv - .5;
       p.x *= 1. - uVig * dot(c, c) * 2.2;
       float gcells = uGrain.y * uScale;
-      if (uGrain.x > 0.) p.x += (hash(floor(uv * vec2(gcells, gcells / aspect)) + uSeed) - .5) * uGrain.x;
+      if (uGrain.x > 0.) {
+        // (grumos redondos, no cuadros: el valor de cada esquina de la celda, mezclado con suavidad; el
+        //  1.5 devuelve la fuerza que la mezcla quita)
+        vec2 gp = uv * vec2(gcells, gcells / aspect), gi = floor(gp), gf = gp - gi;
+        gf = gf * gf * (3. - 2. * gf);
+        float g = mix(mix(hash(gi + uSeed), hash(gi + vec2(1., 0.) + uSeed), gf.x), mix(hash(gi + vec2(0., 1.) + uSeed), hash(gi + vec2(1., 1.) + uSeed), gf.x), gf.y);
+        p.x += (g - .5) * uGrain.x * 1.5;
+      }
       // El umbral del tramado en este punto.
       float thr = .5, fr = uDither.y * uScale;
       vec2 w = uv * vec2(1., 1. / aspect);
       vec2 r = vec2(cos(uDither.z) * w.x + sin(uDither.z) * w.y, -sin(uDither.z) * w.x + cos(uDither.z) * w.y) * fr * 6.2831853;
       if (uDither.x > 3.5) thr = hash(floor(uv * vec2(fr, fr / aspect)) + uSeed * .37);
-      else if (uDither.x > 2.5) thr = .5 + .5 * cos(r.x);
-      else if (uDither.x > 1.5) thr = .5 + .25 * (cos(r.x) + cos(r.y));
+      // (los umbrales tienen que repartirse por igual entre 0 y 1: solo así un tono t deja tinta en la
+      //  fracción t de la superficie. Un coseno no lo hace —pasa más tiempo cerca de sus extremos—: las
+      //  líneas van con onda triangular y los puntos con la suma de cosenos pasada por su propio reparto)
+      else if (uDither.x > 2.5) thr = abs(2. * fract(r.x / 6.2831853 + .137) - 1.);   // (el desfase evita que un tono caiga justo sobre un umbral)
+      else if (uDither.x > 1.5) { float s = .5 * (cos(r.x) + cos(r.y)), s2 = s * s; thr = .5 + .5 * s * (1.5288 + s2 * (-1.0589 + .5301 * s2)); }
       else if (uDither.x > .5) thr = bayer4(cells > 0. ? floor(uv * grid) : floor(uv * vec2(fr, fr / aspect))) + .03125;
-      vec3 outc;
+      vec3 col;
       if (uLimited > .5) {
-        // Paleta cerrada: las dos tintas más cercanas, y el tramado decide entre ellas.
-        float d1 = 1e9, d2 = 1e9;
-        vec3 c1 = uPal[0], c2 = uPal[0];
+        // Paleta cerrada: las tintas más cercanas (en OKLab, que es como se parecen los colores), y el
+        // tramado decide entre ellas. CUÁNTA superficie ocupa cada una se calcula en RGB de pantalla:
+        // así el promedio de la trama es el tono pedido, igual que en la referencia (en OKLab, que es
+        // curvo, las rayas y los puntos salían más delgados que los de la imagen copiada).
+        float d1 = 100., d2 = 100., d3 = 100.;                       // (100 y no 1e9: cabe en precisión media)
+        vec3 k1 = uPalRgb[0], k2 = uPalRgb[0], k3 = uPalRgb[0];
         for (int i = 0; i < 8; i++) {
           if (float(i) >= uPalN) break;
           vec3 dd = p - uPal[i];
           float d = dot(dd, dd);
-          if (d < d1) { d2 = d1; c2 = c1; d1 = d; c1 = uPal[i]; } else if (d < d2) { d2 = d; c2 = uPal[i]; }
+          if (d < d1) { d3 = d2; k3 = k2; d2 = d1; k2 = k1; d1 = d; k1 = uPalRgb[i]; }
+          else if (d < d2) { d3 = d2; k3 = k2; d2 = d; k2 = uPalRgb[i]; }
+          else if (d < d3) { d3 = d; k3 = uPalRgb[i]; }
         }
-        vec3 seg = c2 - c1;
-        float t = clamp(dot(p - c1, seg) / max(dot(seg, seg), 1e-5), 0., 1.);
-        outc = t > mix(.5, thr, uDither.w) ? c2 : c1;
-        outc = mix(outc, uInk, step(.5, e));
+        vec3 e1 = k2 - k1, e2 = k3 - k1, rr = rgb(p) - k1;
+        float g11 = dot(e1, e1), g12 = dot(e1, e2), g22 = dot(e2, e2), det = g11 * g22 - g12 * g12;
+        if (uPalN > 2.5 && det > 1e-5) {
+          // Con tres tintas o más, un color que cae ENTRE tres (una piel entre rojo, amarillo y azul) se
+          // reparte entre las tres según su posición en ese triángulo; con solo las dos más cercanas se
+          // perdía la tercera y el tono se torcía.
+          float r1 = dot(rr, e1), r2 = dot(rr, e2);
+          float w2 = clamp((g22 * r1 - g12 * r2) / det, 0., 1.), w3 = clamp((g11 * r2 - g12 * r1) / det, 0., 1.);
+          float w1 = max(0., 1. - w2 - w3), s = max(w1 + w2 + w3, 1e-5);
+          w1 /= s; w2 /= s;
+          float t1 = mix(step(.5, w1), w1, uDither.w), t2 = mix(step(.5, w1 + w2), w1 + w2, uDither.w);
+          col = thr < t1 ? k1 : (thr < t2 ? k2 : k3);
+        } else {
+          float t = clamp(dot(rr, e1) / max(g11, 1e-5), 0., 1.);
+          col = t > mix(.5, thr, uDither.w) ? k2 : k1;
+        }
+        // (con tinta plana la línea está o no está: «uEdge» dice a partir de qué salto de luz se pinta
+        //  —con poco, solo los bordes más marcados—; antes se comparaba fuerza × salto con ½, y una
+        //  referencia con líneas medidas por debajo de 0,5 no pintaba ninguna)
+        col = mix(col, uPalRgb[0], uEdge > 0. ? step(mix(.7, .12, uEdge), eg) : 0.);
       } else {
         // Color continuo: la trama, si la hay, modula la luz.
         p.x += (thr - .5) * uDither.w * .34 * step(.5, uDither.x);
-        outc = mix(p, uInk, e);
+        col = rgb(mix(p, uInk, e));
       }
-      vec3 col = rgb(outc);
       if (uReveal < 1.) {                                          // el revelado: la cámara de antes se va por la derecha
         float edge = uReveal * 1.08 - .04;
-        col = mix(col, src, step(edge, uv.x));
+        col = mix(col, raw, step(edge, uv.x));
         col += vec3(.75, 1., .85) * smoothstep(.012, 0., abs(uv.x - edge));
       }
       gl_FragColor = vec4(col, 1.);
@@ -475,10 +659,10 @@
     try {
       const canvas = document.createElement('canvas');
       canvas.width = canvas.height = 16;
-      const opts = { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: true, powerPreference: 'low-power' };
+      const opts = { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' };   // (lo pintado se lee en el mismo turno: no hace falta conservarlo)
       const gl = canvas.getContext('webgl', opts) || canvas.getContext('experimental-webgl', opts);
       if (!gl) throw new Error('CLON: sin WebGL');
-      canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); G.lost++; G.gl = null; G.canvas = null; });
+      canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); G.lost++; G.gl = null; G.canvas = null; G.look = null; });
       const shader = (type, text) => { const s = gl.createShader(type); gl.shaderSource(s, text); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('CLON: ' + gl.getShaderInfoLog(s)); return s; };
       const prog = gl.createProgram();
       gl.attachShader(prog, shader(gl.VERTEX_SHADER, VERT)); gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FRAG));
@@ -492,33 +676,64 @@
       const tex = (unit, filter) => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, filter], [gl.TEXTURE_MAG_FILTER, filter], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
       G.src = tex(0, gl.LINEAR); G.tone = tex(1, gl.LINEAR); G.ramp = tex(2, gl.LINEAR);
       const u = {};
-      for (const name of ['uSrc', 'uTone', 'uRamp', 'uCrop', 'uRes', 'uMirror', 'uCells', 'uScale', 'uSeed', 'uReveal', 'uAim', 'uLimited', 'uEdge', 'uVig', 'uSat', 'uRampMix', 'uPalN', 'uFlat', 'uPal', 'uInk', 'uDither', 'uGrain', 'uChroma']) u[name] = gl.getUniformLocation(prog, name);
+      for (const name of ['uSrc', 'uTone', 'uRamp', 'uCrop', 'uRes', 'uMirror', 'uCells', 'uScale', 'uSeed', 'uReveal', 'uAim', 'uLimited', 'uEdge', 'uVig', 'uSat', 'uRampMix', 'uPalN', 'uFlat', 'uPal', 'uPalRgb', 'uInk', 'uDither', 'uGrain', 'uChroma']) u[name] = gl.getUniformLocation(prog, name);
       gl.uniform1i(u.uSrc, 0); gl.uniform1i(u.uTone, 1); gl.uniform1i(u.uRamp, 2);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-      G.canvas = canvas; G.gl = gl; G.u = u; G.key = '';
+      G.canvas = canvas; G.gl = gl; G.u = u; G.look = null; G.sceneAt = -1;
       return true;
     } catch (error) { G.failed = true; G.gl = null; G.canvas = null; console.warn(String(error && error.message || error)); return false; }
   }
   function release() {
     if (G.gl) { const ext = G.gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext(); }
-    G.gl = null; G.canvas = null; G.key = '';
+    G.gl = null; G.canvas = null; G.look = null;
   }
 
   // La curva de tonos: a cada nivel de luz de la escena, el de la referencia que ocupa su mismo puesto.
   const TYPES = { none: 0, bayer: 1, dot: 2, line: 3, noise: 4 };
   function toneCurve(look, sceneHist, amount, out) {
-    let total = 0;
-    for (let i = 0; i < sceneHist.length; i++) total += sceneHist[i];
-    const bins = sceneHist.length;
+    const bins = sceneHist.length, cum = new Float32Array(bins + 1);
+    // El histograma de la escena sale de pocos puntos: se suaviza un paso antes de acumularlo.
+    for (let k = 0; k < bins; k++) cum[k + 1] = cum[k] + 0.25 * sceneHist[Math.max(0, k - 1)] + 0.5 * sceneHist[k] + 0.25 * sceneHist[Math.min(bins - 1, k + 1)];
+    const total = cum[bins], cdf = look.cdf;
+    const at = q => { const pos = clamp(q, 0, 1) * 32, lo = Math.min(31, pos | 0); return cdf[lo] + (cdf[lo + 1] - cdf[lo]) * (pos - lo); };
+    // Una referencia casi toda de un tono (un cartel blanco con poca tinta) no se copia nivel a nivel:
+    // lavaría la escena entera. Se copian solo sus extremos, y la escena conserva su propio reparto.
+    const p05 = at(0.05), p50 = at(0.5), p95 = at(0.95), extreme = p95 - p50 < 0.06 || p50 - p05 < 0.06, lo02 = at(0.02), hi98 = at(0.98);
+    const m = new Float32Array(256);
+    // (en la prueba de parecido la «escena» es la propia referencia sin estilo: se copia nivel a nivel, sin topes)
+    if (look.exact) {
+      for (let i = 0; i < 256; i++) { const pos = i / 255 * bins, k = Math.min(bins - 1, pos | 0); out[i] = Math.round(255 * clamp(total > 0 ? at((cum[k] + (cum[k + 1] - cum[k]) * (pos - k)) / total) : i / 255, 0, 1)); }
+      return out;
+    }
+    let first = 0, last = 255;
     for (let i = 0; i < 256; i++) {
-      const at = i / 255 * (bins - 1), k = at | 0;
-      // el puesto de este nivel en la escena (acumulado hasta él)
-      let rank = 0;
-      for (let j = 0; j < k; j++) rank += sceneHist[j];
-      rank += sceneHist[k] * (at - k + 0.5);
-      rank = total > 0 ? clamp(rank / total, 0, 1) : i / 255;
-      const pos = rank * 32, lo = Math.min(31, pos | 0), matched = look.cdf[lo] + (look.cdf[lo + 1] - look.cdf[lo]) * (pos - lo);
-      out[i] = Math.round(255 * clamp(i / 255 + (matched - i / 255) * amount, 0, 1));
+      // el puesto de este nivel en la escena: 0 para el negro, 1 para el blanco (sin levantar el negro)
+      const pos = i / 255 * bins, k = Math.min(bins - 1, pos | 0);
+      const rank = total > 0 ? (cum[k] + (cum[k + 1] - cum[k]) * (pos - k)) / total : i / 255;
+      const matched = extreme ? lo02 + (hi98 - lo02) * Math.pow(rank, 0.9) : at(rank);
+      m[i] = i / 255 + (matched - i / 255) * amount;
+      if (rank < 0.002) first = i; if (rank < 0.998) last = i;
+    }
+    // Tope de pendiente: ningún tramo de la curva se estira más de 2,4× ni se aplasta por debajo de
+    // 0,35× (sin él, una escena con un pico en su histograma daba saltos de 20× y la imagen parpadeaba).
+    // El suelo solo cuenta entre el tono más oscuro y el más claro de la escena: fuera no hay nada que
+    // aplastar, y darle pendiente a esos tramos se la quitaba a los que sí tienen imagen.
+    const span = m[255] - m[0], mean = span / 255, min = Math.min(0.35 / 255, mean * 0.6), max = Math.max(2.4 / 255, mean * 1.4), d = new Float32Array(255);
+    const floor = i => (i >= first && i <= last ? min : 0);
+    for (let i = 0; i < 255; i++) d[i] = clamp(m[i + 1] - m[i], floor(i), max);
+    for (let pass = 0; pass < 4; pass++) {
+      let sum = 0, room = 0;
+      for (let i = 0; i < 255; i++) sum += d[i];
+      const need = span - sum;
+      if (Math.abs(need) < 1e-5) break;
+      for (let i = 0; i < 255; i++) room += need > 0 ? max - d[i] : d[i] - floor(i);
+      if (room < 1e-7) break;
+      const k = Math.min(1, Math.abs(need) / room);
+      for (let i = 0; i < 255; i++) d[i] += need > 0 ? (max - d[i]) * k : -(d[i] - floor(i)) * k;
+    }
+    for (let i = 0, v = m[0]; i < 256; i++) {
+      out[i] = Math.round(255 * clamp(v, 0, 1));
+      if (i < 255) v += d[i];
     }
     return out;
   }
@@ -527,6 +742,9 @@
     const pal = new Float32Array(24);
     for (let k = 0; k < K; k++) pal.set(look.palette[k], k * 3);
     gl.uniform3fv(u.uPal, pal);
+    const palRgb = new Float32Array(24);
+    for (let k = 0; k < K; k++) { const c = fromLab(look.palette[k][0], look.palette[k][1], look.palette[k][2]); palRgb[k * 3] = c[0] / 255; palRgb[k * 3 + 1] = c[1] / 255; palRgb[k * 3 + 2] = c[2] / 255; }
+    gl.uniform3fv(u.uPalRgb, palRgb);
     gl.uniform1f(u.uPalN, K);
     gl.uniform3fv(u.uInk, look.palette[0]);
     gl.uniform1f(u.uLimited, look.limited ? 1 : 0);
@@ -551,10 +769,15 @@
     gl.viewport(0, 0, w, h);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.src);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    loadLook(look);
-    toneCurve(look, scene.hist, look.tone == null ? 0.8 : look.tone, toneBytes);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.tone);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 256, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, toneBytes);
+    // El look y la curva de tonos solo se vuelven a subir cuando cambian (la escena se mide tres veces
+    // por segundo, no treinta).
+    if (G.look !== look) { loadLook(look); G.look = look; G.sceneAt = -1; }
+    if (G.sceneAt !== scene.version || scene.version == null) {
+      toneCurve(look, scene.hist, look.tone == null ? 0.8 : look.tone, toneBytes);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.tone);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 256, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, toneBytes);
+      G.sceneAt = scene.version == null ? -1 : scene.version;
+    }
     gl.uniform4f(u.uCrop, crop[0], crop[1], crop[2], crop[3]);
     gl.uniform2f(u.uRes, w, h);
     gl.uniform1f(u.uMirror, extra.mirror ? 1 : 0);
@@ -567,49 +790,71 @@
   }
 
   // ── Medir una imagen (para comparar dos): color, tonos, espectro y contornos ──
-  function features(data, n) {
-    const lab = labImage(data, n * n), hist = new Float32Array(5 * 7 * 7), tone = new Float32Array(16), lum = new Float32Array(n * n);
-    for (let i = 0; i < n * n; i++) {
-      const L = lab[i * 3];
-      lum[i] = L;
-      hist[Math.min(4, (L * 5) | 0) * 49 + Math.min(6, Math.max(0, ((lab[i * 3 + 1] + 0.35) / 0.7 * 7) | 0)) * 7 + Math.min(6, Math.max(0, ((lab[i * 3 + 2] + 0.35) / 0.7 * 7) | 0))]++;
-      tone[Math.min(15, (L * 16) | 0)]++;
+  // El color se compara como REPARTO, sin casillas: las mismas M muestras de las dos imágenes,
+  // proyectadas sobre 13 direcciones de OKLab y ordenadas (transporte por rebanadas). Con casillas, un
+  // tono que cae justo en una frontera cambia de casilla por nada y la nota salta.
+  const DIRS = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, -1, 0], [1, 0, 1], [1, 0, -1], [0, 1, 1], [0, 1, -1], [1, 1, 1], [1, -1, 1], [1, 1, -1], [1, -1, -1]]
+    .map(d => { const m = Math.hypot(d[0], d[1], d[2]); return [d[0] / m, d[1] / m, d[2] / m]; });
+  const SAMPLES = 4096, WEDGES = 12, picks = {};
+  function pick(count) {
+    if (picks[count]) return picks[count];
+    const out = new Uint32Array(SAMPLES);
+    let seed = 0x2545f491;
+    for (let i = 0; i < SAMPLES; i++) { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; out[i] = seed % count; }
+    return (picks[count] = out);
+  }
+  // flip: la imagen viene de abajo arriba (lo que se lee de WebGL); solo cambia el sentido de los ángulos.
+  function features(data, n, flip) {
+    const lab = labImage(data, n * n), lum = new Float32Array(n * n);
+    for (let i = 0; i < n * n; i++) lum[i] = lab[i * 3];
+    const idx = pick(n * n), slices = [];
+    for (const d of DIRS) {
+      const line = new Float32Array(SAMPLES);
+      for (let i = 0; i < SAMPLES; i++) { const o = idx[i] * 3; line[i] = lab[o] * d[0] + lab[o + 1] * d[1] + lab[o + 2] * d[2]; }
+      slices.push(line.sort());
     }
-    for (let i = 0; i < hist.length; i++) hist[i] /= n * n;
-    for (let i = 1; i < 16; i++) tone[i] += tone[i - 1];
-    for (let i = 0; i < 16; i++) tone[i] /= n * n;
-    const pow = spectrum(lum, n), bands = new Float32Array(10);
+    // El espectro, de dos maneras: por tamaño del detalle (10 bandas) y por DIRECCIÓN (12 cuñas de 15°):
+    // sin las cuñas, unas rayas horizontales y las mismas en vertical miden igual.
+    const pow = spectrum(lum, n), bands = new Float32Array(10), wedges = new Float32Array(WEDGES);
     for (let v = -n / 2; v < n / 2; v++) for (let u = -n / 2; u < n / 2; u++) {
       const r = Math.hypot(u, v);
       if (r < 1.5 || r >= n / 2) continue;
-      bands[Math.min(9, (Math.log2(r / 1.5) / Math.log2(n / 3) * 10) | 0)] += pow[((v + n) % n) * n + ((u + n) % n)];
+      const e = pow[((v + n) % n) * n + ((u + n) % n)];
+      bands[Math.min(9, (Math.log2(r / 1.5) / Math.log2(n / 3) * 10) | 0)] += e;
+      if (r >= 6) { let t = Math.atan2(flip ? -v : v, u); if (t < 0) t += Math.PI; wedges[Math.round(t / (Math.PI / WEDGES)) % WEDGES] += e; }
     }
+    let fineE = 0, allE = 0, wedgeE = 0;
+    for (let i = 0; i < 10; i++) { allE += bands[i]; if (i >= 6) fineE += bands[i]; }
+    for (let i = 0; i < WEDGES; i++) wedgeE += wedges[i];
+    if (wedgeE > 0) for (let i = 0; i < WEDGES; i++) wedges[i] /= wedgeE;
     let edge = 0;
     for (let y = 1; y < n - 1; y++) for (let x = 1; x < n - 1; x++) edge += Math.abs(lum[y * n + x + 1] - lum[y * n + x - 1]) + Math.abs(lum[(y + 1) * n + x] - lum[(y - 1) * n + x]);
-    return { hist, tone, bands, edge: edge / (n * n) };
+    // texture (0…1): qué parte de la energía está en el detalle fino (trama, píxel, grano).
+    return { slices, bands, wedges, edge: edge / (n * n), texture: clamp(((allE > 0 ? fineE / allE : 0) - 0.05) / 0.2, 0, 1) };
   }
-  // texture (0…1): cuánta textura fina tiene la REFERENCIA (lo decide ella, no el look que se prueba:
-  // si lleva trama y el look no la trae, tiene que notarse en la nota). Con textura, el espectro pesa;
-  // sin ella, la imagen es color y tonos, y el detalle fino lo pone la escena.
-  function distance(a, b, texture) {
-    let color = 0, tone = 0, spec = 0;
-    for (let i = 0; i < a.hist.length; i++) color += Math.abs(a.hist[i] - b.hist[i]);
-    for (let i = 0; i < 16; i++) tone += Math.abs(a.tone[i] - b.tone[i]);
+  // Cada parte va de 0 (igual) a 1 (nada que ver). Con textura fina en CUALQUIERA de las dos, el
+  // espectro y su dirección pesan (si la referencia lleva trama y el look no la trae, o al revés, tiene
+  // que notarse); sin ella, la imagen es color y tonos, y el detalle fino lo pone la escena.
+  function distance(a, b) {
+    let color = 0, spec = 0, turn = 0;
+    const tone = (() => { let t = 0; for (let i = 0; i < SAMPLES; i++) t += Math.abs(a.slices[0][i] - b.slices[0][i]); return t / SAMPLES; })();
+    for (let d = 0; d < DIRS.length; d++) { let t = 0; const x = a.slices[d], y = b.slices[d]; for (let i = 0; i < SAMPLES; i++) t += Math.abs(x[i] - y[i]); color += t / SAMPLES; }
+    color /= DIRS.length;
     // (una banda casi vacía en las dos no cuenta: se compara por encima de un suelo proporcional a la energía total)
     let ea = 0, eb = 0;
     for (let i = 0; i < 10; i++) { ea += a.bands[i]; eb += b.bands[i]; }
     const floor = 0.004 * (ea + eb) / 2 + 1e-5;
     for (let i = 0; i < 10; i++) spec += Math.min(2, Math.abs(Math.log10((a.bands[i] + floor) / (b.bands[i] + floor))));
+    for (let i = 0; i < WEDGES; i++) turn += Math.abs(a.wedges[i] - b.wedges[i]);
     const edge = Math.abs(a.edge - b.edge) / Math.max(0.02, a.edge, b.edge);
-    // Cada parte va de 0 (igual) a 1 (nada que ver). El color y el espectro (la textura) pesan más.
-    const c = color / 2, t = Math.min(1, tone / 16 * 4), s = Math.min(1, spec / 20 * 3), e = Math.min(1, edge);
-    const k = texture == null ? 1 : texture;
-    return { color: c, tone: t, spec: s, edge: e, total: (0.56 - 0.14 * k) * c + (0.2 - 0.06 * k) * t + (0.1 + 0.2 * k) * s + 0.14 * e };
+    const c = Math.min(1, color / COLOR_FAR), t = Math.min(1, tone * 4), s = Math.min(1, spec / 20 * 3), o = Math.min(1, turn / 2), e = Math.min(1, edge);
+    const k = Math.max(a.texture, b.texture);
+    return { color: c, tone: t, spec: s, turn: o, edge: e, texture: k, total: (0.56 - 0.18 * k) * c + (0.2 - 0.08 * k) * t + (0.1 + 0.06 * k) * s + 0.2 * k * o + 0.14 * e };
   }
-  function sceneOf(data, n) {
-    const hist = new Float32Array(64), tmp = new Float32Array(3);
+  function sceneOf(data, n, bins) {
+    const hist = new Float32Array(bins || 64), tmp = new Float32Array(3), top = hist.length - 1;
     let a = 0, b = 0;
-    for (let i = 0, p = 0; i < n; i++, p += 4) { toLab(data[p], data[p + 1], data[p + 2], tmp, 0); hist[Math.min(63, (tmp[0] * 64) | 0)]++; a += tmp[1]; b += tmp[2]; }
+    for (let i = 0, p = 0; i < n; i++, p += 4) { toLab(data[p], data[p + 1], data[p + 2], tmp, 0); hist[Math.min(top, (tmp[0] * (top + 1)) | 0)]++; a += tmp[1]; b += tmp[2]; }
     return { hist, mean: [a / n, b / n] };
   }
 
@@ -632,9 +877,13 @@
   //   · con la referencia ENTERA, reducida: ¿quedan sus colores y sus tonos donde estaban? (bloque a
   //     bloque, con la curva y el color del look tal cual: un look ajeno los cambia y se nota);
   //   · con un recorte SIN reducir: ¿son las mismas tintas, la misma textura, los mismos contornos?
-  function fit(look, ref, span, whole) {
+  // own: el look medido de ESTA referencia, si el que se prueba es otro (la versión sin estilo la
+  // decide la referencia: con el look que se prueba, cada candidato se medía contra una base distinta).
+  function fit(look, ref, span, whole, own) {
     if (!ensureGl()) return look;
-    const n = FIT_N, gl = G.gl, B = 16;
+    // (con píxel gordo los bloques van al doble: en uno pequeño caben dos o tres celdas del tramado y su
+    //  color medio depende de cuáles tocaron)
+    const n = FIT_N, gl = G.gl, B = (own || look).pixel ? 8 : 16;
     const blocks = data => {                                      // color medio de cada bloque (B × B bloques), en OKLab
       const out = new Float32Array(B * B * 3), tmp = new Float32Array(3), s = n / B;
       for (let i = 0, p = 0; i < n * n; i++, p += 4) { toLab(data[p], data[p + 1], data[p + 2], tmp, 0); const o = (Math.floor(Math.floor(i / n) / s) * B + Math.floor((i % n) / s)) * 3; out[o] += tmp[0]; out[o + 1] += tmp[1]; out[o + 2] += tmp[2]; }
@@ -657,13 +906,38 @@
     crop.ctx.drawImage(ref, (ref.width - side) / 2, (ref.height - side) / 2, side, side, 0, 0, n, n);
     // Cuánto se emborrona: hasta borrar la trama, el píxel o el ruido si los hay; si es tinta plana,
     // solo lo justo para perder las líneas (las formas tienen que seguir ahí).
-    const patterned = !!look.pixel || look.screen.type !== 'none', textured = patterned || look.grain.amount > 0.03;
-    soft.ctx.imageSmoothingEnabled = true; soft.ctx.imageSmoothingQuality = 'high'; soft.ctx.drawImage(halve(crop.canvas, fit.blur || (patterned ? 8 : 16)), 0, 0, n, n);
-    const target = features(crop.ctx.getImageData(0, 0, n, n).data, n);
-    // Textura fina de la referencia: qué parte de su energía está en las bandas altas del espectro.
-    let fineE = 0, allE = 0;
-    for (let i = 0; i < 10; i++) { allE += target.bands[i]; if (i >= 6) fineE += target.bands[i]; }
-    const share = allE > 0 ? fineE / allE : 0, texture = clamp((share - 0.05) / 0.2, 0, 1);
+    const base = own || look, patterned = !!base.pixel || base.screen.type !== 'none';
+    // Sin trama, antes se quitan las líneas de tinta con una mediana (a mitad de tamaño, 9 × 9: se lleva
+    // líneas de hasta 9 píxeles): emborronada, una línea negra se queda en un surco gris que el look
+    // pinta con otra tinta. Y si es tinta plana (un cartel), no se emborrona más: las manchas tienen que
+    // conservar su borde, que es donde el look vuelve a poner la línea (emborronada, la línea no se
+    // podía probar). El precio: de una imagen posterizada SIN líneas, su versión sin estilo es casi ella
+    // misma, y un look de color continuo la reproduce casi igual de bien; ahí la nota separa poco.
+    let plain = crop.canvas;
+    const flat = !patterned && base.limited && !(base.grain.amount > 0.03);
+    if (!patterned) {
+      const h = n >> 1, small = surface({ canvas: null, ctx: null }, h, h);
+      small.ctx.imageSmoothingEnabled = true; small.ctx.drawImage(crop.canvas, 0, 0, h, h);
+      const im = small.ctx.getImageData(0, 0, h, h), src = new Uint8ClampedArray(im.data), win = new Uint8Array(81);
+      for (let c = 0; c < 3; c++) for (let y = 0; y < h; y++) for (let x = 0; x < h; x++) {
+        let q = 0;
+        for (let dy = -4; dy <= 4; dy++) { const yy = clamp(y + dy, 0, h - 1) * h; for (let dx = -4; dx <= 4; dx++) win[q++] = src[(yy + clamp(x + dx, 0, h - 1)) * 4 + c]; }
+        win.sort(); im.data[(y * h + x) * 4 + c] = win[40];
+      }
+      small.ctx.putImageData(im, 0, 0);
+      plain = small.canvas;
+    }
+    soft.ctx.imageSmoothingEnabled = true; soft.ctx.imageSmoothingQuality = 'high'; soft.ctx.drawImage(flat && !fit.blur ? plain : halve(plain, fit.blur || (patterned ? 8 : 16)), 0, 0, n, n);
+    // Si la referencia venía con ruido de cámara (no es parte del look), se compara contra ella un poco
+    // alisada: el look no lo pone, y no tiene por qué perder nota por no ponerlo.
+    let goal = crop;
+    if (base.grain.sensor) {
+      const h = surface({ canvas: null, ctx: null }, n >> 1, n >> 1);
+      h.ctx.imageSmoothingEnabled = true; h.ctx.drawImage(crop.canvas, 0, 0, n >> 1, n >> 1);
+      goal = surface({ canvas: null, ctx: null }, n, n);
+      goal.ctx.imageSmoothingEnabled = true; goal.ctx.drawImage(h.canvas, 0, 0, n, n);
+    }
+    const target = features(goal.ctx.getImageData(0, 0, n, n).data, n);
     // Los tonos a los que se lleva el recorte son los suyos propios, sin estilo (la curva del look es
     // la de la imagen entera, que puede tener zonas que aquí no salen): la prueba mide si la paleta,
     // la trama y el grano reconstruyen la imagen, no la curva.
@@ -672,13 +946,16 @@
     cropL.sort();
     const cropCdf = [];
     for (let i = 0; i <= 32; i++) cropCdf.push(cropL[Math.min(n * n - 1, Math.round(i / 32 * (n * n - 1)))]);
-    const scene = sceneOf(softData, n * n);
+    const scene = sceneOf(softData, n * n, 256);
     const scale = side / span, px = new Uint8Array(n * n * 4);
+    const crisp = candidate => {
+      draw({ ...candidate, cdf: cropCdf, mean: scene.mean, vignette: 0, exact: true }, soft.canvas, [0, 0, 1, 1], n, n, scene, { scale, seed: 0.37 });
+      gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    };
     const score = candidate => {
       // (la viñeta y el color medio son de la imagen entera: en un recorte no se pueden juzgar)
-      draw({ ...candidate, cdf: cropCdf, mean: scene.mean, vignette: 0 }, soft.canvas, [0, 0, 1, 1], n, n, scene, { scale, seed: 0.37 });
-      gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, px);
-      const d = distance(features(px, n), target, texture);
+      crisp(candidate);
+      const d = distance(features(px, n, true), target);
       d.place = 0;
       if (allBlocks) {
         draw(candidate, allSoft.canvas, [0, 0, 1, 1], n, n, allScene, { scale: n / whole.width, seed: 0.37 });
@@ -701,7 +978,7 @@
       ['strength', l => l.screen.strength, (l, v) => { l.screen.strength = v; }, look.screen.type === 'none' || (look.limited && (look.screen.type === 'dot' || look.screen.type === 'line')) ? [look.screen.strength] : [0.5, 0.75, 1].map(k => +(clamp(look.screen.strength * k, 0, 1)).toFixed(3)).concat(look.screen.strength < 1 ? [+clamp(look.screen.strength * 1.3, 0, 1).toFixed(3)] : [])],
       ['grain', l => l.grain.amount, (l, v) => { l.grain.amount = v; }, // (el grano no se sube por encima de lo medido: subiría para imitar el detalle que el emborronado quitó)
       look.grain.amount ? [0.4, 0.7, 1].map(k => +(look.grain.amount * k).toFixed(3)) : [0]],
-      ['edge', l => l.edge, (l, v) => { l.edge = v; }, look.edge ? [0, 0.5, 0.75, 1].map(k => +(look.edge * k).toFixed(3)) : [0]],
+      ['edge', l => l.edge, (l, v) => { l.edge = v; }, look.edge ? [0, 0.5, 1, 1.6, 2.5].map(k => +clamp(look.edge * k, 0, 1).toFixed(3)).filter((v, i, a) => a.indexOf(v) === i) : [0]],
     ];
     const best = JSON.parse(JSON.stringify(look));
     let d = score(best), runs = 1;
@@ -712,10 +989,10 @@
       for (const v of values) { if (v === keep) continue; set(best, v); const dv = score(best); runs++; if (dv.total < topD.total - 0.002) { top = v; topD = dv; } }
       set(best, top); d = topD;
     }
-    if (fit.debug) { score(best); const c = document.createElement('canvas'); c.width = c.height = n; const im = c.getContext('2d').createImageData(n, n); im.data.set(px); c.getContext('2d').putImageData(im, 0, 0); fit.debug = { synth: c.toDataURL(), target: crop.canvas.toDataURL(), soft: soft.canvas.toDataURL() }; }
+    if (fit.debug) { crisp(best); const c = document.createElement('canvas'); c.width = c.height = n; const im = c.getContext('2d').createImageData(n, n); im.data.set(px); c.getContext('2d').putImageData(im, 0, 0); fit.debug = { synth: c.toDataURL(), target: crop.canvas.toDataURL(), soft: soft.canvas.toDataURL(), plain: plain.toDataURL() }; }
     best.score = Math.round(100 * Math.exp(-1.5 * d.total));
-    best.fit = { texture: +texture.toFixed(2), place: +d.place.toFixed(3), color: +d.color.toFixed(3), tone: +d.tone.toFixed(3), spec: +d.spec.toFixed(3), edge: +d.edge.toFixed(3), runs };
-    G.key = '';
+    best.fit = { texture: +d.texture.toFixed(2), turn: +d.turn.toFixed(3), place: +d.place.toFixed(3), color: +d.color.toFixed(3), tone: +d.tone.toFixed(3), spec: +d.spec.toFixed(3), edge: +d.edge.toFixed(3), runs };
+    G.look = null;
     return best;
   }
 
@@ -754,12 +1031,40 @@
     for (let i = 0, p = 0; i < lum.length; i++, p += 4) { toLab(fd[p], fd[p + 1], fd[p + 2], tmp, 0); lum[i] = tmp[0]; }
     // (si la referencia es más pequeña que el recorte, se amplió sin suavizar: las medidas se corrigen con «span»)
     const span = ref.canvas.width * (FFT_N / side);
-    const sp = surface({ canvas: null, ctx: null }, 128, 128);
-    sp.ctx.imageSmoothingEnabled = false;
-    sp.ctx.drawImage(ref.canvas, 0, 0, ref.canvas.width, ref.canvas.height, 0, 0, 128, 128);
+    // La paleta sale de la referencia a su tamaño, pero solo de sus puntos «de interior»: los que
+    // se parecen a sus cuatro vecinos. Un borde desenfocado es una mezcla de dos tintas, y contarlo
+    // inventa tintas que no existen.
+    const W = ref.canvas.width, H = ref.canvas.height, full = ref.ctx.getImageData(0, 0, W, H).data;
+    const stride = Math.max(1, Math.round(Math.sqrt(W * H / 20000))), cand = [];
+    for (let y = 1; y < H - 1; y += stride) for (let x = 1; x < W - 1; x += stride) {
+      const i = 4 * (y * W + x);
+      let g = 0;
+      for (let c = 0; c < 3; c++) g += Math.abs(full[i + c] - full[i + c + 4]) + Math.abs(full[i + c] - full[i + c - 4]) + Math.abs(full[i + c] - full[i + c + 4 * W]) + Math.abs(full[i + c] - full[i + c - 4 * W]);
+      cand.push([g, x, y]);
+    }
+    const flat = cand.map(c => c[0]).sort((p, q) => p - q)[Math.floor(cand.length * 0.55)];
+    const kept = cand.filter(c => c[0] <= flat), sn = kept.length, pts = new Float32Array(sn * 5), sparse = new Uint8ClampedArray(sn * 4);
+    kept.forEach(([, x, y], k) => { const i = 4 * (y * W + x); pts.set([x / W - 0.5, y / H - 0.5, full[i], full[i + 1], full[i + 2]], k * 5); sparse.set([full[i], full[i + 1], full[i + 2], 255], k * 4); });
+    const thumbData = thumb.ctx.getImageData(0, 0, tw, th).data;
     const low = halve(ref.canvas, 40);
     const lowData = low.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, low.width, low.height).data;
-    let look = analyze({ data: thumb.ctx.getImageData(0, 0, tw, th).data, width: tw, height: th }, { lum, n: FFT_N, span }, { data: sp.ctx.getImageData(0, 0, 128, 128).data, n: 128 * 128 }, { data: lowData, n: low.width * low.height });
+    // ¿Luz desigual? Si un plano de luz la explica Y al deshacerlo la paleta mejora, se deshace (en
+    // las muestras de la paleta, en la miniatura y en la imagen de los tonos).
+    let light = null;
+    const plane = lightPlane(pts, sn);
+    if (plane) {
+      const fixed = new Uint8ClampedArray(sn * 4);
+      for (let k = 0; k < sn; k++) { const gain = lightGain(plane, pts[k * 5], pts[k * 5 + 1]); fixed[k * 4] = sparse[k * 4] * gain; fixed[k * 4 + 1] = sparse[k * 4 + 1] * gain; fixed[k * 4 + 2] = sparse[k * 4 + 2] * gain; fixed[k * 4 + 3] = 255; }
+      const before = palette(labImage(sparse, sn), sn), after = palette(labImage(fixed, sn), sn);
+      if (after.error < before.error * 0.65 || after.colors.length < before.colors.length) {
+        light = plane;
+        sparse.set(fixed);
+        const undo = (data, w, h) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = 4 * (y * w + x), gain = lightGain(plane, (x + 0.5) / w - 0.5, (y + 0.5) / h - 0.5); data[i] *= gain; data[i + 1] *= gain; data[i + 2] *= gain; } };
+        undo(thumbData, tw, th); undo(lowData, low.width, low.height);
+      }
+    }
+    let look = analyze({ data: thumbData, width: tw, height: th }, { lum, n: FFT_N, span, zoom: FFT_N / side }, { data: sparse, n: sn }, { data: lowData, n: low.width * low.height });
+    if (light) look.light = { bx: +light.bx.toFixed(3), by: +light.by.toFixed(3), r2: light.r2 };
     look = fit(look, fineCanvas.canvas, span, ref.canvas);
     look.name = nameOf(look);
     return look;
@@ -820,9 +1125,19 @@
     if (started - S.sceneAt > 330) {
       surface(probe, 32, 24);
       probe.ctx.drawImage(source, sx, sy, sw, sh, 0, 0, 32, 24);
-      const fresh = sceneOf(probe.ctx.getImageData(0, 0, 32, 24).data, 32 * 24), cold = started - S.sceneAt > 1500, mix = cold ? 1 : 0.35;
-      for (let i = 0; i < 64; i++) S.scene.hist[i] += (fresh.hist[i] - S.scene.hist[i]) * mix;
-      S.scene.mean[0] += (fresh.mean[0] - S.scene.mean[0]) * mix; S.scene.mean[1] += (fresh.mean[1] - S.scene.mean[1]) * mix;
+      const fresh = sceneOf(probe.ctx.getImageData(0, 0, 32, 24).data, 32 * 24), cold = started - S.sceneAt > 1500 || S.scene.version == null;
+      // Cuánto cambió la escena (0 nada, 1 todo). Por debajo de un 4 % es ruido de la cámara o pulso de
+      // la mano: no se toca nada y la imagen no parpadea. Un cambio grande se sigue rápido; uno
+      // normal, despacio.
+      let moved = 0;
+      for (let i = 0; i < 64; i++) moved += Math.abs(fresh.hist[i] - S.scene.hist[i]);
+      moved /= 2 * 32 * 24;
+      const mix = cold ? 1 : moved < 0.04 ? 0 : moved > 0.3 ? 0.55 : 0.16;
+      if (mix > 0) {
+        for (let i = 0; i < 64; i++) S.scene.hist[i] += (fresh.hist[i] - S.scene.hist[i]) * mix;
+        S.scene.mean[0] += (fresh.mean[0] - S.scene.mean[0]) * mix; S.scene.mean[1] += (fresh.mean[1] - S.scene.mean[1]) * mix;
+        S.scene.version = (S.scene.version || 0) + 1;
+      }
       S.sceneAt = started;
     }
     const reveal = started - S.revealAt < 900 && opts.path !== 'capture' ? (started - S.revealAt) / 900 : 2;
@@ -908,7 +1223,7 @@
 
   window.renderClon = renderClon;
   window.flipClon = {
-    analyze, describe, nameOf, release, _fit: fit,
+    analyze, describe, nameOf, release, _fit: fit, _tone: (look, hist, amount) => Array.from(toneCurve(look, hist, amount == null ? 0.8 : amount, new Uint8Array(256))),
     learn: (source, w, h, region) => learn(source, w || source.width, h || source.height, region),
     adopt: (source, w, h, region) => adopt(source, w || source.width, h || source.height, region),
     keep, forget, capture,

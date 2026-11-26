@@ -3,8 +3,12 @@
 // seguir siendo verdad:
 //   · MIDE bien: la trama (celdas a lo ancho, ángulo, puntos o líneas), la rejilla de píxel y su
 //     tramado, la paleta (cuántas tintas y cuáles), el grano, la línea de tinta; y no ve lo que no hay;
+//   · AGUANTA UNA FOTO: la referencia casi nunca llega limpia (luz desigual, desenfoque, ruido de
+//     sensor, JPEG, un poco girada, a otro tamaño): tiene que medir lo mismo, y no inventarse un
+//     píxel gordo por los bloques del JPEG ni un grano por el ruido de la cámara;
 //   · SE PONE A PRUEBA: reconstruye su propia referencia con buena nota, y la nota baja si el look
-//     que se le pone es el de otra imagen (la nota distingue, no regala);
+//     que se le pone es el de otra imagen, o el mismo girado (la nota distingue, no regala);
+//   · LA CURVA DE TONOS no da saltos: una escena de un solo tono no estira la imagen veinte veces;
 //   · APLICA: con una paleta cerrada, lo que sale por la cámara solo lleva esas tintas; con píxel,
 //     los bloques son del tamaño medido; la foto sale igual que la vista;
 //   · SE USA: la cámara CLON arranca apuntando; COPIAR/CAPTURAR aprende de lo que ve la cámara,
@@ -53,6 +57,10 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     assert.deepEqual([L.duotone.limited, L.duotone.pixel, L.duotone.screen.type, L.duotone.grain.amount, L.duotone.edge], [false, 0, 'none', 0, 0], 'un duotono suave no tiene trama, píxel, grano ni tinta');
     assert.ok(L.duotone.rampMix > 0.9, 'en un duotono la luz decide el color: ' + L.duotone.rampMix);
     assert.ok(L.grainy.grain.amount > 0.06 && L.clean.grain.amount === 0, 've el grano donde lo hay (' + L.grainy.grain.amount + ') y no donde no (' + L.clean.grain.amount + ')');
+    // El tamaño del grano: grumos de 2 puntos en 400 son unas 200 celdas a lo ancho; de 4, unas 100.
+    const grumos = await page.evaluate(() => [2, 4, 6].map(c => flipClon.learn(clonRefs.grainy(400, 34, c)).grain));
+    assert.ok(grumos[0].cells > 150 && grumos[0].cells < 300 && grumos[1].cells > 75 && grumos[1].cells < 140 && grumos[2].cells > 35 && grumos[2].cells < 85, 'mide el tamaño del grano: ' + JSON.stringify(grumos.map(g => g.cells)));
+    assert.ok(grumos.every(g => g.amount > 0.07 && g.amount < 0.16), 'y su fuerza no depende del tamaño: ' + JSON.stringify(grumos.map(g => g.amount)));
     assert.ok(L.grainy.rampMix < 0.5 && !L.grainy.limited, 'una foto a color no es un duotono ni una paleta cerrada');
     assert.deepEqual([L.poster.limited, L.poster.palette.length, L.poster.screen.type, L.poster.pixel], [true, 4, 'none', 0], 'cartel: cuatro tintas planas');
     assert.ok(L.poster.edge > 0.2, 'y línea de tinta: ' + L.poster.edge);
@@ -65,18 +73,66 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
 
     // ── 2 · Ponerse a prueba ──
     const notas = Object.fromEntries(Object.entries(L).map(([k, l]) => [k, l.score]));
-    for (const [k, nota] of Object.entries(notas)) assert.ok(nota >= 66, 'reconstruye su referencia (' + k + '): ' + nota + ' %');
-    assert.ok(notas.dots >= 80 && notas.pixel >= 78, 'trama y píxel, casi calcados: ' + notas.dots + ' / ' + notas.pixel);
+    for (const [k, nota] of Object.entries(notas)) assert.ok(nota >= 74, 'reconstruye su referencia (' + k + '): ' + nota + ' %');
+    assert.ok(notas.dots >= 85 && notas.lines >= 85 && notas.pixel >= 78 && notas.grainy >= 84, 'trama, líneas, píxel y grano, casi calcados: ' + [notas.dots, notas.lines, notas.pixel, notas.grainy].join(' / '));
     // Un look ajeno no reconstruye la imagen: la nota tiene que caer.
-    const cruzadas = await page.evaluate(() => {
-      const refs = { dots: clonRefs.dots(), pixel: clonRefs.pixel(), poster: clonRefs.poster(), grainy: clonRefs.grainy() }, looks = {}, out = {};
-      for (const k of Object.keys(refs)) looks[k] = flipClon.learn(refs[k]);
+    const NOMBRES = ['dots', 'lines', 'pixel', 'poster', 'duotone', 'grainy', 'clean'];
+    const cruzadas = await page.evaluate(names => {
+      const refs = {}, looks = {}, out = {};
+      for (const k of names) { refs[k] = clonRefs[k](); looks[k] = flipClon.learn(refs[k]); }
       const fine = c => { const f = document.createElement('canvas'); f.width = f.height = 256; const x = f.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(c, (c.width - 256) / 2, (c.height - 256) / 2, 256, 256, 0, 0, 256, 256); return f; };
-      for (const ref of Object.keys(refs)) for (const look of Object.keys(refs)) out[ref + '←' + look] = flipClon._fit(JSON.parse(JSON.stringify(looks[look])), fine(refs[ref]), 400, refs[ref]).score;
+      // (el quinto argumento es el look de la propia referencia: decide su versión sin estilo, la misma para todos)
+      for (const ref of names) for (const look of names) out[ref + '←' + look] = flipClon._fit(JSON.parse(JSON.stringify(looks[look])), fine(refs[ref]), 400, refs[ref], looks[ref]).score;
+      // las mismas rayas, giradas un cuarto de vuelta: mismas tintas, mismo grosor, otra dirección
+      const girado = JSON.parse(JSON.stringify(looks.lines));
+      girado.screen.angle = 0;
+      out.giradas = flipClon._fit(girado, fine(refs.lines), 400, refs.lines, looks.lines).score;
+      return out;
+    }, NOMBRES);
+    let margen = 100;
+    for (const ref of NOMBRES) for (const look of NOMBRES) if (ref !== look) {
+      margen = Math.min(margen, cruzadas[ref + '←' + ref] - cruzadas[ref + '←' + look]);
+      assert.ok(cruzadas[ref + '←' + ref] >= cruzadas[ref + '←' + look] + 15, 'la nota distingue: ' + ref + ' con su look ' + cruzadas[ref + '←' + ref] + ', con el de ' + look + ' ' + cruzadas[ref + '←' + look]);
+    }
+    assert.ok(cruzadas['lines←lines'] >= cruzadas.giradas + 12, 'y ve la dirección de la trama: rayas con su look ' + cruzadas['lines←lines'] + ', con el mismo girado ' + cruzadas.giradas);
+    step('se pone a prueba: reconstruye su referencia y la nota distingue', { propias: notas, margen, giradas: [cruzadas['lines←lines'], cruzadas.giradas] });
+
+    // ── 2b · La referencia, fotografiada ──
+    const fotos = await page.evaluate(async () => {
+      const out = {};
+      for (const [key, name, o] of [
+        ['puntosLuz', 'dots', { light: [0.55, 1.15] }], ['puntosFoco', 'dots', { blur: 0.9 }], ['puntosTodo', 'dots', { rot: 3, light: [0.65, 1.15], blur: 0.9, jpeg: 0.5, noise: 7 }],
+        ['cartelLuz', 'poster', { light: [0.55, 1.15] }], ['cartelReflejo', 'poster', { light: [0.55, 1.15], glare: true }], ['cartelRuido', 'poster', { blur: 1, noise: 8 }],
+        ['pixelFoco', 'pixel', { blur: 0.8 }], ['pixelTamano', 'pixel', { size: 370 }], ['pixelGiro', 'pixel', { rot: 2 }],
+        ['fotoJpeg', 'clean', { jpeg: 0.12 }], ['fotoRuido', 'clean', { noise: 6 }], ['fotoLuz', 'clean', { light: [0.55, 1.15] }], ['rayasRuido', 'lines', { blur: 0.8, noise: 6 }],
+      ]) {
+        const l = flipClon.learn(await clonDegrade(clonRefs[name](), o));
+        out[key] = { k: l.palette.length, lim: l.limited, px: l.pixel, tipo: l.screen.type, celdas: l.screen.freq, grados: ((l.screen.angle * 180 / Math.PI) % 90 + 90) % 90, grano: l.grain.amount, sensor: l.grain.sensor || 0, tinta: l.edge, nota: l.score };
+      }
       return out;
     });
-    for (const ref of ['dots', 'pixel', 'poster', 'grainy']) for (const look of ['dots', 'pixel', 'poster', 'grainy']) if (ref !== look) assert.ok(cruzadas[ref + '←' + ref] >= cruzadas[ref + '←' + look] + 12, 'la nota distingue: ' + ref + ' con su look ' + cruzadas[ref + '←' + ref] + ', con el de ' + look + ' ' + cruzadas[ref + '←' + look]);
-    step('se pone a prueba: reconstruye su referencia y la nota distingue', { propias: notas, ajenas: Object.fromEntries(Object.entries(cruzadas).filter(([k]) => k.split('←')[0] !== k.split('←')[1]).slice(0, 6)) });
+    const F = fotos, dice = k => k + ' ' + JSON.stringify(F[k]);
+    for (const k of ['puntosLuz', 'puntosFoco']) assert.ok(F[k].lim && F[k].k === 2 && F[k].tipo === 'dot' && Math.abs(F[k].celdas - 40) < 1.5 && Math.abs(F[k].grados - 30) < 3 && !F[k].px, 'la trama de puntos, con mala luz o desenfocada, sigue siendo dos tintas a 40 y 30°: ' + dice(k));
+    assert.ok(F.puntosTodo.tipo === 'dot' && Math.abs(F.puntosTodo.celdas - 40) < 3 && !F.puntosTodo.px, 'y con todo a la vez sigue siendo una trama de puntos de ese tamaño: ' + dice('puntosTodo'));
+    for (const k of ['cartelLuz', 'cartelReflejo', 'cartelRuido']) assert.ok(F[k].lim && F[k].k === 4 && F[k].tipo === 'none' && !F[k].px && F[k].tinta > 0.2 && F[k].grano === 0, 'el cartel sigue siendo cuatro tintas planas con línea: ' + dice(k));
+    for (const k of ['pixelFoco', 'pixelTamano', 'pixelGiro']) assert.ok(Math.abs(F[k].px - 40) <= 2 && F[k].lim, 'el píxel gordo se sigue midiendo desenfocado, a otro tamaño o girado 2°: ' + dice(k));
+    assert.ok(!F.fotoJpeg.px && F.fotoJpeg.tipo === 'none' && !F.fotoJpeg.lim, 'los bloques del JPEG no son píxel gordo: ' + dice('fotoJpeg'));
+    assert.ok(F.fotoRuido.grano === 0 && F.fotoRuido.sensor > 0 && !F.fotoRuido.lim && F.fotoRuido.tipo === 'none', 'el ruido del sensor no es grano de la referencia: ' + dice('fotoRuido'));
+    assert.ok(!F.fotoLuz.lim && F.fotoLuz.tipo === 'none', 'una foto con luz desigual sigue siendo una foto: ' + dice('fotoLuz'));
+    assert.ok(F.rayasRuido.tipo === 'line' && Math.abs(F.rayasRuido.celdas - 50) < 2, 'las rayas, desenfocadas y con ruido: ' + dice('rayasRuido'));
+    for (const k of Object.keys(F)) assert.ok(F[k].nota >= 55, 'y la reconstruye con nota: ' + dice(k));
+    step('aguanta una referencia fotografiada', { notas: Object.fromEntries(Object.entries(F).map(([k, v]) => [k, v.nota])) });
+
+    // ── 2c · La curva de tonos ──
+    const curva = await page.evaluate(() => {
+      const look = flipClon.learn(clonRefs.clean()), pico = new Float32Array(64), llano = new Float32Array(64).fill(1);
+      pico[20] = 1000; pico[21] = 40;                                  // una pared: casi todo de un solo tono
+      const a = flipClon._tone(look, pico), b = flipClon._tone(look, llano);
+      const salto = c => Math.max(...c.slice(1).map((v, i) => v - c[i])), baja = c => c.slice(1).some((v, i) => v < c[i]);
+      return { saltoPico: salto(a), saltoLlano: salto(b), baja: baja(a) || baja(b), negro: [a[0], b[0]], minRef: Math.round(look.cdf[0] * 255) };
+    });
+    assert.ok(curva.saltoPico <= 4 && curva.saltoLlano <= 4 && !curva.baja, 'la curva sube sin escalones (antes, una pared daba saltos de 20 niveles): ' + JSON.stringify(curva));
+    step('la curva de tonos no da saltos', curva);
 
     // ── 3 · La cámara arranca apuntando; CAPTURAR aprende de lo que ve ──
     await page.locator('#deckLooks [data-family="CLON"]').scrollIntoViewIfNeeded();

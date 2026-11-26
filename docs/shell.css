@@ -1153,42 +1153,85 @@ body { --grano-margen: calc(100vw / 406 * 3.4); --grano-canto: calc(100vw / 406 
 /* En el visor de fotos, la foto queda por encima del grano. */
 .viewer-stage img, .viewer-stage video { position: relative; z-index: 2147483001; }
 
-/* ── CLON · la galería de looks (clon.js) ───────────────────────────────────────
-   Una hoja que sube desde abajo y deja el visor a la vista. Aquí, la piel OBJETO: una charola del
-   mismo plástico, con sus teclas; la de INTERFAZ está en silueta.css. */
-.clon-galeria { position: fixed; left: 0; right: 0; bottom: 0; z-index: 350; max-height: 62svh; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 10px; padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px)); background: #EFE8DC; color: #242646; border-radius: 22px 22px 0 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 -12px 34px rgba(20, 22, 40, .3); font-family: 'Archivo', system-ui, sans-serif; animation: clonSube .16s cubic-bezier(.2, .8, .3, 1); }
+/* ── CLON · la galería de looks (clon.js; diseño de Gemini Neon) ────────────────
+   Una hoja que sube desde abajo y deja el visor a la vista. Aquí, la estructura y la piel OBJETO:
+   una charola del mismo plástico con cartuchos; la de INTERFAZ está en silueta.css. */
+.clon-galeria { position: fixed; left: 0; right: 0; bottom: 0; z-index: 350; height: min(60dvh, 456px); display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; padding: 0 12px env(safe-area-inset-bottom, 0px); background: #EDE5D8; color: #242646; border-radius: 22px 22px 0 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 -12px 34px rgba(20, 22, 40, .3); font-family: 'Archivo', system-ui, sans-serif; animation: clonSube .16s cubic-bezier(.2, .8, .3, 1); will-change: transform; }
 .clon-galeria[hidden] { display: none; }
 @keyframes clonSube { from { transform: translateY(26px); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .clon-galeria { animation: none; } }
-.clon-galeria header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.clon-galeria header small { font: 800 10px/1 'Archivo', system-ui, sans-serif; letter-spacing: .16em; opacity: .72; }
-.clon-tecla { flex: 0 0 auto; height: 38px; padding: 0 14px; border: 0; border-radius: 10px; background: #FFF8EC; color: #242646; font: 800 10.5px/1 'Archivo', system-ui, sans-serif; letter-spacing: .1em; box-shadow: 0 2px 0 #CDC4B4, 0 0 0 1px rgba(36, 38, 70, .16); cursor: pointer; touch-action: manipulation; }
+.clon-cabeza { position: relative; display: flex; align-items: center; gap: 8px; height: 44px; padding-top: 6px; touch-action: none; cursor: grab; }
+.clon-asa { position: absolute; left: 50%; top: 6px; width: 32px; height: 3px; margin-left: -16px; border-radius: 2px; background: currentColor; opacity: .35; }
+.clon-cabeza small { font: 800 10px/1 'Archivo', system-ui, sans-serif; letter-spacing: .16em; opacity: .72; }
+.clon-cabeza b { margin-right: auto; font: 800 11px/1 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: .04em; }
+.clon-cabeza b.is-casi { color: #B5770A; }
+.clon-tecla { flex: 0 0 auto; height: 34px; padding: 0 12px; border: 0; border-radius: 10px; background: #FFF8EC; color: #242646; font: 800 10.5px/1 'Archivo', system-ui, sans-serif; letter-spacing: .1em; box-shadow: 0 2px 0 #CDC4B4, 0 0 0 1px rgba(36, 38, 70, .16); cursor: pointer; touch-action: manipulation; }
+.clon-tecla[hidden] { display: none; }
 .clon-tecla:active { transform: translateY(2px); box-shadow: 0 0 0 #CDC4B4, 0 0 0 1px rgba(36, 38, 70, .16); }
-.clon-estrella { width: 42px; padding: 0; font-size: 16px; letter-spacing: 0; color: rgba(36, 38, 70, .45); }
-.clon-estrella.is-on { background: #008048; color: #FFF3DF; box-shadow: 0 2px 0 #005A32; }
-.clon-elegido { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+.clon-tecla.is-acento { background: #008048; color: #FFF3DF; box-shadow: 0 2px 0 #005A32; }
+.clon-orden { height: 28px; padding: 0 9px; font-size: 9px; }
+.clon-elegido { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 6px 8px; align-items: center; padding-bottom: 8px; border-bottom: 1px solid rgba(36, 38, 70, .14); }
 .clon-elegido[hidden] { display: none; }
-.clon-elegido p { grid-column: 1 / -1; margin: 0; font: 600 10.5px/1.3 'Archivo', system-ui, sans-serif; opacity: .68; }
-#clonNombre { min-width: 0; height: 38px; padding: 0 12px; border: 0; border-radius: 9px; background: #171A22; color: #C9F5D6; font: 700 13px/1 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6), 0 1px 0 rgba(255, 255, 255, .7); outline: none; -webkit-user-select: text; user-select: text; }
+.clon-elegido p { grid-column: 1 / -1; margin: 0; font: 500 11px/1.2 'IBM Plex Sans', 'Archivo', system-ui, sans-serif; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clon-estrella { position: relative; width: 36px; height: 36px; padding: 0; font-size: 16px; letter-spacing: 0; color: rgba(36, 38, 70, .4); transition: background-color .16s, color .16s; }
+.clon-estrella::after { content: ''; position: absolute; inset: -4px; }                        /* el dedo pide 44 × 44 */
+.clon-estrella.is-on { background: #008048; color: #FFF3DF; box-shadow: 0 2px 0 #005A32; animation: clonEstrella .16s cubic-bezier(.3, 1.3, .5, 1); }
+@keyframes clonEstrella { 50% { transform: scale(1.22); } }
+.clon-borra { height: 36px; padding: 0 10px; }
+.clon-borra.is-seguro { background: #F54846; color: #FFF3DF; box-shadow: 0 2px 0 #A9302E; animation: clonSacude .14s linear; }
+@keyframes clonSacude { 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
+#clonNombre { min-width: 0; height: 36px; padding: 0 12px; border: 0; border-radius: 9px; background: #171A22; color: #C9F5D6; font: 700 13px/1 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6), 0 1px 0 rgba(255, 255, 255, .7); outline: none; -webkit-user-select: text; user-select: text; }
 #clonNombre:focus { box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6), 0 0 0 2.5px #008048; }
-.clon-rejilla { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-content: start; overflow-y: auto; overscroll-behavior: contain; padding: 2px 2px 6px; scrollbar-width: none; }
+.clon-galeria.nombrado #clonNombre { box-shadow: inset 0 2px 5px rgba(0, 0, 0, .6), 0 0 0 4px rgba(0, 128, 72, .55); }
+.clon-rejilla { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; align-content: start; overflow-y: auto; overscroll-behavior: contain; padding: 10px 2px 16px; scrollbar-width: none; }
 .clon-rejilla::-webkit-scrollbar { display: none; }
-.clon-carta { position: relative; min-width: 0; }
-.clon-carta-ver { display: grid; gap: 5px; width: 100%; min-width: 0; padding: 6px 6px 7px; border: 0; border-radius: 12px; background: #FFF8EC; color: inherit; text-align: left; box-shadow: 0 2px 0 #CDC4B4, 0 0 0 1px rgba(36, 38, 70, .14); cursor: pointer; touch-action: manipulation; }
-.clon-carta-ver:active { transform: translateY(2px); box-shadow: 0 0 0 #CDC4B4, 0 0 0 1px rgba(36, 38, 70, .14); }
-.clon-carta-ver i { display: block; aspect-ratio: 1; border-radius: 8px; background-size: cover; background-position: center; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .28), inset 0 2px 5px rgba(0, 0, 0, .25); image-rendering: auto; }
-.clon-tintas { display: flex; gap: 3px; height: 9px; }
-.clon-tintas u { flex: 0 0 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(36, 38, 70, .28); text-decoration: none; }
-.clon-carta-ver b { min-width: 0; font: 800 9.5px/1.15 'Archivo', system-ui, sans-serif; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.clon-carta.is-on .clon-carta-ver { box-shadow: 0 2px 0 #005A32, 0 0 0 2.5px #008048; }
-.clon-carta-fav { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: rgba(11, 12, 20, .5); color: rgba(255, 243, 223, .7); font-size: 13px; line-height: 26px; cursor: pointer; touch-action: manipulation; }
-.clon-carta.is-fav .clon-carta-fav { background: #008048; color: #FFF3DF; }
-.clon-vacio { display: none; margin: 4px 2px 8px; font: 600 12px/1.4 'Archivo', system-ui, sans-serif; opacity: .75; }
-.clon-galeria.is-vacia .clon-vacio { display: block; }
-.clon-galeria.is-vacia .clon-rejilla { display: none; }
-.clon-deshacer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 7px 7px 12px; border-radius: 12px; background: #242646; color: #FFF3DF; }
+.clon-galeria.escribiendo .clon-rejilla { opacity: .22; }
+.clon-carta { position: relative; display: block; min-width: 0; width: 100%; padding: 4px 4px 0; border: 0; border-radius: 9px; background: #FFF3DC; color: #242646; text-align: left; box-shadow: 0 3px 0 #A89A93, inset 0 1px 0 #FFF; cursor: pointer; touch-action: manipulation; transition: transform .07s; }
+.clon-carta:active { transform: translateY(2px); box-shadow: 0 1px 0 #A89A93, inset 0 1px 0 #FFF; }
+.clon-mini { position: relative; display: block; aspect-ratio: 110 / 78; border-radius: 5px; background-size: cover; background-position: center; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .45); overflow: hidden; }
+.clon-mini::after { content: ''; position: absolute; inset: 0; background: linear-gradient(142deg, rgba(255, 255, 255, .26) 0%, transparent 32%); pointer-events: none; }
+.clon-tipo { position: absolute; top: 5px; left: 5px; width: 18px; height: 18px; padding: 4px; box-sizing: border-box; border-radius: 4px; background: rgba(11, 12, 20, .74); color: #FFF3DF; fill: currentColor; pointer-events: none; }
+.clon-estrellita { position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; border-radius: 50%; background: #008048; color: #FFF3DF; font: normal 11px/20px system-ui, sans-serif; text-align: center; pointer-events: none; }
+.clon-firma { display: block; height: 6px; margin: 4px 0 0; border-radius: 2px; box-shadow: inset 0 1px 2px rgba(0, 0, 0, .35); }
+.clon-carta b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 25px; margin: 0 -4px; padding: 6px 7px 7px; border-radius: 0 0 7px 7px; font: 800 10.5px/1.18 'Chivo', 'Archivo', system-ui, sans-serif; letter-spacing: .05em; text-transform: uppercase; word-break: break-word; }
+.clon-carta.is-on { box-shadow: 0 0 0 2.5px #008048, 0 2px 0 #005A32; }
+.clon-carta.is-on b { background: #008048; color: #FFF3DC; }
+.clon-carta.vuelve { animation: clonVuelve .32s cubic-bezier(.3, 1.3, .5, 1); }
+@keyframes clonVuelve { 0% { transform: scale(.94); } 60% { transform: scale(1.03); } }
+.clon-llena { grid-column: 1 / -1; margin: 2px 2px 0; font: 600 10.5px/1.3 'Archivo', system-ui, sans-serif; opacity: .65; text-align: center; }
+.clon-vacio { display: none; }
+.clon-galeria.is-vacia .clon-vacio { display: grid; justify-items: center; align-content: center; gap: 8px; min-height: 210px; grid-row: 2 / 4; text-align: center; }
+.clon-galeria.is-vacia .clon-rejilla, .clon-galeria.is-vacia .clon-elegido { display: none; }
+.clon-vacio b { font: 800 12px/1 'Archivo', system-ui, sans-serif; letter-spacing: .12em; }
+.clon-vacio p { max-width: 280px; margin: 0; font: 500 12px/1.4 'Archivo', system-ui, sans-serif; opacity: .75; }
+.clon-vacio div { display: flex; gap: 8px; margin-top: 6px; }
+.clon-cara { flex: 0 0 auto; display: block; width: 26px; height: 23px; background: var(--si-mascota) center / contain no-repeat; }
+.clon-vacio .clon-cara { width: 40px; height: 36px; background-image: var(--si-mascota-dormida); opacity: .65; }
+.clon-deshacer { position: relative; display: flex; align-items: center; gap: 9px; height: 46px; margin: 0 0 8px; padding: 0 6px 0 10px; border-radius: 12px; background: #242646; color: #FFF3DF; overflow: hidden; animation: clonSube .18s cubic-bezier(.2, .8, .3, 1); }
 .clon-deshacer[hidden] { display: none; }
-.clon-deshacer span { min-width: 0; font: 800 10px/1 'Archivo', system-ui, sans-serif; letter-spacing: .1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clon-deshacer .clon-cara { background-image: var(--si-mascota-dormida); filter: invert(1); opacity: .8; }
+.clon-deshacer span { flex: 1 1 auto; min-width: 0; font: 800 10px/1.2 'Archivo', system-ui, sans-serif; letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clon-tiempo { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: #008048; transform-origin: 0 50%; }
+@keyframes clonTiempo { to { transform: scaleX(0); } }
 /* Al escribir el nombre, la hoja sube: el teclado del teléfono taparía lo que está abajo. */
-.clon-galeria.escribiendo { top: calc(var(--shell-top, 44px) + 6px); bottom: auto; max-height: 44svh; border-radius: 0 0 22px 22px; }
+.clon-galeria.escribiendo { top: calc(var(--shell-top, 44px) + 6px); bottom: auto; height: auto; max-height: 44dvh; border-radius: 0 0 22px 22px; }
+/* La tecla que la abre, con su cuenta; y el sello que da cuando entra un look nuevo. */
 .clon-abre-galeria em { margin-left: 6px; padding: 2px 6px; border-radius: 9px; background: #008048; color: #FFF3DF; font: 800 9px/1 'Archivo', system-ui, sans-serif; font-style: normal; letter-spacing: 0; }
+.clon-abre-galeria.clon-sello { animation: clonSello .22s cubic-bezier(.3, 1.3, .5, 1); }
+@keyframes clonSello { 0% { transform: scale(.82); filter: brightness(1.35); } 60% { transform: scale(1.12); } }
+/* La píldora sobre el visor: «guardado · RENOMBRAR», o «borrado · DESHACER» si se cerró la galería. */
+.clon-pildora { position: fixed; z-index: 340; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 5px 6px 5px 8px; border-radius: 20px; background: rgba(11, 12, 20, .86); color: #FFF3DF; box-shadow: 0 4px 14px rgba(0, 0, 0, .35); animation: clonSube .18s cubic-bezier(.2, .8, .3, 1); pointer-events: auto; }
+.clon-pildora[hidden] { display: none; }
+.clon-pildora i { flex: 0 0 24px; width: 24px; height: 24px; border-radius: 5px; background-size: cover; background-position: center; }
+.clon-pildora i.clon-cara { height: 21px; border-radius: 0; background: var(--si-mascota-dormida) center / contain no-repeat; filter: invert(1); opacity: .85; }
+.clon-pildora span { flex: 1 1 auto; min-width: 0; font: 800 10.5px/1.2 'Archivo', system-ui, sans-serif; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clon-pildora button { flex: 0 0 auto; height: 30px; padding: 0 11px; border: 0; border-radius: 15px; background: #FFF3DF; color: #0B0C14; font: 800 10px/1 'Archivo', system-ui, sans-serif; letter-spacing: .1em; cursor: pointer; touch-action: manipulation; }
+/* La mascota (piel OBJETO): mira hacia arriba mientras la galería está abierta, respinga al borrar,
+   y abre la pupila cuando la galería se llena. Las mismas clases mueven a la plana en silueta.css. */
+body:not([data-piel="interfaz"]) #deckShutter.hojea { --mira-y: -1.5px; }
+#deckShutter .m3-pupila { transform: translate(calc(var(--mira, 0) * 1.5px), var(--mira-y, 0px)) scale(var(--pup, 1)); }
+body:not([data-piel="interfaz"]) #deckShutter.sobresalto:not(.guino, :active, .is-down) .m3-ojo { transform: scaleY(.38); transition: transform .12s ease-in; }
+body:not([data-piel="interfaz"]) #deckShutter.llena { --pup: 1.16; }
+@media (prefers-reduced-motion: reduce) {
+  .clon-galeria, .clon-deshacer, .clon-pildora, .clon-carta.vuelve, .clon-estrella.is-on, .clon-borra.is-seguro, .clon-abre-galeria.clon-sello { animation: none; }
+  #deckShutter .m3-pupila { transform: none; }
+}

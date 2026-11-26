@@ -1,4 +1,4 @@
-const CACHE = 'flipnote-filter-v109-stage-facil';
+const CACHE = 'flipnote-filter-v110-galeria-neon';
 const ASSETS = [
   './index.html', './manifest.json', './icon-192.png', './icon-512.png', './frame-runtime.js', './stamp.js', './optical-scope.js', './press.js',
   './night-vision.js', './sensor.js', './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './silueta.css', './silueta.js', './escucha.js', './consola.js', './reaccion.js', './clon.js', './body/look-CLON.webp', './face-worker.js', './body/look-CONSOLA.webp', './brand/silueta/grano.webp', './console.css', './console.js',

@@ -82,6 +82,27 @@
         { at: 15, bands: [[1650, .85, 2.6, .85, .52], [900, .85, 3.6, .66, .58], [2900, .85, 1.3, .42, .46], [430, .85, 4.8, .32, .58]] },
       ] },
       // Muesca de perilla / carrete: Delrin/latón cálido (~1.8 kHz, lp 6.8 kHz); gira 30 veces sin picar el oído.
+      // ── La galería de CLON (recetas de Gemini Neon) ──
+      // Abrir la galería: roce breve de riel plástico (0–18 ms) que abre y encaja en el tope (20 ms).
+      drawerOpen: { contact: .15, lp: 8200, hits: [
+        { gain: .42, bands: [[1950, .75, 6.5, .88, .92, 4], [1050, .8, 5.5, .62, .85, 3]] },
+        { at: 20, bands: [[1420, .85, 2.5, .86, .52], [760, .85, 3.6, .66, .58], [2600, .85, 1.3, .42, .45], [380, .85, 4.6, .34, .55]] },
+      ] },
+      // Un look entra a la galería: toque de caída (0 ms) y asiento seco (11 ms).
+      lookSeat: { contact: .13, lp: 9000, hits: [
+        { gain: .46, bands: [[2800, .9, 1.1, .65, .38], [1500, .85, 1.8, .58, .46]] },
+        { at: 11, bands: [[1720, .88, 2.4, .9, .48], [920, .85, 3.4, .72, .56], [3150, .85, 1.2, .46, .42], [440, .85, 4.8, .38, .54]] },
+      ] },
+      // Borrar un look: pestillo breve (0 ms) y caída sorda, más grave (14 ms).
+      lookTrash: { contact: .24, lp: 5200, hits: [
+        { gain: .44, bands: [[2100, .85, 1.2, .55, .45], [1180, .85, 1.8, .6, .52]] },
+        { at: 14, bands: [[680, .88, 3.2, .92, .58], [360, .88, 4.4, .66, .56], [1280, .85, 1.8, .44, .5]] },
+      ] },
+      // Deshacer el borrado: recogida grave (0 ms) y encaje claro y firme al volver (16 ms).
+      lookUndo: { contact: .13, lp: 9200, hits: [
+        { gain: .42, bands: [[920, .85, 2.4, .66, .55], [1650, .85, 1.5, .52, .48]] },
+        { at: 16, bands: [[2250, .9, 2.0, .9, .44], [1220, .85, 2.8, .66, .52], [3800, .85, 1.0, .44, .4], [540, .85, 3.8, .28, .54]] },
+      ] },
       tick: { contact: .13, lp: 6800, hits: [
         { bands: [[1850, .85, 1.2, .85, .45], [980, .85, 1.7, .58, .5], [3200, .8, .75, .38, .45], [520, .85, 2.0, .2, .55]] },
       ] },
@@ -144,6 +165,27 @@
         { at: 12, bands: [[2200, 1.1, 1.8, .86, .42], [1250, 1.0, 2.4, .58, .5], [3600, .95, .95, .36, .42]] },
       ] },
       // Muesca de perilla / carrete: punta fina de lápiz mecánico (~2.5 kHz, 1.5 ms).
+      // ── La galería de CLON ──
+      // Abrir la galería: pestaña de cartulina que corre (0–12 ms) y traba seca (14 ms).
+      drawerOpen: { contact: .1, lp: 8000, hits: [
+        { gain: .44, bands: [[2600, .75, 4.6, .88, .92, 3], [1480, .8, 4.0, .58, .82, 2]] },
+        { at: 14, bands: [[1950, 1.05, 1.8, .88, .42], [1080, 1.0, 2.5, .6, .48], [3300, .95, .95, .36, .4]] },
+      ] },
+      // Un look entra: contacto seco de tarjeta (0 ms) y encaje troquelado (9 ms).
+      lookSeat: { contact: .09, lp: 8800, hits: [
+        { gain: .46, bands: [[3300, 1.1, .95, .66, .34], [1850, 1.0, 1.4, .55, .42]] },
+        { at: 9, bands: [[2250, 1.1, 1.7, .9, .38], [1240, 1.0, 2.3, .64, .46], [3900, 1.0, .85, .38, .36], [620, .9, 2.9, .24, .5]] },
+      ] },
+      // Borrar: suelta seca (0 ms) y caída sorda sobre la mesa (11 ms).
+      lookTrash: { contact: .22, lp: 4800, hits: [
+        { gain: .40, bands: [[2300, .95, .95, .5, .44], [1280, .9, 1.4, .54, .5]] },
+        { at: 11, bands: [[840, .95, 2.3, .88, .56], [450, .9, 3.2, .58, .55], [1560, .9, 1.2, .34, .48]] },
+      ] },
+      // Deshacer: arranque contenido (0 ms) y chasquido nítido de vuelta (12 ms).
+      lookUndo: { contact: .09, lp: 9000, hits: [
+        { gain: .42, bands: [[1200, .95, 1.8, .64, .5], [2100, .95, 1.2, .5, .44]] },
+        { at: 12, bands: [[2700, 1.1, 1.5, .9, .36], [1500, 1.0, 2.1, .62, .44], [4500, 1.0, .8, .4, .34]] },
+      ] },
       tick: { contact: .09, lp: 7200, hits: [
         { bands: [[2150, 1.1, .95, .85, .36], [1250, 1.0, 1.3, .5, .44], [3600, .95, .55, .3, .38]] },
       ] },
@@ -184,6 +226,12 @@
     // El doble guiño de la placa: dos parpadeos en la mano.
     wink: { rank: 2, down: { sound: 'keyDown', gain: .45, vib: [5, 65, 5] } },
     tick: { rank: 1, down: { sound: 'tick', gain: .34, vib: 5 } },
+    // La galería de CLON: abrirla, un look que entra, borrar y deshacer (borrar y deshacer son un par:
+    // sordo y hacia abajo uno, nítido y hacia arriba el otro; se distinguen con los ojos cerrados).
+    drawerOpen: { rank: 3, down: { sound: 'drawerOpen', gain: .62, vib: [5, 18, 8] } },
+    lookSeat: { rank: 3, down: { sound: 'lookSeat', gain: .70, vib: [7, 12, 10] } },
+    lookTrash: { rank: 3, down: { sound: 'lookTrash', gain: .52, vib: [11, 16, 5] } },
+    lookUndo: { rank: 3, down: { sound: 'lookUndo', gain: .66, vib: [5, 16, 11] } },
   };
   // De la pieza más concreta a la más genérica.
   const MAP = [
@@ -346,7 +394,7 @@
   // Sin vibración (iPhone, escritorio) el oído hace el trabajo del dedo: un punto más de nivel.
   const NO_HAPTIC = !navigator.vibrate;
   // La voz de INTERFAZ es más corta y seca: estos ajustes dejan su jerarquía igual que la de OBJETO.
-  const TRIM = { interfaz: { primaryDown: .94, shutterDown: .89, switch: .92 } };
+  const TRIM = { interfaz: { primaryDown: .94, shutterDown: .89, switch: .92, lookTrash: .84 } };
   function play(sound, gain, x, delay, shape) {
     if (!buffers[skin()]) build();
     const bank = buffers[skin()] || buffers.objeto || buffers.interfaz;

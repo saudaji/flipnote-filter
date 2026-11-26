@@ -34,7 +34,7 @@
 // ilustración, la tipografía, el contenido). Eso pediría un modelo generativo.
 (function () {
   'use strict';
-  const KEY = 'flip.clon', MAX_LOOKS = 30, A_MANO = 4, FFT_N = 256, FIT_N = 128, COLOR_FAR = 0.1;
+  const KEY = 'flip.clon', MAX_LOOKS = 30, A_MANO = 4, REVEAL_MS = 760, FFT_N = 256, FIT_N = 128, COLOR_FAR = 0.1;
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   const $ = id => document.getElementById(id);
 
@@ -1109,10 +1109,12 @@
     look.id = 'C' + n;
     look.at = Date.now();
     if (S.looks.some(l => l.name === look.name)) { let k = 2; while (S.looks.some(l => l.name === look.name + ' ' + k)) k++; look.name += ' ' + k; }
+    // Llena de favoritos: una estrella no se pisa sin permiso. No se guarda, y se dice por qué.
+    S.out = null; S.full = false;
+    if (S.looks.length >= MAX_LOOKS && S.looks.every(l => l.fav)) { S.full = true; return null; }
     S.looks.push(look);
-    // Llena: sale el más viejo que no sea favorito (si todos lo son, el más viejo).
-    S.out = null;
-    while (S.looks.length > MAX_LOOKS) { const i = S.looks.findIndex(l => !l.fav && l !== look); S.out = S.looks.splice(i < 0 ? 0 : i, 1)[0]; }
+    // Llena: sale el más viejo sin estrella, y queda en la mano unos segundos por si se quiere de vuelta.
+    while (S.looks.length > MAX_LOOKS) { const i = S.looks.findIndex(l => !l.fav && l !== look); S.out = S.looks.splice(i, 1)[0]; S.undo = { look: S.out, at: i, was: false, added: look.id }; }
     if (mine()) camVariant = look.id;
     save(); syncVariants();
     if (mine()) apply();
@@ -1133,10 +1135,11 @@
   }
   function restore() {
     const u = S.undo;
-    if (!u || S.looks.length >= MAX_LOOKS) return null;
+    if (!u || (S.looks.length >= MAX_LOOKS && !u.added)) return null;
     S.undo = null;
+    if (u.added) { const i = S.looks.findIndex(l => l.id === u.added); if (i >= 0) S.looks.splice(i, 1); }      // el que entró en su lugar se va
     S.looks.splice(Math.min(u.at, S.looks.length), 0, u.look);
-    if (mine() && u.was) camVariant = u.look.id;
+    if (mine() && (u.was || u.added)) camVariant = u.look.id;
     save(); syncVariants();
     if (mine()) apply();
     paint();
@@ -1176,7 +1179,11 @@
     say('Mirando la referencia…', 4000);
     return new Promise(resolve => setTimeout(() => {
       let look = null;
-      try { look = keep(learn(source, sw, sh, region)); S.aim = false; S.revealAt = performance.now(); say(look.name + ' · ' + describe(look) + (S.out ? ' · la galería estaba llena: salió ' + S.out.name : ''), S.out ? 7000 : 5200); }
+      try {
+        look = keep(learn(source, sw, sh, region));
+        if (look) { S.aim = false; S.revealAt = performance.now(); entered(look); }
+        else if (S.full) { say('30 favoritos · quita una estrella o borra uno para guardar otro look', 6500); gallery(true); }
+      }
       catch (error) { console.warn('CLON:', error); say('No pude leer esa imagen', 2600); }
       S.busy = false;
       if (shutter) shutter.classList.remove('mirando');
@@ -1218,7 +1225,7 @@
       }
       S.sceneAt = started;
     }
-    const reveal = started - S.revealAt < 900 && opts.path !== 'capture' ? (started - S.revealAt) / 900 : 2;
+    const reveal = started - S.revealAt < REVEAL_MS && opts.path !== 'capture' ? (started - S.revealAt) / REVEAL_MS : 2;
     draw(look || NEUTRAL, source, crop, w, h, S.scene, { mirror, aim, reveal, seed: (Math.floor(started / 66) % 97) / 97 });
     ctx.save();
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
@@ -1270,73 +1277,215 @@
     }
     picker.click();
   }
-  // ── La galería: todos los looks guardados, para usarlos, nombrarlos, marcarlos o borrarlos ──
+  // ── La galería: todos los looks guardados (diseño de tarjeta, gestos, tacto y mascota: Gemini Neon) ──
   // Una hoja que sube desde abajo y deja el visor a la vista: al tocar un look se pone en la cámara
-  // y se ve en vivo arriba. El de arriba de la hoja es el elegido: ahí se le cambia el nombre.
-  let sheet = null, undoTimer = 0;
+  // y se ve en vivo arriba, sin cerrarla. Arriba de la rejilla, el look elegido: estrella a la
+  // izquierda, nombre en medio, BORRAR a la derecha (lejos una de otro: un dedazo no borra un favorito).
+  let sheet = null, pill = null, undoTimer = 0, sureTimer = 0, pillTimer = 0, openedWith = '';
   const html = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const ink = c => 'rgb(' + fromLab(c[0], c[1], c[2]).join(',') + ')';
-  const ordered = () => S.looks.slice().sort((a, b) => (!!b.fav) - (!!a.fav) || (b.at || 0) - (a.at || 0));
+  const tap = (kind, x) => { if (window.flipFeel && flipFeel.tap) flipFeel.tap(kind, 'down', x); };
+  // La mascota acusa recibo (una clase un momento); nunca se mueve sola.
+  function mascot(cls, ms) { const b = $('deckShutter'); if (!b) return; b.classList.add(cls); setTimeout(() => b.classList.remove(cls), ms); }
+  function doubleWink() { const b = $('deckShutter'); if (!b) return; b.classList.add('guino'); setTimeout(() => b.classList.remove('guino'), 90); setTimeout(() => b.classList.add('guino'), 170); setTimeout(() => b.classList.remove('guino'), 260); }
+  // Qué clase de look es (su sello en la tarjeta) y con qué pinta (su franja de color).
+  const kindOf = l => (l.pixel ? 'pixel' : l.screen && l.screen.type === 'dot' ? 'trama' : l.screen && l.screen.type === 'line' ? 'lineas' : l.limited ? 'cartel' : l.rampMix > 0.75 ? 'duotono' : 'foto');
+  const SEALS = {
+    trama: '<circle cx="3" cy="3" r="1.6"/><circle cx="7.4" cy="3" r="1.6"/><circle cx="3" cy="7.4" r="1.6"/><circle cx="7.4" cy="7.4" r="1.6"/>',
+    lineas: '<path d="M0 4.2 5 1.3M0 8 10 2.2M5 9.4 10 6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+    pixel: '<path d="M0 6h3V3h3V0h4v4H7v3H4v3H0z"/>',
+    cartel: '<path d="M0 0h6.5v6.5H0z"/><path d="M4 4h6v6H4z" opacity=".55"/>',
+    duotono: '<path d="M5 0a5 5 0 0 0 0 10z"/><path d="M5 0a5 5 0 0 1 0 10z" opacity=".5"/>',
+    foto: '<path d="M0.6 9.2C4.6 9.2 5.4 0.8 9.4 0.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  };
+  const KIND_ORDER = ['trama', 'lineas', 'pixel', 'cartel', 'duotono', 'foto'];
+  function signature(l) {
+    if (l.limited) {                                                // tintas planas: bloques según lo que ocupa cada una
+      const pal = l.palette.slice(0, 6), w = pal.map((_, i) => Math.max(0.12, (l.shares && l.shares[i]) || 0)), sum = w.reduce((a, b) => a + b, 0);
+      let at = 0;
+      return 'linear-gradient(90deg,' + pal.map((c, i) => { const from = at; at += w[i] / sum * 100; return ink(c) + ' ' + from.toFixed(1) + '% ' + (at - 0.7).toFixed(1) + '%, #0B0C14 ' + (at - 0.7).toFixed(1) + '% ' + at.toFixed(1) + '%'; }).join(',') + ')';
+    }
+    // color continuo: del más oscuro al más claro, con el color que la referencia le pone a cada nivel de luz
+    return 'linear-gradient(90deg,' + [2, 6, 10, 14].map(k => { const r = (l.ramp && l.ramp[k]) || [0, 0], m = l.rampMix == null ? 1 : l.rampMix, mean = l.mean || [0, 0]; return ink([(k + 0.5) / 16, mean[0] + (r[0] - mean[0]) * Math.max(0.35, m), mean[1] + (r[1] - mean[1]) * Math.max(0.35, m)]); }).join(',') + ')';
+  }
+  const ORDERS = ['recientes', 'tipo', 'parecido'];
+  let order = 'recientes';
+  try { const o = localStorage.getItem(KEY + '.orden'); if (ORDERS.includes(o)) order = o; } catch (_) {}
+  function sorted() {
+    const recent = (a, b) => (!!b.fav) - (!!a.fav) || (b.at || 0) - (a.at || 0);
+    const list = S.looks.slice();
+    if (order === 'tipo') list.sort((a, b) => KIND_ORDER.indexOf(kindOf(a)) - KIND_ORDER.indexOf(kindOf(b)) || recent(a, b));
+    else if (order === 'parecido') list.sort((a, b) => (b.score || 0) - (a.score || 0) || recent(a, b));
+    else list.sort(recent);
+    return list.map(l => l.id);
+  }
+  // El orden a la vista se fija al abrir (o al tocar el chip): marcar una estrella no manda la tarjeta
+  // a otro sitio bajo el dedo; se recoloca la próxima vez.
+  function arrange(fresh) {
+    const ids = S.looks.map(l => l.id);
+    if (fresh || !S.shown) S.shown = sorted();
+    S.shown = S.shown.filter(id => ids.includes(id));
+    for (const id of sorted()) if (!S.shown.includes(id)) S.shown.unshift(id);            // uno nuevo entra arriba
+    if (S.undo && !S.undo.added) { /* el borrado, si vuelve, vuelve a su sitio: arrange(false) lo recoloca al restaurar */ }
+  }
   function galleryPaint() {
     if (!sheet) return;
-    const cur = current(), list = ordered();
-    sheet.querySelector('#clonCuenta').textContent = 'LOOKS · ' + S.looks.length + ' / ' + MAX_LOOKS;
-    sheet.classList.toggle('is-vacia', !list.length);
-    sheet.querySelector('#clonRejilla').innerHTML = list.map(l => {
+    arrange(false);
+    const cur = current(), n = S.looks.length;
+    const count = sheet.querySelector('#clonCuenta');
+    count.textContent = n + ' / ' + MAX_LOOKS;
+    count.classList.toggle('is-casi', n >= MAX_LOOKS - 2);
+    sheet.classList.toggle('is-vacia', !n);
+    const chip = sheet.querySelector('[data-clon="orden"]');
+    chip.hidden = n < 6; chip.textContent = order.toUpperCase();
+    sheet.querySelector('#clonRejilla').innerHTML = S.shown.map(id => {
+      const l = S.looks.find(x => x.id === id);
       // la miniatura de la referencia; un look antiguo sin ella enseña sus tintas
       const back = l.thumb && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(l.thumb) ? 'background-image:url(' + l.thumb + ')' : 'background:linear-gradient(135deg,' + l.palette.map(ink).join(',') + ')';
-      return `<div class="clon-carta${cur && cur.id === l.id ? ' is-on' : ''}${l.fav ? ' is-fav' : ''}" role="option" aria-selected="${!!(cur && cur.id === l.id)}" data-id="${html(l.id)}"><button class="hw clon-carta-ver" type="button" data-feel="key" aria-label="Usar ${html(l.name)}"><i style="${back}"></i><span class="clon-tintas">${l.palette.slice(0, 6).map(c => `<u style="background:${ink(c)}"></u>`).join('')}</span><b>${html(l.name)}</b></button><button class="hw clon-carta-fav" type="button" data-feel="soft" aria-pressed="${!!l.fav}" aria-label="${l.fav ? 'Quitar de favoritos' : 'Marcar favorito'}: ${html(l.name)}">★</button></div>`;
-    }).join('');
+      const on = !!(cur && cur.id === l.id), kind = kindOf(l);
+      return `<button class="hw clon-carta${on ? ' is-on' : ''}${l.fav ? ' is-fav' : ''}" type="button" role="option" aria-selected="${on}" data-id="${html(l.id)}" data-feel="slide" aria-label="${html(l.name)}${l.fav ? ', favorito' : ''}"><i class="clon-mini" style="${back}"><svg class="clon-tipo" viewBox="0 0 10 10" aria-hidden="true" data-tipo="${kind}">${SEALS[kind]}</svg>${l.fav ? '<em class="clon-estrellita" aria-hidden="true">★</em>' : ''}</i><span class="clon-firma" style="background:${signature(l)}"></span><b>${html(l.name)}</b></button>`;
+    }).join('') + (n >= MAX_LOOKS ? '<p class="clon-llena">Galería llena · el próximo look reemplaza al más viejo sin estrella.</p>' : '');
     const bar = sheet.querySelector('.clon-elegido'), name = sheet.querySelector('#clonNombre');
     bar.hidden = !cur;
     if (cur && document.activeElement !== name) name.value = cur.name;
     const star = sheet.querySelector('[data-clon="fav"]');
     star.setAttribute('aria-pressed', String(!!(cur && cur.fav))); star.classList.toggle('is-on', !!(cur && cur.fav));
+    const del = sheet.querySelector('[data-clon="borrar"]'), sure = !!cur && S.sure === cur.id;
+    del.textContent = sure ? '¿BORRAR?' : 'BORRAR'; del.classList.toggle('is-seguro', sure);
     sheet.querySelector('#clonDice').textContent = cur ? describe(cur) : '';
     const un = sheet.querySelector('.clon-deshacer');
     un.hidden = !S.undo;
-    if (S.undo) un.querySelector('span').textContent = 'BORRADO · ' + S.undo.look.name;
+    if (S.undo) un.querySelector('span').textContent = S.undo.added ? 'Salió «' + S.undo.look.name + '» para hacer sitio' : 'BORRADO · ' + S.undo.look.name;
   }
-  function gallery(open) {
+  // Deshacer dura seis segundos, con la galería abierta o cerrada (cerrada, en una píldora sobre el visor).
+  function undoArm(ms) {
+    clearTimeout(undoTimer);
+    S.undoUntil = performance.now() + (ms || 6000);
+    undoTimer = setTimeout(() => { S.undo = null; pillHide('deshacer'); if (sheet && !sheet.hidden) galleryPaint(); }, ms || 6000);
+    if (sheet) { const line = sheet.querySelector('.clon-tiempo'); line.style.animation = 'none'; void line.offsetWidth; line.style.animation = 'clonTiempo ' + (ms || 6000) + 'ms linear forwards'; }
+  }
+  function undoNow(x) {
+    clearTimeout(undoTimer);
+    const back = restore();
+    pillHide('deshacer');
+    if (back) { tap('lookUndo', x); mascot('guino', 230); mascot('retroceso', 160); say('Volvió «' + back.name + '»', 2200); arrange(false); }
+    if (sheet && !sheet.hidden) { galleryPaint(); const card = sheet.querySelector('.clon-carta.is-on'); if (card) { card.classList.add('vuelve'); setTimeout(() => card.classList.remove('vuelve'), 320); } }
+    return back;
+  }
+  function removeNow(x) {
+    const cur = current();
+    if (!cur) return;
+    if (cur.fav && S.sure !== cur.id) {                              // un favorito pide dos toques (sin diálogo)
+      S.sure = cur.id; tap('stop', x);
+      clearTimeout(sureTimer); sureTimer = setTimeout(() => { S.sure = ''; if (sheet && !sheet.hidden) galleryPaint(); }, 3000);
+      galleryPaint();
+      return;
+    }
+    S.sure = ''; clearTimeout(sureTimer);
+    forget(cur.id);
+    tap('lookTrash', x); mascot('sobresalto', 260);
+    undoArm(6000);
+    galleryPaint();
+  }
+  // La píldora sobre el visor: lo que acaba de pasar y, si acaso, una tecla.
+  function pillShow(kind, text, key, ms, thumb) {
+    if (!pill) return;
+    clearTimeout(pillTimer);
+    pill.dataset.kind = kind;
+    pill.innerHTML = (thumb ? `<i style="background-image:url(${thumb})"></i>` : '<i class="clon-cara"></i>') + `<span>${html(text)}</span>` + (key ? `<button class="hw" type="button" data-pildora="${key[0]}" data-feel="${key[2] || 'key'}">${key[1]}</button>` : '');
+    const view = $('display'), r = view ? view.getBoundingClientRect() : { left: 0, right: innerWidth, bottom: innerHeight * 0.6 };
+    pill.style.left = Math.round(r.left + 10) + 'px'; pill.style.right = Math.round(innerWidth - r.right + 10) + 'px'; pill.style.top = Math.round(Math.max(60, r.bottom - 52)) + 'px';
+    pill.hidden = false;
+    pillTimer = setTimeout(() => pillHide(), ms || 5200);
+  }
+  function pillHide(kind) { if (pill && !pill.hidden && (!kind || pill.dataset.kind === kind)) { pill.hidden = true; clearTimeout(pillTimer); } }
+  // Un look recién aprendido entra a la galería: a medio revelado la tecla de la galería da un sello.
+  function entered(look) {
+    const b = $('deckShutter');
+    if (S.looks.length === MAX_LOOKS && !S.out) { setTimeout(doubleWink, 0); setTimeout(() => mascot('llena', 160), 260); }
+    else if (b) mascot('guino', 230);
+    setTimeout(() => {
+      tap('lookSeat');
+      for (const host of [band, row]) { const k = host && host.querySelector('[data-clon="galeria"]'); if (k) { k.classList.remove('clon-sello'); void k.offsetWidth; k.classList.add('clon-sello'); } }
+    }, 500);
+    if (S.out) { undoArm(6000); pillShow('deshacer', 'Salió «' + S.out.name + '» para hacer sitio', ['deshacer', 'DESHACER', 'none'], 6000); }
+    else pillShow('guardado', look.name + ' · ' + (look.score == null ? '' : look.score + ' %'), ['renombrar', 'RENOMBRAR'], 5200, look.thumb);
+    say(S.looks.length === MAX_LOOKS ? MAX_LOOKS + ' / ' + MAX_LOOKS + ' · galería llena' : look.name + ' · ' + describe(look), 4200);
+  }
+  function gallery(open, focusName) {
     if (!sheet) return false;
     const want = open == null ? sheet.hidden : !!open;
-    if (want === !sheet.hidden) return want;
+    if (want === !sheet.hidden) { if (want && focusName) sheet.querySelector('#clonNombre').focus(); return want; }
     sheet.hidden = !want;
+    sheet.style.transform = '';
     document.body.classList.toggle('clon-galeria-abierta', want);
-    if (want) { syncVariants(); galleryPaint(); const on = sheet.querySelector('.clon-carta.is-on'); if (on) on.scrollIntoView({ block: 'nearest' }); }
-    else { sheet.classList.remove('escribiendo'); clearTimeout(undoTimer); S.undo = null; if (document.activeElement && sheet.contains(document.activeElement)) document.activeElement.blur(); }
+    const b = $('deckShutter');
+    if (b) b.classList.toggle('hojea', want);
+    if (want) {
+      openedWith = current() ? current().id : '';
+      pillHide();
+      syncVariants(); arrange(true); galleryPaint();
+      const on = sheet.querySelector('.clon-carta.is-on'); if (on) on.scrollIntoView({ block: 'nearest' });
+      if (focusName) setTimeout(() => sheet.querySelector('#clonNombre').focus(), 60);
+    } else {
+      sheet.classList.remove('escribiendo'); S.sure = '';
+      if (document.activeElement && sheet.contains(document.activeElement)) document.activeElement.blur();
+      if ((current() ? current().id : '') !== openedWith) mascot('guino', 230);            // se llevó otro look: acusa recibo
+      // lo borrado sigue pudiéndose deshacer los segundos que le queden
+      if (S.undo) pillShow('deshacer', S.undo.added ? 'Salió «' + S.undo.look.name + '»' : 'BORRADO · ' + S.undo.look.name, ['deshacer', 'DESHACER', 'none'], Math.max(800, (S.undoUntil || 0) - performance.now()));
+    }
     paint();
     return want;
   }
   function galleryBuild() {
     sheet = flipShell.el('div', { class: 'clon-galeria', id: 'clonGaleria', role: 'dialog', 'aria-label': 'Galería de looks', hidden: '' }, `
-      <header><small id="clonCuenta"></small><button class="hw clon-tecla" type="button" data-clon="cerrar" data-feel="soft">LISTO</button></header>
-      <div class="clon-elegido"><input id="clonNombre" type="text" maxlength="18" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Nombre del look"><button class="hw clon-tecla clon-estrella" type="button" data-clon="fav" data-feel="soft" aria-pressed="false" aria-label="Favorito">★</button><button class="hw clon-tecla" type="button" data-clon="borrar" data-feel="stop">BORRAR</button><p id="clonDice"></p></div>
+      <header class="clon-cabeza"><i class="clon-asa" aria-hidden="true"></i><small>LOOKS</small><b id="clonCuenta"></b><button class="hw clon-tecla clon-orden" type="button" data-clon="orden" data-feel="key" aria-label="Cambiar el orden" hidden></button><button class="hw clon-tecla" type="button" data-clon="cerrar" data-feel="key">LISTO</button></header>
+      <div class="clon-elegido"><button class="hw clon-tecla clon-estrella" type="button" data-clon="fav" data-feel="switch" aria-pressed="false" aria-label="Favorito">★</button><input id="clonNombre" type="text" maxlength="18" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Nombre del look"><button class="hw clon-tecla clon-borra" type="button" data-clon="borrar" data-feel="none">BORRAR</button><p id="clonDice"></p></div>
       <div class="clon-rejilla" id="clonRejilla" role="listbox" aria-label="Looks guardados"></div>
-      <p class="clon-vacio">Todavía no hay looks. Apunta a una imagen y toca CAPTURAR, o abre una con ABRIR.</p>
-      <div class="clon-deshacer" hidden><span></span><button class="hw clon-tecla" type="button" data-clon="deshacer" data-feel="key">DESHACER</button></div>`);
+      <div class="clon-vacio"><i class="clon-cara" aria-hidden="true"></i><b>TODAVÍA NO HAY LOOKS</b><p>Apunta a un cartel, una portada o abre una foto. Aquí caben hasta ${MAX_LOOKS} cámaras tuyas.</p><div><button class="hw clon-tecla is-acento" type="button" data-clon="copiar-camara" data-feel="primary">COPIAR CON CÁMARA</button><button class="hw clon-tecla" type="button" data-clon="abrir-foto" data-feel="key">ABRIR FOTO</button></div></div>
+      <div class="clon-deshacer" hidden><i class="clon-cara" aria-hidden="true"></i><span></span><button class="hw clon-tecla" type="button" data-clon="deshacer" data-feel="none">DESHACER</button><u class="clon-tiempo" aria-hidden="true"></u></div>`);
     sheet.hidden = true;
     document.body.appendChild(sheet);
+    pill = flipShell.el('div', { class: 'clon-pildora', id: 'clonPildora', role: 'status', hidden: '' }, '');
+    pill.hidden = true;
+    document.body.appendChild(pill);
+    pill.addEventListener('click', event => {
+      const key = event.target.closest('[data-pildora]');
+      if (!key) return;
+      if (key.dataset.pildora === 'deshacer') undoNow(event.clientX);
+      else if (key.dataset.pildora === 'renombrar') { pillHide(); gallery(true, true); }
+    });
     const name = sheet.querySelector('#clonNombre');
     sheet.addEventListener('click', event => {
-      const cardKey = event.target.closest('.clon-carta'), act = event.target.closest('[data-clon]'), cur = current();
-      if (cardKey) { const id = cardKey.dataset.id; if (event.target.closest('.clon-carta-fav')) fav(id); else use(id); galleryPaint(); return; }
+      const card = event.target.closest('.clon-carta'), act = event.target.closest('[data-clon]'), cur = current();
+      if (card) { S.sure = ''; use(card.dataset.id); galleryPaint(); return; }
       if (!act) return;
       const what = act.dataset.clon;
       if (what === 'cerrar') gallery(false);
+      else if (what === 'orden') { order = ORDERS[(ORDERS.indexOf(order) + 1) % ORDERS.length]; try { localStorage.setItem(KEY + '.orden', order); } catch (_) {} arrange(true); galleryPaint(); sheet.querySelector('#clonRejilla').scrollTop = 0; }
       else if (what === 'fav' && cur) { fav(cur.id); galleryPaint(); }
-      else if (what === 'borrar' && cur) {
-        forget(cur.id); galleryPaint();
-        clearTimeout(undoTimer); undoTimer = setTimeout(() => { S.undo = null; galleryPaint(); }, 6000);
-      } else if (what === 'deshacer') { clearTimeout(undoTimer); restore(); galleryPaint(); }
+      else if (what === 'borrar') removeNow(event.clientX);
+      else if (what === 'deshacer') undoNow(event.clientX);
+      else if (what === 'copiar-camara') { gallery(false); S.aim = true; paint(); say('Encuadra la imagen que quieras copiar y toca CAPTURAR', 4200); }
+      else if (what === 'abrir-foto') { gallery(false); openKey(); }
     });
-    const commit = () => { const cur = current(); if (cur) { const set = rename(cur.id, name.value); name.value = set || cur.name; } galleryPaint(); };
-    name.addEventListener('focus', () => { sheet.classList.add('escribiendo'); name.select(); });
+    const commit = () => { const cur = current(); if (cur) { const before = cur.name, set = rename(cur.id, name.value); name.value = set || cur.name; if (set && set !== before) { sheet.classList.add('nombrado'); setTimeout(() => sheet.classList.remove('nombrado'), 160); } } galleryPaint(); };
+    name.addEventListener('focus', () => { sheet.classList.add('escribiendo'); name.select(); tap('soft'); });
     name.addEventListener('blur', () => { sheet.classList.remove('escribiendo'); commit(); });
-    name.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); name.blur(); } else if (event.key === 'Escape') { const cur = current(); name.value = cur ? cur.name : ''; name.blur(); } event.stopPropagation(); });
+    name.addEventListener('input', () => { const at = name.selectionStart, up = name.value.toUpperCase(); if (up !== name.value) { name.value = up; try { name.setSelectionRange(at, at); } catch (_) {} } });
+    name.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); tap('key'); name.blur(); } else if (event.key === 'Escape') { const cur = current(); name.value = cur ? cur.name : ''; name.blur(); } event.stopPropagation(); });
     addEventListener('keydown', event => { if (event.key === 'Escape' && !sheet.hidden) gallery(false); });
     // tocar fuera (el visor) la cierra
-    addEventListener('pointerdown', event => { if (!sheet.hidden && !event.target.closest('#clonGaleria, [data-clon="galeria"]')) gallery(false); }, true);
+    addEventListener('pointerdown', event => { if (!sheet.hidden && !event.target.closest('#clonGaleria, #clonPildora, [data-clon="galeria"]')) { tap('soft', event.clientX); gallery(false); } }, true);
+    // y deslizar la cabecera hacia abajo: la hoja sigue al dedo y, pasado un tramo, se va
+    const head = sheet.querySelector('.clon-cabeza');
+    let pull = null;
+    head.addEventListener('pointerdown', event => { if (event.target.closest('button')) return; pull = { y: event.clientY, t: performance.now(), id: event.pointerId }; try { head.setPointerCapture(event.pointerId); } catch (_) {} });
+    head.addEventListener('pointermove', event => { if (!pull || event.pointerId !== pull.id) return; const dy = Math.max(0, event.clientY - pull.y); sheet.style.transform = dy ? 'translateY(' + dy + 'px)' : ''; });
+    const drop = event => { if (!pull) return; const dy = Math.max(0, event.clientY - pull.y), v = dy / Math.max(1, performance.now() - pull.t); pull = null; if (event.type === 'pointerup' && (dy > 48 || v > 0.45)) { tap('stop', event.clientX); gallery(false); } else sheet.style.transform = ''; };
+    head.addEventListener('pointerup', drop); head.addEventListener('pointercancel', drop);
+    // al disparar, la píldora de «guardado» se quita de en medio
+    const shutter = $('deckShutter'); if (shutter) shutter.addEventListener('pointerdown', () => pillHide('guardado'));
   }
   function paint() {
     const on = mine();
@@ -1352,14 +1501,14 @@
       key.classList.toggle('is-on', S.aim || (on && !current()));
       const shelf = host.querySelector('[data-clon="galeria"]');
       shelf.querySelector('em').textContent = String(S.looks.length);
-      shelf.classList.toggle('is-on', !!sheet && !sheet.hidden);
+      shelf.classList.toggle('is-on', !!sheet && !sheet.hidden); shelf.classList.toggle('tiene', S.looks.length > 0);
       shelf.setAttribute('aria-label', 'Galería: ' + S.looks.length + ' looks guardados');
     }
     if (sheet && !sheet.hidden) galleryPaint();
   }
   function mount() {
     if (!window.flipShell || band) return;
-    const keys = '<button class="hw KEY" type="button" data-clon="copiar"><span>COPIAR</span></button><button class="hw KEY" type="button" data-clon="abrir"><span>ABRIR</span></button><button class="hw KEY clon-abre-galeria" type="button" data-clon="galeria" data-feel="slide" aria-haspopup="dialog"><span>LOOKS</span><em>0</em></button>';
+    const keys = '<button class="hw KEY" type="button" data-clon="copiar"><span>COPIAR</span></button><button class="hw KEY" type="button" data-clon="abrir"><span>ABRIR</span></button><button class="hw KEY clon-abre-galeria" type="button" data-clon="galeria" data-feel="drawerOpen" aria-haspopup="dialog"><span>LOOKS</span><em>0</em></button>';
     const head = document.querySelector('.si-banda-cabeza'), tray = document.querySelector('#camDeck .deck-looks');
     if (head) { band = flipShell.el('div', { class: 'si-rapidas clon-rapidas', role: 'group', 'aria-label': 'Clonar un look' }, keys.replace(/KEY/g, 'si-chip')); head.insertBefore(band, head.querySelector('.si-abrir')); }
     if (tray) { row = flipShell.el('div', { class: 'deck-variants reaccion-teclas clon-teclas', role: 'group', 'aria-label': 'Clonar un look' }, keys.replace(/KEY/g, 'hw-keycap')); tray.before(row); }

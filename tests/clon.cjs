@@ -225,13 +225,17 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     await page.waitForTimeout(350);
     const hoja = () => page.evaluate(() => { const g = document.getElementById('clonGaleria'), r = g.getBoundingClientRect(), v = document.getElementById('display').getBoundingClientRect(); return { abierta: !g.hidden, cuenta: document.getElementById('clonCuenta').textContent, cartas: [...g.querySelectorAll('.clon-carta')].map(c => c.querySelector('b').textContent + (c.classList.contains('is-on') ? '*' : '') + (c.classList.contains('is-fav') ? '★' : '')), nombre: document.getElementById('clonNombre').value, visorLibre: Math.round(r.top - v.top), cabe: r.left >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1, deshacer: !g.querySelector('.clon-deshacer').hidden, actual: camVariant, lcd: document.getElementById('lcdLook').textContent, fila: [...document.querySelectorAll('#deckVariants [data-variant]')].map(k => k.textContent.trim()) }; });
     let g = await hoja();
-    assert.deepEqual([g.abierta, g.cuenta, g.cartas.length, g.cabe], [true, 'LOOKS · 5 / 30', 5, true], 'la galería se abre con todos los looks: ' + JSON.stringify(g));
+    assert.deepEqual([g.abierta, g.cuenta, g.cartas.length, g.cabe], [true, '5 / 30', 5, true], 'la galería se abre con todos los looks: ' + JSON.stringify(g));
     assert.ok(g.visorLibre > 120, 'y deja el visor a la vista (' + g.visorLibre + ' px): lo que se toca se ve en vivo');
     assert.ok(g.cartas.filter(c => c.endsWith('*')).length === 1 && g.nombre === g.cartas.find(c => c.endsWith('*')).slice(0, -1), 'el que está puesto va marcado y con su nombre arriba: ' + JSON.stringify(g.cartas));
+    // cada tarjeta dice de qué clase es (su sello) y con qué pinta (su franja); la estrella no es un botón de la tarjeta
+    const cartas = await page.evaluate(() => [...document.querySelectorAll('.clon-carta')].map(c => ({ nombre: c.querySelector('b').textContent, tipo: c.querySelector('.clon-tipo').dataset.tipo, firma: /gradient/.test(c.querySelector('.clon-firma').style.background), botones: c.querySelectorAll('button').length, alto: Math.round(c.getBoundingClientRect().height) })));
+    assert.deepEqual(Object.fromEntries(cartas.map(c => [c.nombre, c.tipo])), { [cuatro.nombres[0]]: cartas.find(c => c.nombre === cuatro.nombres[0]).tipo, 'TRAMA ROSA': 'trama', 'PÍXEL TURQUESA': 'pixel', 'CARTEL ROJO': 'cartel', 'DUOTONO AZUL': 'duotono' }, 'cada tarjeta lleva el sello de su clase');
+    assert.ok(cartas.every(c => c.firma && c.botones === 0 && c.alto > 100 && c.alto < 160), 'con su franja de color, y sin botones dentro: ' + JSON.stringify(cartas.map(c => c.alto)));
     // usar uno que no estaba a la mano: se pone en la cámara y pasa a la fila
     const viejo = cuatro.nombres[0];
     assert.ok(!g.fila.includes(viejo), 'el más viejo no estaba en la fila');
-    await page.locator('.clon-carta', { hasText: viejo }).locator('.clon-carta-ver').click();
+    await page.locator('.clon-carta', { hasText: viejo }).click();
     await page.waitForTimeout(350);
     g = await hoja();
     assert.ok(g.abierta && g.lcd.includes(viejo) && g.fila.includes(viejo) && g.fila.length === 4 && g.nombre === viejo, 'tocar un look lo pone en la cámara sin cerrar la galería: ' + JSON.stringify(g));
@@ -244,36 +248,74 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     await page.locator('#clonNombre').fill('   ');
     await page.locator('#clonNombre').press('Enter');
     assert.equal((await hoja()).nombre, 'MI CARTEL FAVORITO', 'un nombre vacío no borra el que tenía');
-    // favorito: sube al principio
-    await page.locator('.clon-carta', { hasText: 'PÍXEL TURQUESA' }).locator('.clon-carta-fav').click();
+    // favorito: la estrella está en el inspector, lejos de BORRAR; la tarjeta no salta de sitio hasta reabrir
+    const hueco = await page.evaluate(() => { const a = document.querySelector('[data-clon="fav"]').getBoundingClientRect(), b = document.querySelector('[data-clon="borrar"]').getBoundingClientRect(); return Math.round(b.left - a.right); });
+    assert.ok(hueco > 150, 'la estrella y BORRAR, separados (' + hueco + ' px)');
+    const antesFav = (await hoja()).cartas.map(c => c.replace(/[*★]/g, ''));
+    await page.locator('.clon-carta', { hasText: 'PÍXEL TURQUESA' }).click();
+    await page.locator('[data-clon="fav"]').click();
     await page.waitForTimeout(250);
     g = await hoja();
-    assert.equal(g.cartas[0], 'PÍXEL TURQUESA★', 'el favorito va primero: ' + JSON.stringify(g.cartas));
-    // borrar y deshacer
+    assert.deepEqual(g.cartas.map(c => c.replace(/[*★]/g, '')), antesFav, 'al marcarla, la tarjeta no salta de sitio bajo el dedo');
+    assert.ok(g.cartas.includes('PÍXEL TURQUESA*★'), 'y lleva su estrella: ' + JSON.stringify(g.cartas));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    await page.locator('.clon-rapidas [data-clon="galeria"]').click(); await page.waitForTimeout(300);
+    assert.equal((await hoja()).cartas[0], 'PÍXEL TURQUESA*★', 'al reabrir, el favorito va primero');
+    // borrar un favorito pide dos toques (sin diálogo); deshacer lo devuelve
+    await page.locator('[data-clon="borrar"]').click();
+    await page.waitForTimeout(200);
+    g = await hoja();
+    assert.ok(g.cuenta === 'LOOKS · 5 / 30'.replace('LOOKS · ', '') && (await page.locator('[data-clon="borrar"]').textContent()) === '¿BORRAR?', 'un favorito no se borra al primer toque: ' + JSON.stringify(g.cuenta));
     await page.locator('[data-clon="borrar"]').click();
     await page.waitForTimeout(300);
     g = await hoja();
-    assert.ok(g.cuenta === 'LOOKS · 4 / 30' && g.deshacer && !g.cartas.some(c => c.startsWith('MI CARTEL')) && g.actual !== 'NUEVO', 'borrar lo quita y ofrece deshacer: ' + JSON.stringify(g));
-    await page.locator('[data-clon="deshacer"]').click();
+    assert.ok(g.cuenta === '4 / 30' && g.deshacer && !g.cartas.some(c => c.startsWith('PÍXEL')) && g.actual !== 'NUEVO', 'el segundo toque lo borra y ofrece deshacer: ' + JSON.stringify(g));
+    // se cierra la galería con el borrado pendiente: se puede deshacer desde la píldora del visor
+    await page.keyboard.press('Escape'); await page.waitForTimeout(250);
+    const pildora = await page.evaluate(() => { const p = document.getElementById('clonPildora'), r = p.getBoundingClientRect(), v = document.getElementById('display').getBoundingClientRect(); return { visible: !p.hidden, texto: p.textContent, dentro: r.top >= v.top && r.bottom <= v.bottom + 2 && r.left >= 0 && r.right <= innerWidth }; });
+    assert.ok(pildora.visible && /BORRADO · PÍXEL TURQUESA/.test(pildora.texto) && /DESHACER/.test(pildora.texto) && pildora.dentro, 'cerrada la galería, deshacer sigue a la mano sobre el visor: ' + JSON.stringify(pildora));
+    await page.locator('#clonPildora [data-pildora="deshacer"]').click();
+    await page.waitForTimeout(300);
+    assert.deepEqual(await page.evaluate(() => [flipClon.looks().length, flipClon.looks().some(l => l.name === 'PÍXEL TURQUESA' && l.fav), document.getElementById('lcdLook').textContent.includes('PÍXEL TURQUESA'), document.getElementById('clonPildora').hidden]), [5, true, true, true], 'deshacer lo devuelve, con su estrella y puesto');
+    // un look sin estrella se borra de un toque
+    await page.locator('.clon-rapidas [data-clon="galeria"]').click(); await page.waitForTimeout(300);
+    await page.locator('.clon-carta', { hasText: 'DUOTONO AZUL' }).click();
+    await page.locator('[data-clon="borrar"]').click();
     await page.waitForTimeout(300);
     g = await hoja();
-    assert.ok(g.cuenta === 'LOOKS · 5 / 30' && !g.deshacer && g.cartas.includes('MI CARTEL FAVORITO*') && g.lcd.includes('MI CARTEL FAVORITO'), 'deshacer lo devuelve, y puesto: ' + JSON.stringify(g));
-    // caben treinta; al llegar el 31 sale el más viejo que no sea favorito
+    assert.ok(g.cuenta === '4 / 30' && g.deshacer, 'sin estrella, un toque: ' + JSON.stringify(g.cuenta));
+    await page.locator('#clonGaleria [data-clon="deshacer"]').click();
+    await page.waitForTimeout(300);
+    g = await hoja();
+    assert.ok(g.cuenta === '5 / 30' && !g.deshacer && g.cartas.includes('DUOTONO AZUL*'), 'y deshacer lo devuelve, puesto: ' + JSON.stringify(g));
+    // caben treinta; al llegar el 31 sale el más viejo sin estrella (y se puede deshacer); si todos son favoritos, no se pisa ninguno
     const lleno = await page.evaluate(() => {
-      const base = flipClon.looks()[2];
-      for (let i = 0; i < 25; i++) { const copy = JSON.parse(JSON.stringify(base)); copy.name = 'COPIA ' + i; copy.fav = false; flipClon.keep(copy); }
+      const base = flipClon.looks().find(l => l.name === 'CARTEL ROJO');
+      const copia = nombre => { const c = JSON.parse(JSON.stringify(base)); c.name = nombre; c.fav = false; return c; };
+      for (let i = 0; i < 25; i++) flipClon.keep(copia('COPIA ' + i));
       const antes = flipClon.looks().map(l => l.name);
       flipClon.fav(flipClon.looks()[0].id, true);                    // el más viejo, protegido
-      const copy = JSON.parse(JSON.stringify(base)); copy.name = 'EL 31'; copy.fav = false; flipClon.keep(copy);
+      const entra = flipClon.keep(copia('EL 31'));
       const ahora = flipClon.looks().map(l => l.name);
-      return { max: flipClon.MAX, antes: antes.length, ahora: ahora.length, salio: antes.filter(n => !ahora.includes(n)), primero: ahora[0], ultimo: ahora[ahora.length - 1], fila: [...document.querySelectorAll('#deckVariants [data-variant]')].length, bytes: localStorage.getItem('flip.clon').length };
+      const vuelve = flipClon.restore(), tras = flipClon.looks().map(l => l.name);
+      for (const l of flipClon.looks()) flipClon.fav(l.id, true);
+      const sinSitio = flipClon.keep(copia('EL QUE NO CABE'));
+      for (const l of flipClon.looks().slice(2)) flipClon.fav(l.id, false);
+      return { max: flipClon.MAX, antes: antes.length, ahora: ahora.length, salio: antes.filter(n => !ahora.includes(n)), primero: ahora[0], ultimo: ahora[ahora.length - 1], entra: !!entra, vuelve: vuelve && vuelve.name, tras: [tras.length, tras.includes('EL 31'), tras.includes('TRAMA ROSA')], sinSitio, total: flipClon.looks().length, fila: [...document.querySelectorAll('#deckVariants [data-variant]')].length, bytes: localStorage.getItem('flip.clon').length };
     });
     assert.deepEqual([lleno.max, lleno.antes, lleno.ahora, lleno.ultimo, lleno.fila], [30, 30, 30, 'EL 31', 4], 'caben treinta y la fila sigue con cuatro: ' + JSON.stringify(lleno));
-    assert.ok(lleno.salio.length === 1 && lleno.salio[0] === 'TRAMA ROSA' && lleno.primero === 'MI CARTEL FAVORITO', 'al llegar el 31 sale el más viejo que no es favorito: ' + JSON.stringify(lleno.salio));
+    assert.ok(lleno.salio.length === 1 && lleno.salio[0] === 'TRAMA ROSA' && lleno.primero === 'MI CARTEL FAVORITO', 'al llegar el 31 sale el más viejo sin estrella: ' + JSON.stringify(lleno.salio));
+    assert.deepEqual([lleno.vuelve, lleno.tras], ['TRAMA ROSA', [30, false, true]], 'y deshacer devuelve al que salió y quita al que entró');
+    assert.deepEqual([lleno.sinSitio, lleno.total], [null, 30], 'con treinta favoritos no se pisa ninguno: el nuevo no se guarda');
     assert.ok(lleno.bytes < 400000, 'treinta looks con miniatura pesan poco: ' + lleno.bytes + ' caracteres');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(250);
     assert.equal((await hoja()).abierta, false, 'Escape la cierra');
+    // la mascota mira hacia arriba mientras la galería está abierta
+    await page.locator('.clon-rapidas [data-clon="galeria"]').click(); await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => document.getElementById('deckShutter').classList.contains('hojea')), true, 'con la galería abierta, la mascota la mira');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(() => document.getElementById('deckShutter').classList.contains('hojea')), false);
     step('la galería: usar, nombrar, favorito, borrar y deshacer; treinta looks', { cuenta: lleno.ahora, pesa: lleno.bytes, visorLibre: g.visorLibre });
 
     // ── 7 · En la piel OBJETO: sus teclas, en una fila del aparato ──

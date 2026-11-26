@@ -367,27 +367,46 @@ body[data-haptic="vis"][data-piel="interfaz"] :is(.si-chip, .deck-variants .hw-k
 
 /* ── CLON · la galería de looks, en la piel INTERFAZ: plana, sobre la banda, con la esquina cortada ── */
 body[data-piel="interfaz"] .clon-galeria { background: var(--si-banda); color: var(--si-marfil); border-radius: 0; border-top: 1px solid #2A2B36; box-shadow: 0 -14px 30px rgba(0, 0, 0, .45); font-family: 'Chivo', 'Archivo', system-ui, sans-serif; }
-body[data-piel="interfaz"] .clon-galeria header small { font: 800 9.5px/1 'Chivo', sans-serif; color: var(--si-banda-suave); opacity: 1; }
-body[data-piel="interfaz"] .clon-tecla { height: 36px; border-radius: 0; background: transparent; color: var(--si-marfil); font: var(--si-rotulo); letter-spacing: .1em; box-shadow: inset 0 0 0 1.5px var(--si-banda-raya); clip-path: polygon(0 0, calc(100% - var(--si-corte)) 0, 100% var(--si-corte), 100% 100%, 0 100%); }
+body[data-piel="interfaz"] .clon-cabeza small { font: 800 9.5px/1 'Chivo', sans-serif; color: var(--si-banda-suave); opacity: 1; }
+body[data-piel="interfaz"] .clon-cabeza b { font-family: 'Doto', ui-monospace, monospace; }
+body[data-piel="interfaz"] .clon-cabeza b.is-casi { color: #F0B852; }
+body[data-piel="interfaz"] .clon-tecla { border-radius: 0; background: transparent; color: var(--si-marfil); font: var(--si-rotulo); letter-spacing: .1em; box-shadow: inset 0 0 0 1.5px var(--si-banda-raya); clip-path: polygon(0 0, calc(100% - var(--si-corte)) 0, 100% var(--si-corte), 100% 100%, 0 100%); }
 body[data-piel="interfaz"] .clon-tecla:active { transform: none; background: rgba(255, 243, 223, .12); box-shadow: inset 0 0 0 1.5px var(--si-marfil); }
+body[data-piel="interfaz"] .clon-tecla.is-acento { background: var(--si-acento); color: var(--si-sobre-acento); box-shadow: none; }
 body[data-piel="interfaz"] .clon-estrella { color: var(--si-banda-raya); }
 body[data-piel="interfaz"] .clon-estrella.is-on { background: var(--si-acento); color: var(--si-sobre-acento); box-shadow: none; }
-body[data-piel="interfaz"] #clonNombre { height: 36px; border-radius: 0; background: #151727; color: var(--si-marfil); font: 800 13px/1 'Chivo', sans-serif; letter-spacing: .08em; box-shadow: inset 0 -2px 0 var(--si-banda-raya); }
-body[data-piel="interfaz"] #clonNombre:focus { box-shadow: inset 0 -2px 0 var(--si-acento); }
+body[data-piel="interfaz"] .clon-borra.is-seguro { background: var(--si-rec); color: var(--si-marfil); box-shadow: none; }
+body[data-piel="interfaz"] .clon-elegido { border-bottom-color: #2A2B36; }
+body[data-piel="interfaz"] #clonNombre { border-radius: 0; background: #151727; color: var(--si-marfil); font: 800 13px/1 'Chivo', sans-serif; letter-spacing: .08em; box-shadow: inset 0 -2px 0 var(--si-banda-raya); }
+body[data-piel="interfaz"] #clonNombre:focus, body[data-piel="interfaz"] .clon-galeria.nombrado #clonNombre { box-shadow: inset 0 -2px 0 var(--si-acento); }
 body[data-piel="interfaz"] .clon-elegido p { color: var(--si-banda-suave); opacity: 1; }
-body[data-piel="interfaz"] .clon-carta-ver { padding: 0 0 7px; gap: 6px; border-radius: 0; background: #151727; color: var(--si-marfil); box-shadow: none; clip-path: polygon(0 0, calc(100% - var(--si-corte)) 0, 100% var(--si-corte), 100% 100%, 0 100%); }
-body[data-piel="interfaz"] .clon-carta-ver:active { transform: none; background: #1F2236; }
-body[data-piel="interfaz"] .clon-carta-ver i { border-radius: 0; box-shadow: none; }
-body[data-piel="interfaz"] .clon-tintas, body[data-piel="interfaz"] .clon-carta-ver b { padding: 0 7px; }
-body[data-piel="interfaz"] .clon-tintas u { border-radius: 0; box-shadow: 0 0 0 1px rgba(255, 243, 223, .3); }
-body[data-piel="interfaz"] .clon-carta-ver b { font: 800 9.5px/1.15 'Chivo', sans-serif; }
-body[data-piel="interfaz"] .clon-carta.is-on .clon-carta-ver { background: var(--si-acento); color: var(--si-sobre-acento); box-shadow: none; }
-body[data-piel="interfaz"] .clon-carta-fav { top: 5px; right: 11px; width: 24px; height: 24px; line-height: 24px; border-radius: 0; background: rgba(11, 12, 20, .62); }
-body[data-piel="interfaz"] .clon-carta.is-fav .clon-carta-fav { background: var(--si-marfil); color: var(--si-acento); }
+body[data-piel="interfaz"] .clon-carta { padding: 0; border-radius: 0; background: #141622; color: var(--si-marfil); box-shadow: inset 0 0 0 1px #383A4A; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%); }
+body[data-piel="interfaz"] .clon-carta:active { transform: none; box-shadow: inset 0 0 0 1px #383A4A; }
+body[data-piel="interfaz"] .clon-carta:active .clon-mini { transform: scale(.96); transition: transform .08s; }
+body[data-piel="interfaz"] .clon-mini { aspect-ratio: 118 / 84; border-radius: 0; box-shadow: none; }
+body[data-piel="interfaz"] .clon-mini::after { content: none; }
+body[data-piel="interfaz"] .clon-tipo { border-radius: 0; }
+body[data-piel="interfaz"] .clon-estrellita { border-radius: 0; background: var(--si-acento); color: var(--si-sobre-acento); }
+body[data-piel="interfaz"] .clon-firma { height: 7px; margin: 0; border-radius: 0; box-shadow: 0 2px 0 var(--si-banda); }
+body[data-piel="interfaz"] .clon-carta b { margin: 2px 0 0; border-radius: 0; font: 800 10.5px/1.18 'Chivo', sans-serif; }
+body[data-piel="interfaz"] .clon-carta.is-on { box-shadow: inset 0 0 0 2px var(--si-acento); }
+body[data-piel="interfaz"] .clon-carta.is-on b { background: var(--si-acento); color: var(--si-sobre-acento); }
+body[data-piel="interfaz"] .clon-carta.is-on .clon-mini::before { content: ''; position: absolute; right: 5px; bottom: 5px; width: 9px; height: 9px; border-right: 1.5px solid var(--si-marfil); border-bottom: 1.5px solid var(--si-marfil); }
 body[data-piel="interfaz"] .clon-deshacer { border-radius: 0; background: #151727; box-shadow: inset 3px 0 0 var(--si-acento); }
+body[data-piel="interfaz"] .clon-tiempo { background: var(--si-acento); }
 body[data-piel="interfaz"] .clon-galeria.escribiendo { border-radius: 0; border-top: 0; border-bottom: 1px solid #2A2B36; }
-body[data-piel="interfaz"] .clon-abre-galeria em { margin-left: 0; border-radius: 0; background: var(--si-acento); color: var(--si-sobre-acento); }
+body[data-piel="interfaz"] .clon-pildora { border-radius: 0; background: rgba(11, 12, 20, .9); clip-path: polygon(0 0, calc(100% - var(--si-corte)) 0, 100% var(--si-corte), 100% 100%, 0 100%); }
+body[data-piel="interfaz"] .clon-pildora button { border-radius: 0; background: var(--si-acento); color: var(--si-sobre-acento); font: var(--si-rotulo); }
+body[data-piel="interfaz"] .clon-pildora i { border-radius: 0; }
 /* En la banda no cabe otra palabra: la tecla de la galería es una rejilla y la cuenta. */
+body[data-piel="interfaz"] .clon-abre-galeria em { margin-left: 0; padding: 2px 5px; border-radius: 0; background: var(--si-banda-raya); color: var(--si-banda); font-family: 'Doto', ui-monospace, monospace; }
+body[data-piel="interfaz"] .clon-abre-galeria.tiene em { background: var(--si-acento); color: var(--si-sobre-acento); }
+body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria { min-width: 48px; justify-content: center; }
 body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria span { display: none; }
 body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria::before { content: '' !important; display: block !important; flex: 0 0 11px; width: 11px; height: 11px; background: linear-gradient(currentColor, currentColor) 0 0 / 5px 5px no-repeat, linear-gradient(currentColor, currentColor) 100% 0 / 5px 5px no-repeat, linear-gradient(currentColor, currentColor) 0 100% / 5px 5px no-repeat, linear-gradient(currentColor, currentColor) 100% 100% / 5px 5px no-repeat; }
-body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria em { padding: 2px 5px; }
+/* La mascota: mira hacia arriba mientras la galería está abierta, respinga al borrar, abre la pupila al llenarse. */
+body[data-piel="interfaz"] #deckShutter.hojea { --mira-y: -1.8px; }
+body[data-piel="interfaz"] #deckShutter .silueta .pupila { transform: translate(calc(var(--mira, 0) * 1px), var(--mira-y, 0px)) scale(var(--pup, 1)); }
+body[data-piel="interfaz"] #deckShutter.sobresalto:not(.guino, :active) .silueta .ojo { transform: scaleY(.38); transition: transform .12s ease-in; }
+body[data-piel="interfaz"] #deckShutter.llena { --pup: 1.16; }
+@media (prefers-reduced-motion: reduce) { body[data-piel="interfaz"] #deckShutter .silueta .pupila { transform: none; } }

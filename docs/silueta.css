@@ -129,8 +129,10 @@ body[data-piel="interfaz"] .si-rapidas .si-chip { flex: 0 0 auto; min-width: 0; 
 body[data-piel="interfaz"] #reaccionPaleta i { width: 9px; height: 9px; border-radius: 50%; background: #7DDB8B; box-shadow: 0 0 0 1px rgba(255, 243, 223, .5); }
 body[data-piel="interfaz"] #reaccionPaleta[data-paleta="brasa"] i { background: #FF9424; }
 body[data-piel="interfaz"] #reaccionPaleta[data-paleta="orquidea"] i { background: #F056BC; }
-body[data-piel="interfaz"].con-rapidas .si-abrir span { display: none; }
-body[data-piel="interfaz"].con-rapidas .si-abrir { min-width: 40px; justify-content: center; }
+body[data-piel="interfaz"]:is(.con-rapidas, .con-rapidas-clon) .si-abrir span { display: none; }
+body[data-piel="interfaz"]:is(.con-rapidas, .con-rapidas-clon) .si-abrir { min-width: 40px; justify-content: center; }
+/* CLON: mientras mira la referencia, la mascota entrecierra el ojo (en las dos pieles: shell.css). */
+body[data-piel="interfaz"] #deckShutter.mirando:not(.guino, :active) .silueta .ojo { transform: scaleY(.5); }
 body[data-piel="interfaz"] .deck-looks { position: relative; background: var(--si-banda); margin: 0 !important; padding: 4px 0 8px !important; height: auto !important; border: 0 !important; border-image: none !important; border-radius: 0 !important; }
 body[data-piel="interfaz"] .deck-looks-track { counter-reset: camara; }
 body[data-piel="interfaz"] .look { counter-increment: camara; }
@@ -345,9 +347,9 @@ body[data-haptic="vis"][data-piel="interfaz"] :is(.si-chip, .deck-variants .hw-k
   body[data-piel="interfaz"] #camDeck { top: 44px; justify-content: flex-start; }
   body[data-piel="interfaz"] .si-banda-cabeza { height: 44px; grid-template-columns: 1fr auto; column-gap: 6px; }
   body[data-piel="interfaz"] .si-banda-cabeza > i, body[data-piel="interfaz"] .si-abrir span { display: none; }
-  body[data-piel="interfaz"].con-rapidas .si-banda-cabeza { grid-template-columns: 1fr auto auto; }
+  body[data-piel="interfaz"]:is(.con-rapidas, .con-rapidas-clon) .si-banda-cabeza { grid-template-columns: 1fr auto auto; }
   body[data-piel="interfaz"] .si-rapidas { grid-column: 2; }
-  body[data-piel="interfaz"].con-rapidas .si-abrir { grid-column: 3; }
+  body[data-piel="interfaz"]:is(.con-rapidas, .con-rapidas-clon) .si-abrir { grid-column: 3; }
   body[data-piel="interfaz"] .si-abrir { grid-column: 2; min-width: 44px; justify-content: center; }
   body[data-piel="interfaz"] .si-abrir svg { width: 16px; height: 16px; }
   body[data-piel="interfaz"] .deck-looks { padding: 2px 0 4px !important; }

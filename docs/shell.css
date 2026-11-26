@@ -473,6 +473,8 @@ body[data-luz="mucha"]:not([data-piel="interfaz"]) #deckShutter:not(.guino, :act
 body[data-luz="mucha"]:not([data-piel="interfaz"]) #deckShutter { --pup: .78; }
 /* Mareada (se agitó el teléfono): la pupila da una vuelta. Grabando no hay cara. Con ESCUCHAR late. */
 #deckShutter.mareo .m3-pupila { animation: si-mareo .62s cubic-bezier(.4, 0, .3, 1); }
+/* CLON: mientras mira la referencia, entrecierra el ojo. */
+body:not([data-piel="interfaz"]) #deckShutter.mirando:not(.guino, :active, .is-down) .m3-ojo { transform: scaleY(.5); }
 body.is-recording #deckShutter .m3 { display: none !important; }
 body[data-escucha="si"]:not([data-piel="interfaz"]) #deckShutter :is(.m3) { transform: scale(calc(1 + var(--pulso, 0) * .06)); transition: transform .07s linear; }
 body[data-escucha="si"]:not([data-piel="interfaz"]) #deckShutter::before { transform: scale(calc(1 + var(--pulso, 0) * .06)); transform-origin: 50% 55%; transition: transform .07s linear; }

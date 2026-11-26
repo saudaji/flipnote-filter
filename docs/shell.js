@@ -327,7 +327,7 @@
       key.setAttribute('aria-selected', String(on));
     });
     const variantLabel = list.find(v => v.id === camVariant)?.label || '';
-    const name = lookLabel.text || ((cfg.displayLabel || cfg.label) + (list.length > 1 ? ' · ' + variantLabel : ''));
+    const name = lookLabel.text || (cfg.soloVariante && variantLabel && camVariant !== 'NUEVO' ? variantLabel : (cfg.displayLabel || cfg.label) + (list.length > 1 ? ' · ' + variantLabel : ''));
     $('lcdLook').textContent = (document.body.classList.contains('portal-mode') ? 'PORTAL ' : '') + name;
     syncFormat();
   }

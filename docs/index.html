@@ -3396,6 +3396,7 @@
     <button class="cam-fam-btn"        data-family="SLHT"   title="SLHT — Silhouette field"><strong>SLHT</strong><small>Campo de siluetas</small></button>
     <button class="cam-fam-btn"        data-family="PRENSA" title="PRENSA — Semitono de imprenta"><strong>PRENSA</strong><small>Semitono de imprenta</small></button>
     <button class="cam-fam-btn"        data-family="CONSOLA" title="CONSOLA — Todo en polígonos"><strong>CONSOLA</strong><small>Todo en polígonos, como un juego de otra generación</small></button>
+    <button class="cam-fam-btn"        data-family="CLON" title="CLON — Copia el look de una imagen"><strong>CLON</strong><small>Enséñale una imagen y arma una cámara con su look</small></button>
   </div>
 </div>
 
@@ -4324,6 +4325,7 @@
 <script src="./press.js"></script>
 <script src="./consola.js"></script>
 <script src="./reaccion.js"></script>
+<script src="./clon.js"></script>
 <script src="./stamp.js"></script>
 <script src="./night-vision.js"></script>
 <script src="./sensor.js"></script>
@@ -5248,6 +5250,16 @@ const CAM_FAMILIES = {
     editMode:'consola',
     paletteContext:null,
   },
+  // CLON (clon.js): aprende el look de una imagen y arma una cámara con él. Sus variantes son los
+  // looks que se le han enseñado (las pone clon.js).
+  CLON: {
+    label:'CLON',
+    displayLabel:'CLON',
+    variants:[{ id:'NUEVO', label:'NUEVO' }],
+    soloVariante:true,                    // en el rótulo va solo el nombre del look (ya dice lo que es)
+    editMode:'consola',
+    paletteContext:null,
+  },
 };
 
 function _getSafeActiveTab() {
@@ -5268,6 +5280,7 @@ const CAMERA_ENGINE_RENDERERS = Object.freeze({
   SLHT: 'slht',
   PRENSA: 'press',
   CONSOLA: 'consola',
+  CLON: 'clon',
 });
 const _camEngineCore = {
   sessionSeed: ((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0),
@@ -5501,6 +5514,12 @@ function drawCameraFrame(frame) {
       if (!(window.renderConsola && renderConsola(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
         { now: frame.options.now, path: frame.path, outW: frame.options.outW, outH: frame.options.outH }))) {
         // Sin gráfica (WebGL) no hay polígonos: queda la cámara AUTO 03.
+        try { drawCameraFrame({ ...frame, profile: { ...frame.profile, renderer: 'auto03' } }); } catch (_) {}
+      }
+      return frame;
+    case 'clon':
+      if (!(window.renderClon && renderClon(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
+        { now: frame.options.now, path: frame.path, outW: frame.options.outW, outH: frame.options.outH }))) {
         try { drawCameraFrame({ ...frame, profile: { ...frame.profile, renderer: 'auto03' } }); } catch (_) {}
       }
       return frame;
@@ -7383,6 +7402,7 @@ _camLayerSets.vfd = { used: 0, parked: false, canvases: () => [_vfdCvs, _vfdTher
   drop: () => { _dropCanvasCache(_vfdOverlayCache); _dropCanvasCache(_vfdThermalOverlayCache); if (typeof _vfdCrtGlow !== 'undefined' && _vfdCrtGlow) for (const glow of _vfdCrtGlow) { glow.canvas.width = 0; glow.canvas.height = 0; } } };
 // PRENSA pinta en la gráfica: al dejar de usarse suelta su contexto (el sistema limita cuántos hay).
 _camLayerSets.press = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipPress) flipPress.release(); } };
+_camLayerSets.clon = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipClon) flipClon.release(); } };
 _camLayerSets.consola = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipConsola) flipConsola.release(); } };
 _camLayerSets.stamp = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (typeof _stampRelease === 'function') _stampRelease(); } };
 _camLayerSets.oscam = { used: 0, parked: false, canvases: () => [_oscamPersistCvs, _oscamOverlayCvs, _oscamFrameCvs],
@@ -13112,7 +13132,7 @@ let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 let customCameraFps = false;
-const cameraCadence = { DSI:8, STAMP:24, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, SLHT:24, PRENSA:24, CONSOLA:24 };
+const cameraCadence = { DSI:8, STAMP:24, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, SLHT:24, PRENSA:24, CONSOLA:24, CLON:30 };
 function syncCameraCadence() {
   document.getElementById('camFpsVal').textContent = camFpsTarget;
   document.getElementById('camFpsSlider').value = camFpsTarget;

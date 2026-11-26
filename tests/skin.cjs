@@ -94,7 +94,7 @@ const box = (page, selector) => page.evaluate(sel => { const r = document.queryS
     await page.locator('.si-abrir').click();
     await page.waitForTimeout(300);
     const drawer = await page.evaluate(() => ({ display: getComputedStyle(document.getElementById('siCajon')).display, filtros: [...document.querySelectorAll('#siCajon [data-filtro]')].map(chip => chip.dataset.filtro),
-      on: [...document.querySelectorAll('#siCajon [data-filtro].is-on')].map(chip => chip.dataset.filtro), alto: Math.min(...[...document.querySelectorAll('#siCajon button')].map(b => Math.round(b.getBoundingClientRect().height))),
+      on: [...document.querySelectorAll('#siCajon [data-filtro].is-on')].map(chip => chip.dataset.filtro), alto: Math.min(...[...document.querySelectorAll('#siCajon button')].filter(b => b.getBoundingClientRect().width).map(b => Math.round(b.getBoundingClientRect().height))),
       expanded: document.querySelector('.si-abrir').getAttribute('aria-expanded') }));
     assert.notEqual(drawer.display, 'none', 'el cajón se abre');
     assert.deepEqual(drawer.filtros, ['cam', 'portal', 'ascii', 'sflow', 'scrash'], 'los filtros del modo CÁMARA');

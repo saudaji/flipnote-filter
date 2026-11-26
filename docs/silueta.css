@@ -207,6 +207,7 @@ body[data-piel="interfaz"] .rig-tabs .rig-modo { font-size: 11px !important; let
 #deckShutter.espera .silueta .cerrado { opacity: 1; }
 body[data-escucha="si"][data-piel="interfaz"] #deckShutter .silueta { transform: scale(calc(1 + var(--pulso, 0) * .08)); transform-origin: 50% 55%; transition: transform .07s linear; }
 body[data-piel="interfaz"] .si-escucha .si-chip { flex: 0 1 132px; }
+body[data-piel="interfaz"] .si-consola .si-chip { flex: 0 1 190px; max-width: 190px; }
 body[data-piel="interfaz"] .si-escucha-dice { margin: 0; padding: 0 2px; font: 500 11.5px/1.35 'IBM Plex Sans', system-ui, sans-serif; color: var(--si-banda-suave); }
 @media (prefers-reduced-motion: reduce) { body[data-escucha="si"] #deckShutter .silueta { transform: none !important; } }
 

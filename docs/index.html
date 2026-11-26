@@ -3395,6 +3395,7 @@
     <button class="cam-fam-btn"        data-family="OSCAM"  title="OSCAM — Oscilloscope camera"><strong>OSCAM</strong><small>Osciloscopio</small></button>
     <button class="cam-fam-btn"        data-family="SLHT"   title="SLHT — Silhouette field"><strong>SLHT</strong><small>Campo de siluetas</small></button>
     <button class="cam-fam-btn"        data-family="PRENSA" title="PRENSA — Semitono de imprenta"><strong>PRENSA</strong><small>Semitono de imprenta</small></button>
+    <button class="cam-fam-btn"        data-family="CONSOLA" title="CONSOLA — Todo en polígonos"><strong>CONSOLA</strong><small>Todo en polígonos, como un juego de otra generación</small></button>
   </div>
 </div>
 
@@ -4321,6 +4322,7 @@
 
 <script src="./optical-scope.js"></script>
 <script src="./press.js"></script>
+<script src="./consola.js"></script>
 <script src="./stamp.js"></script>
 <script src="./night-vision.js"></script>
 <script src="./sensor.js"></script>
@@ -5233,6 +5235,17 @@ const CAM_FAMILIES = {
     editMode:'press',
     paletteContext:null,
   },
+  // CONSOLA (consola.js): la escena en polígonos con textura pegada; la cara, con su propia malla.
+  CONSOLA: {
+    label:'CONSOLA',
+    displayLabel:'CONSOLA',
+    variants:[
+      { id:'B128', label:'128 BITS', hint:'128 BITS · polígonos con textura suave, estelas, resplandor y un atardecer que no se acaba.' },
+      { id:'B32', label:'32 BITS', hint:'32 BITS · píxel duro, pocos colores con tramado y polígonos que tiemblan.' },
+    ],
+    editMode:'consola',
+    paletteContext:null,
+  },
 };
 
 function _getSafeActiveTab() {
@@ -5252,6 +5265,7 @@ const CAMERA_ENGINE_RENDERERS = Object.freeze({
   OSCAM: 'oscam',
   SLHT: 'slht',
   PRENSA: 'press',
+  CONSOLA: 'consola',
 });
 const _camEngineCore = {
   sessionSeed: ((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0),
@@ -5480,6 +5494,13 @@ function drawCameraFrame(frame) {
       return frame;
     case 'slht':
       renderSlht(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror);
+      return frame;
+    case 'consola':
+      if (!(window.renderConsola && renderConsola(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
+        { now: frame.options.now, path: frame.path, outW: frame.options.outW, outH: frame.options.outH }))) {
+        // Sin gráfica (WebGL) no hay polígonos: queda la cámara AUTO 03.
+        try { drawCameraFrame({ ...frame, profile: { ...frame.profile, renderer: 'auto03' } }); } catch (_) {}
+      }
       return frame;
     case 'press':
       if (!(window.renderPress && renderPress(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
@@ -7350,6 +7371,7 @@ _camLayerSets.vfd = { used: 0, parked: false, canvases: () => [_vfdCvs, _vfdTher
   drop: () => { _dropCanvasCache(_vfdOverlayCache); _dropCanvasCache(_vfdThermalOverlayCache); if (typeof _vfdCrtGlow !== 'undefined' && _vfdCrtGlow) for (const glow of _vfdCrtGlow) { glow.canvas.width = 0; glow.canvas.height = 0; } } };
 // PRENSA pinta en la gráfica: al dejar de usarse suelta su contexto (el sistema limita cuántos hay).
 _camLayerSets.press = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipPress) flipPress.release(); } };
+_camLayerSets.consola = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipConsola) flipConsola.release(); } };
 _camLayerSets.stamp = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (typeof _stampRelease === 'function') _stampRelease(); } };
 _camLayerSets.oscam = { used: 0, parked: false, canvases: () => [_oscamPersistCvs, _oscamOverlayCvs, _oscamFrameCvs],
   build: () => { if (typeof _resetOscamPersistence === 'function') _resetOscamPersistence(); if (typeof _buildOscamOverlay === 'function') _buildOscamOverlay(); },
@@ -13074,7 +13096,7 @@ let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 let customCameraFps = false;
-const cameraCadence = { DSI:8, STAMP:24, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, SLHT:24, PRENSA:24 };
+const cameraCadence = { DSI:8, STAMP:24, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, SLHT:24, PRENSA:24, CONSOLA:24 };
 function syncCameraCadence() {
   document.getElementById('camFpsVal').textContent = camFpsTarget;
   document.getElementById('camFpsSlider').value = camFpsTarget;

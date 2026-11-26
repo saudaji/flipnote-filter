@@ -255,6 +255,14 @@
   const scenes = {
     room,
     roomLit(ctx, w, h, t, o) { room(ctx, w, h, t, { ...o, lit: true }); },
+    // La habitación, quieta, vista por una cámara de verdad: ruido de sensor y una exposición que
+    // «respira» (±2,5 % a 0,7 Hz). Es lo que hace bailar a un trazador: una taza sobre fondo liso, no.
+    roomNoise(ctx, w, h, t, o) {
+      room(ctx, w, h, 0, { ...o, lit: true });
+      const k = 0.025 * Math.sin(TAU * 0.7 * t);
+      ctx.save(); ctx.globalCompositeOperation = k > 0 ? 'lighter' : 'source-over'; ctx.fillStyle = k > 0 ? `rgba(255,255,255,${k.toFixed(4)})` : `rgba(0,0,0,${(-k).toFixed(4)})`; ctx.fillRect(0, 0, w, h); ctx.restore();
+      sensorNoise(ctx, w, h, Math.floor(t * 30), o.read === undefined ? 0.008 : o.read, o.shot === undefined ? 0.0025 : o.shot);
+    },
     // Formas para VECTOR.
     circle(ctx, w, h) {
       ctx.fillStyle = '#c8c8c8'; ctx.fillRect(0, 0, w, h);

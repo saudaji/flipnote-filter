@@ -91,6 +91,41 @@ async function main() {
         if (i === 76 || i === 78 || i === 90) seenAt[i] = { max: FlipKit.stats(display, below).max, chains: S.chains.length };
       });
       out.idleMax = idle; out.afterExit = seenAt;
+      // 6 · ESTABILIDAD. Una habitación quieta vista por una cámara de verdad (ruido y exposición que
+      // respira): a 100 el trazo no se mueve; al bajarla se suelta, pero la figura se sigue reconociendo.
+      const near = (a, b) => { let sum = 0, n = 0; for (let i = 0; i < a.length; i += 6) { let best = 1e9; for (let j = 0; j < b.length; j += 2) { const d = (a[i] - b[j]) ** 2 + (a[i + 1] - b[j + 1]) ** 2; if (d < best) best = d; } sum += Math.sqrt(best); n++; } return n ? sum / n : 0; };
+      const steady = (scene, level) => {
+        oscamStabilityVal = level;
+        let prev = null, drift = 0, pairs = 0, births = 0, alive = 0, last = 0, lit = null, flick = 0, lastLuma = null;
+        const S = run(scene, 50, null, (i, V) => {
+          if (i < 20) return;
+          const pts = []; for (const c of V.chains) for (let k = 0; k < c.points.length; k += 2) pts.push(c.points[k], c.points[k + 1]);
+          if (prev) { drift += 0.5 * (near(pts, prev) + near(prev, pts)); pairs++; births += Math.abs(V.chains.length - last); alive += Math.max(1, V.chains.length); }
+          prev = pts; last = V.chains.length;
+          const luma = FlipKit.luma(display, null, [128, 96]);
+          if (lastLuma) { let d = 0; for (let p = 0; p < luma.length; p++) d += Math.abs(luma[p] - lastLuma[p]); flick += d / luma.length; }
+          lastLuma = luma; lit = luma;
+        });
+        return { chamfer: drift / pairs, births: births / alive, flick: flick / pairs, lit, cols: S.cols };
+      };
+      const room100 = steady('roomNoise', 100), room0 = steady('roomNoise', 0), cup100 = steady('cup', 100), cup0 = steady('cup', 0);
+      oscamStabilityVal = 100;
+      out.stable = { cup: cup100.chamfer, room: room100.chamfer, births: room100.births, roomLoose: room0.chamfer };
+      // con la escena quieta del todo (sin ruido), lo que se mueve en pantalla es solo lo que pone el mando
+      out.loose = { still: cup100.flick, moving: cup0.flick };
+      // reconocible: lo encendido a 0 cae cerca de lo encendido a 100 (a 128 de ancho, 12 celdas son ~7 puntos)
+      // (lo «encendido»: a medio camino entre el fondo y el trazo más brillante)
+      let fondo = Infinity, pico = 0; for (const v of cup100.lit) { if (v < fondo) fondo = v; if (v > pico) pico = v; }
+      const umbral = fondo + (pico - fondo) * 0.4;
+      let lit0 = 0, close0 = 0;
+      for (let y = 0; y < 96; y++) for (let x = 0; x < 128; x++) {
+        if (cup0.lit[y * 128 + x] < umbral) continue;
+        lit0++;
+        let hit = false;
+        for (let dy = -8; dy <= 8 && !hit; dy++) for (let dx = -8; dx <= 8 && !hit; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < 128 && yy < 96 && cup100.lit[yy * 128 + xx] >= umbral) hit = true; }
+        if (hit) close0++;
+      }
+      out.recognizable = lit0 ? close0 / lit0 : 0;
       return out;
     });
     const round = v => typeof v === 'number' ? +v.toFixed(4) : v;
@@ -109,6 +144,10 @@ async function main() {
     assert.ok(m.trackError < 0.02, 'respuesta al movimiento ' + m.trackError);
     assert.ok(m.afterExit[76].max > m.idleMax + 25, 'queda fósforo justo al salir');
     assert.ok(m.afterExit[90].max <= m.idleMax + 2 && m.afterExit[90].chains === 0, 'el fósforo se apaga: ' + m.afterExit[90].max + ' vs ' + m.idleMax);
+    assert.ok(m.stable.cup < 0.004 && m.stable.room < 0.12 && m.stable.births < 0.06, 'a 100 el trazo se queda quieto (taza, habitación, trazos que aparecen o se van): ' + JSON.stringify(m.stable));
+    assert.ok(m.stable.roomLoose > m.stable.room * 1.8, 'y al bajar la estabilidad deja de anclarse: ' + JSON.stringify(m.stable));
+    assert.ok(m.loose.still < 0.05 && m.loose.moving > 0.4, 'a 0, con la escena quieta, el trazo tiene vida propia: ' + JSON.stringify(m.loose));
+    assert.ok(m.recognizable > 0.75, 'y la figura se sigue reconociendo: ' + m.recognizable);
     assert.deepEqual(errors, []);
     console.log('PASS · vector beam', JSON.stringify(table));
   } finally {

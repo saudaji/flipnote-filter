@@ -177,10 +177,12 @@
       const pane = $(id);
       if (!pane) continue;
       const slots = [...pane.querySelectorAll('.cs-slot')].filter(slot => !(/^(oscamStaticOnlyRow|pressRegRow|pressPairRow)$/.test(slot.id) && !slot.classList.contains('visible')));
-      const perRow = slots.length > 5 ? Math.ceil(slots.length / 2) : Math.max(3, slots.length);
+      // (OSCAM lleva seis perillas y además su fila de colores: en dos filas no cabría; van las seis en una)
+      const six = id === 'oscamEditPanel' && slots.length === 6;
+      const perRow = six ? 6 : slots.length > 5 ? Math.ceil(slots.length / 2) : Math.max(3, slots.length);
       pane.style.setProperty('--cs-n', String(perRow));
       pane.dataset.csN = String(perRow);
-      pane.dataset.csRows = slots.length > 5 ? '2' : '1';
+      pane.dataset.csRows = slots.length > 5 && !six ? '2' : '1';
     }
     setSection(host.dataset.sec || 'cam');
   }

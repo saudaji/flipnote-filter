@@ -3401,6 +3401,11 @@
       <span class="oscam-val" id="vOscamTrace">48</span>
       <input type="range" id="oscamTrace" min="0" max="100" value="48">
     </div>
+    <div class="oscam-ctrl-row">
+      <span class="oscam-lbl">STABILITY</span>
+      <span class="oscam-val" id="vOscamStability">100</span>
+      <input type="range" id="oscamStability" min="0" max="100" value="100">
+    </div>
     <div id="oscamStaticOnlyRow" class="oscam-ctrl-row">
       <span class="oscam-lbl">SCAN</span>
       <span class="oscam-val" id="vOscamDefinition">46</span>
@@ -5031,6 +5036,9 @@ let oscamIntensityVal = 42;
 let oscamDetailVal = 56;
 let oscamPresenceVal = 62;
 let oscamTraceVal = 48;
+// ESTABILIDAD del haz de OSCAM: a 100 el trazo delimita la figura y se queda quieto; al bajarlo gana
+// vida como un osciloscopio que pierde el enganche (optical-scope.js).
+let oscamStabilityVal = 100;
 let oscamDefinitionVal = 46;
 let oscamColorMode = 'GREEN';
 // PRENSA: tamaño del punto (1–10), tinta, papel, descuadre de planchas y par de tintas de RISO.
@@ -5876,6 +5884,8 @@ function _applyCamState() {
   document.getElementById('vOscamPresence').textContent = oscamPresenceVal;
   document.getElementById('oscamTrace').value = oscamTraceVal;
   document.getElementById('vOscamTrace').textContent = oscamTraceVal;
+  document.getElementById('oscamStability').value = oscamStabilityVal;
+  document.getElementById('vOscamStability').textContent = oscamStabilityVal;
   document.getElementById('oscamDefinition').value = oscamDefinitionVal;
   document.getElementById('vOscamDefinition').textContent = oscamDefinitionVal;
   document.querySelectorAll('.oscam-color-btn').forEach(btn => {
@@ -5960,6 +5970,11 @@ document.getElementById('oscamDetail').addEventListener('input', e => {
 document.getElementById('oscamPresence').addEventListener('input', e => {
   oscamPresenceVal = parseInt(e.target.value, 10) || 0;
   document.getElementById('vOscamPresence').textContent = oscamPresenceVal;
+  saveSettings();
+});
+document.getElementById('oscamStability').addEventListener('input', e => {
+  oscamStabilityVal = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0));
+  document.getElementById('vOscamStability').textContent = oscamStabilityVal;
   saveSettings();
 });
 document.getElementById('oscamTrace').addEventListener('input', e => {
@@ -17838,7 +17853,7 @@ function saveSettings() {
       stampEngraveVal, stampInkVal, stampDetailVal, stampPaperVal, stampPaletteMode, stampFrameMode,
       dsiTramaVal, dsiCeldaVal,
       pressDotVal, pressInkVal, pressPaperVal, pressRegVal, pressPairVal,
-      dlpColorMode, dlpResonanceVal, dlpContrastVal, oscamIntensityVal, oscamDetailVal, oscamPresenceVal, oscamTraceVal, oscamDefinitionVal, oscamColorMode,
+      dlpColorMode, dlpResonanceVal, dlpContrastVal, oscamIntensityVal, oscamDetailVal, oscamPresenceVal, oscamTraceVal, oscamDefinitionVal, oscamStabilityVal, oscamColorMode,
       sonoPreset, sonoMixVal, sonoChaosVal,
       wmpPreset: wmpPreset, wmpSensVal, wmpTrailsVal,
       uploadMode,
@@ -17987,6 +18002,7 @@ function loadSettings() {
         document.getElementById('vOscamPresence').textContent = oscamPresenceVal;
       }
     }
+    if (Number.isFinite(s.oscamStabilityVal)) oscamStabilityVal = Math.max(0, Math.min(100, s.oscamStabilityVal));
     if (s.oscamTraceVal !== undefined) {
       oscamTraceVal = s.oscamTraceVal;
       const e = document.getElementById('oscamTrace');

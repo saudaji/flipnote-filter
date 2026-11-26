@@ -55,6 +55,9 @@ function createVectorState(cols, rows) {
     blockCols: Math.ceil(cols / 8), blockRows: Math.ceil(rows / 8), local: new Float32Array(Math.ceil(cols / 8) * Math.ceil(rows / 8)), localCount: new Uint16Array(Math.ceil(cols / 8) * Math.ceil(rows / 8)), density: new Uint16Array(Math.ceil(cols / 8) * Math.ceil(rows / 8)),
     px: new Float32Array(2 * n), py: new Float32Array(2 * n), strength: new Float32Array(2 * n),
     linkA: new Int32Array(2 * n).fill(-1), linkB: new Int32Array(2 * n).fill(-1), used: new Uint8Array(2 * n),
+    // el anclaje del haz: la posición filtrada de cada cruce, su velocidad y el cuadro en que se vio
+    fx: new Float32Array(2 * n), fy: new Float32Array(2 * n), fvx: new Float32Array(2 * n), fvy: new Float32Array(2 * n), fAt: new Int32Array(2 * n).fill(-9),
+    frameNo: 0, highS: 0, held: [],
     active: [], frames: [], chains: [], primed: false,
   };
 }
@@ -79,16 +82,29 @@ function vectorBlur(src, dst, tmp, cols, rows) {
 }
 
 // Devuelve las cadenas de contorno del cuadro, ya filtradas y en el orden del haz.
-function vectorContours(V, luma, sensitivity, detail, firstFrame) {
+// stab (0…1) es el mando ESTABILIDAD. A 1 el trazo se ancla (diagnóstico y recetas de Gemini Neon,
+// comprobados aquí con la cámara de un Pixel: el trazo se movía 0,13 celdas por cuadro con el teléfono
+// quieto y aparecían y desaparecían trazos):
+//   · la luz de cada celda se promedia en el tiempo con una rampa continua (los tres escalones de
+//     antes hacían saltar el cruce cuando el ruido rozaba un corte), y más cuanto más estabilidad;
+//   · el umbral sigue a la escena despacio y con zona muerta (antes saltaba de golpe con la exposición);
+//   · cada cruce del contorno con la rejilla recuerda dónde estaba y se filtra en el tiempo (filtro
+//     «1 €»: quieto, casi no se mueve; si la figura se mueve, la sigue en el mismo cuadro);
+//   · un trazo que falta un cuadro en una zona quieta se sostiene un momento en vez de parpadear;
+//   · el haz no invierte trazos ni cambia de punto de arranque de un cuadro al siguiente.
+function vectorContours(V, luma, sensitivity, detail, firstFrame, stab = 1, dt = 1 / 30) {
   const { cols, rows, smooth, fine, wide, tmp, grad, px, py, strength, linkA, linkB, used } = V;
   const n = cols * rows;
-  if (firstFrame) smooth.set(luma);
+  if (firstFrame) { smooth.set(luma); V.fAt.fill(-9); V.held.length = 0; V.highS = 0; }
   else {
+    const floor = 0.51 + (0.06 - 0.51) * stab;
     for (let p = 0; p < n; p++) {
       const d = luma[p] - smooth[p], ad = d < 0 ? -d : d;
-      smooth[p] += d * (ad > 0.06 ? 1 : ad > 0.022 ? 0.5 : 0.2);
+      let k = (ad - 0.014) / 0.041; k = k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k);
+      smooth[p] += d * (floor + (1 - floor) * k);
     }
   }
+  const frameNo = ++V.frameNo;
   vectorBlur(smooth, fine, tmp, cols, rows);
   vectorBlur(fine, wide, tmp, cols, rows);
   vectorBlur(wide, wide, tmp, cols, rows);
@@ -116,7 +132,12 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
   // Umbral: un suelo absoluto que fija SENSITIVITY y otro relativo a la textura de la escena.
   let acc = 0, median = 0;
   while (median < 63 && (acc += hist[median]) < n / 2) median++;
-  const high = Math.max(0.0105 * (1.9 - 1.5 * sensitivity), (median + 0.5) * 0.001 * 3.2);
+  // (la mediana, afinada dentro de su cubeta: entera, un 2 % de exposición la hacía saltar un escalón)
+  const inside = hist[median] ? 1 - (acc - n / 2) / hist[median] : 0.5;
+  const raw = Math.max(0.0105 * (1.9 - 1.5 * sensitivity), (median + inside) * 0.001 * 3.2);
+  if (!V.highS || firstFrame) V.highS = raw;
+  else { const d = raw - V.highS, dead = stab > 0.5 ? 0.0012 : 0; if (Math.abs(d) > dead) V.highS += (d - Math.sign(d) * dead) * (0.12 + 0.88 * (1 - stab)); }
+  const high = V.highS;
   const low = high * 0.42;
 
   for (const e of V.active) { linkA[e] = -1; linkB[e] = -1; used[e] = 0; }
@@ -158,6 +179,33 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
       else if (m && l) link(bottom, left);
     }
   }
+  // El anclaje: cada cruce se filtra contra su posición del cuadro anterior (la suya, o la de un
+  // vecino si el borde se corrió de celda). Corte bajo cuando está quieto, alto cuando se mueve.
+  if (!firstFrame) {
+    const { fx, fy, fvx, fvy, fAt } = V, last = frameNo - 1;
+    const aD = 1 / (1 + (1 / (6.2832 * 1.5)) / dt), fMin = 0.55 + 4.5 * (1 - stab), beta = 0.22, TAU = 6.2832;
+    const near = [0, 2, -2, 2 * cols, -2 * cols, 1, -1, 2 * cols + 1, -2 * cols + 1, 2 * cols - 1, -2 * cols - 1, 3, -3];
+    for (const e of active) {
+      const x = px[e], y = py[e];
+      let from = -1, best = 2.6;                                          // (1,6 celdas)²
+      for (let k = 0; k < near.length; k++) {
+        const o = e + near[k];
+        if (o < 0 || o >= fAt.length || fAt[o] !== last) continue;
+        const d = (fx[o] - x) * (fx[o] - x) + (fy[o] - y) * (fy[o] - y);
+        if (d < best) { best = d; from = o; if (k === 0 && d < 0.6) break; }
+      }
+      if (from < 0) { fvx[e] = 0; fvy[e] = 0; continue; }                 // sin historia: borde nuevo o figura en movimiento
+      const hx = fx[from], hy = fy[from];
+      const vx = fvx[from] + ((x - hx) / dt - fvx[from]) * aD, vy = fvy[from] + ((y - hy) / dt - fvy[from]) * aD;
+      const speed = Math.hypot(vx, vy), dist = Math.sqrt(best);
+      // quieto del todo (menos de un tercio de celda y sin velocidad): el corte baja aún más y el hormigueo se congela
+      const fc = stab > 0.02 && dist < 0.35 && speed < 6 ? fMin * (1 - 0.75 * stab) + beta * speed * 0.3 : fMin + beta * speed;
+      const alpha = 1 / (1 + (1 / (TAU * fc)) / dt);
+      px[e] = hx + (x - hx) * alpha; py[e] = hy + (y - hy) * alpha;
+      fvx[e] = vx; fvy[e] = vy;
+    }
+    for (const e of active) { fx[e] = px[e]; fy[e] = py[e]; fAt[e] = frameNo; }
+  } else for (const e of active) { V.fx[e] = px[e]; V.fy[e] = py[e]; V.fvx[e] = 0; V.fvy[e] = 0; V.fAt[e] = frameNo; }
   // Recorre las cadenas: primero las abiertas desde un extremo, después los lazos.
   const chains = [];
   const scale = cols / 192;
@@ -269,14 +317,40 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
       }
     }
     if (chain.closed) {
-      // Un lazo empieza siempre en su punto más alto: el punto de arranque no salta de cuadro a cuadro.
-      let best = 0;
-      for (let i = 1; i < count; i++) if (pts[2 * i + 1] < pts[2 * best + 1] - 1e-4 || (Math.abs(pts[2 * i + 1] - pts[2 * best + 1]) <= 1e-4 && pts[2 * i] < pts[2 * best])) best = i;
+      // Un lazo se recorre siempre en el mismo sentido y empieza en su punto más arriba a la izquierda
+      // (el extremo en una dirección oblicua: en un cuadrado, su esquina; «el más alto» a secas, en un
+      // borde horizontal, cambiaba de un cuadro al siguiente por una milésima de celda).
+      let area = 0;
+      for (let i = 0; i < count; i++) { const j = (i + 1) % count; area += pts[2 * i] * pts[2 * j + 1] - pts[2 * j] * pts[2 * i + 1]; }
+      if (area < 0) { for (let i = 0, j = count - 1; i < j; i++, j--) { const x = pts[2 * i], y = pts[2 * i + 1]; pts[2 * i] = pts[2 * j]; pts[2 * i + 1] = pts[2 * j + 1]; pts[2 * j] = x; pts[2 * j + 1] = y; } }
+      let best = 0, bestA = Infinity;
+      for (let i = 0; i < count; i++) { const a = pts[2 * i] + 1.3 * pts[2 * i + 1]; if (a < bestA) { bestA = a; best = i; } }
       if (best) chain.points = pts.slice(2 * best).concat(pts.slice(0, 2 * best));
+    } else if (pts[0] + 0.001 * pts[1] > pts[pts.length - 2] + 0.001 * pts[pts.length - 1]) {
+      // Una cadena abierta va siempre de izquierda a derecha: su sentido no depende de dónde terminó la anterior.
+      for (let i = 0, j = count - 1; i < j; i++, j--) { const x = pts[2 * i], y = pts[2 * i + 1]; pts[2 * i] = pts[2 * j]; pts[2 * i + 1] = pts[2 * j + 1]; pts[2 * j] = x; pts[2 * j + 1] = y; }
     }
   }
+  // Un trazo que estaba y este cuadro no salió, en una zona donde nada se mueve, se sostiene unos
+  // cuadros (más cuanta más estabilidad): parpadear es peor que tardar un instante en irse.
+  const grace = Math.round(4 * stab);
+  if (grace > 0 && !firstFrame) {
+    const keepers = [];
+    for (const old of V.held) {
+      const pts = old.points, count = pts.length / 2;
+      let covered = 0, moving = 0;
+      for (let i = 0; i < count; i += 2) { const p = (pts[2 * i + 1] | 0) * cols + (pts[2 * i] | 0); if (seen[p]) covered++; if (Math.abs(luma[p] - smooth[p]) > 0.04) moving++; }
+      const tested = Math.ceil(count / 2);
+      if (covered > tested * 0.35) continue;                              // sigue ahí (con otro nombre): no hace falta sostenerlo
+      if (moving > tested * 0.12 || old.missed >= grace) continue;        // la zona se mueve, o ya se le dio su tiempo
+      old.missed++; keepers.push(old);
+    }
+    for (const old of keepers) { chains.push(old); total += old.length; }
+  }
+  V.held = chains.map(c => (c.missed ? c : { points: c.points, closed: c.closed, length: c.length, level: c.level, peak: c.peak, mean: c.mean, box: c.box, missed: 0, score: c.score }));
+  for (const c of chains) if (c.missed) { const pts = c.points; for (let i = 0; i < pts.length; i += 2) { const x = pts[i] | 0, y = pts[i + 1] | 0; if (x >= 0 && y >= 0 && x < cols && y < rows) seen[y * cols + x] = 1; } }
   V.drawn.set(seen);
-  // Orden del haz: desde donde quedó, al extremo más cercano del siguiente trazo.
+  // Orden del haz: desde donde quedó, al arranque más cercano del siguiente trazo (sin invertirlos).
   const ordered = [];
   let beamX = cols / 2, beamY = rows / 2;
   const pending = chains.slice();
@@ -286,10 +360,6 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
       const pts = pending[i].points, last = pts.length - 2;
       const d0 = (pts[0] - beamX) ** 2 + (pts[1] - beamY) ** 2;
       if (d0 < bestD) { bestD = d0; best = i; flip = false; }
-      if (!pending[i].closed) {
-        const d1 = (pts[last] - beamX) ** 2 + (pts[last + 1] - beamY) ** 2;
-        if (d1 < bestD) { bestD = d1; best = i; flip = true; }
-      }
     }
     const chain = pending.splice(best, 1)[0];
     if (flip) {
@@ -301,7 +371,7 @@ function vectorContours(V, luma, sensitivity, detail, firstFrame) {
     beamX = chain.points[end]; beamY = chain.points[end + 1];
     ordered.push(chain);
   }
-  V.high = high; V.total = total; V.structure = structureLength;
+  V.high = high; V.total = total; V.structure = structureLength; V.crossings = active.length;
   return ordered;
 }
 
@@ -337,7 +407,12 @@ function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
   if (!V.pool) V.pool = [];
   if (reset) { for (const old of V.frames) V.pool.push(old.layer); V.frames.length = 0; V.drawn.fill(0); V.primed = false; }
   const palette = _oscamColorBasis();
-  const chains = vectorContours(V, luma, oscamIntensityVal / 100, oscamDefinitionVal / 100, !V.primed);
+  const stab = Math.max(0, Math.min(1, (typeof oscamStabilityVal === 'number' ? oscamStabilityVal : 100) / 100));
+  const dt = V.primed && now > V.lastNow ? Math.max(1 / 60, Math.min(0.1, (now - V.lastNow) / 1000)) : 1 / 30;
+  V.lastNow = now;
+  const t0 = performance.now();
+  const chains = vectorContours(V, luma, oscamIntensityVal / 100, oscamDefinitionVal / 100, !V.primed, stab, dt);
+  V.msTrace = (V.msTrace || 0) * 0.9 + (performance.now() - t0) * 0.1;         // cuánto cuesta trazar (media móvil), para las pruebas
   V.primed = true;
   V.chains = chains;
   const sx = w / (cols - 1), sy = h / (rows - 1);
@@ -345,8 +420,51 @@ function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
   // Dos trazos: la estructura de la escena, firme, y el detalle, más fino y tenue.
   const path = new Path2D(), detail = new Path2D(), dots = new Path2D(), flare = new Path2D();
   const dot = (x, y, r) => { dots.moveTo(x + r, y); dots.arc(x, y, r, 0, 6.2832); flare.moveTo(x + r * 2.6, y); flare.arc(x, y, r * 2.6, 0, 6.2832); };
+  // ESTABILIDAD por debajo de 100: el trazo, ya anclado, «se suelta» como el de un osciloscopio que
+  // pierde el enganche (capas de Gemini Neon). Se suma al dibujar, nunca al estado del filtro: al
+  // volver a 100 se queda quieto al instante. En celdas de la rejilla.
+  //   100 → 75  zumbido de la fuente (un vaivén lento) y el imán de inclinar el teléfono;
+  //    75 → 40  cada trazo deriva entero y una onda lo recorre;
+  //    40 → 0   el barrido se desliza y aparece un segundo trazo tenue. Con tope: la figura se reconoce.
+  const u = 1 - stab, loose = u > 0.004;
+  const w1 = Math.min(1, u / 0.25), w2 = Math.max(0, Math.min(1, (u - 0.25) / 0.35)), w3 = Math.max(0, Math.min(1, (u - 0.6) / 0.4));
+  const tilt = loose && window.flipLight && typeof flipLight.tilt === 'function' ? (+flipLight.tilt() || 0) : 0;
+  const PI2 = 6.2832;
+  const wobble = (x, y, arc, nx, ny, phase, t, out) => {
+    let dx = 0.55 * w1 * Math.sin(PI2 * 1.15 * t + 2.4 * y / rows), dy = 0.35 * w1 * Math.cos(PI2 * 0.73 * t + 1.8 * x / cols);
+    if (tilt) { const rx = (x / cols - 0.5) * 2, ry = (y / rows - 0.5) * 2; dx += 14 * Math.pow(u, 1.4) * (0.3 + 0.7 * (rx * rx + ry * ry) * 0.5) * tilt; }
+    if (w2) {
+      dx += 2.8 * w2 * (0.65 * Math.sin(PI2 * 2.1 * t + phase) + 0.35 * Math.sin(PI2 * 5.3 * t + 1.7 * phase));
+      dy += 2.2 * w2 * (0.65 * Math.cos(PI2 * 1.7 * t + 1.3 * phase) + 0.35 * Math.sin(PI2 * 4.6 * t + phase));
+      const wave = 2.4 * w2 * Math.sin(0.13 * arc - PI2 * 3.8 * t + phase);
+      dx += nx * wave; dy += ny * wave;
+    }
+    if (w3) dx += 6.5 * w3 * Math.sin(PI2 * 0.85 * t) * (1 + 0.45 * Math.sin(PI2 * 3.7 * t));
+    const m = Math.hypot(dx, dy);
+    if (m > 1e-6) { const k = 12 * Math.tanh(m / 12) / m; dx *= k; dy *= k; }
+    out[0] = x + dx; out[1] = y + dy;
+  };
+  const echo = w3 > 0.1 ? new Path2D() : null, moved = [0, 0], time = now / 1000;
   for (const chain of chains) {
-    const pts = chain.points, count = pts.length / 2;
+    const count = chain.points.length / 2;
+    let pts = chain.points;
+    if (loose) {
+      // (la fase de cada trazo sale de dónde está, a saltos de 12 celdas: es suya mientras no se mude)
+      const box = chain.box || [pts[0], pts[1], pts[0], pts[1]];
+      const phase = ((Math.round((box[0] + box[2]) / 24) * 0.618 + Math.round((box[1] + box[3]) / 24) * 0.414) % 1) * PI2;
+      const live = new Array(pts.length), late = echo ? new Array(pts.length) : null;
+      let arc = 0;
+      for (let i = 0; i < count; i++) {
+        const a = i > 0 ? i - 1 : (chain.closed ? count - 1 : 0), b = i < count - 1 ? i + 1 : (chain.closed ? 0 : count - 1);
+        const tx = pts[2 * b] - pts[2 * a], ty = pts[2 * b + 1] - pts[2 * a + 1], tl = Math.hypot(tx, ty) || 1;
+        if (i) arc += Math.hypot(pts[2 * i] - pts[2 * i - 2], pts[2 * i + 1] - pts[2 * i - 1]);
+        wobble(pts[2 * i], pts[2 * i + 1], arc, -ty / tl, tx / tl, phase, time, moved);
+        live[2 * i] = moved[0]; live[2 * i + 1] = moved[1];
+        if (late) { wobble(pts[2 * i], pts[2 * i + 1], arc, -ty / tl, tx / tl, phase, time - 0.045, moved); late[2 * i] = moved[0]; late[2 * i + 1] = moved[1]; }
+      }
+      pts = live;
+      if (late && !chain.level) { const l2 = vectorSimplify(late, 0.16); echo.moveTo(l2[0] * sx, l2[1] * sy); for (let i = 2; i < l2.length; i += 2) echo.lineTo(l2[i] * sx, l2[i + 1] * sy); if (chain.closed) echo.closePath(); }
+    }
     const line = vectorSimplify(pts, 0.16), target = chain.level ? detail : path;
     target.moveTo(line[0] * sx, line[1] * sy);
     for (let i = 2; i < line.length; i += 2) target.lineTo(line[i] * sx, line[i + 1] * sy);
@@ -363,7 +481,9 @@ function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
     }
   }
   // Energía por unidad de recorrido: una escena cargada se dibuja más tenue.
-  const energy = Math.max(0.62, Math.min(1, Math.sqrt((1000 * cols) / 192 / Math.max(1, V.structure || V.total))));
+  const energyNow = Math.max(0.62, Math.min(1, Math.sqrt((1000 * cols) / 192 / Math.max(1, V.structure || V.total))));
+  // (suavizado en el tiempo: cuando entra o sale un trazo largo, el brillo de toda la pantalla no pulsa)
+  const energy = V.energy = reset || !V.energy ? energyNow : V.energy + (energyNow - V.energy) * (0.18 + 0.82 * (1 - stab));
   const tauFast = 18 + oscamPresenceVal * 0.5, tauSlow = 40 + oscamPresenceVal * 1.2;
   const glow = oscamTraceVal / 100;
   const frames = V.frames;
@@ -389,6 +509,7 @@ function plotVectorBeam(state, luma, cols, rows, ctx, w, h, now, reset) {
   pen.strokeStyle = 'rgb(' + base + ')';
   pen.lineWidth = Math.max(core * 0.9, 1.05 / layerScale);
   pen.stroke(path);
+  if (echo) { pen.globalAlpha = 0.22 * w3; pen.stroke(echo); }        // el segundo barrido, tenue
   pen.globalAlpha = 0.6;
   pen.lineWidth = Math.max(core * 0.56, 0.9 / layerScale);
   pen.stroke(detail);

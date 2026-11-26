@@ -60,6 +60,9 @@ body[data-tab="cam"] #palettes .cs-slot input[type="checkbox"] {
   background: url('./brand/rollo-en-anil/materiales/perilla-humo.webp') center / contain no-repeat; cursor: ns-resize; touch-action: none; outline: 0;
 }
 body[data-tab="cam"] #palettes .cs-pane[data-cs-n="5"] { --cs-k: 69; }
+body[data-tab="cam"] #palettes .cs-pane[data-cs-n="6"] { --cs-k: 56; }
+body[data-tab="cam"] #palettes .cs-pane[data-cs-n="6"] .cs-slot > [class$="-lbl"] { font-size: calc(6.4 * var(--cu)) !important; font-stretch: 72%; letter-spacing: .03em !important; }
+body[data-tab="cam"] #palettes .cs-pane[data-cs-n="6"] .cs-slot > [class$="-val"] { font-size: calc(9 * var(--cu)) !important; }
 body[data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] { --cs-k: 62; }
 body[data-tab="cam"] #palettes .cs-pane[data-cs-n="3"], body[data-tab="cam"] #palettes .cs-pane[data-cs-n="4"], body[data-tab="cam"] #palettes #camMobileUtilityDock { --cs-k: 84; }
 body[data-tab="cam"] #palettes .cs-pane[data-cs-n="3"] .cs-slot, body[data-tab="cam"] #palettes .cs-pane[data-cs-n="4"] .cs-slot { height: calc(112 * var(--cu)); }

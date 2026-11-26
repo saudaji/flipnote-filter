@@ -57,7 +57,7 @@ const URL0 = process.env.PIXEL_URL || 'http://localhost:8760';
     await c.screenshot(path.join(out, 'reaccion-4-' + name + '.jpg'), { quality: 88 });
   }
   await js(() => flipReaccion.set({ palette: 'fosforo', invert: false }));
-  console.log('✓ teclas en la banda · ' + JSON.stringify(await js(() => ({ visibles: !document.querySelector('.si-rapidas').hidden, teclas: [...document.querySelectorAll('.si-rapidas button')].map(k => k.textContent.trim() + ':' + Math.round(k.getBoundingClientRect().width) + 'x' + Math.round(k.getBoundingClientRect().height)), caben: document.querySelector('.si-rapidas').getBoundingClientRect().right <= innerWidth }))));
+  console.log('✓ teclas en la banda · ' + JSON.stringify(await js(() => ({ visibles: !document.querySelector('.si-rapidas:not(.clon-rapidas)').hidden, teclas: [...document.querySelectorAll('.si-rapidas:not(.clon-rapidas) button')].map(k => k.textContent.trim() + ':' + Math.round(k.getBoundingClientRect().width) + 'x' + Math.round(k.getBoundingClientRect().height)), caben: document.querySelector('.si-rapidas:not(.clon-rapidas)').getBoundingClientRect().right <= innerWidth }))));
   await c.screenshot(path.join(out, 'reaccion-5-banda.jpg'), { quality: 88 });
   if (process.env.PIXEL_KEEP !== '1') await js((f, v) => { _setCamFamily(f); camVariant = v; _applyCamState(); }, before.family, before.variant);
   c.close();

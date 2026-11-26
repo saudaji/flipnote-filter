@@ -38,7 +38,7 @@ const where = page => page.evaluate(() => flipReaccion.probe());
     const { page, errors } = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 1280, h: 720, fps: 30 } });
     await page.waitForTimeout(700);
     await page.evaluate(() => { try { localStorage.removeItem('flip.reaccion'); } catch (_) {} flipReaccion.set({ invert: false, palette: 'fosforo' }); });
-    assert.equal(await page.locator('.si-rapidas').isVisible(), false, 'sin REACCIÓN puesta no hay teclas suyas');
+    assert.equal(await page.locator('.si-rapidas:not(.clon-rapidas)').isVisible(), false, 'sin REACCIÓN puesta no hay teclas suyas');
     await page.locator('#deckLooks [data-family="VFD"]').click();
     await pickVariant(page, 'REAC');
     await page.waitForFunction(() => camFamily === 'VFD' && camVariant === 'REAC');
@@ -84,7 +84,7 @@ const where = page => page.evaluate(() => flipReaccion.probe());
     step('tres paletas', { brasa: brasa.warm, orquidea: orquidea.pink });
 
     // Sus dos teclas, en la banda (a la vista de la imagen): invertir y paleta.
-    assert.equal(await page.locator('.si-rapidas').isVisible(), true, 'con REACCIÓN puesta, sus teclas están en la banda');
+    assert.equal(await page.locator('.si-rapidas:not(.clon-rapidas)').isVisible(), true, 'con REACCIÓN puesta, sus teclas están en la banda');
     await page.evaluate(() => flipReaccion.set({ palette: 'fosforo', invert: false }));
     await page.locator('#reaccionPaleta').click();
     await page.locator('#reaccionInvertir').click();
@@ -134,14 +134,14 @@ const where = page => page.evaluate(() => flipReaccion.probe());
     // En la piel OBJETO las dos teclas son teclas del aparato, en su fila bajo las variantes.
     await page.evaluate(() => { flipReaccion.set({ palette: 'fosforo', invert: false }); flipPiel.set('objeto'); });
     await page.waitForTimeout(900);
-    const teclas = page.locator('.reaccion-teclas');
+    const teclas = page.locator('.reaccion-teclas:not(.clon-teclas)');
     assert.equal(await teclas.isVisible(), true, 'en OBJETO hay teclas de REACCIÓN');
-    assert.equal(await page.locator('.si-rapidas').isVisible(), false, 'y las de la banda de INTERFAZ no están');
+    assert.equal(await page.locator('.si-rapidas:not(.clon-rapidas)').isVisible(), false, 'y las de la banda de INTERFAZ no están');
     await teclas.locator('[data-reaccion="paleta"]').click();
     await teclas.locator('[data-reaccion="paleta"]').click();
     await teclas.locator('[data-reaccion="invertir"]').click();
     const objeto = await page.evaluate(() => {
-      const [inv, pal] = document.querySelectorAll('.reaccion-teclas button'), box = pal.getBoundingClientRect(), last = [...document.querySelectorAll('#deckVariants [data-variant]')].pop();
+      const [inv, pal] = document.querySelectorAll('.reaccion-teclas:not(.clon-teclas) button'), box = pal.getBoundingClientRect(), last = [...document.querySelectorAll('#deckVariants [data-variant]')].pop();
       return { ...flipReaccion.options(), dice: pal.textContent.trim(), pressed: inv.getAttribute('aria-pressed'), cabe: box.right <= innerWidth && box.height >= 28, entera: (() => { const r = document.createRange(); r.selectNodeContents(last); return r.getBoundingClientRect().width <= last.clientWidth - 2; })(), visor: document.getElementById('display').getBoundingClientRect().height > 150 };
     });
     assert.deepEqual(objeto, { invert: true, palette: 'orquidea', dice: 'COLOR: ORQUÍDEA', pressed: 'true', cabe: true, entera: true, visor: true });

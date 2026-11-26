@@ -120,6 +120,9 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     assert.ok(F.fotoRuido.grano === 0 && F.fotoRuido.sensor > 0 && !F.fotoRuido.lim && F.fotoRuido.tipo === 'none', 'el ruido del sensor no es grano de la referencia: ' + dice('fotoRuido'));
     assert.ok(!F.fotoLuz.lim && F.fotoLuz.tipo === 'none', 'una foto con luz desigual sigue siendo una foto: ' + dice('fotoLuz'));
     assert.ok(F.rayasRuido.tipo === 'line' && Math.abs(F.rayasRuido.celdas - 50) < 2, 'las rayas, desenfocadas y con ruido: ' + dice('rayasRuido'));
+    // Cosas que se repiten en la escena (visto en el teléfono: un teclado daba «trama de puntos»).
+    const teclado = await page.evaluate(async () => [clonRefs.keyboard(), clonRefs.keyboard(400, 12, 8), await clonDegrade(clonRefs.keyboard(400, 7, 40), { blur: 1.2, noise: 5 })].map(c => { const l = flipClon.learn(c); return { tipo: l.screen.type, px: l.pixel, lim: l.limited }; }));
+    assert.deepEqual(teclado.map(t => t.tipo + '/' + t.px), ['none/0', 'none/0', 'none/0'], 'un teclado no es una trama ni un píxel gordo: ' + JSON.stringify(teclado));
     for (const k of Object.keys(F)) assert.ok(F[k].nota >= 55, 'y la reconstruye con nota: ' + dice(k));
     step('aguanta una referencia fotografiada', { notas: Object.fromEntries(Object.entries(F).map(([k, v]) => [k, v.nota])) });
 

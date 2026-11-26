@@ -113,6 +113,16 @@
       x.putImageData(im, 0, 0);
       return c;
     },
+    // Una escena con COSAS que se repiten (las teclas de un teclado, girado): no es una trama ni un píxel gordo.
+    keyboard(size = 400, keys = 9, deg = 28) {
+      const a = deg * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+      return make(size, (x, y, s) => {
+        const u = (x * ca + y * sa) / s * keys, v = (-x * sa + y * ca) / s * keys, fu = u - Math.floor(u), fv = v - Math.floor(v);
+        const edge = Math.min(fu, 1 - fu, fv, 1 - fv), key = Math.max(0, Math.min(1, (edge - 0.1) / 0.06)), t = tone(x / s, y / s);
+        const base = [38 + 60 * t, 36 + 50 * t, 52 + 70 * t], top = [70 + 80 * t, 66 + 74 * t, 88 + 90 * t];
+        return base.map((b, k) => b + (top[k] - b) * key * (0.75 + 0.25 * fv));
+      });
+    },
     // Cartel: tres tintas planas y líneas negras.
     poster(size = 400) {
       const pal = [[236, 84, 52], [248, 206, 70], [38, 110, 168]], black = [16, 16, 20];

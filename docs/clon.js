@@ -336,7 +336,10 @@
       let top = 0, tu = 0, tv = 0;
       for (let v = -N / 2; v < N / 2; v++) for (let u = 0; u < N / 2; u++) {      // medio plano: el espectro es simétrico
         const r = Math.hypot(u, v);
-        if (r < 7 || r > N * 0.42) continue;
+        // (de 12 para arriba: una trama repite cada 21 puntos o menos. Más abajo lo que se repite son
+        //  COSAS de la imagen —las teclas de un teclado, unas baldosas, una persiana—, no una trama: con
+        //  7, apuntar a un teclado daba «trama de puntos» y le ponía un velo de cuadros a la cámara)
+        if (r < 12 || r > N * 0.42) continue;
         const p = P(u, v);
         if (p > top) { top = p; tu = u; tv = v; }
       }
@@ -352,7 +355,23 @@
       }
       ring.sort((a, b) => a - b);
       const prominence = top / Math.max(1e-9, ring[ring.length >> 1]), share = lobe / ac;
-      if (prominence > 45 && share > 0.008) {
+      // ¿Y es la frecuencia BASE, o un armónico de algo más grande? Una fila de teclas (o de ventanas,
+      // o de baldosas) tiene bordes duros: repite cada mucho, pero deja picos al doble y al triple de
+      // su frecuencia, que caen donde caería una trama. Una trama de verdad no tiene nada a la mitad
+      // ni a un tercio de su pico.
+      let harmonic = false;
+      for (const k of [2, 3]) {
+        const su = tu / k, sv = tv / k, sr = Math.hypot(su, sv), around = [];
+        if (sr < 3) continue;
+        let sub = 0;
+        for (let v = -N / 2; v < N / 2; v++) for (let u = -N / 2; u < N / 2; u++) {
+          if (Math.abs(Math.hypot(u, v) - sr) < 2) around.push(P(u, v));
+          if (Math.hypot(u - su, v - sv) <= 1.6) sub = Math.max(sub, P(u, v));
+        }
+        around.sort((a, b) => a - b);
+        if (sub > 0.35 * top && sub > 15 * around[around.length >> 1]) harmonic = true;
+      }
+      if (prominence > 45 && share > 0.008 && !harmonic) {
         // ¿Hay otro pico en cruz? Entonces son puntos. Se busca con holgura (±12°, ±15 % de radio):
         // en una foto con algo de perspectiva la cruz no cae a 90° exactos.
         const a0 = Math.atan2(tv, tu) + Math.PI / 2;

@@ -1386,6 +1386,11 @@
       color:#eaf5ff;
     }
 
+    #filmEditPanel { display:none; margin-bottom:3px; }
+    .film-ctrl-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+    .film-lbl { color:var(--mid); font-family:monospace; font-size:7px; letter-spacing:.7px; min-width:64px; flex-shrink:0; }
+    .film-val { color:var(--paper); font-family:monospace; font-size:7px; min-width:40px; text-align:right; flex-shrink:0; }
+    .film-ctrl-row input[type="range"] { flex:1; height:2px; accent-color:var(--paper); cursor:pointer; }
     #pressRegRow, #pressPairRow { display:none; }
     #pressRegRow.visible, #pressPairRow.visible { display:flex; }
 
@@ -3354,6 +3359,7 @@
     <button class="cam-fam-btn"        data-family="OSCAM"  title="OSCAM — Oscilloscope camera"><strong>OSCAM</strong><small>Osciloscopio</small></button>
     <button class="cam-fam-btn"        data-family="PRENSA" title="PRINT — Imprenta y sello postal"><strong>PRINT</strong><small>Imprenta: semitono, periódico, riso y sello postal</small></button>
     <button class="cam-fam-btn"        data-family="CONSOLA" title="VIRTUAL — Todo en polígonos"><strong>VIRTUAL</strong><small>Todo en polígonos, como un juego de otra generación</small></button>
+    <button class="cam-fam-btn"        data-family="FILM" title="FILM — Película revelada de verdad"><strong>FILM</strong><small>Negativo de color revelado y copiado en papel: su grano, su halo, sus colores</small></button>
     <button class="cam-fam-btn"        data-family="CLON" title="CLON — Copia el look de una imagen"><strong>CLON</strong><small>Enséñale una imagen y arma una cámara con su look</small></button>
   </div>
 </div>
@@ -3516,6 +3522,33 @@
       <span class="press-lbl">TINTAS</span>
       <span class="press-val" id="vPressPair">AZUL·ROSA</span>
       <input type="range" id="pressPair" min="0" max="3" step="1" value="0">
+    </div>
+  </div>
+  <div id="filmEditPanel" style="display:none;">
+    <div class="film-ctrl-row">
+      <span class="film-lbl">EXPOSICIÓN</span>
+      <span class="film-val" id="vFilmEv">0</span>
+      <input type="range" id="filmEv" min="-6" max="6" step="1" value="0">
+    </div>
+    <div class="film-ctrl-row">
+      <span class="film-lbl">EMPUJE</span>
+      <span class="film-val" id="vFilmPush">0</span>
+      <input type="range" id="filmPush" min="-1" max="2" step="1" value="0">
+    </div>
+    <div class="film-ctrl-row">
+      <span class="film-lbl">FORMATO</span>
+      <span class="film-val" id="vFilmFormat">35 MM</span>
+      <input type="range" id="filmFormat" min="0" max="3" step="1" value="1">
+    </div>
+    <div class="film-ctrl-row">
+      <span class="film-lbl">PAPEL</span>
+      <span class="film-val" id="vFilmPaper">NORMAL</span>
+      <input type="range" id="filmPaper" min="0" max="2" step="1" value="1">
+    </div>
+    <div class="film-ctrl-row">
+      <span class="film-lbl">GRANO</span>
+      <span class="film-val" id="vFilmGrain">SÍ</span>
+      <input type="range" id="filmGrain" min="0" max="1" step="1" value="1">
     </div>
   </div>
   <div id="stampEditPanel" style="display:none;">
@@ -4237,6 +4270,7 @@
 <script src="./consola.js"></script>
 <script src="./reaccion.js"></script>
 <script src="./clon.js"></script>
+<script src="./film.js"></script>
 <script src="./stamp.js"></script>
 <script src="./night-vision.js"></script>
 <script src="./sensor.js"></script>
@@ -5147,6 +5181,19 @@ const CAM_FAMILIES = {
     editMode:'consola',
     paletteContext:null,
   },
+  // FILM (film.js): negativo de color revelado paso a paso (exposición por capas, halación, freno
+  // entre capas, grano) y copiado en papel. Sus variantes son las películas.
+  FILM: {
+    label:'FILM',
+    displayLabel:'FILM',
+    variants:[
+      { id:'RETRATO400', label:'RETRATO 400', hint:'RETRATO 400 · negativo de luz de día: piel suave, sombras abiertas y mucho margen.' },
+      { id:'CALIDO200', label:'CÁLIDO 200', hint:'CÁLIDO 200 · negativo de diario: dorado, con más contraste y color.' },
+      { id:'CINE500T', label:'CINE 500T', hint:'CINE 500T · negativo de cine para luz de foco: las luces sangran en rojo.' },
+    ],
+    editMode:'film',
+    paletteContext:null,
+  },
   // CLON (clon.js): aprende el look de una imagen y arma una cámara con él. Sus variantes son los
   // looks que se le han enseñado (las pone clon.js).
   CLON: {
@@ -5179,6 +5226,7 @@ const CAMERA_ENGINE_RENDERERS = Object.freeze({
   OSCAM: 'oscam',
   PRENSA: 'press',
   CONSOLA: 'consola',
+  FILM: 'film',
   CLON: 'clon',
 });
 const _camEngineCore = {
@@ -5404,6 +5452,13 @@ function drawCameraFrame(frame) {
       if (!(window.renderConsola && renderConsola(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
         { now: frame.options.now, path: frame.path, outW: frame.options.outW, outH: frame.options.outH }))) {
         // Sin gráfica (WebGL) no hay polígonos: queda la cámara AUTO 03.
+        try { drawCameraFrame({ ...frame, profile: { ...frame.profile, renderer: 'auto03' } }); } catch (_) {}
+      }
+      return frame;
+    case 'film':
+      if (!(window.renderFilm && renderFilm(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
+        { now: frame.options.now, path: frame.path, outW: frame.options.outW, outH: frame.options.outH }))) {
+        // Sin gráfica (WebGL 2) no hay revelado: queda la cámara AUTO 03.
         try { drawCameraFrame({ ...frame, profile: { ...frame.profile, renderer: 'auto03' } }); } catch (_) {}
       }
       return frame;
@@ -5860,6 +5915,8 @@ function _applyCamState() {
   oscamPanel.style.display = editMode === 'oscam' ? 'block' : 'none';
   // PRENSA: el descuadre de planchas hace falta con más de una tinta; el par de tintas es de RISO.
   document.getElementById('pressEditPanel').style.display = editMode === 'press' ? 'block' : 'none';
+  document.getElementById('filmEditPanel').style.display = editMode === 'film' ? 'block' : 'none';
+  if (window.flipFilm) flipFilm.syncUI();
   document.getElementById('pressRegRow').classList.toggle('visible', editMode === 'press' && camVariant !== 'DIARIO');
   document.getElementById('pressPairRow').classList.toggle('visible', editMode === 'press' && camVariant === 'RISO');
   _syncPressUI();
@@ -7206,6 +7263,7 @@ _camLayerSets.vfd = { used: 0, parked: false, canvases: () => [_vfdCvs, _vfdTher
   drop: () => { _dropCanvasCache(_vfdOverlayCache); _dropCanvasCache(_vfdThermalOverlayCache); if (typeof _vfdCrtGlow !== 'undefined' && _vfdCrtGlow) for (const glow of _vfdCrtGlow) { glow.canvas.width = 0; glow.canvas.height = 0; } } };
 // PRENSA pinta en la gráfica: al dejar de usarse suelta su contexto (el sistema limita cuántos hay).
 _camLayerSets.press = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipPress) flipPress.release(); } };
+_camLayerSets.film = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipFilm) flipFilm.release(); } };
 _camLayerSets.clon = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipClon) flipClon.release(); } };
 _camLayerSets.consola = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipConsola) flipConsola.release(); } };
 _camLayerSets.stamp = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (typeof _stampRelease === 'function') _stampRelease(); } };
@@ -10514,7 +10572,7 @@ let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 let customCameraFps = false;
-const cameraCadence = { DSI:8, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, PRENSA:24, CONSOLA:24, CLON:30 };
+const cameraCadence = { DSI:8, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, PRENSA:24, CONSOLA:24, FILM:30, CLON:30 };
 function syncCameraCadence() {
   document.getElementById('camFpsVal').textContent = camFpsTarget;
   document.getElementById('camFpsSlider').value = camFpsTarget;

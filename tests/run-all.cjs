@@ -8,7 +8,7 @@ const TESTS = [
   ['alpha-smoke.cjs'], ['optical-cameras.cjs'], ['night-vision.cjs'], ['vector-beam.cjs'],
   ['material-audit.cjs', '--strict'], ['alpha-flows.cjs'], ['alpha-media.cjs'], ['alpha-performance.cjs', '--seconds', '3', '--soak', '24'],
   ['portal.cjs'], ['feel.cjs'], ['console.cjs'], ['stage.cjs'], ['vfd-crt.cjs'], ['boot-guard.cjs'], ['webkit-smoke.cjs'],
-  ['video-file.cjs'], ['object.cjs'], ['pace.cjs'], ['rest.cjs'], ['dither.cjs'], ['brand.cjs'], ['landing.cjs'], ['grain.cjs'], ['entry.cjs'], ['modes.cjs'], ['skin.cjs'], ['mascot.cjs'], ['listen.cjs'], ['neon.cjs'], ['reaccion.cjs'], ['clon.cjs'], ['consola.cjs'], ['live.cjs'], ['sync.cjs'], ['press.cjs'],
+  ['video-file.cjs'], ['object.cjs'], ['pace.cjs'], ['rest.cjs'], ['dither.cjs'], ['brand.cjs'], ['landing.cjs'], ['grain.cjs'], ['entry.cjs'], ['modes.cjs'], ['skin.cjs'], ['mascot.cjs'], ['listen.cjs'], ['neon.cjs'], ['reaccion.cjs'], ['clon.cjs'], ['film.cjs'], ['consola.cjs'], ['live.cjs'], ['sync.cjs'], ['press.cjs'],
 ];
 let failed = 0;
 for (const [file, ...args] of TESTS) {

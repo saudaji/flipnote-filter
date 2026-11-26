@@ -201,7 +201,7 @@
     const shell = window.flipShell;
     if (shell && shell.readout) shell.readout(nameOf(entry), entry.input ? shown(entry) : (entry.value ? entry.value.textContent : ''), entry.input ? ratioOf(entry.input) : null);
   }
-  function setValue(entry, next, x) {
+  function setValue(entry, next, x, quiet) {
     const input = entry.input, min = Number(input.min || 0), max = Number(input.max || 100), step = Number(input.step) > 0 ? Number(input.step) : 1;
     const snapped = clamp(min + Math.round((next - min) / step) * step, min, max);
     const text = String(+snapped.toFixed(4));
@@ -209,7 +209,11 @@
     input.value = text;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     syncKnob(entry);
-    if (feel()) feel().detent(x);
+    if (feel() && !quiet) {
+      // En los extremos la perilla topa (una vez); en medio, una muesca que sube de tono con el recorrido.
+      const at = snapped <= min ? 'min' : snapped >= max ? 'max' : '';
+      if (!(feel().edge && feel().edge(input, at, x))) feel().detent(x, (snapped - min) / ((max - min) || 1));
+    }
     readout(entry);
     return true;
   }
@@ -247,7 +251,7 @@
       if (changed) entry.input.dispatchEvent(new Event('change', { bubbles: true }));
       // Dos toques seguidos sin arrastrar: el valor de fábrica.
       if (moved < 6 && event.type === 'pointerup') {
-        if (lastTap.knob === knob && now - lastTap.at < 340) { if (setValue(entry, Number(entry.input.defaultValue), event.clientX)) entry.input.dispatchEvent(new Event('change', { bubbles: true })); lastTap = { knob: null, at: 0 }; }
+        if (lastTap.knob === knob && now - lastTap.at < 340) { if (setValue(entry, Number(entry.input.defaultValue), event.clientX, true)) { entry.input.dispatchEvent(new Event('change', { bubbles: true })); if (feel()) { if (feel().edge) feel().edge(entry.input, ''); feel().tap('slide', 'down', event.clientX); } } lastTap = { knob: null, at: 0 }; }
         else lastTap = { knob, at: now };
       }
     } else if (moved < 6 && event.type === 'pointerup') {

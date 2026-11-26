@@ -26,72 +26,187 @@
   // grano es cuánto de la banda es ruido que se apaga (el resto, el impulso seco del contacto);
   // la subida solo la usan los roces. contact: lo que dura el contacto (ms): más largo, más blando.
   // lp: paso bajo final (Hz).
+  // Dos voces, una por piel. OBJETO: carcasa de plástico (cuerpo entre 250 y 1900 Hz, tope y
+  // rebote). INTERFAZ: cartulina troquelada y obturador de hoja (más corta, más seca, sin caja).
+  // La jerarquía de volumen real va de mayor a menor: disparo, tecla grande, tecla, interruptor,
+  // botón blando, muesca.
   const RECIPES = {
-    // Tecla: el contacto, a los 6 ms el tope con cuerpo, y un rebote mínimo.
-    keyDown: { contact: .14, hits: [
-      { gain: .5, bands: [[4200, .8, .8, .5, .35], [2000, .8, 1.5, .5, .45]] },
-      { at: 6, bands: [[2100, .8, 2.6, .9, .55], [1150, .8, 3.4, .6, .6], [3600, .8, 1.5, .55, .5], [5800, .8, .8, .3, .4], [520, .8, 4.5, .34, .6], [260, .8, 5, .16, .55], [1400, .7, 12, .055, 1]] },
-      { at: 10.5, gain: .18, bands: [[1700, .8, 2, .7, .6], [3200, .8, 1.1, .5, .5]] }] },
-    // Al subir, el tope de arriba: más fino y más ligero.
-    keyUp: { contact: .12, hits: [{ bands: [[2600, .8, 1.9, .8, .5], [1500, .8, 2.4, .5, .55], [4600, .8, 1, .5, .45], [6500, .8, .6, .2, .4], [800, .8, 3, .2, .6], [1800, .7, 9, .045, 1]] }] },
-    // Tecla grande: más grave, con más caja.
-    primaryDown: { contact: .18, hits: [
-      { gain: .45, bands: [[3000, .8, 1, .5, .35], [1500, .8, 1.8, .5, .5]] },
-      { at: 8, bands: [[1500, .8, 3, .85, .55], [800, .8, 4.2, .7, .6], [2800, .8, 1.8, .5, .5], [4800, .8, .9, .25, .4], [380, .8, 6, .42, .6], [190, .8, 7, .22, .55], [1000, .7, 15, .06, 1]] },
-      { at: 13.5, gain: .18, bands: [[1200, .8, 2.6, .7, .6], [2400, .8, 1.3, .45, .5]] }] },
-    primaryUp: { contact: .15, hits: [{ bands: [[2000, .8, 2.2, .75, .5], [1100, .8, 3, .5, .55], [3700, .8, 1.1, .45, .45], [600, .8, 3.5, .22, .6], [1400, .7, 10, .045, 1]] }] },
-    // Disparador: hundirlo pesa; al soltar, la cortinilla en dos tiempos con el mecanismo entre medias.
-    shutterDown: { contact: .25, hits: [
-      { gain: .35, bands: [[2600, .8, 1.1, .5, .4]] },
-      { at: 5, bands: [[1300, .8, 3.2, .8, .55], [700, .8, 4.5, .75, .6], [2500, .8, 1.8, .45, .5], [4200, .8, .9, .2, .4], [330, .8, 6.5, .45, .6], [170, .8, 7.5, .25, .55], [900, .7, 15, .06, 1]] }] },
-    shutterFire: { contact: .12, hits: [
-      { gain: .85, bands: [[3200, .8, 1.6, .8, .5], [5600, .8, 1, .6, .45], [1700, .8, 2.2, .5, .55], [800, .8, 2.8, .25, .55]] },
-      { at: 5, gain: .08, bands: [[5200, .7, 12, 1, 1, 3]] },
-      { at: 46, bands: [[2400, .8, 2.4, .8, .55], [1300, .8, 3.4, .65, .6], [4300, .8, 1.3, .55, .45], [6800, .8, .7, .25, .4], [600, .8, 5, .4, .6], [280, .8, 6, .2, .55], [1500, .7, 14, .055, 1]] }] },
-    // Botón redondo: plástico más blando, sordo.
-    softDown: { contact: .5, lp: 6000, hits: [{ bands: [[900, .8, 3.6, .85, .6], [500, .8, 5, .6, .6], [1700, .8, 2.2, .5, .5], [2900, .8, 1.2, .2, .45], [240, .8, 6, .25, .55]] }] },
-    softUp: { contact: .4, lp: 6400, hits: [{ bands: [[1300, .7, 2.4, .7, .6], [700, .7, 3, .45, .6], [2400, .7, 1.4, .4, .5], [3800, .7, .9, .16, .45]] }] },
-    // Interruptor deslizante: el roce y, al final del recorrido, el encaje.
-    switch: { contact: .1, hits: [
-      { gain: .28, bands: [[3000, .7, 6, 1, 1, 4]] },
-      { at: 34, bands: [[3000, .8, 1.6, .8, .45], [5400, .8, .9, .5, .4], [1600, .8, 2.4, .55, .55], [800, .8, 3.4, .3, .6], [330, .8, 5, .15, .55], [1500, .7, 11, .045, 1]] }] },
-    // Diapositiva que cae en su ranura.
-    slide: { contact: .14, hits: [
-      { gain: .6, bands: [[3300, .8, 1.1, .5, .4], [1800, .8, 1.7, .5, .5]] },
-      { at: 22, bands: [[1700, .8, 2.8, .8, .55], [950, .8, 3.8, .6, .6], [3100, .8, 1.4, .45, .5], [450, .8, 5, .3, .6], [1300, .7, 12, .05, 1]] }] },
-    // Muesca de perilla o deslizador.
-    tick: { contact: .1, hits: [{ bands: [[2600, .6, 1, .7, .6], [5000, .6, .7, .55, .55], [1300, .6, 1.5, .45, .6], [7200, .6, .5, .2, .5], [700, .6, 1.8, .2, .6]] }] },
+    objeto: {
+      // Tecla ABS: contacto breve, tope con cuerpo cálido (~1.7 kHz) sin dureza arriba de 4 kHz y micro-rebote.
+      keyDown: { contact: .15, lp: 9200, hits: [
+        { gain: .42, bands: [[3400, .85, .8, .48, .35], [1800, .85, 1.4, .52, .45]] },
+        { at: 5.5, bands: [[1950, .85, 2.4, .9, .5], [1050, .85, 3.2, .68, .55], [3200, .85, 1.3, .45, .45], [520, .85, 4.2, .38, .55], [260, .85, 4.8, .18, .5], [1300, .75, 9.5, .05, 1]] },
+        { at: 9.5, gain: .16, bands: [[1550, .85, 1.8, .65, .55], [2900, .85, 1.0, .4, .45]] },
+      ] },
+      // Retorno de tecla: más ligero y consistente (~2.3 kHz), sin picos erráticos de 6.5 kHz.
+      keyUp: { contact: .12, lp: 9600, hits: [
+        { bands: [[2450, .85, 1.7, .8, .45], [1400, .85, 2.2, .52, .5], [4100, .85, .9, .42, .4], [760, .85, 2.8, .22, .55], [1700, .75, 7, .04, 1]] },
+      ] },
+      // Tecla grande / tarjeta: caja ABS más grave (~1.35 kHz), firme pero sin boom cansado.
+      primaryDown: { contact: .19, lp: 8600, hits: [
+        { gain: .4, bands: [[2600, .85, 1.0, .45, .35], [1350, .85, 1.7, .55, .45]] },
+        { at: 7.5, bands: [[1400, .85, 3.0, .88, .52], [740, .85, 4.2, .74, .58], [2500, .85, 1.6, .42, .45], [360, .85, 5.8, .46, .58], [185, .85, 6.8, .24, .52], [950, .75, 12, .055, 1]] },
+        { at: 12.5, gain: .16, bands: [[1150, .85, 2.2, .65, .55], [2200, .85, 1.1, .38, .45]] },
+      ] },
+      // Retorno de tecla grande: suelta el muelle un poco más grave que keyUp.
+      primaryUp: { contact: .15, lp: 9000, hits: [
+        { bands: [[1900, .85, 2.0, .75, .48], [1050, .85, 2.8, .52, .52], [3300, .85, 1.0, .38, .42], [580, .85, 3.2, .24, .55]] },
+      ] },
+      // Disparador al hundir: recorrido amortiguado (~1.05 kHz), más discreto que el disparo para dejarlo brillar.
+      shutterDown: { contact: .26, lp: 7400, hits: [
+        { gain: .38, bands: [[2200, .85, 1.0, .5, .4]] },
+        { at: 4.5, bands: [[1180, .85, 3.0, .82, .52], [640, .85, 4.2, .75, .58], [2100, .85, 1.5, .38, .45], [310, .85, 5.8, .42, .58], [175, .85, 6.5, .22, .52]] },
+      ] },
+      // Disparo: el rey. Cortinilla 1 → mecanismo audible continuo (sin hueco muerto) → cortinilla 2 con cuerpo a 38 ms.
+      shutterFire: { contact: .11, lp: 10500, hits: [
+        { gain: .9, bands: [[2900, .85, 1.6, .85, .48], [5000, .85, 1.0, .55, .42], [1550, .85, 2.3, .58, .52], [720, .85, 3.0, .34, .55]] },
+        { at: 4, gain: .26, bands: [[4200, .7, 13, .85, 1, 3], [2200, .75, 16, .65, 1, 6]] },
+        { at: 38, bands: [[2200, .85, 2.5, .88, .52], [1180, .85, 3.6, .75, .58], [3900, .85, 1.3, .52, .45], [560, .85, 5.2, .48, .58], [260, .85, 6.2, .26, .52], [1400, .75, 12, .06, 1]] },
+      ] },
+      // Botón redondo blando: goma/plástico suave (~980 Hz), corto y educado para no tapar a key.
+      softDown: { contact: .48, lp: 5400, hits: [
+        { bands: [[820, .85, 3.0, .85, .55], [460, .85, 4.2, .62, .58], [1550, .85, 1.8, .44, .48], [240, .85, 4.8, .22, .52]] },
+      ] },
+      // Retorno de botón redondo: soplo sordo mínimo.
+      softUp: { contact: .38, lp: 5800, hits: [
+        { bands: [[1200, .75, 2.1, .7, .55], [680, .75, 2.7, .44, .58], [2200, .75, 1.2, .34, .48]] },
+      ] },
+      // Interruptor deslizante: fricción continua que desemboca directo en el trinquete a 21 ms (sin silencio en medio).
+      switch: { contact: .11, lp: 9400, hits: [
+        { gain: .42, bands: [[2400, .75, 8.5, .95, 1, 6], [4200, .75, 6.5, .55, 1, 8]] },
+        { at: 21, bands: [[2800, .85, 1.6, .85, .42], [4800, .85, .9, .45, .38], [1480, .85, 2.5, .62, .52], [740, .85, 3.5, .36, .58], [320, .85, 4.8, .18, .52]] },
+      ] },
+      // Diapositiva: roce breve de carril (0–15 ms) y asiento seco en la ranura.
+      slide: { contact: .14, lp: 8800, hits: [
+        { gain: .45, bands: [[2600, .75, 5.5, .85, .85, 3], [1500, .8, 4.5, .6, .75, 2]] },
+        { at: 15, bands: [[1650, .85, 2.6, .85, .52], [900, .85, 3.6, .66, .58], [2900, .85, 1.3, .42, .46], [430, .85, 4.8, .32, .58]] },
+      ] },
+      // Muesca de perilla / carrete: Delrin/latón cálido (~1.8 kHz, lp 6.8 kHz); gira 30 veces sin picar el oído.
+      tick: { contact: .13, lp: 6800, hits: [
+        { bands: [[1850, .85, 1.2, .85, .45], [980, .85, 1.7, .58, .5], [3200, .8, .75, .38, .45], [520, .85, 2.0, .2, .55]] },
+      ] },
+      // Tope de perilla (0 %, 100 %, centro) o cierre de video: golpe grave amortiguado con micro-asiento.
+      stop: { contact: .3, lp: 4600, hits: [
+        { bands: [[680, .9, 3.4, .9, .55], [340, .9, 4.8, .65, .55], [1350, .85, 1.6, .35, .48]] },
+        { at: 7, gain: .32, bands: [[520, .9, 3.0, .8, .6], [1050, .85, 1.5, .4, .5]] },
+      ] },
+      // Conectar cable en STAGE / fijar portal / armar AL GOLPE: encaje metálico-plástico de jack de dos pasos.
+      patch: { contact: .1, lp: 9800, hits: [
+        { gain: .55, bands: [[3600, 1.1, 1.1, .75, .3], [1900, 1.0, 1.6, .6, .4]] },
+        { at: 13, bands: [[2300, 1.0, 2.2, .88, .42], [1150, .9, 3.0, .7, .5], [4400, 1.0, 1.0, .42, .35], [460, .85, 4.2, .34, .52]] },
+      ] },
+    },
+    interfaz: {
+      // Tecla plana: un chasquido nítido y plano sin caja hueca (~2.4 kHz, 3.8 ms).
+      keyDown: { contact: .09, lp: 8400, hits: [
+        { bands: [[2500, 1.1, 1.5, .85, .38], [1450, 1.0, 2.0, .55, .48], [4000, .9, .75, .35, .42], [2100, .7, 5.5, .07, 1]] },
+        { at: 4.5, gain: .22, bands: [[1800, 1.0, 1.4, .65, .5]] },
+      ] },
+      // Soltar tecla: tic de uña sobre cartulina, casi aire.
+      keyUp: { contact: .08, lp: 8800, hits: [
+        { bands: [[3100, 1.1, 1.1, .8, .35], [1850, 1.0, 1.5, .45, .45], [4700, .9, .6, .28, .4]] },
+      ] },
+      // Tarjeta / acción principal: troquel seco y firme (~2.0 kHz) con mínimo peso grave.
+      primaryDown: { contact: .11, lp: 8000, hits: [
+        { bands: [[1900, 1.1, 2.0, .9, .38], [1080, 1.0, 2.6, .62, .48], [3300, .95, 1.0, .38, .4], [580, .9, 3.2, .22, .5]] },
+        { at: 6.5, gain: .24, bands: [[1500, 1.0, 1.8, .65, .5]] },
+      ] },
+      // Retorno de tarjeta: chispa seca y breve.
+      primaryUp: { contact: .09, lp: 8600, hits: [
+        { bands: [[2500, 1.1, 1.4, .78, .38], [1480, 1.0, 1.8, .48, .45]] },
+      ] },
+      // Disparador al pulsar: primer paso de bolígrafo de precisión antes del guiño.
+      shutterDown: { contact: .14, lp: 7400, hits: [
+        { bands: [[1650, 1.05, 2.0, .85, .42], [920, 1.0, 2.8, .6, .48], [2900, .95, 1.0, .32, .4]] },
+      ] },
+      // Disparo: obturador de hoja rapidísimo (26 ms) que calza exacto con el parpadeo del ojo.
+      shutterFire: { contact: .08, lp: 10200, hits: [
+        { gain: .88, bands: [[3400, 1.15, 1.2, .85, .34], [1950, 1.05, 1.8, .62, .42], [5400, .95, .75, .45, .36]] },
+        { at: 3.5, gain: .24, bands: [[3800, .75, 8.5, .8, 1, 2.5]] },
+        { at: 26, bands: [[2600, 1.1, 1.8, .9, .38], [1420, 1.0, 2.5, .7, .48], [4400, 1.0, .95, .45, .38], [680, .9, 3.4, .32, .5]] },
+      ] },
+      // Botón secundario: toque seco y corto de sello de goma limpia (~1.25 kHz).
+      softDown: { contact: .22, lp: 5800, hits: [
+        { bands: [[1180, .7, 2.1, .8, .65], [680, .7, 2.8, .55, .65], [2100, .7, 1.1, .45, .55], [3300, .8, .7, .18, .45]] },
+      ] },
+      // Retorno secundario: apenas perceptible.
+      softUp: { contact: .18, lp: 6200, hits: [
+        { bands: [[1550, .8, 1.6, .72, .55], [920, .8, 2.0, .42, .58], [2600, .8, .9, .28, .5]] },
+      ] },
+      // Interruptor: deslizamiento corto de papel/pestaña (16 ms) y cierre instantáneo.
+      switch: { contact: .08, lp: 9000, hits: [
+        { gain: .44, bands: [[2900, .75, 6.5, .9, 1, 4.5], [4600, .8, 5, .45, 1, 5.5]] },
+        { at: 16, bands: [[3100, 1.15, 1.3, .88, .34], [1750, 1.05, 1.9, .6, .44], [5000, 1.0, .7, .36, .35]] },
+      ] },
+      // Diapositiva / tira de cámaras: tarjeta que pasa por una ranura de cartón (12 ms).
+      slide: { contact: .09, lp: 8400, hits: [
+        { gain: .48, bands: [[3100, .7, 4.8, .9, .9, 2.5], [1800, .8, 3.8, .55, .8, 1.8]] },
+        { at: 12, bands: [[2200, 1.1, 1.8, .86, .42], [1250, 1.0, 2.4, .58, .5], [3600, .95, .95, .36, .42]] },
+      ] },
+      // Muesca de perilla / carrete: punta fina de lápiz mecánico (~2.5 kHz, 1.5 ms).
+      tick: { contact: .09, lp: 7200, hits: [
+        { bands: [[2150, 1.1, .95, .85, .36], [1250, 1.0, 1.3, .5, .44], [3600, .95, .55, .3, .38]] },
+      ] },
+      // Tope de perilla: doble golpecito seco de cartulina contra mesa (~1.0 kHz).
+      stop: { contact: .2, lp: 5000, hits: [
+        { bands: [[920, 1.05, 2.6, .88, .48], [480, 1.0, 3.6, .58, .52], [1700, .95, 1.2, .32, .44]] },
+        { at: 6, gain: .3, bands: [[740, 1.0, 2.2, .75, .52]] },
+      ] },
+      // Encaje de cable / portal / armado AL GOLPE: doble clic metálico-gráfico ultranítido (11 ms).
+      patch: { contact: .08, lp: 9600, hits: [
+        { gain: .55, bands: [[4000, 1.2, .9, .78, .28], [2200, 1.1, 1.3, .58, .36]] },
+        { at: 11, bands: [[2700, 1.15, 1.7, .88, .35], [1480, 1.05, 2.2, .65, .42], [4900, 1.05, .8, .38, .32]] },
+      ] },
+    },
   };
 
   // Cada pieza: su rango (quién gana si coinciden), y qué suena y vibra al bajar, al subir y al
   // actuar. vib: milisegundos, o un patrón [vibra, pausa, vibra…] con el ritmo del sonido.
+  // Gramática para distinguirlo todo con los ojos cerrados: un pulso corto (5–11 ms) es un toque
+  // directo; dos pulsos en ritmo, una pieza con recorrido (deslizar y encajar); el disparador tiene
+  // firma propia (hundir, dos cortinillas; en video, corto-largo al abrir y largo-corto al cerrar).
+  // Ningún pulso baja de 5 ms (el motor no llega a arrancar) ni pasa de 13 (deja de ser un clic).
   const KINDS = {
-    shutter: { rank: 5, down: { sound: 'shutterDown', gain: .95, vib: 14 }, fire: { sound: 'shutterFire', gain: 1, vib: [9, 37, 13] } },
-    primary: { rank: 4, down: { sound: 'primaryDown', gain: .92, vib: 16 }, up: { sound: 'primaryUp', gain: .52 } },
-    key: { rank: 3, down: { sound: 'keyDown', gain: .8, vib: 9 }, up: { sound: 'keyUp', gain: .45 } },
-    switch: { rank: 3, late: true, down: { sound: 'switch', gain: .7, vib: [4, 30, 8] } },
-    soft: { rank: 2, down: { sound: 'softDown', gain: .56, vib: 6 }, up: { sound: 'softUp', gain: .27 } },
-    slide: { rank: 2, late: true, down: { sound: 'slide', gain: .6, vib: [3, 19, 6] } },
-    plain: { rank: 2, down: { sound: 'softDown', gain: .42, vib: 5 } },
-    tick: { rank: 1, down: { sound: 'tick', gain: .2, vib: 2 } },
+    shutter: { rank: 5, down: { sound: 'shutterDown', gain: .68, vib: 9 }, arm: { sound: 'patch', gain: .62, vib: [6, 18, 6] }, fire: { sound: 'shutterFire', gain: 1, vib: [8, 30, 12] } },
+    // Video: solo vibración (ningún sonido que se cuele en la toma).
+    recStart: { rank: 5, down: { vib: [6, 24, 13] } },
+    recStop: { rank: 5, down: { vib: [13, 28, 6] } },
+    primary: { rank: 4, down: { sound: 'primaryDown', gain: .84, vib: 11 }, up: { sound: 'primaryUp', gain: .44 } },
+    key: { rank: 3, down: { sound: 'keyDown', gain: .74, vib: 8 }, up: { sound: 'keyUp', gain: .38 } },
+    switch: { rank: 3, late: true, down: { sound: 'switch', gain: .74, vib: [6, 22, 9] } },
+    // Un cable que encaja en STAGE, un portal que se fija.
+    patch: { rank: 3, down: { sound: 'patch', gain: .78, vib: [6, 15, 10] } },
+    soft: { rank: 2, down: { sound: 'softDown', gain: .38, vib: 6 }, up: { sound: 'softUp', gain: .22 } },
+    slide: { rank: 2, late: true, down: { sound: 'slide', gain: .6, vib: [5, 14, 7] } },
+    // El tope de una perilla (mínimo, máximo o su centro).
+    stop: { rank: 2, down: { sound: 'stop', gain: .42, vib: [9, 14, 5] } },
+    plain: { rank: 2, down: { sound: 'softDown', gain: .28, vib: 5 } },
+    // El doble guiño de la placa: dos parpadeos en la mano.
+    wink: { rank: 2, down: { sound: 'keyDown', gain: .45, vib: [5, 65, 5] } },
+    tick: { rank: 1, down: { sound: 'tick', gain: .34, vib: 5 } },
   };
   // De la pieza más concreta a la más genérica.
   const MAP = [
-    ['#deckShutter', 'shutter'],
-    ['.hw-switch, [role="switch"], input[type="checkbox"]', 'switch'],
-    ['.launcher-card, .splash-door, .btn-center, .viewer-actions .primary', 'primary'],
+    ['#deckShutter, #rigPhoto', 'shutter'],
+    ['.hw-switch, .cs-toggle, [role="switch"], input[type="checkbox"], [data-mode-label], #escuchaOn, #escuchaGolpe, #consolaMarco, #reaccionInvertir', 'switch'],
+    ['.launcher-card, .launcher-modo, .splash-door, .btn-center, .viewer-actions .primary', 'primary'],
     ['.look, .flip-settings-tile', 'slide'],
-    ['.hw-keycap, .flip-settings-pill, .flip-settings-segments button, #palettes button, #palettes label.asp-btn', 'key'],
+    ['.hw-keycap, .launcher-sub, .si-chip, .si-variante, .si-abrir, .cs-key, .flip-settings-pill, .flip-settings-segments button, #palettes button, #palettes label.asp-btn', 'key'],
     ['.hw-candy, #deckGallery, #sflowAdjust', 'soft'],
     ['button, .btn, [role="button"], summary', 'plain'],
   ];
+  const skin = () => (document.body && document.body.dataset.piel === 'interfaz' ? 'interfaz' : 'objeto');
   const ANY = '[data-feel], ' + MAP.map(entry => entry[0]).join(', ');
   function find(target) {
     const node = target && target.closest ? target.closest(ANY) : null;
     if (!node || node.disabled || node.getAttribute('aria-disabled') === 'true') return null;
     const tagged = node.dataset.feel;
     if (tagged) return KINDS[tagged] ? { node, name: tagged } : null;      // data-feel="none" calla la pieza
-    for (const [selector, name] of MAP) if (node.matches(selector)) return { node, name };
+    for (const [selector, name] of MAP) if (node.matches(selector)) {
+      // En la piel INTERFAZ la cámara ya elegida no cambia de cámara: abre el cajón. Suena a tecla.
+      if (name === 'slide' && skin() === 'interfaz' && node.matches('.look.is-on')) return { node, name: 'key' };
+      return { node, name };
+    }
     return null;
   }
   // ¿Está dentro de algo que se desplaza? Entonces el toque puede ser el inicio de un arrastre.
@@ -106,7 +221,7 @@
   }
 
   // ── Síntesis ────────────────────────────────────────────────────────────────
-  const RATE = 48000, VARIANTS = 3;
+  const RATE = 48000, VARIANTS = 5;
   function mulberry(seed) {
     let a = seed >>> 0;
     return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -136,7 +251,7 @@
       for (const [f, q, decay, level, grit, rise = 0] of hit.bands) {
         const tau = decay * sr / 1000, up = Math.max(2, Math.round((rise || 0.1) * sr / 1000));
         const count = Math.max(8, Math.min(n - start, Math.ceil(tau * 7 + up + sr * 0.003)));
-        const centre = f * tune * (1 + (rnd() - 0.5) * 0.05), amp = level * g * (0.88 + rnd() * 0.24);
+        const centre = f * tune * (1 + (rnd() - 0.5) * 0.05), amp = level * g * (0.94 + rnd() * 0.12);
         // El impulso seco: lo que dura el contacto, medio coseno.
         const dry = new Float32Array(count);
         if (grit < 1) {
@@ -173,24 +288,36 @@
     for (let i = 0; i < n; i++) out[i] *= scale * Math.min(1, (n - i) / tail);
     return out;
   }
-  let buffers = null;
-  function build() {
-    if (buffers || typeof AudioBuffer === 'undefined') return;
-    const made = {};
+  const idle = window.requestIdleCallback || (fn => setTimeout(fn, 600));
+  // Un banco de sonidos por piel. Se sintetiza el de la piel en uso; el otro, la primera vez que hace falta.
+  const buffers = {};
+  const seedOf = (bank, index, v) => 977 + (bank === 'interfaz' ? 4099 : 0) + index * 131 + v * 17;
+  // all: de una vez (el primer toque no espera). Si no, una receta por rato libre: sintetizar el
+  // banco entero de golpe es un tirón que al arrancar se nota.
+  const wip = {};
+  function build(bank = skin(), all = true) {
+    if (buffers[bank] || typeof AudioBuffer === 'undefined') return;
+    const names = Object.keys(RECIPES[bank]), made = wip[bank] || (wip[bank] = {});
     try {
-      Object.keys(RECIPES).forEach((name, index) => {
+      for (let index = 0; index < names.length; index++) {
+        const name = names[index];
+        if (made[name]) continue;
         made[name] = [];
         for (let v = 0; v < VARIANTS; v++) {
-          const data = synth(RECIPES[name], 977 + index * 131 + v * 17);
+          const data = synth(RECIPES[bank][name], seedOf(bank, index, v));
           const buffer = new AudioBuffer({ length: data.length, sampleRate: RATE, numberOfChannels: 1 });
           buffer.getChannelData(0).set(data);
           made[name].push(buffer);
         }
-      });
-      buffers = made;
-    } catch (_) { buffers = null; }
+        if (!all) { idle(() => build(bank, false), { timeout: 900 }); return; }
+      }
+      buffers[bank] = made;
+      delete wip[bank];
+    } catch (_) { delete wip[bank]; }
   }
-  if (prefs.sound) (window.requestIdleCallback || (fn => setTimeout(fn, 600)))(build, { timeout: 2500 });
+  if (prefs.sound) idle(() => build(skin(), false), { timeout: 2500 });
+  // Al cambiar de piel cambia la voz.
+  if (document.body) new MutationObserver(() => { if (prefs.sound) idle(() => build(skin(), false), { timeout: 1200 }); }).observe(document.body, { attributes: true, attributeFilter: ['data-piel'] });
 
   // ── Salida ──────────────────────────────────────────────────────────────────
   let ctx = null, bus = null, pending = null;
@@ -216,17 +343,36 @@
     }
     if (ctx.state !== 'running') ctx.resume().catch(() => {});
   }
-  function play(sound, gain, x, delay) {
-    if (!ctx || !bus || !buffers || !buffers[sound]) return false;
+  // Sin vibración (iPhone, escritorio) el oído hace el trabajo del dedo: un punto más de nivel.
+  const NO_HAPTIC = !navigator.vibrate;
+  // La voz de INTERFAZ es más corta y seca: estos ajustes dejan su jerarquía igual que la de OBJETO.
+  const TRIM = { interfaz: { primaryDown: .94, shutterDown: .89, switch: .92 } };
+  function play(sound, gain, x, delay, shape) {
+    if (!buffers[skin()]) build();
+    const bank = buffers[skin()] || buffers.objeto || buffers.interfaz;
+    if (!ctx || !bus || !bank || !bank[sound]) return false;
     if (ctx.state !== 'running') { if (!delay) pending = { sound, gain, x, at: performance.now() }; return false; }
-    const set = buffers[sound];
+    const set = bank[sound];
     turn[sound] = ((turn[sound] || 0) + 1 + (Math.random() * (set.length - 1) | 0)) % set.length;
     const source = ctx.createBufferSource();
     source.buffer = set[turn[sound]];
-    source.playbackRate.value = 1 + (Math.random() - 0.5) * 0.045;
+    source.playbackRate.value = (shape && shape.rate || 1) * (1 + (Math.random() - 0.5) * 0.045);
     const amp = ctx.createGain();
-    amp.gain.value = gain * (0.92 + Math.random() * 0.16);
-    source.connect(amp);
+    amp.gain.value = Math.min(1.1, gain * ((TRIM[skin()] || {})[sound] || 1) * (0.92 + Math.random() * 0.16) * (NO_HAPTIC ? 1.18 : 1));
+    // El dedo nunca cae igual: tres decibelios de inclinación al azar en los agudos, y ningún clic
+    // repite al anterior. Las muescas rápidas, además, se apagan por arriba (no solo de volumen).
+    let node = source;
+    if (ctx.createBiquadFilter) {
+      const tilt = ctx.createBiquadFilter();
+      tilt.type = 'highshelf'; tilt.frequency.value = 2200; tilt.gain.value = (Math.random() - 0.5) * 3;
+      node.connect(tilt); node = tilt;
+      if (shape && shape.lp) {
+        const soft = ctx.createBiquadFilter();
+        soft.type = 'lowpass'; soft.frequency.value = shape.lp; soft.Q.value = 0.5;
+        node.connect(soft); node = soft;
+      }
+    }
+    node.connect(amp);
     // Cada pieza suena desde donde está: las de la izquierda, un poco a la izquierda.
     if (ctx.createStereoPanner && x != null && innerWidth > 0) {
       const pan = ctx.createStereoPanner();
@@ -268,35 +414,51 @@
   const GATE = 22;                                    // ms entre sonidos
   let last = { at: -1e9, rank: 0, name: '' };
   const log = [];
-  function emit(name, phase, x, delay) {
+  function emit(name, phase, x, delay, scale = 1) {
     const kind = KINDS[name], step = kind && kind[phase];
     if (!step) return false;
     const at = performance.now() + (delay || 0);
-    if (at - last.at < GATE && kind.rank <= last.rank) return false;
+    if (phase !== 'fire' && at - last.at < GATE && kind.rank <= last.rank) return false;
     // Tamborilear sobre la misma pieza no suma volumen.
-    const drum = name === last.name && at - last.at < 110 ? 0.72 : 1;
+    const drum = phase !== 'fire' && name === last.name && at - last.at < 110 ? 0.72 : 1;
     last = { at, rank: kind.rank, name };
     const level = recording() ? 0 : micLive() ? 0.3 : 1;
-    const sounded = prefs.sound && level > 0 && !document.hidden ? play(step.sound, step.gain * level * drum, x, delay) || !!pending : false;
+    const gain = (step.gain || 0) * level * drum * scale;
+    const sounded = step.sound && prefs.sound && level > 0 && !document.hidden ? play(step.sound, gain, x, delay) || !!pending : false;
     const vibrated = step.vib ? buzz(step.vib, delay) : false;
-    log.push({ kind: name, phase, sound: sounded ? step.sound : '', vib: vibrated ? step.vib : 0, gain: +(step.gain * level * drum).toFixed(3), at: Math.round(at) });
+    log.push({ kind: name, phase, sound: sounded ? step.sound : '', vib: vibrated ? step.vib : 0, gain: +gain.toFixed(3), at: Math.round(at) });
     if (log.length > 60) log.shift();
     return true;
   }
-  // Muesca de perilla o deslizador: como mucho una cada 30 ms, y más suave cuanto más rápido.
+  // Muesca de perilla, deslizador o carrete: como mucho una cada 30 ms, y más suave cuanto más
+  // rápido. ratio (0..1) es en qué punto del recorrido cae: el resorte se tensa y la muesca sube un
+  // pelo de tono (se nota como tensión, no como nota).
   let lastTick = 0, tickRun = 0;
-  function detent(x) {
+  function detent(x, ratio) {
     const now = performance.now(), gap = now - lastTick;
     if (gap < 30) return false;
     tickRun = gap < 90 ? Math.min(tickRun + 1, 8) : 0;
     lastTick = now;
     const level = recording() ? 0 : micLive() ? 0.3 : 1;
-    const gain = KINDS.tick.down.gain * level * (1 - tickRun * 0.07);
-    const sounded = prefs.sound && level > 0 && !document.hidden ? play('tick', gain, x, 0) : false;
-    const vibrated = tickRun % 2 === 0 ? buzz(KINDS.tick.down.vib, 0) : false;       // la mitad de pulsos al girar deprisa
+    const gain = KINDS.tick.down.gain * level * (1 - tickRun * 0.05);
+    const shape = { rate: ratio == null || !isFinite(ratio) ? 1 : 0.93 + 0.16 * Math.max(0, Math.min(1, ratio)), lp: tickRun > 1 ? 8000 - (tickRun - 1) * 650 : 0 };
+    const sounded = prefs.sound && level > 0 && !document.hidden ? play('tick', gain, x, 0, shape) : false;
+    // Despacio, una vibración por muesca; deprisa, una de cada dos o de cada tres: el motor no zumba.
+    const stride = tickRun >= 6 ? 3 : tickRun >= 2 ? 2 : 1;
+    const vibrated = tickRun % stride === 0 ? buzz(KINDS.tick.down.vib, 0) : false;
     log.push({ kind: 'tick', phase: 'down', sound: sounded ? 'tick' : '', vib: vibrated ? KINDS.tick.down.vib : 0, gain: +gain.toFixed(3), at: Math.round(now) });
     if (log.length > 60) log.shift();
     return true;
+  }
+  // El tope: suena una vez al llegar y no otra hasta despegarse de él. key identifica la perilla.
+  const stops = new Map();
+  function edge(key, at, x) {
+    if (!at) { stops.delete(key); return false; }
+    if (stops.get(key) === at) return false;
+    stops.set(key, at);
+    if (stops.size > 40) stops.delete(stops.keys().next().value);
+    last.at = -1e9;
+    return emit('stop', 'down', x);
   }
 
   let press = null;
@@ -307,13 +469,15 @@
     if (!hit) { press = null; return; }
     const kind = KINDS[hit.name];
     press = { node: hit.node, name: hit.name, at: performance.now(), x: event.clientX, late: !!kind.late || scrolls(hit.node), wasRecording: recording() };
-    if (!press.late) emit(press.name, 'down', press.x);
+    // Parar un video es un solo gesto: su firma llega al soltar, sin el golpe de hundir.
+    if (!press.late && !(press.name === 'shutter' && press.wasRecording)) emit(press.name, 'down', press.x);
   }, { capture: true, passive: true });
   document.addEventListener('pointerup', event => {
     if (!event.isTrusted || !press) return;
     wake();
     const held = performance.now() - press.at;
-    if (!press.late && held > 38) emit(press.name, 'up', press.x);
+    // Una tecla que se sostuvo suelta con más peso que un toque rápido.
+    if (!press.late && held > 38) emit(press.name, 'up', press.x, 0, held > 180 ? 1.1 : 1);
   }, { capture: true, passive: true });
   document.addEventListener('pointercancel', () => { press = null; }, { capture: true, passive: true });
   document.addEventListener('click', event => {
@@ -329,9 +493,12 @@
       if (emit(hit.name, 'down', x) && KINDS[hit.name].up) emit(hit.name, 'up', x, 78);
     }
     if (hit.name === 'shutter') {
-      // Foto: la cortinilla. Vídeo: al parar, dos pulsos y ningún sonido que se cuele en la toma.
-      if (!document.body.classList.contains('cam-video')) emit('shutter', 'fire', x);
-      else if (mine && mine.wasRecording) buzz([10, 45, 10], 0);
+      const video = hit.node.id === 'deckShutter' && document.body.classList.contains('cam-video');
+      // Con AL GOLPE el toque solo arma: el disparo suena cuando de verdad cae la foto (escucha.js).
+      const waits = hit.node.id === 'deckShutter' && window.flipEscucha && flipEscucha.waits && flipEscucha.waits();
+      if (video) emit(mine && mine.wasRecording ? 'recStop' : 'recStart', 'down', x);
+      else if (waits) emit('shutter', 'arm', x);
+      else emit('shutter', 'fire', x);
     }
   }, { capture: true });
   // Deslizadores: una muesca cada vigésimo del recorrido.
@@ -344,7 +511,42 @@
     if (steps.get(node) === step) return;
     steps.set(node, step);
     const rect = node.getBoundingClientRect();
-    detent(rect.left + rect.width * step / 20);
+    detent(rect.left + rect.width * step / 20, step / 20);
+  }, { capture: true, passive: true });
+
+  // La tira de cámaras es un carrete: al pasarla con el dedo, cada cámara que cruza el centro
+  // marca una muesca (un poco más aguda cuanto más a la derecha). Solo cuando la mueve un dedo o la
+  // rueda: si la tira se recoloca sola al elegir una cámara, calla.
+  const reel = { live: false, touch: false, index: -1, raf: 0, idle: 0 };
+  const strip = target => target && target.closest ? target.closest('#deckLooks') : null;
+  document.addEventListener('touchstart', event => { reel.touch = !!strip(event.target); }, { capture: true, passive: true });
+  document.addEventListener('touchend', () => { reel.touch = false; }, { capture: true, passive: true });
+  document.addEventListener('touchcancel', () => { reel.touch = false; }, { capture: true, passive: true });
+  document.addEventListener('wheel', event => { if (strip(event.target)) reel.live = true; }, { capture: true, passive: true });
+  function reelStep(track) {
+    reel.raf = 0;
+    const tiles = [...track.querySelectorAll('.look')].filter(tile => tile.offsetWidth > 0);
+    if (!tiles.length) return;
+    const box = track.getBoundingClientRect(), middle = box.left + box.width / 2;
+    let best = -1, gap = 1e9;
+    tiles.forEach((tile, i) => { const r = tile.getBoundingClientRect(), d = Math.abs(r.left + r.width / 2 - middle); if (d < gap) { gap = d; best = i; } });
+    if (best === reel.index) return;
+    const first = reel.index < 0;
+    reel.index = best;
+    if (first || !reel.live) return;
+    if (detent(middle, tiles.length > 1 ? best / (tiles.length - 1) : 0.5)) {
+      const tile = tiles[best];
+      tile.classList.remove('paso'); void tile.offsetWidth; tile.classList.add('paso');
+      setTimeout(() => tile.classList.remove('paso'), 160);
+    }
+  }
+  document.addEventListener('scroll', event => {
+    const track = event.target && event.target.nodeType === 1 && event.target.closest ? event.target.closest('#deckLooks, #deckLooks *') : null;
+    if (!track || !event.isTrusted) return;
+    if (reel.touch) reel.live = true;
+    clearTimeout(reel.idle);
+    reel.idle = setTimeout(() => { reel.live = false; }, 160);
+    if (!reel.raf) reel.raf = requestAnimationFrame(() => reelStep(event.target));
   }, { capture: true, passive: true });
 
   // ── Ajustes ─────────────────────────────────────────────────────────────────
@@ -377,16 +579,18 @@
 
   window.flipFeel = {
     tap(name, phase = 'down', x) { return emit(name, phase, x); },
-    detent, set, mount,
+    detent, edge, set, mount,
     prefs: () => ({ ...prefs }),
     // Un módulo que graba por su cuenta avisa para que las teclas callen.
     hush(key, on) { if (on) hushed.add(key); else hushed.delete(key); },
     // Para pruebas y para oír las recetas fuera de la app.
     log: clear => { const copy = log.slice(); if (clear) log.length = 0; return copy; },
     kinds: () => JSON.parse(JSON.stringify(KINDS)),
-    render: (name, variant = 0) => RECIPES[name] ? synth(RECIPES[name], 977 + Object.keys(RECIPES).indexOf(name) * 131 + variant * 17) : null,
-    recipes: () => Object.keys(RECIPES),
-    state: () => ({ context: ctx ? ctx.state : 'none', built: !!buffers, recording: recording(), mic: micLive(), devices: !!devices }),
+    kindOf: node => { const hit = find(node); return hit ? hit.name : null; },
+    render: (name, variant = 0, bank = skin()) => RECIPES[bank] && RECIPES[bank][name] ? synth(RECIPES[bank][name], seedOf(bank, Object.keys(RECIPES[bank]).indexOf(name), variant)) : null,
+    recipes: () => Object.keys(RECIPES.objeto),
+    voice: skin,
+    state: () => ({ context: ctx ? ctx.state : 'none', built: !!buffers[skin()], voice: skin(), recording: recording(), mic: micLive(), devices: !!devices }),
   };
   // El panel de ajustes se pinta antes de que este archivo cargue: se monta ahora si ya existe.
   mount(document.getElementById('flipFeelPills'));

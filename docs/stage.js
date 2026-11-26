@@ -27,7 +27,8 @@ const flipStage = (() => {
   const ANDROID = /Android/i.test(navigator.userAgent);
   const COARSE = matchMedia('(pointer: coarse)').matches;
   const feel = {
-    detent: x => { if (window.flipFeel) flipFeel.detent(x); },
+    detent: (x, ratio) => { if (window.flipFeel) flipFeel.detent(x, ratio); },
+    edge: (key, at, x) => !!(window.flipFeel && flipFeel.edge && flipFeel.edge(key, at, x)),
     tap: (kind, phase, x) => { if (window.flipFeel) flipFeel.tap(kind, phase, x); },
     hush: (key, on) => { if (window.flipFeel) flipFeel.hush(key, on); },
   };
@@ -1710,7 +1711,13 @@ void main() {
         readout(P[drag.id][0] + ' ' + describe(drag.id, v), 1600);
       }
       const step = Math.round((drag.armed ? (routeOf(drag.armed, drag.id) || [0, 0, 0])[2] : live.p[drag.id]) * 24);
-      if (step !== drag.step) { drag.step = step; feel.detent(event.clientX); }
+      if (drag.armed) { if (step !== drag.step) { drag.step = step; feel.detent(event.clientX); } }
+      else {
+        // El tope (0 y 100) y el centro de las perillas que lo tienen suenan a tope, una vez.
+        const v = live.p[drag.id], at = v <= 0 ? 'min' : v >= 1 ? 'max' : (P[drag.id][2] && v === .5 ? 'mid' : '');
+        if (feel.edge('rig:' + drag.id, at, event.clientX)) drag.step = step;
+        else if (step !== drag.step) { drag.step = step; feel.detent(event.clientX, v); }
+      }
     });
     const release = event => {
       const drag = ui.drag;
@@ -1721,11 +1728,12 @@ void main() {
       const now = performance.now();
       if (drag.armed) {                                                   // toque con un cable en la mano: conecta o desconecta
         if (drag.had) setRoute(drag.armed, drag.id, 0); else setRoute(drag.armed, drag.id, .5);
-        feel.tap('switch', 'down', event.clientX);
+        feel.tap(drag.had ? 'slide' : 'patch', 'down', event.clientX);
         readout(SRC[drag.armed].label + (drag.had ? ' SUELTA ' : ' > ') + P[drag.id][0], 1500);
       } else if (ui.lastTap.id === drag.id && now - ui.lastTap.t < 340) {
         setParam(drag.id, P[drag.id][1]);
-        feel.tap('key', 'down', event.clientX);
+        feel.edge('rig:' + drag.id, '');
+        feel.tap('slide', 'down', event.clientX);
         readout(P[drag.id][0] + ' DE FÁBRICA', 1100);
       } else readout(P[drag.id][0] + ' ' + describe(drag.id, live.p[drag.id]), 1200);
       ui.lastTap = { t: now, id: drag.id };
@@ -1846,7 +1854,7 @@ void main() {
       ui.screen.classList.remove('is-touched');
       if (pad.moved || event.type === 'pointercancel') return;
       const now = performance.now();
-      if (now - lastPadTap < 320) { recall((store.scene + 1) % 8); lastPadTap = 0; } else lastPadTap = now;
+      if (now - lastPadTap < 320) { recall((store.scene + 1) % 8); feel.tap('slide', 'down', event.clientX); lastPadTap = 0; } else lastPadTap = now;
     };
     ui.screen.addEventListener('pointerup', padUp);
     ui.screen.addEventListener('pointercancel', padUp);

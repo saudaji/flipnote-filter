@@ -4323,6 +4323,7 @@
 <script src="./optical-scope.js"></script>
 <script src="./press.js"></script>
 <script src="./consola.js"></script>
+<script src="./reaccion.js"></script>
 <script src="./stamp.js"></script>
 <script src="./night-vision.js"></script>
 <script src="./sensor.js"></script>
@@ -5206,7 +5207,8 @@ const CAM_FAMILIES = {
     variants:[{ id:'STD', label:'STD' }, { id:'THRML', label:'THRML' },
       { id:'CRT', label:'CRT', hint:'CRT · televisor de tubo con colorizador: contornos en arcoíris, luces quemadas en rosa y rejilla de fósforo.' },
       { id:'NEON', label:'NEÓN', hint:'NEÓN · fósforo sobre negro: solo se enciende lo que tiene luz, en líneas onduladas naranja y lima con halo magenta.' },
-      { id:'DUST', label:'POLVO', hint:'POLVO · polvo de fósforo sobre negro: la luz se vuelve puntos azules y verdes, lo más claro prende en naranja y los bordes quedan en un hilo casi blanco.' }],
+      { id:'DUST', label:'POLVO', hint:'POLVO · polvo de fósforo sobre negro: la luz se vuelve puntos azules y verdes, lo más claro prende en naranja y los bordes quedan en un hilo casi blanco.' },
+      { id:'REAC', label:'REACCIÓN', hint:'REACCIÓN · una química viva dentro del fósforo: el coral brota de los contornos y llena lo iluminado. Inclina el teléfono para arrastrarlo.' }],
     editMode:'duotone',
     paletteContext:'VFD',
   },
@@ -6806,10 +6808,20 @@ function _ensureCamLumBuf(sampleW = DSI_W, sampleH = DSI_H) {
   if (_camLumBuf.length !== len) _camLumBuf = new Uint8Array(len);
   return _camLumBuf;
 }
+let _flipLuzTick = 0;
 function _fillCamLumBuf(src, sampleW = DSI_W, sampleH = DSI_H) {
   const lum = _ensureCamLumBuf(sampleW, sampleH);
   for (let idx = 0, p = 0; idx < lum.length; idx++, p += 4) {
     lum[idx] = (src[p] * 77 + src[p + 1] * 150 + src[p + 2] * 29) >> 8;
+  }
+  // De vez en cuando (un cuadro de cada 32, un punto de cada 53) se apunta si la escena está a
+  // oscuras o muy iluminada: la mascota del disparador entrecierra el ojo o lo abre de más.
+  if ((++_flipLuzTick & 31) === 0) {
+    let sum = 0, count = 0;
+    for (let idx = 0; idx < lum.length; idx += 53) { sum += lum[idx]; count++; }
+    const luz = sum / count / 255, was = document.body.dataset.luz || '';
+    const now = was === 'poca' ? (luz > 0.2 ? '' : 'poca') : was === 'mucha' ? (luz < 0.62 ? '' : 'mucha') : luz < 0.13 ? 'poca' : luz > 0.72 ? 'mucha' : '';
+    if (now !== was) { if (now) document.body.dataset.luz = now; else delete document.body.dataset.luz; }
   }
   return lum;
 }
@@ -7853,6 +7865,10 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   }
   if (renderVariant() === 'DUST') {
     _renderVfdDust(lum, sampleW, sampleH, renderTarget, targetCtx, outW, outH, options.now ?? performance.now());
+    return;
+  }
+  if (renderVariant() === 'REAC' && window.renderReaccion) {                      // docs/reaccion.js
+    renderReaccion(lum, sampleW, sampleH, renderTarget, targetCtx, outW, outH, options.now ?? performance.now());
     return;
   }
   if (renderVariant() === 'THRML') {
@@ -14786,7 +14802,7 @@ function createFlipKnob(container, options) {
     render(next, false);
     if (Math.abs(next - lastStepValue) >= opts.step) {
       lastStepValue = next;
-      if (navigator.vibrate) navigator.vibrate(1);
+      if (window.flipFeel) { const r = knob.getBoundingClientRect(); flipFeel.detent(r.left + r.width / 2, (next - opts.min) / ((opts.max - opts.min) || 1)); }
     }
   }
 
@@ -20917,7 +20933,7 @@ if (screen.width > 768) {
     const label  = document.getElementById('extGainVal');
     if (slider) slider.value = extInGainVal;
     if (label) label.textContent = extInGainVal.toFixed(1) + 'x';
-    if (navigator.vibrate) { try { navigator.vibrate(15); } catch(_) {} }
+    if (window.flipFeel) flipFeel.tap('key', 'down');
     flipToast('🎙 sensibilidad ' + extInGainVal + 'x');
   }
 

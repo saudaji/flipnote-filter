@@ -149,11 +149,15 @@
     S.armed = false;
     clearTimeout(S.timer);
     shutter.classList.remove('espera');
+    // El clic de la cortinilla y su vibración caen aquí, con la foto: al tocar solo sonó el armado.
+    if (window.flipFeel) { const r = shutter.getBoundingClientRect(); flipFeel.tap('shutter', 'fire', r.left + r.width / 2); }
     S.bypass = true;
     try { shutter.click(); } finally { S.bypass = false; }
   }
+  // ¿Un toque ahora mismo armaría el disparo en vez de tomar la foto?
+  const waits = () => !(S.bypass || !S.on || !S.golpe || activeTab !== 'cam' || body.classList.contains('cam-video') || body.classList.contains('is-recording'));
   shutter.addEventListener('click', event => {
-    if (S.bypass || !S.on || !S.golpe || activeTab !== 'cam' || body.classList.contains('cam-video') || body.classList.contains('is-recording')) return;
+    if (!waits()) return;
     event.stopImmediatePropagation();
     event.preventDefault();
     if (S.armed) return;
@@ -236,6 +240,7 @@
 
   window.flipEscucha = {
     set, get on() { return S.on; },
+    waits,
     golpe(on) { if (on != null) { S.golpe = !!on; save(); paint(); } return S.golpe; },
     levels: () => ({ ...levels(), beat: A.beat, beats: A.beats }),
     // Para las pruebas: niveles a mano (sin micrófono) y lo que se aplicó en el último cuadro.

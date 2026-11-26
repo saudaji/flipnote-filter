@@ -1,7 +1,7 @@
-const CACHE = 'flipnote-filter-v104-consola';
+const CACHE = 'flipnote-filter-v105-reaccion';
 const ASSETS = [
   './index.html', './manifest.json', './icon-192.png', './icon-512.png', './frame-runtime.js', './stamp.js', './optical-scope.js', './press.js',
-  './night-vision.js', './sensor.js', './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './silueta.css', './silueta.js', './escucha.js', './consola.js', './face-worker.js', './body/look-CONSOLA.webp', './brand/silueta/grano.webp', './console.css', './console.js',
+  './night-vision.js', './sensor.js', './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './silueta.css', './silueta.js', './escucha.js', './consola.js', './reaccion.js', './face-worker.js', './body/look-CONSOLA.webp', './brand/silueta/grano.webp', './console.css', './console.js',
   './feel.js', './mp4-flat.js', './light.js', './rest.js', './portal.js', './stage.js', './stage.css', './stage-out.html', './hands-worker.js',
   './pretext.js', './enochian.ttf', './fonts/Bloom-Regular.otf', './fonts/BNMonica.otf', './fonts/Fluidic-Regular.otf', './fonts/Canterbury.ttf',
   // Piezas de la carcasa y de la marca que la app usa (las demás de docs/body ya no se precargan).

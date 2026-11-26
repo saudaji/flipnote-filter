@@ -1057,6 +1057,9 @@ body.is-waking :is(#display, #asciiCanvas, #sflowCanvas, #scrashCanvas, #fusionC
   background: url('./body/grano-relieve.webp') 0 0 / 128px 128px repeat;
 }
 body[data-grano="no"] .grano { display: none; }
+/* SIN GRANO es sin grano: también el del molde de la carcasa (queda solo la luz). */
+body[data-grano="no"] #camBody::before { background: linear-gradient(158deg, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 34%, rgba(74, 60, 30, 0) 58%, rgba(74, 60, 30, .1) 100%); }
+body[data-grano="no"] :is(#shellLauncher, #shellViewer, #splash)::before { background: none; }
 .grano-ancla { position: relative; }
 .grano.pelicula { background-image: url('./body/grano.webp'); }
 /* Piezas lustrosas o de cristal: salen por encima del grano de su superficie y llevan el suyo, leve. */

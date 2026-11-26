@@ -29,7 +29,6 @@ body[data-piel="interfaz"] :is(#camBody, #shellLauncher, #shellViewer, #splash):
 body[data-piel="interfaz"] #camBody { background: var(--si-banda) !important; }   /* lo que asoma alrededor de la imagen */
 /* STAGE pone sus mandos directamente sobre el fondo: ahí el fondo es el claro (o el del tema), para que se lean. */
 body[data-piel="interfaz"].stage-mode #camBody { background: var(--si-fondo) !important; }
-body[data-piel="interfaz"].stage-mode #camBody > .grano { --si-grano-tinta: initial; }
 body[data-piel="interfaz"] #lcd { display: none !important; }
 body[data-piel="interfaz"] :is(#display, #flash, #osd, #cameraGate:not(.en-modulo)) { border-radius: 0 !important; }
 body[data-piel="interfaz"] .rollo-pie { display: none !important; }
@@ -115,6 +114,21 @@ body[data-piel="interfaz"] .deck-variants { display: flex; padding: 0 !important
 body[data-piel="interfaz"] .si-filtros { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
 body[data-piel="interfaz"] .si-filtros::-webkit-scrollbar { display: none; }
 body[data-piel="interfaz"] :is(.deck-variants .hw-keycap, .si-chip) { --si-fondo: #0B0C14; --si-tinta: #FFF3DF; --si-contorno: #7E7973; height: 44px !important; min-height: 44px !important; flex: 1 1 0; min-width: 58px; max-width: 132px; padding: 0 6px !important; margin: 0 !important; display: grid; place-items: center; border: 0; cursor: pointer; }
+/* Con muchas variantes (VFD tiene seis) la fila se desliza: ninguna tecla se corta. */
+body[data-piel="interfaz"] .deck-variants { overflow-x: auto; scrollbar-width: none; }
+body[data-piel="interfaz"] .deck-variants::-webkit-scrollbar { display: none; }
+body[data-piel="interfaz"] .deck-variants .hw-keycap { flex: 1 0 auto; padding: 0 11px !important; }
+/* Teclas rápidas de una cámara, en la banda (REACCIÓN: invertir y paleta). Con ellas, «cámaras y
+   filtros» se queda en su flecha. */
+.si-rapidas { display: none; }
+body[data-piel="interfaz"] .si-rapidas { display: flex; gap: 7px; grid-column: 3; justify-self: end; min-width: 0; }
+body[data-piel="interfaz"] .si-rapidas[hidden] { display: none; }
+body[data-piel="interfaz"] .si-rapidas .si-chip { flex: 0 0 auto; min-width: 0; max-width: none; height: 36px !important; min-height: 36px !important; padding: 0 9px !important; display: flex; align-items: center; gap: 6px; font-size: 10.5px; }
+body[data-piel="interfaz"] #reaccionPaleta i { width: 9px; height: 9px; border-radius: 50%; background: #7DDB8B; box-shadow: 0 0 0 1px rgba(255, 243, 223, .5); }
+body[data-piel="interfaz"] #reaccionPaleta[data-paleta="brasa"] i { background: #FF9424; }
+body[data-piel="interfaz"] #reaccionPaleta[data-paleta="orquidea"] i { background: #F056BC; }
+body[data-piel="interfaz"].con-rapidas .si-abrir span { display: none; }
+body[data-piel="interfaz"].con-rapidas .si-abrir { min-width: 40px; justify-content: center; }
 body[data-piel="interfaz"] .deck-looks { position: relative; background: var(--si-banda); margin: 0 !important; padding: 4px 0 8px !important; height: auto !important; border: 0 !important; border-image: none !important; border-radius: 0 !important; }
 body[data-piel="interfaz"] .deck-looks-track { counter-reset: camara; }
 body[data-piel="interfaz"] .look { counter-increment: camara; }
@@ -249,9 +263,12 @@ body[data-piel="interfaz"] :is(#cameraGate, :is(#sonoPerm, #wmpPerm).fuente-soni
    ruido de píxel (design/silueta/grano.py) y arriba del todo: cubre el fondo, los rótulos, las
    teclas y el disparador. Lo único que queda por encima es la imagen: el visor y los lienzos (que
    no están en ninguna barra), las miniaturas de las cámaras, la última toma y la foto del visor de
-   tomas. Se apaga con SIN GRANO, igual que en la piel OBJETO (que lleva otro grano, el suyo). */
+   tomas. Se apaga con SIN GRANO, igual que en la piel OBJETO (que lleva otro grano, el suyo).
+   No lleva velo: son motas oscuras y claras, así el negro de la banda sigue negro. Y cada punto de
+   la tesela ocupa un número entero de píxeles de la pantalla (--grano-px, silueta.js): sin eso, al
+   estirarla se doblaban filas y columnas y el grano salía a grumos. */
 body[data-piel="interfaz"] .grano {
-  background: url('./brand/silueta/grano.webp') 0 0 / 128px 128px repeat !important; opacity: 1 !important;
+  background: url('./brand/silueta/grano.webp') 0 0 / var(--grano-px, 128px) var(--grano-px, 128px) repeat !important; opacity: 1 !important;
   image-rendering: pixelated;
   border-radius: 0 !important; clip-path: none !important; -webkit-mask: none !important; mask: none !important;
 }
@@ -262,8 +279,62 @@ body[data-piel="interfaz"] :is(.hw-candy, #deckShutter, .hw-lcd, #deckGallery) {
    apilar por su cuenta (ni aislamiento ni transformaciones). */
 body[data-piel="interfaz"] .look { isolation: auto !important; }
 body[data-piel="interfaz"] .look:active { transform: none !important; opacity: .82; }
+/* El gesto de pulsar vive en la miniatura (que ya apila por su cuenta), no en la pieza. */
+body[data-piel="interfaz"] .look i { transition: transform .09s ease; }
+body[data-piel="interfaz"] .look:active i { transform: scale(.955); }
 body[data-piel="interfaz"] .look i, body[data-piel="interfaz"] #deckGallery.has-shot b, body[data-piel="interfaz"] .viewer-stage { position: relative !important; z-index: 2147483001 !important; }
 body[data-piel="interfaz"] #deckGallery.pop { animation: none; }
+/* La toma recién guardada se sella: la miniatura entra, se pasa un pelo y asienta, con el borde en acento. */
+body[data-piel="interfaz"] #deckGallery.pop b { animation: si-sello .18s cubic-bezier(.3, 1.3, .5, 1); }
+/* (con «scale» y no con «transform»: la tecla lleva transform: none !important y eso gana a una animación) */
+@keyframes si-sello { 0% { scale: .78; box-shadow: 0 0 0 2px var(--si-acento); } 70% { scale: 1.06; box-shadow: 0 0 0 2px var(--si-acento); } 100% { scale: 1; } }
+
+/* ── Cosas que da gusto tocar ── Nada se mueve solo: cada una responde a un gesto y dura menos de 0,2 s. */
+/* La banda tiene estado de pulsado. */
+body[data-piel="interfaz"] :is(.si-variante, .si-abrir):active { opacity: .72; transform: translateY(1px); }
+/* La variante pasa como la hoja de un tablero de solapas. */
+body[data-piel="interfaz"] .si-variante b.pasa { animation: si-solapa .11s cubic-bezier(.2, .9, .3, 1); }
+@keyframes si-solapa { 0% { transform: translateY(8px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+/* El carrete: una regla fina sobre la tira, con su índice en el centro, y la marca de la cámara que
+   cruza el centro da un salto. */
+body[data-piel="interfaz"] .deck-looks {
+  background:
+    linear-gradient(var(--si-acento), var(--si-acento)) center top / 1.5px 5px no-repeat,
+    linear-gradient(90deg, rgba(255, 243, 223, .2) 0 1px, transparent 1px) center top / 10px 3px repeat-x,
+    var(--si-banda);
+}
+body[data-piel="interfaz"] .look.paso::after { animation: si-paso .12s ease-out; }
+@keyframes si-paso { 0% { transform: scale(2.2); opacity: 1; background: var(--si-acento); } 100% { transform: none; } }
+/* La camarita mira hacia donde se inclina el teléfono (la misma inclinación que mueve los brillos
+   de la piel OBJETO, light.js): la pupila gira sobre un punto algo más abajo de su centro. */
+body[data-piel="interfaz"] #deckShutter .silueta .mira { transform-box: fill-box; transform-origin: 50% 88%; transform: rotate(var(--lt, 0deg)); transition: transform .12s linear; }
+/* …y hacia el lado al que se pasa la tira de cámaras (--mira, silueta.js). Con poca luz la pupila
+   se abre; con mucha, se cierra (--pup). */
+body[data-piel="interfaz"] #deckShutter .silueta .pupila { transform-box: fill-box; transform-origin: center; transform: translateX(calc(var(--mira, 0) * 1px)) scale(var(--pup, 1)); transition: transform .14s cubic-bezier(.3, .7, .3, 1); }
+/* La luz de la escena (data-luz, index.html): a oscuras entrecierra el ojo; con mucha luz lo abre de más. */
+body[data-piel="interfaz"][data-luz="poca"] #deckShutter:not(.guino, :active, .espera, .guarda) .silueta .ojo { transform: scaleY(.62); }
+body[data-piel="interfaz"][data-luz="poca"] #deckShutter { --pup: 1.22; }
+body[data-piel="interfaz"][data-luz="mucha"] #deckShutter:not(.guino, :active, .espera, .guarda) .silueta .ojo { transform: scale(1.12); }
+body[data-piel="interfaz"][data-luz="mucha"] #deckShutter { --pup: .78; }
+/* Guardando la toma, y dormida mientras la cámara descansa (rest.js): el ojo cerrado. */
+#deckShutter.guarda .silueta .ojo, body.is-resting #deckShutter .silueta .ojo { transform: scaleY(.16); opacity: 0; }
+#deckShutter.guarda .silueta .cerrado, body.is-resting #deckShutter .silueta .cerrado { opacity: 1; }
+/* Mareada: la pupila da una vuelta. */
+body[data-piel="interfaz"] #deckShutter.mareo .silueta .pupila { animation: si-mareo .62s cubic-bezier(.4, 0, .3, 1); }
+@keyframes si-mareo { 0% { transform: translate(0, 0); } 14% { transform: translate(2.4px, 0); } 36% { transform: translate(0, 2.4px); } 58% { transform: translate(-2.4px, 0); } 80% { transform: translate(0, -2.4px); } 100% { transform: translate(0, 0); } }
+/* Fuera del disparador: su cara en los avisos del visor, y dormida en la tecla TOMA mientras está vacía. */
+body[data-piel="interfaz"] #osdHint::before { content: ''; display: inline-block; width: 17px; height: 15px; margin-right: 7px; vertical-align: -3px; background: var(--si-mascota) center / contain no-repeat; }
+body[data-piel="interfaz"] #deckGallery:not(.has-shot) b svg { display: none; }
+body[data-piel="interfaz"] #deckGallery:not(.has-shot) b::after { content: ''; width: 23px; height: 20px; background: var(--si-tinta); -webkit-mask: var(--si-mascota-dormida) center / contain no-repeat; mask: var(--si-mascota-dormida) center / contain no-repeat; opacity: .8; }
+/* Sin vibración (iPhone, escritorio) lo que no siente el dedo lo ve el ojo: el disparador retrocede
+   y las teclas ceden un poco más. */
+body[data-haptic="vis"][data-piel="interfaz"] #deckShutter.retroceso { animation: si-retroceso .13s cubic-bezier(.3, 1.4, .5, 1); }
+@keyframes si-retroceso { 0% { transform: scale(.93); } 60% { transform: scale(1.02); } 100% { transform: none; } }
+body[data-haptic="vis"][data-piel="interfaz"] :is(.si-chip, .deck-variants .hw-keycap, .launcher-sub):active { transform: translateY(1.5px) scale(.965); }
+@media (prefers-reduced-motion: reduce) {
+  body[data-piel="interfaz"] :is(#deckGallery.pop b, .si-variante b.pasa, .look.paso::after, #deckShutter.retroceso) { animation: none !important; }
+  body[data-piel="interfaz"] #deckShutter .silueta :is(.pupila, .mira) { transform: none; animation: none !important; }
+}
 
 /* ── Horizontal: la imagen a la izquierda y los mismos mandos en una columna ── */
 @media (orientation: landscape) and (max-height: 540px) {
@@ -273,6 +344,9 @@ body[data-piel="interfaz"] #deckGallery.pop { animation: none; }
   body[data-piel="interfaz"] #camDeck { top: 44px; justify-content: flex-start; }
   body[data-piel="interfaz"] .si-banda-cabeza { height: 44px; grid-template-columns: 1fr auto; column-gap: 6px; }
   body[data-piel="interfaz"] .si-banda-cabeza > i, body[data-piel="interfaz"] .si-abrir span { display: none; }
+  body[data-piel="interfaz"].con-rapidas .si-banda-cabeza { grid-template-columns: 1fr auto auto; }
+  body[data-piel="interfaz"] .si-rapidas { grid-column: 2; }
+  body[data-piel="interfaz"].con-rapidas .si-abrir { grid-column: 3; }
   body[data-piel="interfaz"] .si-abrir { grid-column: 2; min-width: 44px; justify-content: center; }
   body[data-piel="interfaz"] .si-abrir svg { width: 16px; height: 16px; }
   body[data-piel="interfaz"] .deck-looks { padding: 2px 0 4px !important; }

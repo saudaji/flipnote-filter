@@ -49,7 +49,7 @@ async function main() {
     const drawer = await page.locator('.si-abrir').isVisible();
     if (drawer) await page.locator('.si-abrir').click();
     const keys = await page.evaluate(() => [...document.querySelectorAll('#deckVariants [data-variant]')].map(b => ({ id: b.dataset.variant, w: Math.round(b.getBoundingClientRect().width), h: Math.round(b.getBoundingClientRect().height) })));
-    assert.deepEqual(keys.map(k => k.id), ['STD', 'THRML', 'CRT', 'NEON', 'DUST']);
+    assert.deepEqual(keys.map(k => k.id), ['STD', 'THRML', 'CRT', 'NEON', 'DUST', 'REAC']);
     assert.ok(keys.every(k => k.w >= 58 && k.h >= 34), 'las teclas de variante caben y se pueden pulsar: ' + JSON.stringify(keys));
     await page.locator('#deckVariants [data-variant="CRT"]').click();
     if (drawer) await page.locator('.si-abrir').click();

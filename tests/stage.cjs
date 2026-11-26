@@ -6,7 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { launch, openFlip, openModule } = require('./lib/harness.cjs');
+const { launch, openFlip, openModule, stageTab } = require('./lib/harness.cjs');
 const out = process.argv[2];
 const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, `${what}: ${(+a).toFixed(1)} frente a ${b} (±${tol})`);
 
@@ -186,7 +186,7 @@ async function phone(browser) {
   assert.equal(await page.locator('#rigTallyAudio b').textContent().then(async () => { await settle(200); return page.locator('#rigTallyAudio b').textContent(); }), 'SIN SONIDO');
 
   // 9 · Consola: perillas con el dedo, doble toque a fábrica, parcheo con cables.
-  await page.locator('#rigTabs [data-page="fb"]').click();
+  await stageTab(page, 'fb');
   const before = await page.evaluate(() => flipStage.get('fb.amt'));
   await drag('.rig-knob[data-param="fb.amt"] .dial', 0, -80);
   const after = await page.evaluate(() => flipStage.get('fb.amt'));
@@ -213,7 +213,7 @@ async function phone(browser) {
   await page.locator('.rig-jack[data-src="lfo1"]').click();
   assert.equal((await S()).armed, '');
   // Selector y deslizador.
-  await page.locator('#rigTabs [data-page="mix"]').click();
+  await stageTab(page, 'mix');
   await page.locator('.rig-pick[data-pick="mix.mode"] [data-step="1"]').click();
   assert.equal(await page.evaluate(() => flipStage.get('mix.mode')), 1);
   assert.equal(await page.locator('.rig-pick[data-pick="mix.mode"] .hw-lcd b').textContent(), 'SUMA');
@@ -241,7 +241,7 @@ async function phone(browser) {
 
   // 11 · MIDI: aprender un CC, notas a escenas y reloj.
   await page.evaluate(() => flipStage.midi.learn(true));
-  await page.locator('#rigTabs [data-page="geo"]').click();
+  await stageTab(page, 'geo');
   await page.locator('.rig-knob[data-param="geo.zoom"] .dial').click();
   assert.equal((await S()).midi.target, 'p:geo.zoom');
   await page.evaluate(() => { flipStage.midi.inject([0xb0, 21, 100]); flipStage.midi.learn(false); });
@@ -254,7 +254,7 @@ async function phone(browser) {
   const clock = await page.evaluate(() => { for (let i = 0; i < 25; i++) flipStage.midi.inject([0xf8], 1000 + i * (60000 / 128 / 24)); const s = flipStage.status(); return [s.bpm, s.bpmSource]; });
   near(clock[0], 128, .5, 'el reloj MIDI marca el tempo'); assert.equal(clock[1], 'MIDI');
   // Sin aprender nada: los mandos del controlador gobiernan los de la página que se ve, por orden.
-  await page.locator('#rigTabs [data-page="fb"]').click();
+  await stageTab(page, 'fb');
   await page.evaluate(() => { flipStage.midi.inject([0xb0, 71, 127]); flipStage.midi.inject([0xb0, 70, 0]); flipStage.midi.inject([0xb0, 72, 64]); flipStage.step(30); });
   const auto = await page.evaluate(() => ['fb.amt', 'fb.zoom', 'fb.rot'].map(id => +flipStage.get(id).toFixed(2)));
   assert.deepEqual(auto, [0, 1, 0.5], 'CC 70, 71 y 72 mueven las tres primeras perillas de BUCLE');
@@ -312,7 +312,7 @@ async function phone(browser) {
   assert.ok(fs.statSync(await clip.path()).size > 20000, 'el vídeo tiene contenido');
 
   // 13 · La consola cabe: nada se sale a lo ancho y el transporte siempre está a la vista.
-  await page.locator('#rigTabs [data-page="fb"]').click();
+  await stageTab(page, 'fb');
   for (const [w, h] of [[395, 741], [360, 640], [880, 396]]) {
     await page.setViewportSize({ width: w, height: h });
     await settle(350);

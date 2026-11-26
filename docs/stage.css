@@ -85,8 +85,21 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 .rig-badge { color: var(--coral); letter-spacing: .16em; }
 .rig-scenes { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; flex: 0 0 auto; }
 .rig-scenes .hw-keycap { min-width: 0; height: 34px; padding: 0 0 1px; font: 800 15px/1 var(--font-dot); letter-spacing: 0; }
-.rig-tabs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px; flex: 0 0 auto; }
-.rig-tabs .hw-keycap { min-width: 0; height: 30px; padding: 0 1px 1px; font-size: 8.5px; font-stretch: 72%; letter-spacing: .03em; }
+.rig-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; flex: 0 0 auto; }
+.rig-tabs .hw-keycap { min-width: 0; height: 30px; padding: 0 2px 1px; font-size: 9.5px; letter-spacing: .06em; }
+/* FÁCIL | TALLER: dos teclas a lo ancho. Las ocho del taller (dos filas de cuatro, con el nombre entero)
+   solo aparecen dentro del taller. */
+.rig-tabs .rig-modo { grid-column: span 2; height: 32px; font-size: 11px; letter-spacing: .12em; }
+.rig-easy .rig-tabs .rig-tab { display: none; }
+/* En FÁCIL: pocas fuentes a la vista (las que llevan cable y las de siempre) y la línea que guía. */
+.rig-easy .rig-jack:not(.is-easy):not(.is-used) { display: none; }
+.rig-coach { display: none; margin: 0; padding: 7px 10px; border-radius: 8px; font: 600 11.5px/1.3 var(--font-ui); color: var(--ink); text-align: center; background: rgba(120, 105, 70, .1); white-space: pre-wrap; }
+.rig-easy .rig-coach { display: block; }
+.rig-coach.is-armed { background: var(--arm); color: #111; font-weight: 800; }
+/* Mandos más grandes (son solo cuatro) y la barra LIVE al final: los cables no pasan por encima de ningún texto. */
+.rig-easy .rig-knobs { padding: 14px 0 12px; }
+.rig-easy .rig-knob { transform: scale(1.2); transform-origin: 50% 40%; }
+.rig-easy .rig-live { order: 9; }
 .rig .hw-keycap > span { line-height: 1.7; overflow: visible; }
 .rig-tabs .hw-keycap.is-on::before, .rig-tabs .hw-keycap.is-on::after { border-image-source: url('./brand/rollo-en-anil/materiales/selector-anil.webp'); }
 .rig-tabs .hw-keycap.is-on:active::before, .rig-tabs .hw-keycap.is-on:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/selector-anil-pulsado.webp'); }
@@ -181,7 +194,7 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 .rig-live.is-on i { background: #3ca956; box-shadow: 0 0 6px #3ca956; }
 .rig-live.is-wait i { background: #f0ae2b; animation: rig-learn .8s steps(1, end) infinite; }
 .rig-live span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rig-live-sheet { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 12; max-height: calc(100% - 20px); overflow-y: auto; display: grid; gap: 10px; padding: 14px 14px 12px; border-radius: 12px; background: #17181c; color: #f4f1ea; box-shadow: 0 14px 36px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.rig-live-sheet { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 2147483600; max-height: calc(100% - 20px); overflow-y: auto; display: grid; gap: 10px; padding: 14px 14px 12px; border-radius: 12px; background: #17181c; color: #f4f1ea; box-shadow: 0 14px 36px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .1); }
 .rig-live-sheet[hidden] { display: none; }
 .rig-live-sheet h3 { margin: 0; font: 800 12px/1 var(--font-ui); letter-spacing: .14em; }
 .rig-live-sheet p { margin: 0; font: 500 12.5px/1.4 var(--font-ui); color: #cfc9bc; }

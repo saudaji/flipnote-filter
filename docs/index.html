@@ -5202,7 +5202,9 @@ const CAM_FAMILIES = {
     label:'VFD',
     displayLabel:'VFD',
     variants:[{ id:'STD', label:'STD' }, { id:'THRML', label:'THRML' },
-      { id:'CRT', label:'CRT', hint:'CRT · televisor de tubo con colorizador: contornos en arcoíris, luces quemadas en rosa y rejilla de fósforo.' }],
+      { id:'CRT', label:'CRT', hint:'CRT · televisor de tubo con colorizador: contornos en arcoíris, luces quemadas en rosa y rejilla de fósforo.' },
+      { id:'NEON', label:'NEÓN', hint:'NEÓN · fósforo sobre negro: solo se enciende lo que tiene luz, en líneas onduladas naranja y lima con halo magenta.' },
+      { id:'DUST', label:'POLVO', hint:'POLVO · polvo de fósforo sobre negro: la luz se vuelve puntos azules y verdes, lo más claro prende en naranja y los bordes quedan en un hilo casi blanco.' }],
     editMode:'duotone',
     paletteContext:'VFD',
   },
@@ -7633,6 +7635,175 @@ function _renderVfdCrt(lum, sampleW, sampleH, renderTarget, targetCtx, outW, out
   ctx.restore();
   targetCtx.imageSmoothingEnabled = false;
 }
+// ── VFD · NEÓN: fósforo sobre negro ─────────────────────────────────────────────────────
+// Un tubo que solo enciende lo que tiene luz. El fondo es negro; lo iluminado se dibuja con líneas de
+// barrido en zigzag (puntos que se ven), del violeta en la penumbra al naranja y al lima en lo más
+// claro; la penumbra es polvo de puntos sueltos; los contornos van en violeta con el corazón casi
+// blanco; y todo desborda en un halo magenta. Mismos niveles automáticos que CRT (por percentiles
+// del cuadro, con inercia), en su propio estado.
+const VFD_NEON_FILL = (() => {
+  const stops = [[0, 74, 22, 255], [0.2, 206, 34, 255], [0.4, 255, 64, 160], [0.6, 255, 132, 64], [0.8, 255, 206, 66], [1, 198, 255, 86]];
+  const table = new Uint8Array(256 * 3);
+  for (let i = 0, k = 0; i < 256; i++) {
+    const f = i / 255;
+    while (k < stops.length - 2 && f > stops[k + 1][0]) k++;
+    const a = stops[k], b = stops[k + 1], t = Math.max(0, Math.min(1, (f - a[0]) / (b[0] - a[0] || 1)));
+    for (let c = 0; c < 3; c++) table[3 * i + c] = Math.round(a[c + 1] + (b[c + 1] - a[c + 1]) * t);
+  }
+  return table;
+})();
+let _vfdNeonLevel = null;
+function _renderVfdNeon(lum, sampleW, sampleH, renderTarget, targetCtx, outW, outH, now) {
+  const out = renderTarget.buffer, n = sampleW * sampleH, hist = _vfdCrtHist, fill = VFD_NEON_FILL;
+  hist.fill(0);
+  for (let i = 0; i < n; i += 3) hist[lum[i]]++;
+  const total = Math.ceil(n / 3);
+  let acc = 0, p2 = -1, p58 = -1, p97 = 255;
+  for (let v = 0; v < 256; v++) {
+    acc += hist[v];
+    if (p2 < 0 && acc >= total * 0.02) p2 = v;
+    if (p58 < 0 && acc >= total * 0.58) p58 = v;
+    if (acc >= total * 0.97) { p97 = v; break; }
+  }
+  // Se enciende lo que pasa de «algo más que la mitad del cuadro»: siempre queda fondo negro.
+  const wantLo = Math.max(44, Math.min(204, p58 + 8)), wantHi = Math.max(wantLo + 40, Math.min(250, p97));
+  const wantGain = Math.min(2, 190 / Math.max(60, p97 - p2));
+  let level = _vfdNeonLevel;
+  const dt = level ? now - level.at : -1;
+  if (!level || dt < 0 || dt > 900 || Math.abs(level.lo - wantLo) > 60) level = _vfdNeonLevel = { lo: wantLo, hi: wantHi, gain: wantGain, at: now };
+  else { const k = 1 - Math.exp(-dt / 240); level.lo += (wantLo - level.lo) * k; level.hi += (wantHi - level.hi) * k; level.gain += (wantGain - level.gain) * k; level.at = now; }
+  const lo = level.lo, hi = level.hi, inv = 1 / (hi - lo), gain = level.gain;
+  const frame = Math.floor(now / 66.7), crawl = Math.floor(now / 190);          // las líneas bajan despacio; el polvo titila
+  for (let y = 0; y < sampleH; y++) {
+    const row = y * sampleW, down = y < sampleH - 1 ? sampleW : 0;
+    let rnd = (_vfdCrtNoise(17, y, frame) * 4294967296) | 0;
+    for (let x = 0; x < sampleW; x++) {
+      rnd = (Math.imul(rnd, 1664525) + 1013904223) | 0;
+      const idx = row + x, L = lum[idx], dice = rnd >>> 8;
+      const gx = lum[idx + (x < sampleW - 1 ? 1 : 0)] - L, gy = lum[idx + down] - L;
+      const e = ((gx < 0 ? -gx : gx) + (gy < 0 ? -gy : gy)) * gain;
+      let r = 0, g = 0, b = 0;
+      if (L > lo) {
+        const f = L >= hi ? 1 : (L - lo) * inv;
+        const zx = x % 6, line = (y + (zx < 3 ? zx : 5 - zx) + crawl) % 3;      // zigzag: 0 1 2 2 1 0
+        // Lo más encendido lleva dos de cada tres líneas; el resto, una; la penumbra, solo polvo.
+        const lit = f < 0.28 ? dice < f * 1.9 * 16777216 : (f > 0.66 ? line !== 1 : line === 0) && dice > 0.045 * 16777216;
+        if (lit) { const at = ((f * 255) | 0) * 3, v = 0.6 + 0.4 * f; r = fill[at] * v; g = fill[at + 1] * v; b = fill[at + 2] * v; }
+      }
+      if (e > 24) {                                                            // contorno: violeta, con el corazón casi blanco
+        const o = e >= 88 ? 1 : (e - 24) / 64, v = 0.45 + 0.55 * o;
+        const er = (150 + 105 * o) * v, eg = (60 + 170 * o * o) * v, eb = 255 * v;
+        if (o > 0.5 || dice < (0.2 + 0.8 * o) * 16777216) { if (er > r) r = er; if (eg > g) g = eg; if (eb > b) b = eb; }
+      }
+      const o4 = idx << 2;
+      out[o4] = r; out[o4 + 1] = g; out[o4 + 2] = b; out[o4 + 3] = 255;
+    }
+  }
+  renderTarget.ctx.putImageData(new ImageData(out, sampleW, sampleH), 0, 0);
+  // El halo: la misma cadena de reducciones que CRT; la más ancha se tiñe de magenta.
+  if (!_vfdCrtGlow) _vfdCrtGlow = [0, 1, 2].map(() => { const canvas = document.createElement('canvas'); return { canvas, ctx: canvas.getContext('2d') }; });
+  let from = renderTarget.canvas;
+  for (let i = 0; i < 3; i++) {
+    const glow = _vfdCrtGlow[i], w = Math.max(4, sampleW >> (i + 1)), h = Math.max(4, sampleH >> (i + 1));
+    if (glow.canvas.width !== w || glow.canvas.height !== h) { glow.canvas.width = w; glow.canvas.height = h; }
+    glow.ctx.globalCompositeOperation = 'copy';
+    glow.ctx.imageSmoothingEnabled = true;
+    glow.ctx.drawImage(from, 0, 0, w, h);
+    from = glow.canvas;
+  }
+  const wide = _vfdCrtGlow[2];
+  wide.ctx.globalCompositeOperation = 'multiply';
+  wide.ctx.fillStyle = 'rgb(255,84,240)';
+  wide.ctx.fillRect(0, 0, wide.canvas.width, wide.canvas.height);
+  const ctx = targetCtx;
+  ctx.save();
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
+  ctx.imageSmoothingEnabled = false;                                           // los puntos se ven como puntos
+  ctx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
+  ctx.imageSmoothingEnabled = true;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.5; ctx.drawImage(_vfdCrtGlow[0].canvas, 0, 0, outW, outH);
+  ctx.globalAlpha = 0.6; ctx.drawImage(_vfdCrtGlow[1].canvas, 0, 0, outW, outH);
+  ctx.globalAlpha = 1; ctx.drawImage(wide.canvas, 0, 0, outW, outH);
+  ctx.globalCompositeOperation = 'source-over';
+  const shade = ctx.createRadialGradient(outW / 2, outH / 2, Math.min(outW, outH) * 0.4, outW / 2, outH / 2, Math.hypot(outW, outH) * 0.58);
+  shade.addColorStop(0, 'rgba(0,0,0,0)'); shade.addColorStop(1, 'rgba(0,0,0,.5)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, outW, outH);
+  ctx.restore();
+  targetCtx.imageSmoothingEnabled = false;
+}
+// ── VFD · POLVO: polvo de fósforo sobre negro ───────────────────────────────────────────
+// Casi todo es negro. La luz no se pinta: se espolvorea. Cada zona iluminada es una nube de puntos
+// sueltos (tramado ordenado, más denso cuanta más luz) que va del azul al verde azulado; lo más
+// claro se cierra en manchas naranjas; y los bordes son un hilo fino casi blanco con un fleco azul.
+// Sin halo: los puntos son nítidos. Titila apenas (el umbral del tramado tiembla de cuadro a cuadro).
+const VFD_DUST_FILL = (() => {
+  const stops = [[0, 24, 40, 190], [0.3, 40, 96, 255], [0.52, 44, 196, 190], [0.68, 150, 220, 110], [0.8, 250, 196, 70], [1, 255, 150, 60]];
+  const table = new Uint8Array(256 * 3);
+  for (let i = 0, k = 0; i < 256; i++) {
+    const f = i / 255;
+    while (k < stops.length - 2 && f > stops[k + 1][0]) k++;
+    const a = stops[k], b = stops[k + 1], t = Math.max(0, Math.min(1, (f - a[0]) / (b[0] - a[0] || 1)));
+    for (let c = 0; c < 3; c++) table[3 * i + c] = Math.round(a[c + 1] + (b[c + 1] - a[c + 1]) * t);
+  }
+  return table;
+})();
+const VFD_DUST_BAYER = Uint8Array.from([0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5]);
+let _vfdDustLevel = null;
+function _renderVfdDust(lum, sampleW, sampleH, renderTarget, targetCtx, outW, outH, now) {
+  const out = renderTarget.buffer, n = sampleW * sampleH, hist = _vfdCrtHist, fill = VFD_DUST_FILL, bayer = VFD_DUST_BAYER;
+  hist.fill(0);
+  for (let i = 0; i < n; i += 3) hist[lum[i]]++;
+  const total = Math.ceil(n / 3);
+  let acc = 0, p2 = -1, p50 = -1, p98 = 255;
+  for (let v = 0; v < 256; v++) {
+    acc += hist[v];
+    if (p2 < 0 && acc >= total * 0.02) p2 = v;
+    if (p50 < 0 && acc >= total * 0.5) p50 = v;
+    if (acc >= total * 0.98) { p98 = v; break; }
+  }
+  const wantLo = Math.max(36, Math.min(190, p50)), wantHi = Math.max(wantLo + 48, Math.min(252, p98));
+  const wantGain = Math.min(2, 190 / Math.max(60, p98 - p2));
+  let level = _vfdDustLevel;
+  const dt = level ? now - level.at : -1;
+  if (!level || dt < 0 || dt > 900 || Math.abs(level.lo - wantLo) > 60) level = _vfdDustLevel = { lo: wantLo, hi: wantHi, gain: wantGain, at: now };
+  else { const k = 1 - Math.exp(-dt / 240); level.lo += (wantLo - level.lo) * k; level.hi += (wantHi - level.hi) * k; level.gain += (wantGain - level.gain) * k; level.at = now; }
+  const lo = level.lo, inv = 1 / (level.hi - lo), gain = level.gain;
+  const frame = Math.floor(now / 83.4);
+  for (let y = 0; y < sampleH; y++) {
+    const row = y * sampleW, down = y < sampleH - 1 ? sampleW : 0, by = (y & 3) << 2;
+    let rnd = (_vfdCrtNoise(23, y, frame) * 4294967296) | 0;
+    for (let x = 0; x < sampleW; x++) {
+      rnd = (Math.imul(rnd, 1664525) + 1013904223) | 0;
+      const idx = row + x, L = lum[idx];
+      const gx = lum[idx + (x < sampleW - 1 ? 1 : 0)] - L, gy = lum[idx + down] - L;
+      const e = ((gx < 0 ? -gx : gx) + (gy < 0 ? -gy : gy)) * gain;
+      let r = 0, g = 0, b = 0;
+      if (L > lo) {
+        const f = L >= level.hi ? 1 : (L - lo) * inv;
+        // polvo: se enciende si la luz supera el umbral del tramado (que tiembla un poco); lo más claro, siempre
+        const th = (bayer[by + (x & 3)] + ((rnd >>> 28) - 8) * 0.14 + 0.5) / 16;
+        if (f > 0.82 || f * f * 0.9 > th) { const at = ((f * 255) | 0) * 3; r = fill[at]; g = fill[at + 1]; b = fill[at + 2]; }
+      }
+      if (e > 30) {                                                            // borde: hilo casi blanco; el borde flojo, fleco azul punteado
+        const o = e >= 110 ? 1 : (e - 30) / 80;
+        if (o > 0.45) { const v = 0.55 + 0.45 * o; r = 255 * v; g = (196 + 40 * o) * v; b = (206 + 36 * o) * v; }
+        else if (((rnd >>> 8) & 3) === 0 && b < 200) { r = 46; g = 96; b = 255; }
+      }
+      const o4 = idx << 2;
+      out[o4] = r; out[o4 + 1] = g; out[o4 + 2] = b; out[o4 + 3] = 255;
+    }
+  }
+  renderTarget.ctx.putImageData(new ImageData(out, sampleW, sampleH), 0, 0);
+  const ctx = targetCtx;
+  ctx.save();
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
+  ctx.imageSmoothingEnabled = false;                                           // cada punto, un punto
+  ctx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
+  ctx.restore();
+  targetCtx.imageSmoothingEnabled = false;
+}
 function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
@@ -7652,6 +7823,14 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
 
   if (renderVariant() === 'CRT') {
     _renderVfdCrt(lum, sampleW, sampleH, renderTarget, targetCtx, outW, outH, options.now ?? performance.now());
+    return;
+  }
+  if (renderVariant() === 'NEON') {
+    _renderVfdNeon(lum, sampleW, sampleH, renderTarget, targetCtx, outW, outH, options.now ?? performance.now());
+    return;
+  }
+  if (renderVariant() === 'DUST') {
+    _renderVfdDust(lum, sampleW, sampleH, renderTarget, targetCtx, outW, outH, options.now ?? performance.now());
     return;
   }
   if (renderVariant() === 'THRML') {

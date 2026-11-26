@@ -49,6 +49,7 @@ const check = (name, ok, detail = '') => { results.push([ok ? 'OK ' : 'FALLA', n
   await ev(`(() => { flipStage.reset(); flipStage.recall(0, true); return true; })()`);
   await c.tap('#rigScenes [data-scene="1"]');
   check('una tecla de escena la llama', (await ev('flipStage.status().name')) === 'TÚNEL');
+  if (await c.evaluate(`document.getElementById('stageRig').classList.contains('rig-easy')`)) await c.tap('#rigTaller');   // el taller: la vista de entrada es FÁCIL
   await c.tap('#rigTabs [data-page="fb"]');
   const before = await ev(`flipStage.get('fb.decay')`);
   await c.drag('.rig-knob[data-param="fb.decay"] .dial', 0, 70);

@@ -2,6 +2,7 @@
 // FLIP_URL and CHROME_PATH can point to a different local server or Chromium binary.
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright-core');
+const { stageTab } = require('./lib/harness.cjs');
 
 async function hasImage(page, id) {
   await page.waitForFunction(id => {
@@ -54,7 +55,7 @@ async function main() {
     await page.waitForFunction(() => flipStage.status().ok && flipStage.status().hasA, null, { timeout: 15000 });
     await hasImage(page, 'stageCanvas');
     const popup = page.waitForEvent('popup');
-    await page.locator('#rigTabs [data-page="out"]').click();
+    await stageTab(page, 'out');
     await page.locator('#rigPanel [data-act="window"]').click();
     const output = await popup;
     output.on('pageerror', error => errors.push(error.message));

@@ -16,7 +16,7 @@ const http = require('node:http');
 const { launch, openFlip, openModule } = require('./lib/harness.cjs');
 const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JSON.stringify(detail) : ''));
 const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, what + ': ' + a + ' ≠ ' + b + ' ± ' + tol);
-const TRACKS = [['track:0', 'Kick'], ['track:1', 'Bajo'], ['track:2', 'Voz'], ['track:3', 'Hats'], ['track:4', 'Keys'], ['track:5', 'Gtr'], ['track:6', 'FX'], ['track:7', 'Pads']];
+const TRACKS = [['track:0', '1-Kick'], ['track:1', 'Bajo'], ['track:2', 'Voz'], ['track:3', 'Hats'], ['track:4', 'Keys'], ['track:5', 'Gtr'], ['track:6', 'FX'], ['track:7', 'Pads']];
 const info = order => ({ tracks: order.map(i => ({ key: 'track:' + order.indexOf(i), kind: 'track', index: order.indexOf(i), name: TRACKS[i][1] })), signature: '4/4', tempo: 128, demo: false });
 
 // Una señal como la de PITÁGORAS, para la prueba de red: mismo formato, otro origen.
@@ -73,8 +73,8 @@ function feedServer() {
     const lum = c => { const [r, g, b] = c.match(/[\d.]+/g).map(Number); return (.2126 * r + .7152 * g + .0722 * b) / 255; };
     assert.ok(Math.abs(lum(on.rotulo) - lum(on.fondo)) > .45, 'rótulos legibles sobre el fondo de STAGE: ' + on.rotulo + ' / ' + on.fondo);
     assert.ok(on.mods.lv1 > .9, 'la toma del bombo sigue su nivel: ' + on.mods.lv1);
-    near(on.mods.lv2, Math.pow((.5 - .3) / .65, 1.4), .05, 'la del bajo, el suyo');
-    assert.ok(on.mods.lv3 < .02 && on.mods.lv4 === 0, 'una pista callada vale cero');
+    assert.ok(on.mods.lv2 > .9, 'la del bajo, que suena más bajito, usa también todo su recorrido: ' + on.mods.lv2);
+    assert.ok(on.mods.lv3 < .15 && on.mods.lv4 === 0, 'el soplo de una pista casi vacía no cuenta, y una callada vale cero: ' + on.mods.lv3);
     near(on.rgb, .2 + .5 * on.mods.lv1, .03, 'el cable desde la toma mueve el mando');
     assert.match(on.bar, /LIVE · 128 BPM · 8 PISTAS/);
     step('las tomas llevan el nombre y el nivel de cada pista de Live', { tomas: on.jacks.join(' '), bombo: +on.mods.lv1.toFixed(2), bajo: +on.mods.lv2.toFixed(2) });
@@ -126,11 +126,12 @@ function feedServer() {
     await page.waitForTimeout(1600);
     const net = await page.evaluate(() => ({ s: flipStage.status(), mods: flipStage.mods(), campo: getComputedStyle(document.getElementById('rigLiveUrl')).display, tomas: [...document.querySelectorAll('#rigLiveSlots select')].map(sel => sel.value), guardado: JSON.parse(localStorage.getItem('flip.stage.v3') || '{}').global.live }));
     assert.equal(net.s.bpmSource, 'LIVE');
-    assert.deepEqual(net.s.live.tracks, ['Kick', 'Bajo', 'Voz']);
+    assert.deepEqual(net.s.live.tracks, ['1-Kick', 'Bajo', 'Voz']);
+    assert.equal(net.s.live.names[0], 'KICK', 'la toma no enseña el número que Live le pone a la pista');
     assert.ok(net.mods.lv2 > .3, 'el nivel llega por la red: ' + JSON.stringify(net.mods));
     assert.ok(net.s.audio.beats >= 2, 'los golpes de Live se cuentan: ' + net.s.audio.beats);
     assert.equal(net.campo, 'none', 'conectado, la hoja ya no enseña el campo del enlace');
-    assert.ok(net.tomas.includes('Kick') && net.tomas.includes('Bajo'), 'la hoja deja elegir pista por toma: ' + net.tomas.join(','));
+    assert.ok(net.tomas.includes('1-Kick') && net.tomas.includes('Bajo'), 'la hoja deja elegir pista por toma: ' + net.tomas.join(','));
     assert.ok(/\/api\/feed\/stream\?t=/.test(net.guardado.url), 'el enlace se recuerda');
     const before = await page.evaluate(() => flipStage.status().beat);
     await page.waitForTimeout(1000);

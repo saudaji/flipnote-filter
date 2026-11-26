@@ -72,6 +72,12 @@ async function pickVariant(page, id) {
   await key.click();
   if (await page.evaluate(() => document.body.classList.contains('banda-abierta'))) await page.locator('.si-abrir').click();
 }
+// Abre un módulo del TALLER de STAGE como una persona: si STAGE está en la vista FÁCIL, primero TALLER.
+async function stageTab(page, id) {
+  const tab = page.locator('#rigTabs [data-page="' + id + '"]');
+  if (!(await tab.isVisible())) await page.locator('#rigTaller').click();
+  await tab.click();
+}
 function saveDataUrl(file, dataUrl) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64'));
@@ -90,4 +96,4 @@ function probe(file) {
   return JSON.parse(raw);
 }
 
-module.exports = { URL, PIXEL, launch, openFlip, openModule, pickVariant, saveDataUrl, encodeClip, probe };
+module.exports = { URL, PIXEL, launch, openFlip, openModule, pickVariant, stageTab, saveDataUrl, encodeClip, probe };

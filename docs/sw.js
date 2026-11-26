@@ -1,4 +1,4 @@
-const CACHE = 'flipnote-filter-v101-live';
+const CACHE = 'flipnote-filter-v103-polvo';
 const ASSETS = [
   './index.html', './manifest.json', './icon-192.png', './icon-512.png', './frame-runtime.js', './stamp.js', './optical-scope.js', './press.js',
   './night-vision.js', './sensor.js', './silhouette.js', './silhouette-worker.js', './shell.css', './shell.js', './silueta.css', './silueta.js', './escucha.js', './brand/silueta/grano.webp', './console.css', './console.js',

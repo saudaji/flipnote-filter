@@ -82,14 +82,17 @@ const flipStage = (() => {
     'src.look': LOOKS.map(l => l.label), 'src.gen': GENS, 'mix.mode': MIX_MODES, 'fb.mode': FB_MODES, 'geo.mirror': MIRRORS, 'col.pal': PALETTES.map(p => p[0]),
     'lfo1.shape': LFO_SHAPES, 'lfo2.shape': LFO_SHAPES, 'out.aspect': ASPECTS, 'out.quality': QUALITIES,
   };
+  // FÁCIL es la vista de entrada: los cuatro mandos que más cuentan en la escena (easyKnobs) y pocas
+  // fuentes a la vista. Las otras ocho son el TALLER: el sintetizador entero, módulo a módulo.
   const PAGES = [
+    { id: 'easy', label: 'FÁCIL', title: '', knobs: [] },
     { id: 'src', label: 'FUENTE', title: 'FUENTES · A CÁMARA · B GENERADOR', picks: [['src.look', 'A · CÁMARA'], ['src.gen', 'B · GENERADOR']], knobs: ['gen.freq', 'gen.speed', 'gen.shape', 'gen.hue'] },
     { id: 'mix', label: 'MEZCLA', title: 'MEZCLADOR Y CLAVE', picks: [['mix.mode', 'MODO']], fader: 'mix.fade', knobs: ['key.level', 'key.soft'], toggles: [['key.inv', 'INVERTIR']] },
     { id: 'fb', label: 'BUCLE', title: 'BUCLE · CIRCUITO CERRADO', picks: [['fb.mode', 'MODO']], knobs: ['fb.amt', 'fb.zoom', 'fb.rot', 'fb.decay', 'fb.x', 'fb.y', 'fb.hue'] },
-    { id: 'geo', label: 'GEOM', title: 'GEOMETRÍA', picks: [['geo.mirror', 'ESPEJO']], knobs: ['geo.zoom', 'geo.rot', 'geo.spin', 'geo.kal', 'geo.tile', 'geo.warp', 'geo.wfreq'] },
+    { id: 'geo', label: 'FORMA', title: 'GEOMETRÍA', picks: [['geo.mirror', 'ESPEJO']], knobs: ['geo.zoom', 'geo.rot', 'geo.spin', 'geo.kal', 'geo.tile', 'geo.warp', 'geo.wfreq'] },
     { id: 'col', label: 'COLOR', title: 'COLOR', picks: [['col.pal', 'PALETA DE TINTA']], knobs: ['col.hue', 'col.sat', 'col.con', 'col.cycle', 'col.tint', 'col.post', 'col.solar'], toggles: [['col.inv', 'NEGATIVO']] },
     { id: 'sig', label: 'SEÑAL', title: 'SEÑAL DE VÍDEO', knobs: ['sig.rgb', 'sig.tear', 'sig.vhold', 'sig.bleed', 'sig.pix', 'sig.scan', 'sig.noise', 'sig.strobe'] },
-    { id: 'mod', label: 'MOD', title: 'MODULACIÓN', picks: [['lfo1.shape', 'LFO 1'], ['lfo2.shape', 'LFO 2'], ['aud.src', 'ENTRADA DE SONIDO']], knobs: ['lfo1.rate', 'lfo2.rate', 'aud.gain', 'aud.fall'] },
+    { id: 'mod', label: 'RITMO', title: 'MODULACIÓN', picks: [['lfo1.shape', 'LFO 1'], ['lfo2.shape', 'LFO 2'], ['aud.src', 'ENTRADA DE SONIDO']], knobs: ['lfo1.rate', 'lfo2.rate', 'aud.gain', 'aud.fall'] },
     { id: 'out', label: 'SALIDA', title: 'SALIDA', picks: [['out.aspect', 'FORMATO'], ['out.quality', 'CALIDAD']], knobs: ['out.level', 'mod.morph'], toggles: [['out.flipX', 'VOLTEAR H'], ['out.flipY', 'VOLTEAR V']] },
   ];
 
@@ -929,7 +932,7 @@ void main() {
   // MEDIO / AGUDO / GOLPE tomados del master de Live en vez del micrófono, y el tempo y el compás
   // de Live como reloj. Formato de cada cuadro: { t, play, pos, bpm, m:[nivel,bajo,medio,agudo],
   // hits, hit, ears, tr:{ 'track:3': [nivel,bajo,medio,agudo] } }, todo de 0 a 1.
-  const link = { es: null, state: 'off', at: -1e9, frame: null, tracks: [], keys: LIVE_KEYS.map(() => ''), goal: LIVE_KEYS.map(() => 0), hits: -1, lag: Infinity, demo: false, host: '', paintAt: 0 };
+  const link = { es: null, state: 'off', at: -1e9, frame: null, tracks: [], keys: LIVE_KEYS.map(() => ''), goal: LIVE_KEYS.map(() => 0), top: LIVE_KEYS.map(() => 0), hits: -1, lag: Infinity, demo: false, host: '', paintAt: 0 };
   const linkFresh = () => performance.now() - link.at < 1200;
   const linkMaster = () => linkFresh() && !!link.frame && !!link.frame.ears && Array.isArray(link.frame.m);
   const linkTempo = () => (linkFresh() && link.frame && link.frame.bpm) || 0;
@@ -955,15 +958,25 @@ void main() {
       const t = link.tracks.find(t => !used.has(t.key) && !want.includes(t.name));
       if (t) { used.add(t.key); link.keys[i] = t.key; want[i] = t.name; }
     });
+    link.top.fill(0);
     linkLabels();
+  }
+  // El nombre de una pista, para una toma: sin el número que Live le pone delante («1-Drum Rack») y,
+  // si no cabe, las primeras palabras que quepan («UPRIGHT», «WARM SAW»).
+  function linkShort(name, max) {
+    const clean = String(name).replace(/^\s*\d+\s*[-·.:]?\s*(?=\S)/, '').toUpperCase() || String(name).toUpperCase();
+    if (clean.length <= max) return clean;
+    let out = '';
+    for (const word of clean.split(/\s+/)) { if ((out ? out + ' ' + word : word).length > max) break; out = out ? out + ' ' + word : word; }
+    return out || clean.slice(0, max);
   }
   function linkLabels() {
     LIVE_KEYS.forEach((key, i) => {
       const t = link.tracks.find(t => t.key === link.keys[i]), kept = store.global.live.slots[i];
-      const name = (t ? t.name : kept && kept !== '-' ? kept : 'PISTA ' + (i + 1)).toUpperCase();
-      SRC[key].label = name.slice(0, 14);
+      const name = t ? t.name : kept && kept !== '-' ? kept : 'PISTA ' + (i + 1);
+      SRC[key].label = linkShort(name, 16);
       const jack = ui.rig && ui.rig.querySelector('.rig-jack[data-src="' + key + '"]');
-      if (jack) { jack.querySelector('.hw-print').textContent = name.slice(0, 8); jack.classList.toggle('is-idle', !t); jack.setAttribute('aria-label', 'Modulador ' + name); }
+      if (jack) { jack.querySelector('.hw-print').textContent = linkShort(name, 8); jack.classList.toggle('is-idle', !t); jack.setAttribute('aria-label', 'Modulador ' + name); }
     });
     if (ui.rig) { syncJacks(); linkPaint(); }
   }
@@ -978,19 +991,24 @@ void main() {
     const now = performance.now();
     link.frame = f; link.at = now;
     if (link.state !== 'on') {
-      link.state = 'on'; linkPaint();
+      link.state = 'on'; linkPaint(); syncJacks();
       // al llegar la señal, las tomas de pista quedan a la vista (el pupitre se desplaza en pantallas bajas)
       const deck = ui.rig && ui.rig.querySelector('.rig-deck');
-      if (deck) requestAnimationFrame(() => { deck.scrollTop = deck.scrollHeight; });
+      if (deck && ui.page !== 'easy') requestAnimationFrame(() => { deck.scrollTop = deck.scrollHeight; });      // en FÁCIL todo cabe sin desplazar
     }
     // retraso de la red + diferencia entre relojes: el menor visto es lo que hay que descontar siempre
     const lag = Date.now() / 1000 - f.t;
     link.lag = lag < link.lag ? lag : link.lag + .0005;
     if (link.hits >= 0 && f.hits > link.hits && f.ears) { audio.beat = Math.max(audio.beat, clamp(.55 + .45 * (f.hit == null ? 1 : f.hit))); audio.beats++; audio.lastBeat = now; }
     link.hits = f.hits;
+    // Cada pista usa TODO el recorrido de su toma, suene fuerte o bajito: su techo es su propio máximo
+    // reciente (baja muy despacio), con un mínimo para que el soplo de una pista vacía no cuente.
     LIVE_KEYS.forEach((_, i) => {
       const v = link.keys[i] && f.tr && f.tr[link.keys[i]];
-      link.goal[i] = v ? clamp(Math.pow(clamp((v[0] - .3) / .65), 1.4)) : 0;       // −38 dB es 0; −3 dB, casi 1
+      if (!v) { link.goal[i] = 0; return; }
+      link.top[i] = Math.max(v[0], (link.top[i] || 0) - .0007);
+      const ceil = Math.max(link.top[i], .45);
+      link.goal[i] = v[0] > .08 ? clamp(Math.pow(clamp((v[0] - (ceil - .42)) / .42), 1.3)) : 0;
     });
   }
   // El pulso de Live en este instante (el cuadro trae el suyo; se adelanta lo que tardó en llegar).
@@ -1016,7 +1034,7 @@ void main() {
   function linkClose(keep) {
     if (link.es) { link.es.close(); link.es = null; }
     Object.assign(link, { state: 'off', frame: null, at: -1e9, tracks: [], hits: -1 });
-    link.goal.fill(0); link.keys.fill('');
+    link.goal.fill(0); link.top.fill(0); link.keys.fill('');
     if (!keep) { store.global.live.url = ''; save(); }
     linkLabels();
   }
@@ -1375,6 +1393,7 @@ void main() {
     else { readout('NO CABEN MÁS CABLES'); return; }
     if (route && (src === 'hx' || src === 'hy' || src === 'pinch')) handsOn(true);
     syncJacks(); syncCtl(dst); cables(); routesList();
+    if (route && ui.page === 'easy') coach(SRC[src].label + ' conectado. Arrastra el mando para decidir cuánto lo mueve.', 3600);
     save();
   }
   function arm(src) {
@@ -1383,13 +1402,14 @@ void main() {
     ui.rig.style.setProperty('--arm', ui.armed ? SRC[ui.armed].tone : 'transparent');
     syncJacks();
     if (ui.armed) readout(SRC[ui.armed].label + ' > TOCA UN MANDO', 4000); else readout('', 0);
+    coach();
     if (ui.armed && (ui.armed === 'bass' || ui.armed === 'mid' || ui.armed === 'high') && !audio.on && !audio.inject) flipToast('Enciende MIC para que los mandos sigan el sonido.', 2600);
     if (ui.armed === 'note' && midi.state === 'off') flipToast('Pulsa MIDI para conectar tu controlador.', 2600);
     if (ui.armed && LIVE_KEYS.includes(ui.armed) && link.state !== 'on') flipToast('Conecta LIVE para que este mando siga una pista de Ableton.', 2600);
   }
 
   // ── Consola ─────────────────────────────────────────────────────────────────
-  const ui = { rig: null, monitor: null, screen: null, panel: null, cablesSvg: null, cleanHint: null, page: 'src', ctl: {}, armed: '', drag: null, black: false, blackAmt: 0,
+  const ui = { rig: null, monitor: null, screen: null, panel: null, cablesSvg: null, cleanHint: null, page: 'easy', taller: 'src', ctl: {}, armed: '', drag: null, black: false, blackAmt: 0,
     readout: { text: '', until: 0 }, lcdAt: 0, stale: false, lastTap: { t: 0, id: '' } };
   const icon = name => (window.flipShell ? flipShell.icon(name) : '');
   const SVG = {
@@ -1458,7 +1478,8 @@ void main() {
         <div class="rig-deck">
           <div class="rig-row rig-row-scenes"><span class="hw-print">ESCENAS · MANTÉN PARA GUARDAR</span>${window.flipRollo ? `<img class="rollo-badge" src="${flipRollo.url('marca/placa-vs-27-clara.svg')}" alt="STAGE VS-27 PRO">` : '<span class="hw-print rig-badge">VS-27 · PRO</span>'}</div>
           <div class="rig-scenes" id="rigScenes" role="radiogroup" aria-label="Escenas">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<button class="hw hw-keycap" type="button" role="radio" data-scene="${i}" data-feel="key" aria-label="Escena ${i + 1}"><span>${i + 1}</span></button>`).join('')}</div>
-          <div class="rig-tabs" id="rigTabs" role="tablist" aria-label="Módulos">${PAGES.map(page => `<button class="hw hw-keycap" data-color="gray" type="button" role="tab" data-page="${page.id}"><span>${page.label}</span></button>`).join('')}</div>
+          <div class="rig-tabs" id="rigTabs" role="tablist" aria-label="Módulos"><button class="hw hw-keycap rig-modo" data-color="gray" type="button" role="tab" data-page="easy"><span>FÁCIL</span></button><button class="hw hw-keycap rig-modo" data-color="gray" type="button" id="rigTaller" aria-label="Taller: el sintetizador completo"><span>TALLER</span></button>${PAGES.filter(page => page.id !== 'easy').map(page => `<button class="hw hw-keycap rig-tab" data-color="gray" type="button" role="tab" data-page="${page.id}"><span>${page.label}</span></button>`).join('')}</div>
+          <p class="rig-coach" id="rigCoach" role="status"></p>
           <div class="rig-panel" id="rigPanel" role="tabpanel"></div>
           <button class="hw rig-live" id="rigLive" type="button" aria-haspopup="dialog" aria-label="Enlace con Ableton Live"><i></i><span id="rigLiveText">LIVE · CONECTAR CON ABLETON</span></button>
           <div class="rig-jacks" id="rigJacks" aria-label="Moduladores">${SOURCES.map(([key, label, tone]) => `<button class="hw rig-jack" type="button" data-src="${key}"${LIVE_KEYS.includes(key) ? ' data-live' : ''} data-feel="soft" style="--tone:${tone}" aria-label="Modulador ${label}"><i class="led"></i><b class="socket"></b><span class="hw-print">${label}</span></button>`).join('')}</div>
@@ -1490,8 +1511,37 @@ void main() {
   const knobHtml = id => `<div class="rig-knob${P[id][2] ? ' has-center' : ''}" data-param="${id}" data-feel="none" role="slider" tabindex="0" aria-label="${P[id][0]}" aria-valuemin="0" aria-valuemax="100"><div class="dial"><i class="ring"></i><i class="ptr"></i><i class="live"></i></div><span class="hw-print">${P[id][0]}</span></div>`;
   const pickHtml = ([id, label]) => `<div class="rig-pick" data-pick="${id}"><span class="hw-print">${label}</span><div class="rig-pick-row"><button class="hw hw-keycap" data-color="gray" type="button" data-step="-1" aria-label="${label}: anterior">${svg('left')}</button><div class="hw-lcd"><b></b></div><button class="hw hw-keycap" data-color="gray" type="button" data-step="1" aria-label="${label}: siguiente">${svg('right')}</button></div></div>`;
   const toggleHtml = ([id, label]) => `<div class="rig-toggle"><button class="hw hw-switch" type="button" role="switch" aria-checked="false" data-toggle="${id}" aria-label="${label}"><i></i></button><span class="hw-print">${label}</span></div>`;
+  // Los cuatro mandos que más cuentan en esta escena: primero los que ya llevan cable, luego los
+  // que la escena movió más lejos de fábrica, y si faltan, cuatro de siempre.
+  function easyKnobs() {
+    const picked = [];
+    for (const r of live.r) if (!picked.includes(r[1]) && SCENE_IDS.includes(r[1]) && !/^lfo/.test(r[1])) picked.push(r[1]);
+    const moved = SCENE_IDS.filter(id => !picked.includes(id) && !/^lfo/.test(id)).map(id => [Math.abs(live.p[id] - P[id][1]), id]).sort((a, b) => b[0] - a[0]);
+    for (const [far, id] of moved) if (picked.length < 4 && far > .04) picked.push(id);
+    for (const id of ['geo.zoom', 'col.hue', 'sig.rgb', 'fb.amt']) if (picked.length < 4 && !picked.includes(id)) picked.push(id);
+    return picked.slice(0, 4);
+  }
+  // Las fuentes que se enseñan en FÁCIL: las que ya llevan cable y, de las demás, las pistas de Live si
+  // el enlace está encendido, o el sonido y un LFO si no.
+  const EASY_SOURCES = ['bass', 'beat', 'mid', 'high', 'lfo1', 'hx'];
+  // Una línea que dice qué hacer ahora, con palabras de todos los días.
+  let coachTimer = 0;
+  function coach(text, ms) {
+    const node = ui.rig && $('rigCoach');
+    if (!node) return;
+    clearTimeout(coachTimer);
+    const base = ui.armed ? SRC[ui.armed].label + ' › ahora toca el mando que quieres que mueva' : live.r.length ? 'Toca una fuente y luego un mando para conectar otro cable' : '1 · Toca una fuente de abajo     2 · Toca el mando que quieres que mueva';
+    node.textContent = text || base;
+    node.classList.toggle('is-armed', !!ui.armed && !text);
+    node.style.setProperty('--arm', ui.armed ? SRC[ui.armed].tone : 'transparent');
+    if (text && ms) coachTimer = setTimeout(() => coach(), ms);
+  }
   function renderPage() {
-    const page = PAGES.find(entry => entry.id === ui.page) || PAGES[0];
+    let page = PAGES.find(entry => entry.id === ui.page) || PAGES[0];
+    const easy = page.id === 'easy';
+    if (easy) page = { id: 'easy', title: 'ESCENA ' + (store.scene + 1) + ' · ' + store.scenes[store.scene].name + ' · SUS MANDOS', knobs: easyKnobs() };
+    ui.rig.classList.toggle('rig-easy', easy);
+    $('rigTaller').classList.toggle('is-on', !easy);
     let html = `<div class="rig-title hw-print">${page.title}</div>`;
     if (page.picks) html += `<div class="rig-picks" data-count="${page.picks.length}">${page.picks.map(pickHtml).join('')}</div>`;
     if (page.fader) html += `<div class="rig-fader" data-param="${page.fader}" data-feel="none" role="slider" tabindex="0" aria-label="Fundido entre la cámara y el generador" aria-valuemin="0" aria-valuemax="100"><span class="hw-print">A</span><div class="track"><i class="ring"></i><i class="cap"></i><i class="live"></i></div><span class="hw-print">B</span></div>`;
@@ -1505,7 +1555,7 @@ void main() {
     ui.ctl = {};
     ui.panel.querySelectorAll('[data-param]').forEach(node => { ui.ctl[node.dataset.param] = node; syncCtl(node.dataset.param); });
     ui.rig.querySelectorAll('#rigTabs [data-page]').forEach(tab => { const on = tab.dataset.page === page.id; tab.classList.toggle('is-on', on); tab.setAttribute('aria-selected', String(on)); });
-    syncPicks(); syncToggles(); syncKeys(); routesList();
+    syncPicks(); syncToggles(); syncKeys(); routesList(); syncJacks(); coach();
     requestAnimationFrame(cables);
   }
   const angle = v => -135 + 270 * v;
@@ -1537,6 +1587,7 @@ void main() {
       const key = jack.dataset.src;
       jack.classList.toggle('is-armed', ui.armed === key);
       jack.classList.toggle('is-used', live.r.some(r => r[0] === key));
+      jack.classList.toggle('is-easy', link.state === 'on' && linkFresh() ? LIVE_KEYS.includes(key) : EASY_SOURCES.includes(key));
     });
   }
   function syncKeys() {
@@ -1725,8 +1776,10 @@ void main() {
       const tab = event.target.closest('[data-page]');
       if (!tab) return;
       ui.page = tab.dataset.page;
+      if (ui.page !== 'easy') ui.taller = ui.page;
       renderPage();
     });
+    $('rigTaller').addEventListener('click', () => { if (ui.page === 'easy') { ui.page = ui.taller; renderPage(); } });
     // Escenas: toque para llamar, mantener para guardar.
     let hold = 0, held = false;
     $('rigScenes').addEventListener('pointerdown', event => {

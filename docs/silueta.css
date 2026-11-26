@@ -196,6 +196,10 @@ body.is-recording #deckShutter .silueta .parar { opacity: 1; }
 body[data-piel="interfaz"].cam-video:not(.is-recording) #deckShutter .silueta .pupila { fill: var(--si-rec); }
 @media (prefers-reduced-motion: reduce) { #deckShutter .silueta :is(.ojo, .cerrado) { transition: none !important; } }
 
+/* STAGE: sus teclas llevan rótulos más cortos de cuerpo que las de la cámara (caben ocho por fila). */
+body[data-piel="interfaz"] .rig-tabs .hw-keycap { font-size: 9.5px !important; letter-spacing: .06em !important; }
+body[data-piel="interfaz"] .rig-tabs .rig-modo { font-size: 11px !important; letter-spacing: .12em !important; }
+
 /* ── Cámaras que escuchan (escucha.js) ──
    Mientras espera el golpe, la cámara del disparador mantiene el ojo cerrado; con la escucha
    encendida late con el bajo. */

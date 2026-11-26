@@ -131,6 +131,26 @@ const where = page => page.evaluate(() => flipReaccion.probe());
     assert.ok(photo.dark > .3 && photo.green > .04, 'la foto sale con el coral: ' + JSON.stringify(photo));
     step('la foto sale igual', photo);
 
+    // En la piel OBJETO las dos teclas son teclas del aparato, en su fila bajo las variantes.
+    await page.evaluate(() => { flipReaccion.set({ palette: 'fosforo', invert: false }); flipPiel.set('objeto'); });
+    await page.waitForTimeout(900);
+    const teclas = page.locator('.reaccion-teclas');
+    assert.equal(await teclas.isVisible(), true, 'en OBJETO hay teclas de REACCIÓN');
+    assert.equal(await page.locator('.si-rapidas').isVisible(), false, 'y las de la banda de INTERFAZ no están');
+    await teclas.locator('[data-reaccion="paleta"]').click();
+    await teclas.locator('[data-reaccion="paleta"]').click();
+    await teclas.locator('[data-reaccion="invertir"]').click();
+    const objeto = await page.evaluate(() => {
+      const [inv, pal] = document.querySelectorAll('.reaccion-teclas button'), box = pal.getBoundingClientRect(), last = [...document.querySelectorAll('#deckVariants [data-variant]')].pop();
+      return { ...flipReaccion.options(), dice: pal.textContent.trim(), pressed: inv.getAttribute('aria-pressed'), cabe: box.right <= innerWidth && box.height >= 28, entera: (() => { const r = document.createRange(); r.selectNodeContents(last); return r.getBoundingClientRect().width <= last.clientWidth - 2; })(), visor: document.getElementById('display').getBoundingClientRect().height > 150 };
+    });
+    assert.deepEqual(objeto, { invert: true, palette: 'orquidea', dice: 'COLOR: ORQUÍDEA', pressed: 'true', cabe: true, entera: true, visor: true });
+    await page.locator('#deckLooks [data-family="DSI"]').click();
+    await page.waitForTimeout(300);
+    assert.equal(await teclas.isVisible(), false, 'y se van al cambiar de cámara');
+    await page.evaluate(() => { flipReaccion.set({ palette: 'fosforo', invert: false }); flipPiel.set('interfaz'); });
+    step('en la piel OBJETO: dos teclas del aparato', objeto);
+
     assert.deepEqual(errors, []);
     console.log('REACCION PASS');
   } finally {

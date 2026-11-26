@@ -12,9 +12,13 @@ DEST="$HERE/../../docs/brand/rollo-en-anil/materiales"
 BLENDER="${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}"
 mkdir -p "$OUT"
 PERLA="c_cream=#EDE5D8"
-LOOK="scale=4 samples=128 strip=7 key_rough=0.36 key_coat=0.35 well=#4E4A3E gap=1.2 $PERLA"
+# El color de marca de las piezas «añil» es hoy un verde esmeralda (25-nov-2026). Las piezas y sus
+# archivos conservan el nombre «anil» (es el nombre del papel que hacen: la tecla elegida, la acción
+# principal), y aquí se les da el color.
+VERDE="c_anil=#008048"
+LOOK="scale=4 samples=128 strip=7 key_rough=0.36 key_coat=0.35 well=#4E4A3E gap=1.2 $PERLA $VERDE"
 r() { out="$OUT/$1.png"; kind="$2"; shift 2; "$BLENDER" -b -P "$HERE/build.py" -- "$kind" "$out" $LOOK "$@" 2>&1 | grep -E "RENDER_OK|Error|Traceback" || true; }
-k() { out="$OUT/$1.png"; shift; "$BLENDER" -b -P "$HERE/panel.py" -- key "$out" scale=4 strip=7 key_rough=0.36 key_coat=0.35 well=#4E4A3E "$@" 2>&1 | grep -E "RENDER_OK|Error|Traceback" || true; }
+k() { out="$OUT/$1.png"; shift; "$BLENDER" -b -P "$HERE/panel.py" -- key "$out" scale=4 strip=7 key_rough=0.36 key_coat=0.35 well=#4E4A3E $VERDE "$@" 2>&1 | grep -E "RENDER_OK|Error|Traceback" || true; }
 # Teclas: la añil de «elegido» y de acción principal; el selector de módulo es la misma pieza.
 r tecla-anil keycap color=anil
 r tecla-anil-pulsada keycap color=anil state=down
@@ -25,12 +29,24 @@ for color in anil mandarina lima rec; do
   r "boton-$color" candy color=$color
   r "boton-$color-pulsado" candy color=$color state=down
 done
-# Disparador: tapa de PBT vainilla en aro de aluminio anodizado añil; disco rojo en vídeo.
-SHUTTER="dip=5.4 cap_white=#EBE3D0 cap_video=rec gloss_rough=0.34 ring=#2A3F9F ring_rough=0.34"
-r disparador-anil shutter $SHUTTER
-r disparador-anil-pulsado shutter state=down $SHUTTER
-r disparador-video shutter cap=video $SHUTTER
-r disparador-video-pulsado shutter cap=video state=down $SHUTTER
+# Disparador: la mascota de FLIP en volumen (la silueta del símbolo, de plástico lustroso verde, con
+# sus ojos). Pulsada cierra el ojo; en video la pupila es roja; grabando no lleva cara (la interfaz
+# pone encima el cuadrado de detener).
+MASCOTA="gloss_rough=0.34 samples=192"
+r disparador-mascota mascota $MASCOTA
+r disparador-mascota-pulsado mascota state=down $MASCOTA
+r disparador-mascota-video mascota cap=video $MASCOTA
+r disparador-mascota-grabando mascota state=down face=0 c_anil=#F54846 $MASCOTA
+# La misma mascota por capas, para animarla en el disparador de la cámara (mira, guiña, entrecierra
+# el ojo): el cuerpo con su guiño, el blanco del ojo, la pupila (oscura y roja) y el ojo cerrado.
+r mascota-cuerpo mascota only=cuerpo $MASCOTA
+r mascota-cuerpo-pulsado mascota only=cuerpo state=down $MASCOTA
+r mascota-ojo mascota only=ojo $MASCOTA
+r mascota-pupila mascota only=pupila $MASCOTA
+r mascota-pupila-video mascota only=pupila cap=video $MASCOTA
+r mascota-ojo-cerrado mascota only=cerrado $MASCOTA
+# La sombra de la mascota sale con ruido (es grande y lustrosa): se alisa antes de rematar las piezas.
+python3 "$HERE/sombra.py" "$OUT"/disparador-mascota*.png "$OUT"/mascota-cuerpo*.png
 # La diapositiva elegida de la bandeja de cámaras y la tecla LISTO de la consola.
 k perfil-anil w=64 h=54 samples=128 color=anil $PERLA
 k tecla-consola-anil w=62 h=30 samples=160 color=anil finish=graphite

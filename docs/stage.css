@@ -208,7 +208,7 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 .rig-live-keys { display: flex; gap: 8px; justify-content: flex-end; }
 .rig-live-keys button { min-height: 44px; padding: 0 14px; border-radius: 8px; border: 0; background: #2a2b31; color: #f4f1ea; font: 800 10.5px/1 var(--font-ui); letter-spacing: .1em; }
 .rig-live-keys button[hidden] { display: none; }
-#rigLiveGo { background: #7ddb8b; color: #151727; }
+#rigLiveGo { background: #008048; color: #FFF3DF; }
 
 /* ── Tomas de modulación ─────────────────────────────────────────────────── */
 .rig-jacks {

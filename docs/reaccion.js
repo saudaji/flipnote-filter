@@ -272,7 +272,8 @@
   // ── Sus dos teclas, en la banda de la piel INTERFAZ (solo con REACCIÓN puesta) ──
   // Van en la banda y no en el cajón porque el cajón tapa la imagen: aquí se pulsa viendo el cambio.
   // INVERTIR enciende y apaga; la otra dice la paleta y cada toque pasa a la siguiente.
-  let row = null;
+  // En la piel OBJETO son dos teclas del aparato, en su propia fila bajo las variantes.
+  let row = null, objeto = null;
   const mine = () => typeof camFamily !== 'undefined' && camFamily === 'VFD' && typeof camVariant !== 'undefined' && camVariant === 'REAC';
   function paint() {
     if (!row) return;
@@ -284,6 +285,14 @@
     pal.dataset.paleta = opt.palette;
     pal.lastChild.textContent = PALETTES[opt.palette].label;
     pal.setAttribute('aria-label', 'Paleta ' + PALETTES[opt.palette].label + '. Toca para cambiarla');
+    if (objeto) {
+      objeto.hidden = !on;
+      const [oi, op] = objeto.querySelectorAll('button');
+      oi.classList.toggle('is-on', opt.invert); oi.setAttribute('aria-pressed', String(opt.invert));
+      op.dataset.paleta = opt.palette;
+      op.lastChild.textContent = 'COLOR: ' + PALETTES[opt.palette].label;
+      op.setAttribute('aria-label', 'Paleta ' + PALETTES[opt.palette].label + '. Toca para cambiarla');
+    }
   }
   function mount() {
     const cabeza = document.querySelector('.si-banda-cabeza');
@@ -293,8 +302,19 @@
       '<button class="hw si-chip" type="button" id="reaccionPaleta"><i aria-hidden="true"></i><span></span></button>');
     cabeza.insertBefore(row, cabeza.querySelector('.si-abrir'));
     const say = text => { if (window.flipShell && flipShell.hint) flipShell.hint(text, 1600); };
-    row.querySelector('#reaccionInvertir').addEventListener('click', () => { set({ invert: !opt.invert }); say(opt.invert ? 'Invertida: el coral crece en lo oscuro' : 'El coral crece en lo iluminado'); });
-    row.querySelector('#reaccionPaleta').addEventListener('click', () => { const ids = Object.keys(PALETTES); set({ palette: ids[(ids.indexOf(opt.palette) + 1) % ids.length] }); say('Paleta ' + PALETTES[opt.palette].label); });
+    const invertir = () => { set({ invert: !opt.invert }); say(opt.invert ? 'Invertida: el coral crece en lo oscuro' : 'El coral crece en lo iluminado'); };
+    const paleta = () => { const ids = Object.keys(PALETTES); set({ palette: ids[(ids.indexOf(opt.palette) + 1) % ids.length] }); say('Paleta ' + PALETTES[opt.palette].label); };
+    row.querySelector('#reaccionInvertir').addEventListener('click', invertir);
+    row.querySelector('#reaccionPaleta').addEventListener('click', paleta);
+    const tira = document.querySelector('#camDeck .deck-looks');
+    if (tira) {
+      objeto = flipShell.el('div', { class: 'deck-variants reaccion-teclas', role: 'group', 'aria-label': 'Opciones de REACCIÓN' },
+        '<button class="hw hw-keycap" type="button" data-reaccion="invertir" aria-pressed="false">INVERTIR</button>' +
+        '<button class="hw hw-keycap" type="button" data-reaccion="paleta"><i aria-hidden="true"></i><span></span></button>');
+      tira.before(objeto);
+      objeto.querySelector('[data-reaccion="invertir"]').addEventListener('click', invertir);
+      objeto.querySelector('[data-reaccion="paleta"]').addEventListener('click', paleta);
+    }
     for (const id of ['deckLooks', 'deckVariants']) { const node = document.getElementById(id); if (node) new MutationObserver(() => queueMicrotask(paint)).observe(node, { subtree: true, attributes: true, attributeFilter: ['class'] }); }
     paint();
   }

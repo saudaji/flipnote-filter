@@ -22,14 +22,13 @@ body[data-flip="rollo-en-anil"] {
   --rollo-shell-mid: url('./brand/rollo-en-anil/materiales/shell-mid.webp');
   --rollo-shell-bottom: url('./brand/rollo-en-anil/materiales/shell-bottom.webp');
   --rollo-shell-foot: url('./brand/rollo-en-anil/materiales/shell-foot.webp');
-  --rollo-pie: url('./marca/placa-fl-27-compacta.svg');
+  --rollo-pie: url('./marca/firma-fl-27.svg');
 }
 body[data-flip="rollo-en-anil"][data-tema="oscuro"] {
   --rollo-shell-top: url('./brand/rollo-en-anil/materiales/shell-top-oscuro.webp');
   --rollo-shell-mid: url('./brand/rollo-en-anil/materiales/shell-mid-oscuro.webp');
   --rollo-shell-bottom: url('./brand/rollo-en-anil/materiales/shell-bottom-oscuro.webp');
   --rollo-shell-foot: url('./brand/rollo-en-anil/materiales/shell-foot-oscuro.webp');
-  --rollo-pie: url('./marca/placa-fl-27-compacta-clara.svg');
   --cream-deep: #606887;
 }
 body[data-flip="rollo-en-anil"] :is(.hw-keycap,.look span,.launcher-card,.splash-door) { color: var(--flip-tinta-tecla); }
@@ -44,7 +43,7 @@ body[data-flip="rollo-en-anil"] .launcher-card[data-module="stage"] u { backgrou
 body[data-flip="rollo-en-anil"] .splash-title {
   padding: 7px 12px;
   background: var(--flip-acento);
-  box-shadow: 0 3px 0 #1C2E75, inset 0 1px 0 #7989DC;
+  box-shadow: 0 3px 0 #005A32, inset 0 1px 0 #4CC38A;
 }
 .rollo-titulo { display: block; width: 114px; height: auto; }
 /* ── La portada: el logo vivo ────────────────────────────────────────────────
@@ -84,10 +83,14 @@ body[data-flip="rollo-en-anil"] .splash-title {
 @media (prefers-reduced-motion: reduce) { .rollo-vivo, .rollo-vivo * { animation: none !important; } }
 .rollo-ident-listo b { display: none; }
 .rollo-ident-listo u { color: #D6E5AA; }
+/* La firma del aparato: solo la palabra y el modelo, pequeña, en la esquina de abajo a la derecha,
+   a la altura de los tornillos. Sin el símbolo y lejos del disparador: el símbolo ya ES el
+   disparador (la mascota) y repetirlo justo debajo sobraba. Se pinta con la tinta suave del tema. */
 .rollo-pie {
-  position: absolute; bottom: calc(1px + env(safe-area-inset-bottom, 0px)); left: 50%;
-  transform: translateX(-50%); width: 104px; height: 18px;
-  background: var(--rollo-pie) center / contain no-repeat;
+  position: absolute; bottom: calc(1px + env(safe-area-inset-bottom, 0px)); right: 40px;
+  width: 58px; height: 13px; opacity: .62;
+  background: var(--flip-tinta-suave);
+  -webkit-mask: var(--rollo-pie) right center / contain no-repeat; mask: var(--rollo-pie) right center / contain no-repeat;
   pointer-events: none;
 }
 .rollo-matriz {
@@ -117,7 +120,7 @@ body[data-flip="rollo-en-anil"] :is(.splash-door-sub,#cameraGate p,.launcher-car
   font-family: var(--flip-fuente-texto) !important;
 }
 body[data-flip="rollo-en-anil"] .splash-tag i {
-  background: linear-gradient(90deg, #273FA8 0 33%, #F77F50 33% 66%, #90C578 66%);
+  background: linear-gradient(90deg, #008048 0 33%, #F77F50 33% 66%, #90C578 66%);
 }
 body[data-flip="rollo-en-anil"] #btnSplashOriginal .splash-door-sub { opacity: 1 !important; }
 body[data-flip="rollo-en-anil"] #btnSplashStage .splash-door-sub { opacity: 1 !important; }
@@ -131,7 +134,10 @@ body[data-flip="rollo-en-anil"] #preloader .preloader-glyph { width: 56px; heigh
 
 /* ── Ajustes de integración (FLIP) ───────────────────────────────────────────────────────────── */
 /* La firma del pie, despegada del canto: es tampografía sobre el plástico, no un adhesivo en el borde. */
-.rollo-pie { bottom: calc(7px + env(safe-area-inset-bottom, 0px)); }
+.rollo-pie { bottom: calc(9px + env(safe-area-inset-bottom, 0px)); }
+/* Dos toques en la firma: la mascota guiña dos veces (silueta.js). La zona de toque es algo mayor que la firma. */
+#camDeck .rollo-pie { pointer-events: auto; }
+#camDeck .rollo-pie::after { content: ''; position: absolute; inset: -12px -10px; }
 
 /* ── Carcasa oscura ──────────────────────────────────────────────────────────────────────────── */
 /* Los marcos hundidos (visor, bandeja de cámaras, última toma, pantallita) son del mismo plástico

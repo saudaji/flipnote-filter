@@ -481,6 +481,152 @@ def shutter(x, y, video=False, pressed=False):
     return parts
 
 
+# ── La mascota: el disparador es la camarita de FLIP, en volumen ───────────────
+# La misma silueta del símbolo (docs/silueta.js) inflada como una pastilla de plástico lustroso,
+# con sus ojos: el izquierdo siempre en guiño y el derecho abierto, de marfil con la pupila oscura.
+# Al pulsarla baja y cierra el ojo. En video la pupila es roja; grabando, la cara deja el sitio al
+# cuadrado de detener (que pone la interfaz encima).
+MASCOT_BODY = 'M6 27Q7 18 17 17H19L23 11Q25 8 29 8H42Q47 8 49 13L51 17Q58 18 59 25L61 40Q63 53 51 55L18 59Q7 60 5 49L4 39Q3 32 6 27Z'
+MASCOT_EYE = 'M13 35Q20 27 29 32Q33 35 30 38Q28 40 25 38Q21 35 17 39Q13 40 13 35Z'
+MASCOT_SCALE, MASCOT_CX, MASCOT_CY = 1.62, 32.7, 34.2
+
+
+def svg_outline(d, steps=12):
+    """Contorno de un trazado SVG sencillo (M, L, H, V, Q, Z en absoluto) como lista de puntos."""
+    import re
+    tokens = re.findall(r'[MLHVQZ]|-?[0-9.]+', d)
+    pts, i, cur, cmd = [], 0, (0.0, 0.0), ''
+    num = lambda: float(tokens.pop(0))
+    while tokens:
+        if tokens[0] in 'MLHVQZ':
+            cmd = tokens.pop(0)
+            if cmd == 'Z':
+                break
+        if cmd in 'ML':
+            cur = (num(), num()); pts.append(cur)
+        elif cmd == 'H':
+            cur = (num(), cur[1]); pts.append(cur)
+        elif cmd == 'V':
+            cur = (cur[0], num()); pts.append(cur)
+        elif cmd == 'Q':
+            c, e = (num(), num()), (num(), num())
+            for k in range(1, steps + 1):
+                t = k / steps
+                pts.append(((1 - t) ** 2 * cur[0] + 2 * (1 - t) * t * c[0] + t * t * e[0], (1 - t) ** 2 * cur[1] + 2 * (1 - t) * t * c[1] + t * t * e[1]))
+            cur = e
+    if pts and math.hypot(pts[0][0] - pts[-1][0], pts[0][1] - pts[-1][1]) < 1e-6:
+        pts.pop()
+    return pts
+
+
+def resample(pts, count):
+    """El mismo contorno cerrado con «count» puntos a distancias iguales."""
+    n = len(pts)
+    lengths = [math.hypot(pts[(i + 1) % n][0] - pts[i][0], pts[(i + 1) % n][1] - pts[i][1]) for i in range(n)]
+    total, out, seg, walked = sum(lengths), [], 0, 0.0
+    for k in range(count):
+        target = total * k / count
+        while walked + lengths[seg] < target:
+            walked += lengths[seg]; seg += 1
+        t = (target - walked) / (lengths[seg] or 1)
+        a, b = pts[seg], pts[(seg + 1) % n]
+        out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+    return out
+
+
+def relax(pts, passes=1):
+    """Redondea las esquinas (media con los vecinos), sin cambiar el número de puntos."""
+    for _ in range(passes):
+        n = len(pts)
+        pts = [((pts[i - 1][0] + 2 * pts[i][0] + pts[(i + 1) % n][0]) / 4, (pts[i - 1][1] + 2 * pts[i][1] + pts[(i + 1) % n][1]) / 4) for i in range(n)]
+    return pts
+
+
+def inset(pts, distance):
+    """El contorno (antihorario) metido «distance» hacia dentro, punto a punto."""
+    n, out = len(pts), []
+    for i in range(n):
+        tx, ty = pts[(i + 1) % n][0] - pts[i - 1][0], pts[(i + 1) % n][1] - pts[i - 1][1]
+        length = math.hypot(tx, ty) or 1
+        out.append((pts[i][0] - ty / length * distance, pts[i][1] + tx / length * distance))
+    return relax(out, 2) if distance > 2 else out
+
+
+def mascot_outline(d, count, mirror=False):
+    """Trazado del símbolo → contorno en la escena: centrado, con la Y hacia arriba y antihorario."""
+    pts = svg_outline(d)
+    if mirror:                                                   # el ojo derecho cerrado es el izquierdo reflejado
+        pts = [(65.5 - x, y - 1) for x, y in pts]
+    pts = [((x - MASCOT_CX) * MASCOT_SCALE, -(y - MASCOT_CY) * MASCOT_SCALE) for x, y in resample(pts, count)]
+    area = sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1] for i in range(len(pts)))
+    return pts if area > 0 else list(reversed(pts))
+
+
+def slab(name, pts, z0, z1, bevel, material):
+    """Una pieza plana con la forma del contorno (aunque no sea convexa), con el canto de arriba matado."""
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    rings = [[bm.verts.new((px, py, z)) for px, py in ring] for ring, z in ((pts, z0), (pts, z1 - bevel), (inset(pts, bevel * 0.8), z1))]
+    count = len(pts)
+    for a, b in zip(rings, rings[1:]):
+        for i in range(count):
+            j = (i + 1) % count
+            bm.faces.new((a[i], a[j], b[j], b[i]))
+    bm.faces.new(rings[-1])
+    bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
+    bm.normal_update()
+    bm.to_mesh(mesh)
+    bm.free()
+    for poly in mesh.polygons:
+        poly.use_smooth = True
+    try:
+        mesh.set_sharp_from_angle(angle=math.radians(50))
+    except Exception:
+        pass
+    return link(bpy.data.objects.new(name, mesh), material)
+
+
+def mascota(x, y, color='anil', video=False, pressed=False, face=True, only=None):
+    """only: para animarla en la interfaz se renderiza por capas, todas en el mismo encuadre:
+    «cuerpo» (con el guiño del ojo izquierdo, sin el derecho), «ojo» (el blanco), «pupila» y
+    «cerrado» (el ojo derecho cerrado). Sin «only», la pieza entera."""
+    travel = -2.3 if pressed else 0.0
+    gap = float(OPTS.get('gap', 1.5))
+    outline = relax(mascot_outline(MASCOT_BODY, 180), 3)
+    wall, bevel, crown = 2.4, float(OPTS.get('bevel', 8.5)), float(OPTS.get('crown', 1.7))
+    loops = [(outline, 0.3 + travel), (outline, wall + travel)]
+    for k in range(1, 10):                                       # el canto: un cuarto de círculo
+        t = math.radians(10 * k)
+        loops.append((inset(outline, bevel * (1 - math.cos(t))), wall + bevel * math.sin(t) + travel))
+    top, height = loops[-1][0], wall + bevel
+    for f in (0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1):          # la tapa: apenas abombada
+        loops.append(([(px * f, py * f) for px, py in top], height + crown * (1 - f * f) + travel))
+    seat = inset(outline, -gap)
+    parts = []
+    if only in (None, 'cuerpo'):
+        parts += [
+            loft('m_seat', [(seat, -0.2), (seat, 0.25)], plastic('well', 0.7, 0), cap_top=0.0),
+            loft('m_body', loops, gloss(color), cap_top=-crown * 0.04),
+        ]
+    if face:
+        ivory, z = gloss(OPTS.get('eye', 'vainilla')), height + crown * 0.72 + travel
+        ex, ey = (43 - MASCOT_CX) * MASCOT_SCALE, -(34 - MASCOT_CY) * MASCOT_SCALE
+        if only in (None, 'cuerpo'):
+            parts.append(slab('m_wink', mascot_outline(MASCOT_EYE, 64), z - 0.9, z + 1.25, 0.7, ivory))
+        if only == 'cerrado' or (only is None and pressed):      # pulsada, cierra el ojo
+            parts.append(slab('m_shut', mascot_outline(MASCOT_EYE, 64, mirror=True), z - 0.9, z + 1.25, 0.7, ivory))
+        if only == 'ojo' or (only is None and not pressed):
+            parts.append(place(dome('m_eye', 8 * MASCOT_SCALE, 1.5, 1.5, 1.3, z - 0.75, ivory), ex, ey))
+        if only == 'pupila' or (only is None and not pressed):
+            parts.append(place(dome('m_pupil', 4.3 * MASCOT_SCALE, 0.9, 0.9, 0.8, z + 1.75, gloss('rec' if video else OPTS.get('pupil', '#151727'))), ex, ey))
+        # Una capa suelta proyecta su sombra sobre la tapa del cuerpo (que en esa capa no está).
+        if only in ('ojo', 'pupila', 'cerrado'):
+            catcher(112, 112, z - 0.9 if only != 'pupila' else z + 1.6)
+    for part in parts:
+        place(part, x, y)
+    return parts
+
+
 def knob(x, y, radius=26):
     """Perilla de aluminio moleteado con la cara torneada."""
     side = metal('knurl', (0.80, 0.81, 0.83), 0.34, knurl=float(OPTS.get('knurl', 64)))
@@ -657,17 +803,19 @@ def main():
         camera(scene, w + air * 2, h + air * 2, True)
         shell(w, h)
     else:
-        sizes = {'shutter': (112, 112), 'candy': (56, 56), 'keycap': (int(OPTS.get('w', 96)), int(OPTS.get('h', 46))), 'recess': (int(OPTS.get('w', 132)), int(OPTS.get('h', 132))),
+        sizes = {'shutter': (112, 112), 'mascota': (112, 112), 'candy': (56, 56), 'keycap': (int(OPTS.get('w', 96)), int(OPTS.get('h', 46))), 'recess': (int(OPTS.get('w', 132)), int(OPTS.get('h', 132))),
                  'knob': (72, 72), 'switch': (72, 34), 'nub': (40, 34), 'dial': (60, 60), 'jack': (36, 36)}
         if PIECE not in sizes:
             raise SystemExit('pieza desconocida: ' + PIECE)
         w, h = sizes[PIECE]
         camera(scene, w, h, True)
         # Las piezas hundidas (marcos) no llevan plano de sombra: quedaría por encima y las taparía.
-        if PIECE not in ('recess', 'switch'):
+        if PIECE not in ('recess', 'switch') and OPTS.get('only') in (None, 'cuerpo'):
             catcher(w, h)
         if PIECE == 'shutter':
             shutter(0, 0, video=OPTS.get('cap') == 'video', pressed=STATE == 'down')
+        elif PIECE == 'mascota':
+            mascota(0, 0, OPTS.get('color', 'anil'), video=OPTS.get('cap') == 'video', pressed=STATE == 'down', face=OPTS.get('face', '1') != '0', only=OPTS.get('only'))
         elif PIECE == 'candy':
             candy(0, 0, 23, OPTS.get('color', 'coral'), pressed=STATE == 'down')
         elif PIECE == 'keycap':

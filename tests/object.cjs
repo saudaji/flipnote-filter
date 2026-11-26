@@ -71,7 +71,7 @@ const dark = c => c[0] + c[1] + c[2] < 60, cream = c => c[0] > 200 && c[1] > 195
         const m = new DOMMatrix(getComputedStyle(shutter, '::before').transform);
         const icon = candy.querySelector('svg').getBoundingClientRect();
         return { ...flipLight.state(), sprite: +(Math.atan2(m.b, m.a) * 180 / Math.PI).toFixed(1), candy: candy.style.getPropertyValue('--lt'), icon: [Math.round(icon.x * 10), Math.round(icon.y * 10), Math.round(icon.width * 10)],
-          own: getComputedStyle(shutter).backgroundSize, piece: getComputedStyle(shutter, '::before').backgroundImage.match(/shutter-|disparador-/) !== null };
+          own: getComputedStyle(shutter).backgroundSize, piece: getComputedStyle(shutter, '::before').backgroundImage.match(/shutter-|disparador-|mascota-/) !== null };
       });
     };
     const rest = await tilt(50, 0, 400);
@@ -80,7 +80,7 @@ const dark = c => c[0] + c[1] + c[2] < 60, cream = c => c[0] > 200 && c[1] > 195
     if (shots) await page.screenshot({ path: path.join(shots, 'luz-reposo.png') });
     const right = await tilt(50, 20);
     assert.ok(right.turn < -8 && right.turn >= -34, 'inclinado a la derecha, el brillo gira: ' + right.turn);
-    assert.ok(Math.abs(right.sprite - right.turn) < 1, 'gira el render del disparador: ' + right.sprite);
+    assert.equal(right.sprite, 0, 'el disparador es la mascota, no una pieza redonda: su render no gira: ' + right.sprite);
     assert.equal(right.candy, right.turn.toFixed(1) + 'deg', 'y el de los botones redondos');
     assert.deepEqual(right.icon, rest.icon, 'el icono de encima no se mueve');
     if (shots) await page.screenshot({ path: path.join(shots, 'luz-derecha.png') });

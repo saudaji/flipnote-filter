@@ -8,7 +8,7 @@
 
 body[data-piel="interfaz"] {
   --si-fondo: #EDE5D8; --si-tinta: #242646; --si-suave: #4E4E65; --si-contorno: #6A6979; --si-marfil: #FFF3DF;
-  --si-banda: #0B0C14; --si-banda-suave: #C2B9AC; --si-banda-raya: #7E7973; --si-acento: #7DDB8B; --si-sobre-acento: #151727; --si-rec: #F54846;
+  --si-banda: #0B0C14; --si-banda-suave: #C2B9AC; --si-banda-raya: #7E7973; --si-acento: #008048; --si-sobre-acento: #FFF3DF; --si-rec: #F54846;
   --si-corte: 7px;                       /* la esquina cortada de las teclas */
   --si-rotulo: 800 10px/1 'Chivo', 'Archivo', system-ui, sans-serif;
   /* El visor llega de lado a lado, de la barra a la banda: sin marco. */
@@ -118,6 +118,8 @@ body[data-piel="interfaz"] :is(.deck-variants .hw-keycap, .si-chip) { --si-fondo
 body[data-piel="interfaz"] .deck-variants { overflow-x: auto; scrollbar-width: none; }
 body[data-piel="interfaz"] .deck-variants::-webkit-scrollbar { display: none; }
 body[data-piel="interfaz"] .deck-variants .hw-keycap { flex: 1 0 auto; padding: 0 11px !important; }
+/* (en la piel OBJETO van en su propia fila de teclas: aquí no) */
+body[data-piel="interfaz"] .reaccion-teclas { display: none !important; }
 /* Teclas rápidas de una cámara, en la banda (REACCIÓN: invertir y paleta). Con ellas, «cámaras y
    filtros» se queda en su flecha. */
 .si-rapidas { display: none; }
@@ -193,8 +195,8 @@ body[data-piel="interfaz"] #deckShutter::before, body[data-piel="interfaz"] #dec
 body[data-piel="interfaz"] #deckShutter .silueta { display: block; width: 88px; height: 84px; overflow: visible; }
 body[data-piel="interfaz"] #deckShutter:active, body[data-piel="interfaz"] #deckShutter.guino { transform: scale(.955) !important; }
 body[data-piel="interfaz"] #modeDeck #deckShutter { transform: none !important; }
-/* La cámara verde del símbolo, con sus ojos: marfil y pupila oscura. En claro lleva contorno de tinta
-   (el verde es claro y sobre el crema se perdería); en oscuro, de marfil. */
+/* La cámara verde del símbolo, con sus ojos: marfil y pupila oscura. En claro lleva contorno de tinta;
+   en oscuro, de marfil. */
 body[data-piel="interfaz"] #deckShutter { --flip-acento: var(--si-acento); --flip-tinta-acento: #FFF3DF; --flip-borde-disparador: var(--si-tinta); }
 body[data-piel="interfaz"][data-tema="oscuro"] #deckShutter { --flip-borde-disparador: #FFF3DF; }
 body[data-piel="interfaz"] #deckShutter .silueta :is(.pupila, .parar) { fill: #151727; }
@@ -236,7 +238,7 @@ body[data-piel="interfaz"] #modeDeck .si-placa { display: none; }
 body[data-piel="interfaz"] .launcher-card small, body[data-piel="interfaz"] .splash-door-sub { color: var(--si-suave) !important; opacity: 1 !important; }
 body[data-piel="interfaz"] :is(.launcher-card.is-on small, .launcher-card.is-on strong, .splash-door.principal *) { color: var(--si-sobre-acento) !important; }
 body[data-piel="interfaz"] .launcher-card em { background: none !important; box-shadow: inset 0 0 0 1.25px currentColor !important; color: inherit !important; border-radius: 6px 6px 0 6px !important; }
-body[data-piel="interfaz"] .launcher-card.is-on .launcher-sub { --si-fondo: var(--si-acento); --si-tinta: #151727; --si-contorno: rgba(21, 23, 39, .5); }
+body[data-piel="interfaz"] .launcher-card.is-on .launcher-sub { --si-fondo: var(--si-acento); --si-tinta: #FFF3DF; --si-contorno: rgba(255, 243, 223, .6); }
 body[data-piel="interfaz"] .launcher-card.is-on .launcher-sub.is-on { color: #FFF3DF !important; }
 body[data-piel="interfaz"] .launcher-card.is-on .launcher-sub.is-on::before, body[data-piel="interfaz"] .launcher-card.is-on .launcher-sub.is-on::after { background-color: #151727 !important; }
 body[data-piel="interfaz"] .launcher-head h2, body[data-piel="interfaz"] .splash-tag { color: var(--si-tinta) !important; font-family: 'Chivo', sans-serif !important; }
@@ -323,9 +325,8 @@ body[data-piel="interfaz"][data-luz="mucha"] #deckShutter { --pup: .78; }
 body[data-piel="interfaz"] #deckShutter.mareo .silueta .pupila { animation: si-mareo .62s cubic-bezier(.4, 0, .3, 1); }
 @keyframes si-mareo { 0% { transform: translate(0, 0); } 14% { transform: translate(2.4px, 0); } 36% { transform: translate(0, 2.4px); } 58% { transform: translate(-2.4px, 0); } 80% { transform: translate(0, -2.4px); } 100% { transform: translate(0, 0); } }
 /* Fuera del disparador: su cara en los avisos del visor, y dormida en la tecla TOMA mientras está vacía. */
-body[data-piel="interfaz"] #osdHint::before { content: ''; display: inline-block; width: 17px; height: 15px; margin-right: 7px; vertical-align: -3px; background: var(--si-mascota) center / contain no-repeat; }
-body[data-piel="interfaz"] #deckGallery:not(.has-shot) b svg { display: none; }
-body[data-piel="interfaz"] #deckGallery:not(.has-shot) b::after { content: ''; width: 23px; height: 20px; background: var(--si-tinta); -webkit-mask: var(--si-mascota-dormida) center / contain no-repeat; mask: var(--si-mascota-dormida) center / contain no-repeat; opacity: .8; }
+/* (el aviso con su cara y la base de la tecla TOMA dormida valen para las dos pieles: shell.css) */
+body[data-piel="interfaz"] #deckGallery:not(.has-shot) b::after { width: 23px; height: 20px; background: var(--si-tinta); opacity: .8; }
 /* Sin vibración (iPhone, escritorio) lo que no siente el dedo lo ve el ojo: el disparador retrocede
    y las teclas ceden un poco más. */
 body[data-haptic="vis"][data-piel="interfaz"] #deckShutter.retroceso { animation: si-retroceso .13s cubic-bezier(.3, 1.4, .5, 1); }

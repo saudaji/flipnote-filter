@@ -49,6 +49,13 @@ const URL0 = process.env.PIXEL_URL || 'http://localhost:8760';
   await js(() => flipShell.hint('Aquí estoy', 2200));
   await P.sleep(500);
   await c.screenshot(path.join(out, 'mascota-3-aviso.jpg'), { quality: 88 });
+  // La piel OBJETO: el verde y la mascota en volumen como disparador, con las teclas de REACCIÓN.
+  await js(() => flipPiel.set('objeto'));
+  await P.sleep(1500);
+  console.log('✓ mascota 3D · ' + JSON.stringify(await js(() => { const sh = document.getElementById('deckShutter'), m = t => (t === 'none' ? [1, 0, 0, 1, 0, 0] : t.slice(7, -1).split(',').map(Number)); const mira = m(getComputedStyle(sh.querySelector('.m3-mira')).transform); return { capas: ['.m3-blanco', '.m3-pupila', '.m3-cerrado'].map(sel => (getComputedStyle(sh.querySelector(sel)).backgroundImage.match(/[a-z-]+\.webp/) || [''])[0]), ojoAncho: Math.round(sh.querySelector('.m3-ojo').getBoundingClientRect().width), giroPupila: +(Math.atan2(mira[1], mira[0]) * 180 / Math.PI).toFixed(1), inclinacion: sh.style.getPropertyValue('--lt'), luz: document.body.dataset.luz || 'normal' }; })));
+  console.log('✓ piel OBJETO · ' + JSON.stringify(await js(() => ({ disparador: (getComputedStyle(document.getElementById('deckShutter'), '::before').backgroundImage.match(/disparador-[a-z-]+\.webp/) || [''])[0], acento: getComputedStyle(document.body).getPropertyValue('--flip-acento').trim(), teclas: [...document.querySelectorAll('.reaccion-teclas button')].map(k => k.textContent.trim()), fps: document.getElementById('lcdFps').textContent }))));
+  await c.screenshot(path.join(out, 'mascota-4-objeto.jpg'), { quality: 88 });
+  if (process.env.PIXEL_PIEL !== 'objeto') { await js(() => flipPiel.set('interfaz')); await P.sleep(900); await c.screenshot(path.join(out, 'mascota-5-interfaz-verde.jpg'), { quality: 88 }); }
   console.log('✓ lista para jugar');
   c.close();
   process.exit(0);

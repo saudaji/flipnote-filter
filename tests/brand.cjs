@@ -49,11 +49,12 @@ const contrast = (a, b) => {
     const cover = await page.evaluate(async () => {
       await document.fonts.ready;
       const title = document.querySelector('.rollo-titulo');
-      return { flip: document.body.dataset.flip, theme: document.body.dataset.tema, title: title.naturalWidth > 0, ident: (() => { const v = document.querySelector('.rollo-vivo'), h = document.querySelector('.splash-hero'); if (!v || !h) return 0; const a = v.getBoundingClientRect(), b = h.getBoundingClientRect(); const dentro = a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom && a.width > 120; return dentro && v.querySelectorAll('.rv-capa').length === 4 ? document.getAnimations().filter(x => x.animationName && x.animationName.startsWith('rv-') && x.playState === 'running').length : 0; })(),
+      return { flip: document.body.dataset.flip, theme: document.body.dataset.tema, title: title.naturalWidth > 0, titleShown: (r => r.width > 2 && r.height > 2)(document.querySelector('.splash-title').getBoundingClientRect()), titleName: title.alt, ident: (() => { const v = document.querySelector('.rollo-vivo'), h = document.querySelector('.splash-hero'); if (!v || !h) return 0; const a = v.getBoundingClientRect(), b = h.getBoundingClientRect(); const dentro = a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom && a.width > 120; return dentro && v.querySelectorAll('.rv-capa').length === 4 ? document.getAnimations().filter(x => x.animationName && x.animationName.startsWith('rv-') && x.playState === 'running').length : 0; })(),
         font: getComputedStyle(document.querySelector('.splash-door-label')).fontFamily, chivo: document.fonts.check('800 12px Chivo'), tag: document.querySelector('.splash-tag').textContent.trim() };
     });
     assert.equal(cover.flip, 'rollo-en-anil');
     assert.equal(cover.theme, 'principal', 'la carcasa de fábrica es la clara');
+    assert.deepEqual([cover.titleShown, cover.titleName], [false, 'FLIP'], 'un solo logo en la portada (el de la pantalla); el nombre sigue para el lector de pantalla');
     assert.ok(cover.title && cover.ident >= 10, 'la marca carga y el logo de la portada está vivo, dentro de su pantalla: ' + cover.ident);
     assert.ok(/Chivo/.test(cover.font) && cover.chivo, 'la serigrafía va en Chivo, servida por la app: ' + cover.font);
     if (shots) await page.screenshot({ path: path.join(shots, 'marca-portada.png') });
@@ -83,15 +84,17 @@ const contrast = (a, b) => {
       return { shutter: url(document.getElementById('deckShutter'), '::before'), adjust: url(document.getElementById('deckAdjust'), '::before'), flip: url(document.getElementById('deckFlip'), '::before'),
         on: url(document.querySelector('#deckVariants .hw-keycap.is-on, .deck-variants .hw-keycap.is-on') || document.querySelector('.hw-keycap.is-on'), '::before'),
         key: url(document.querySelector('.hw-keycap:not(.is-on):not([data-color])'), '::before'), shell: getComputedStyle(document.getElementById('camBody')).backgroundImage,
-        foot: !!document.querySelector('#camDeck .rollo-pie'), footImage: getComputedStyle(document.querySelector('#camDeck .rollo-pie')).backgroundImage };
+        foot: !!document.querySelector('#camDeck .rollo-pie'), footImage: (s => s.maskImage || s.webkitMaskImage)(getComputedStyle(document.querySelector('#camDeck .rollo-pie'))),
+        footPlace: (() => { const f = document.querySelector('#camDeck .rollo-pie').getBoundingClientRect(), sh = document.getElementById('deckShutter').getBoundingClientRect(); return { derecha: f.left > innerWidth * 0.6, pequena: f.width <= 64 && f.height <= 16, lejosDelDisparador: f.left > sh.right || f.top > sh.bottom + 4 }; })() };
     });
-    assert.match(pieces.shutter, /materiales\/disparador-anil\.webp/);
+    assert.match(pieces.shutter, /materiales\/mascota-cuerpo\.webp/);
     assert.match(pieces.adjust, /materiales\/boton-mandarina\.webp/);
     assert.match(pieces.flip, /materiales\/boton-lima\.webp/);
     assert.match(pieces.on, /materiales\/tecla-anil\.webp/);
     assert.match(pieces.key, /materiales\/tecla\.webp/);
     assert.match(pieces.shell, /materiales\/shell-top\.webp.*materiales\/shell-bottom\.webp.*materiales\/shell-mid\.webp/);
-    assert.match(pieces.footImage, /placa-fl-27-compacta\.svg/);
+    assert.match(pieces.footImage, /firma-fl-27\.svg/, 'la firma del pie: la palabra y el modelo, sin el símbolo');
+    assert.deepEqual(pieces.footPlace, { derecha: true, pequena: true, lejosDelDisparador: true }, 'pequeña, en la esquina, fuera del camino del disparador');
     step('disparador, botones, teclas, carcasa y firma son los de la marca');
 
     // ── 4 · Carcasa oscura ──
@@ -106,7 +109,7 @@ const contrast = (a, b) => {
       const css = (el, prop, pseudo) => getComputedStyle(el, pseudo)[prop];
       return { theme: document.body.dataset.tema, shell: css(document.getElementById('camBody'), 'backgroundImage'), bezel: css(document.getElementById('lcd'), 'borderImageSource'),
         tray: css(document.querySelector('.deck-looks'), 'borderImageSource'), lcd: css(document.querySelector('.hw-lcd'), 'borderImageSource', '::before'),
-        foot: css(document.querySelector('#camDeck .rollo-pie'), 'backgroundImage'), print: css(document.querySelector('#camDeck .hw-print'), 'color'),
+        foot: css(document.querySelector('#camDeck .rollo-pie'), 'backgroundColor'), print: css(document.querySelector('#camDeck .hw-print'), 'color'),
         keyInk: css(document.querySelector('.hw-keycap:not(.is-on):not([data-color])'), 'color') };
     });
     assert.equal(dark.theme, 'oscuro');
@@ -114,7 +117,7 @@ const contrast = (a, b) => {
     assert.match(dark.bezel, /bezel-oscuro\.webp/);
     assert.match(dark.tray, /tray-oscuro\.webp/);
     assert.match(dark.lcd, /lcd-oscuro\.webp/);
-    assert.match(dark.foot, /placa-fl-27-compacta-clara\.svg/);
+    assert.ok(contrast(dark.foot, 'rgb(45, 49, 77)') >= 3, 'la firma del pie se pinta clara sobre la carcasa oscura: ' + dark.foot);
     assert.ok(contrast(dark.print, 'rgb(45, 49, 77)') >= 4.5, 'la serigrafía se lee sobre la carcasa oscura: ' + dark.print);
     assert.ok(contrast(dark.keyInk, 'rgb(255, 243, 220)') >= 4.5, 'la tinta de una tecla clara sigue siendo oscura: ' + dark.keyInk);
     // La hoja de ajustes es una pieza clara: sus textos no pueden heredar la tinta invertida.

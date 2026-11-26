@@ -34,6 +34,9 @@
       </g>
       <rect class="parar" x="37.64" y="35.64" width="12.72" height="12.72" rx="1.7" fill="var(--flip-tinta-acento, #FFF3DF)"/>
     </svg>`);
+  // En la piel OBJETO la mascota es un render en volumen (shell.css): su ojo derecho va por capas
+  // para moverse igual que este (mismas clases de estado en el disparador, mismas variables).
+  shutter.insertAdjacentHTML('beforeend', '<span class="m3" aria-hidden="true"><span class="m3-ojo"><span class="m3-blanco"></span><span class="m3-mira"><span class="m3-pupila"></span></span></span><span class="m3-cerrado"></span></span>');
   // El guiño dura lo bastante para verse aunque el toque sea muy corto.
   let guinoTimer = 0;
   const guinar = () => {
@@ -88,7 +91,9 @@
   // hay ninguna toma. Se dibuja una vez y la hoja de estilos la usa.
   const svgUrl = svg => 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
   const OJO_CERRADO = 'M13 35Q20 27 29 32Q33 35 30 38Q28 40 25 38Q21 35 17 39Q13 40 13 35Z';
-  document.documentElement.style.setProperty('--si-mascota', svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="1 5 66 58"><path d="${CUERPO}" fill="#7DDB8B"/><path d="${OJO_CERRADO}" fill="#FFF3DF"/><circle cx="43" cy="34" r="8" fill="#FFF3DF"/><circle cx="43" cy="34" r="4.3" fill="#151727"/></svg>`));
+  document.documentElement.style.setProperty('--si-mascota', svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="1 5 66 58"><path d="${CUERPO}" fill="#008048"/><path d="${OJO_CERRADO}" fill="#FFF3DF"/><circle cx="43" cy="34" r="8" fill="#FFF3DF"/><circle cx="43" cy="34" r="4.3" fill="#151727"/></svg>`));
+  // Su silueta, en el encuadre del render en volumen (112 de lado, escala 1,62): recorta la capa de grano del disparador de OBJETO.
+  document.documentElement.style.setProperty('--si-mascota-forma', svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1.868 -0.368 69.136 69.136"><path d="${CUERPO}"/></svg>`));
   document.documentElement.style.setProperty('--si-mascota-dormida', svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="1 5 66 58"><path d="${CUERPO}" fill="none" stroke="#000" stroke-width="3.4" stroke-linejoin="round"/><path d="${OJO_CERRADO}"/><path transform="translate(65.5 -1) scale(-1 1)" d="${OJO_CERRADO}"/></svg>`));
   // El grano se pinta a un número entero de píxeles de pantalla por punto (ver silueta.css).
   const granoPx = () => { const dpr = Math.max(1, window.devicePixelRatio || 1), k = Math.max(1, Math.round(dpr / 2)); document.documentElement.style.setProperty('--grano-px', (256 * k / dpr).toFixed(4) + 'px'); };
@@ -191,7 +196,8 @@
   deck.appendChild(placa);
   // Dos toques en la placa: la camarita guiña dos veces. No sirve para nada; da gusto.
   let placaAt = 0;
-  placa.addEventListener('pointerup', event => {
+  // (en la piel OBJETO la placa es la del pie del aparato)
+  const dobleGuino = event => {
     const now = performance.now();
     if (now - placaAt > 340) { placaAt = now; return; }
     placaAt = 0;
@@ -199,7 +205,9 @@
     clearTimeout(guinoTimer);
     cerrar(true); setTimeout(() => cerrar(false), 90); setTimeout(() => cerrar(true), 170); setTimeout(() => cerrar(false), 260);
     if (window.flipFeel) { flipFeel.tap('wink', 'down', event.clientX); setTimeout(() => flipFeel.tap('key', 'up', event.clientX), 110); }
-  });
+  };
+  placa.addEventListener('pointerup', dobleGuino);
+  addEventListener('pointerup', event => { if (event.target && event.target.closest && event.target.closest('#camDeck .rollo-pie')) dobleGuino(event); });
 
   // El grano de esta piel va encima de cada barra: el cajón y la botonera de los demás modos son
   // barras que la piel OBJETO no cuenta (allí el grano les llega de la carcasa de fondo).

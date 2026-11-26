@@ -188,7 +188,7 @@
   // De la pieza más concreta a la más genérica.
   const MAP = [
     ['#deckShutter, #rigPhoto', 'shutter'],
-    ['.hw-switch, .cs-toggle, [role="switch"], input[type="checkbox"], [data-mode-label], #escuchaOn, #escuchaGolpe, #consolaMarco, #reaccionInvertir', 'switch'],
+    ['.hw-switch, .cs-toggle, [role="switch"], input[type="checkbox"], [data-mode-label], #escuchaOn, #escuchaGolpe, #consolaMarco, #reaccionInvertir, [data-reaccion="invertir"]', 'switch'],
     ['.launcher-card, .launcher-modo, .splash-door, .btn-center, .viewer-actions .primary', 'primary'],
     ['.look, .flip-settings-tile', 'slide'],
     ['.hw-keycap, .launcher-sub, .si-chip, .si-variante, .si-abrir, .cs-key, .flip-settings-pill, .flip-settings-segments button, #palettes button, #palettes label.asp-btn', 'key'],

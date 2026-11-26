@@ -33,7 +33,7 @@ const fast = row('cam OSCAM');
 assert.ok((fast.frames['motor:preview'] || 0) >= 26 && fast.frames['motor:preview'] <= 31.5, 'CAM a 30 no pierde cuadros: ' + fast.frames['motor:preview']);
 step('CAM a 30 sigue a 30', { cuadros: fast.frames['motor:preview'], despertares: +wakes(fast).toFixed(0) });
 
-for (const [name, low, high, cap] of [['scrash', 26, 32, 30], ['sflow', 12, 32, 30], ['fusion', 20, 26, 24], ['sono', 50, 63, 60], ['wmp', 50, 63, 60], ['stage DIRECTO', 50, 63, 60], ['stage TÚNEL', 50, 63, 60]]) {
+for (const [name, low, high, cap] of [['scrash', 26, 32, 30], ['sflow', 12, 32, 30], ['fusion', 20, 26, 24], ['sono', 50, 63, 60], ['wmp', 50, 63, 60], ['stage VIVO', 50, 63, 60], ['stage TÚNEL', 50, 63, 60]]) {
   const r = row(name), n = drawn(r);
   assert.ok(n >= low && n <= high, name + ' dibuja ' + n + ' veces por segundo en una pantalla de 120 Hz (se espera entre ' + low + ' y ' + high + ')');
   step(name, { dibujo: n, tope: cap });

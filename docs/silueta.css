@@ -216,7 +216,7 @@ body[data-piel="interfaz"].cam-video:not(.is-recording) #deckShutter .silueta .p
 
 /* STAGE: sus teclas llevan rótulos más cortos de cuerpo que las de la cámara (caben ocho por fila). */
 body[data-piel="interfaz"] .rig-tabs .hw-keycap { font-size: 9.5px !important; letter-spacing: .06em !important; }
-body[data-piel="interfaz"] .rig-tabs .rig-modo { font-size: 11px !important; letter-spacing: .12em !important; }
+body[data-piel="interfaz"] :is(.rig-tabs, .rig-modos) .rig-modo { font-size: 9.5px !important; letter-spacing: .1em !important; }
 
 /* ── Cámaras que escuchan (escucha.js) ──
    Mientras espera el golpe, la cámara del disparador mantiene el ojo cerrado; con la escucha

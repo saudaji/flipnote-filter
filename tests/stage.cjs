@@ -28,7 +28,7 @@ async function phone(browser) {
   assert.equal(st.ok, true, 'WebGL 2: ' + st.error);
   assert.deepEqual(st.size, [960, 540], 'calidad AUTO en un teléfono');
   assert.ok(st.path.startsWith('planos'), 'la cámara entra por sus planos nativos: ' + st.path);
-  assert.equal(st.name, 'DIRECTO');
+  assert.equal(st.name, 'VIVO');
   await page.evaluate(() => { flipStage.recall(0, true); for (const id of ['sig.scan', 'sig.rgb']) flipStage.set(id, 0); flipStage.set('col.sat', .5); flipStage.set('col.con', .5); flipStage.route('bass', 'sig.rgb', 0); flipStage.route('beat', 'geo.zoom', 0); });
   await settle(400);
   const viaPlanes = await probe(.3, .3, .4, .4);
@@ -183,7 +183,7 @@ async function phone(browser) {
   assert.ok(hush.beats <= 1 && hush.hi < .05 && hush.silent && hush.bpm === 0, 'en silencio no inventa golpes ni tempo y avisa de que no llega señal: ' + JSON.stringify(hush));
   assert.equal(await page.locator('#rigTallyAudio b').textContent(), 'NO LLEGA SEÑAL');
   await page.evaluate(() => flipStage.audio.off());
-  assert.equal(await page.locator('#rigTallyAudio b').textContent().then(async () => { await settle(200); return page.locator('#rigTallyAudio b').textContent(); }), 'SIN SONIDO');
+  assert.equal(await page.locator('#rigTallyAudio b').textContent().then(async () => { await settle(200); return page.locator('#rigTallyAudio b').textContent(); }), 'ESCUCHAR MÚSICA');
 
   // 9 · Consola: perillas con el dedo, doble toque a fábrica, parcheo con cables.
   await stageTab(page, 'fb');
@@ -191,7 +191,7 @@ async function phone(browser) {
   await drag('.rig-knob[data-param="fb.amt"] .dial', 0, -80);
   const after = await page.evaluate(() => flipStage.get('fb.amt'));
   assert.ok(after > before + .3, 'arrastrar hacia arriba sube el mando: ' + before + ' → ' + after);
-  assert.ok((await page.locator('#lcdLook').textContent()).startsWith('CANTIDAD'), 'la pantallita dice qué se mueve');
+  assert.ok((await page.locator('#lcdLook').textContent()).startsWith('ECO'), 'la pantallita dice qué se mueve');
   await page.locator('.rig-knob[data-param="fb.amt"] .dial').dblclick();
   near(await page.evaluate(() => flipStage.get('fb.amt')), 0, .001, 'doble toque: de fábrica');
   await drag('.rig-knob[data-param="fb.zoom"] .dial', 0, -4);
@@ -257,7 +257,7 @@ async function phone(browser) {
   await stageTab(page, 'fb');
   await page.evaluate(() => { flipStage.midi.inject([0xb0, 71, 127]); flipStage.midi.inject([0xb0, 70, 0]); flipStage.midi.inject([0xb0, 72, 64]); flipStage.step(30); });
   const auto = await page.evaluate(() => ['fb.amt', 'fb.zoom', 'fb.rot'].map(id => +flipStage.get(id).toFixed(2)));
-  assert.deepEqual(auto, [0, 1, 0.5], 'CC 70, 71 y 72 mueven las tres primeras perillas de BUCLE');
+  assert.deepEqual(auto, [0, 1, 0.5], 'CC 70, 71 y 72 mueven las tres primeras perillas de ECO');
   // El CC aprendido antes (21 → ZOOM de GEOM) manda sobre la regla automática aunque caiga en un banco conocido.
   const learned = await page.evaluate(() => { const amt = flipStage.get('fb.amt'); flipStage.midi.inject([0xb0, 21, 127]); flipStage.step(30); return [flipStage.get('geo.zoom'), flipStage.get('fb.amt') === amt]; });
   near(learned[0], 1, .01, 'el CC aprendido sigue en su mando'); assert.equal(learned[1], true, 'y no toca la página visible');
@@ -327,6 +327,52 @@ async function phone(browser) {
   }
   await page.setViewportSize({ width: 395, height: 741 });
 
+  // 13b · FÁCIL · cada efecto es una barra con su pastilla «qué la mueve»; sin tomas ni cables a la vista.
+  await page.evaluate(() => { flipStage.audio.off(); flipStage.reset(); flipStage.page('easy'); });
+  await settle(400);
+  const facil = () => page.evaluate(() => ({
+    tiras: [...document.querySelectorAll('.rig-tira')].map(t => t.querySelector('.hw-print').textContent + ' ← ' + t.querySelector('.rig-pastilla').textContent.trim()),
+    tomas: [...document.querySelectorAll('.rig-jack')].filter(j => getComputedStyle(j).display !== 'none' && j.getBoundingClientRect().width > 0).length,
+    cables: document.getElementById('rigCables').childElementCount, perillas: document.querySelectorAll('#rigPanel .rig-knob').length,
+    escenas: [...document.querySelectorAll('#rigScenes [data-scene]')].map(k => k.textContent.trim()), sobra: document.querySelector('.rig-deck').scrollHeight - document.querySelector('.rig-deck').clientHeight,
+    guia: document.getElementById('rigCoach').textContent, rutas: flipStage.status().routes, pagina: flipStage.status().page, chip: document.querySelector('#rigTallyAudio b').textContent,
+    micArriba: getComputedStyle(document.getElementById('shellMic')).display,
+  }));
+  let f = await facil();
+  assert.deepEqual(f.tiras, ['SEPARAR RGB ← BAJO', 'ZOOM ← GOLPE', 'CONTRASTE ← AGUDOS', 'LÍNEAS DE TV ← + CONECTAR'], 'los cuatro efectos de la escena, cada uno con lo que lo mueve');
+  assert.deepEqual([f.tomas, f.cables, f.perillas], [0, 0, 0], 'en FÁCIL no hay tomas, cables ni perillas: ' + JSON.stringify(f));
+  assert.deepEqual(f.escenas, ['1VIVO', '2TÚNEL', '3MANDALA', '4SILUETA', '5VHS', '6NEÓN', '7ONDAS', '8PRUEBA'], 'las escenas llevan su nombre');
+  assert.ok(f.sobra <= 1, 'todo cabe sin desplazar (sobran ' + f.sobra + ' px)');
+  assert.equal(f.micArriba, 'none', 'en STAGE hay un solo micrófono: el de arriba no se ve');
+  assert.equal(f.chip, 'ESCUCHAR MÚSICA');
+  // deslizar la barra mueve el efecto
+  const antes = await page.evaluate(() => flipStage.get('sig.rgb'));
+  await drag('.rig-tira[data-tira="sig.rgb"] .track', 90, 0);
+  assert.ok(await page.evaluate(v => flipStage.get('sig.rgb') > v + .2, antes), 'la barra se desliza con el dedo');
+  // la pastilla abre «qué la mueve»; elegir otra fuente la cambia y conserva la fuerza
+  await page.locator('[data-pill="geo.zoom"]').click();
+  await settle(200);
+  const lista = await page.evaluate(() => [...document.querySelectorAll('.rig-fuente')].map(b => b.textContent.trim() + (b.classList.contains('is-on') ? '*' : '')));
+  assert.deepEqual(lista, ['BAJO', 'MEDIOS', 'AGUDOS', 'GOLPE*', 'VAIVÉN 1', 'VAIVÉN 2', 'DEDO ↔', 'MANO ↔'], 'las fuentes, con palabras de todos los días');
+  await page.locator('[data-fuente="lfo1"]').click();
+  await settle(200);
+  f = await facil();
+  assert.ok(f.tiras[1] === 'ZOOM ← VAIVÉN 1' && f.rutas.some(r => r[0] === 'lfo1' && r[1] === 'geo.zoom' && Math.abs(r[2] - .1) < .001) && !f.rutas.some(r => r[0] === 'beat' && r[1] === 'geo.zoom'), 'una fuente ocupa el sitio de la otra, con su misma fuerza: ' + JSON.stringify(f.rutas));
+  await page.locator('[data-cuanto="geo.zoom"]').fill('-60');
+  assert.ok(await page.evaluate(() => { const r = flipStage.status().routes.find(r => r[1] === 'geo.zoom'); return Math.abs(r[2] + .6) < .001 && document.querySelector('.rig-cuanto b').textContent === '-60 %'; }), '«qué tanto la mueve» va de −100 a +100');
+  await page.locator('[data-elige="quitar"]').click();
+  await settle(200);
+  f = await facil();
+  assert.ok(f.tiras[1] === 'ZOOM ← + CONECTAR' && !f.rutas.some(r => r[1] === 'geo.zoom'), 'QUITAR suelta la conexión');
+  // un controlador MIDI sin asignar mueve las barras de FÁCIL (antes, tronaba)
+  await page.evaluate(() => { flipStage.midi.inject([0xb0, 70, 127]); flipStage.step(30); });
+  assert.ok(await page.evaluate(() => flipStage.get('sig.rgb') > .95), 'el primer mando del controlador mueve la primera barra');
+  // de FÁCIL al TALLER, a la perilla de ese efecto
+  await page.locator('[data-pill="col.con"]').click();
+  await page.locator('[data-elige="taller"]').click();
+  await settle(300);
+  f = await facil();
+  assert.ok(f.pagina === 'col' && f.tiras.length === 0 && f.tomas >= 6 && f.cables > 0, '«VER EN TALLER» abre la página de esa perilla, con sus cables: ' + JSON.stringify([f.pagina, f.tomas, f.cables]));
   // 14 · Salir devuelve la cámara a CAM y suelta lo que STAGE abrió.
   await openModule(page, 'cam');
   st = await S();

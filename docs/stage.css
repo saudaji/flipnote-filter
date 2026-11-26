@@ -8,7 +8,7 @@
   padding: 0; overflow: hidden;
 }
 #stageArea.visible { display: flex; }
-body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSettings, body.stage-mode #cameraGate { display: none !important; }
+body.stage-mode #shellMic, body[data-piel="interfaz"].stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSettings, body.stage-mode #cameraGate { display: none !important; }
 
 .rig {
   position: relative; flex: 1; min-width: 0; min-height: 0; width: 100%; max-width: 520px; margin: 0 auto;
@@ -52,7 +52,7 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 #rigTallyOut, #rigTallyRec { display: none; }
 /* Arriba a la derecha: de dónde entra el sonido y cuánto llega. */
 .rig-tally-right { left: auto; right: 8px; }
-#rigTallyAudio.is-off { opacity: .55; }
+#rigTallyAudio.is-off { opacity: 1; }
 #rigTallyAudio.is-silent { background: rgba(229, 57, 43, .85); }
 #rigTallyAudio .vu { display: block; width: 44px; height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .22); }
 #rigTallyAudio .vu u { display: block; height: 100%; width: calc(var(--vu, 0) * 100%); background: linear-gradient(90deg, #5fe08a, #5fe08a 55%, #f0ae2b 78%, #e5392b); transition: width .05s linear; }
@@ -101,8 +101,8 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 .rig-easy .rig-knob { transform: scale(1.2); transform-origin: 50% 40%; }
 .rig-easy .rig-live { order: 9; }
 .rig .hw-keycap > span { line-height: 1.7; overflow: visible; }
-.rig-tabs .hw-keycap.is-on::before, .rig-tabs .hw-keycap.is-on::after { border-image-source: url('./brand/rollo-en-anil/materiales/selector-anil.webp'); }
-.rig-tabs .hw-keycap.is-on:active::before, .rig-tabs .hw-keycap.is-on:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/selector-anil-pulsado.webp'); }
+:is(.rig-tabs, .rig-modos) .hw-keycap.is-on::before, :is(.rig-tabs, .rig-modos) .hw-keycap.is-on::after { border-image-source: url('./brand/rollo-en-anil/materiales/selector-anil.webp'); }
+:is(.rig-tabs, .rig-modos) .hw-keycap.is-on:active::before, :is(.rig-tabs, .rig-modos) .hw-keycap.is-on:active::after { border-image-source: url('./brand/rollo-en-anil/materiales/selector-anil-pulsado.webp'); }
 .rig-scenes .hw-keycap.is-target, .rig-knob.is-target .dial, #rigTap.is-target { outline: 2px dashed var(--lilac); outline-offset: 2px; border-radius: 10px; }
 .rig.is-learning .rig-scenes .hw-keycap, .rig.is-learning .rig-knob .dial, .rig.is-learning #rigTap { animation: rig-learn 1.1s steps(1, end) infinite; }
 @keyframes rig-learn { 50% { filter: brightness(1.12) saturate(1.2); } }
@@ -260,7 +260,7 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
 .rig.is-recording #rigRec { animation: rig-learn 1s steps(1, end) infinite; }
 
 .rig::after {
-  content: 'FLIP VS-27 · SINTETIZADOR DE VÍDEO DE BOLSILLO'; flex: 0 0 auto; padding: 5px 0 0; text-align: center;
+  content: 'FLIP VS-27 · SINTETIZADOR DE VIDEO DE BOLSILLO'; flex: 0 0 auto; padding: 5px 0 0; text-align: center;
   font: 700 6.5px/1 var(--font-ui); letter-spacing: .24em; color: var(--ink-dim); opacity: .75;
 }
 
@@ -278,3 +278,46 @@ body.stage-mode #shellMic, body.stage-mode #shellAudio, body.stage-mode #shellSe
   .rig-monitor { flex: 1 1 0; min-width: 0; }
   .rig-side { flex: 0 0 420px; max-height: 100%; }
 }
+
+/* ── FÁCIL · tiras: cada efecto, una barra; a su derecha, qué la mueve ───────── */
+.rig-tiras { display: grid; gap: 3px; padding: 3px 2px 2px; }
+.rig-tira { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 6px 8px; align-items: end; }
+.rig-tira .rig-fader { display: block; padding: 0 2px 2px; min-width: 0; }
+.rig-tira .rig-fader > .hw-print { display: block; margin: 0 0 3px 6px; font: 800 9.5px/1 var(--font-ui); letter-spacing: .1em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rig-tira .rig-fader .track { height: 28px; }
+.rig-pastilla { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 34px; padding: 0 8px; border: 0; border-radius: 17px; background: rgba(120, 105, 70, .12); box-shadow: inset 0 0 0 1.5px rgba(60, 50, 30, .35); color: var(--ink); font: 800 9.5px/1 var(--font-ui); letter-spacing: .08em; cursor: pointer; touch-action: manipulation; }
+.rig-pastilla:not(.is-on) { box-shadow: none; outline: 1.5px dashed rgba(60, 50, 30, .45); outline-offset: -2px; opacity: .8; }
+.rig-pastilla.is-on { background: #fbf6ea; box-shadow: inset 0 0 0 2px var(--tone), 0 1px 0 rgba(255, 255, 255, .8); }
+.rig-pastilla span, .rig-fuente span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rig-pastilla .led, .rig-fuente .led { flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 6px var(--tone); }
+.rig-tira.is-open .rig-pastilla { background: var(--tone); color: #111; }
+.rig-tira.is-open .rig-pastilla .led { background: #111; box-shadow: none; }
+.rig-elige { grid-column: 1 / -1; display: grid; gap: 8px; padding: 8px; border-radius: 10px; background: rgba(120, 105, 70, .12); }
+.rig-elige-fuentes { display: flex; flex-wrap: wrap; gap: 6px; }
+.rig-fuente { display: flex; align-items: center; gap: 6px; height: 32px; max-width: 100%; padding: 0 10px; border: 0; border-radius: 16px; background: #fbf6ea; box-shadow: inset 0 0 0 1.5px rgba(60, 50, 30, .3); color: var(--ink); font: 800 9.5px/1 var(--font-ui); letter-spacing: .08em; cursor: pointer; touch-action: manipulation; }
+.rig-fuente.is-on { background: var(--tone); color: #111; box-shadow: none; }
+.rig-fuente.is-on .led { background: #111; box-shadow: none; }
+.rig-cuanto { display: grid; grid-template-columns: auto minmax(0, 1fr) 46px; align-items: center; gap: 8px; }
+.rig-cuanto .hw-print { font: 800 8.5px/1 var(--font-ui); letter-spacing: .1em; }
+.rig-cuanto input { width: 100%; min-width: 0; height: 28px; margin: 0; }
+.rig-cuanto b { font: 800 11px/1 var(--font-dot); text-align: right; }
+.rig-elige-teclas { display: flex; gap: 6px; }
+.rig-elige-teclas .hw-keycap { flex: 1 1 0; min-width: 0; height: 32px; font-size: 9.5px; }
+/* En FÁCIL no hay tomas ni cables a la vista: las pastillas ya dicen qué mueve a qué. */
+.rig-easy .rig-jacks, .rig-easy .rig-cables { display: none !important; }
+.rig-easy .rig-knobs:empty { display: none; }
+.rig-easy .rig-solo-taller { display: none; }
+.rig-solo-taller { font-style: normal; }
+/* Las escenas, con su nombre (en FÁCIL, dos filas de cuatro). */
+.rig-scenes em { display: none; font-style: normal; }
+.rig-easy .rig-scenes { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.rig-easy .rig-scenes .hw-keycap { height: 32px; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 0 4px 1px; font-size: 13px; }
+.rig-easy .rig-scenes em { display: block; min-width: 0; font: 800 9px/1.5 'Archivo', 'Chivo', system-ui, sans-serif !important; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* El sonido apagado es un botón. */
+#rigTallyAudio { pointer-events: auto; cursor: pointer; }
+#rigTallyAudio.is-off { padding: 6px 9px 5px; background: #008048; color: #FFF3DF; font-weight: 800; box-shadow: 0 1px 6px rgba(0, 0, 0, .4); }
+/* FÁCIL | TALLER, en el renglón de las escenas (antes ocupaban uno entero). */
+.rig-modos { display: flex; gap: 3px; margin-left: auto; margin-right: 6px; }
+.rig-modos .hw-keycap { min-width: 0; height: 26px; padding: 0 10px 1px; font-size: 9.5px; letter-spacing: .1em; }
+.rig-easy .rig-tabs { display: none; }
+.rig-easy .rig-coach { padding: 4px 10px; font-size: 11px; }

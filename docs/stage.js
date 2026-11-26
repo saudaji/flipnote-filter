@@ -45,20 +45,32 @@ const flipStage = (() => {
   const LIVE_KEYS = ['lv1', 'lv2', 'lv3', 'lv4', 'lv5', 'lv6'];
   const SRC = Object.fromEntries(SOURCES.map(s => [s[0], { label: s[1], tone: s[2], bipolar: !!s[3] }]));
   // Mandos: clave → [rótulo, valor de fábrica, tiene centro].
+  // (rótulos del TALLER: cada uno, distinto de los demás —antes había dos ZOOM y dos GIRO—)
   const P = {
-    'gen.freq': ['FREC', .35], 'gen.speed': ['VELOC', .62, true], 'gen.shape': ['FORMA', .3], 'gen.hue': ['TONO', .55],
-    'mix.fade': ['FUNDIDO', 0], 'key.level': ['UMBRAL', .5], 'key.soft': ['BORDE', .25],
-    'fb.amt': ['CANTIDAD', 0], 'fb.zoom': ['ZOOM', .5, true], 'fb.rot': ['GIRO', .5, true], 'fb.decay': ['PERSIST', .8],
-    'fb.x': ['DERIVA X', .5, true], 'fb.y': ['DERIVA Y', .5, true], 'fb.hue': ['TINTE', 0],
-    'geo.zoom': ['ZOOM', .5, true], 'geo.rot': ['ÁNGULO', .5, true], 'geo.spin': ['GIRO', .5, true], 'geo.kal': ['CALEIDO', 0],
-    'geo.tile': ['MOSAICO', 0], 'geo.warp': ['ONDA', 0], 'geo.wfreq': ['RIZO', .3],
-    'col.hue': ['MATIZ', 0], 'col.sat': ['SATUR', .5, true], 'col.con': ['CONTRASTE', .5, true], 'col.cycle': ['CICLO', .5, true],
-    'col.tint': ['TINTA', 0], 'col.post': ['POSTER', 0], 'col.solar': ['SOLAR', 0],
+    'gen.freq': ['ESCALA', .35], 'gen.speed': ['VELOCIDAD', .62, true], 'gen.shape': ['TRAZO', .3], 'gen.hue': ['COLOR B', .55],
+    'mix.fade': ['MEZCLA A/B', 0], 'key.level': ['UMBRAL', .5], 'key.soft': ['BORDE', .25],
+    'fb.amt': ['ECO', 0], 'fb.zoom': ['ZOOM ECO', .5, true], 'fb.rot': ['GIRO ECO', .5, true], 'fb.decay': ['COLA', .8],
+    'fb.x': ['DERIVA X', .5, true], 'fb.y': ['DERIVA Y', .5, true], 'fb.hue': ['COLOR ECO', 0],
+    'geo.zoom': ['ZOOM', .5, true], 'geo.rot': ['ÁNGULO', .5, true], 'geo.spin': ['VEL. GIRO', .5, true], 'geo.kal': ['CALEIDO', 0],
+    'geo.tile': ['MOSAICO', 0], 'geo.warp': ['ONDULAR', 0], 'geo.wfreq': ['RIZO', .3],
+    'col.hue': ['MATIZ', 0], 'col.sat': ['SATURAC.', .5, true], 'col.con': ['CONTRASTE', .5, true], 'col.cycle': ['CICLO', .5, true],
+    'col.tint': ['TINTE', 0], 'col.post': ['POSTERIZ.', 0], 'col.solar': ['SOLARIZ.', 0],
     'sig.rgb': ['RGB', 0], 'sig.tear': ['RASGADO', 0], 'sig.vhold': ['V-HOLD', .5, true], 'sig.bleed': ['CROMA', 0],
-    'sig.pix': ['PÍXEL', 0], 'sig.scan': ['LÍNEAS', 0], 'sig.noise': ['NIEVE', 0], 'sig.strobe': ['ESTROBO', 0],
-    'lfo1.rate': ['RITMO 1', .35], 'lfo2.rate': ['RITMO 2', .6], 'aud.gain': ['SENSIB', .5, true], 'aud.fall': ['CAÍDA', .4],
+    'sig.pix': ['PÍXEL', 0], 'sig.scan': ['LÍNEAS', 0], 'sig.noise': ['ESTÁTICA', 0], 'sig.strobe': ['ESTROBO', 0],
+    'lfo1.rate': ['VEL. LFO 1', .35], 'lfo2.rate': ['VEL. LFO 2', .6], 'aud.gain': ['GANANCIA', .5, true], 'aud.fall': ['CAÍDA', .4],
     'out.level': ['NIVEL', 1], 'mod.morph': ['TRANSICIÓN', .22],
   };
+  // En FÁCIL cada efecto se llama por lo que se ve, y cada fuente por lo que es, sin jerga de sintetizador.
+  const FACIL = {
+    'gen.freq': 'TAMAÑO', 'gen.speed': 'VELOCIDAD', 'gen.shape': 'ESTILO', 'gen.hue': 'COLOR DE FONDO', 'mix.fade': 'MEZCLA A/B', 'key.level': 'RECORTE', 'key.soft': 'SUAVIDAD',
+    'fb.amt': 'ESTELA', 'fb.zoom': 'TÚNEL', 'fb.rot': 'ESPIRAL', 'fb.decay': 'DURACIÓN', 'fb.x': 'ARRASTRE ↔', 'fb.y': 'ARRASTRE ↕', 'fb.hue': 'ARCOÍRIS',
+    'geo.zoom': 'ZOOM', 'geo.rot': 'INCLINAR', 'geo.spin': 'ROTACIÓN', 'geo.kal': 'CALEIDOSCOPIO', 'geo.tile': 'MOSAICO', 'geo.warp': 'ONDULAR', 'geo.wfreq': 'DETALLE DE ONDA',
+    'col.hue': 'COLOR', 'col.sat': 'VIVEZA', 'col.con': 'CONTRASTE', 'col.cycle': 'CAMBIO DE COLOR', 'col.tint': 'PALETA', 'col.post': 'PÓSTER', 'col.solar': 'METAL',
+    'sig.rgb': 'SEPARAR RGB', 'sig.tear': 'GLITCH VHS', 'sig.vhold': 'RODAR TV', 'sig.bleed': 'BARRIDO VHS', 'sig.pix': 'PIXELADO', 'sig.scan': 'LÍNEAS DE TV', 'sig.noise': 'ESTÁTICA', 'sig.strobe': 'ESTROBO',
+  };
+  const FACIL_SRC = { lfo1: 'VAIVÉN 1', lfo2: 'VAIVÉN 2', mid: 'MEDIOS', high: 'AGUDOS', padx: 'DEDO ↔', pady: 'DEDO ↕', note: 'TECLA MIDI', hx: 'MANO ↔', hy: 'MANO ↕', pinch: 'PELLIZCO' };
+  const facil = id => FACIL[id] || P[id][0];
+  const srcFacil = key => FACIL_SRC[key] || SRC[key].label;
   const IDS = Object.keys(P);
   const GLOBAL_IDS = ['aud.gain', 'aud.fall', 'out.level', 'mod.morph'];      // no cambian al cambiar de escena
   const SCENE_IDS = IDS.filter(id => !GLOBAL_IDS.includes(id));
@@ -87,35 +99,37 @@ const flipStage = (() => {
   // fuentes a la vista. Las otras ocho son el TALLER: el sintetizador entero, módulo a módulo.
   const PAGES = [
     { id: 'easy', label: 'FÁCIL', title: '', knobs: [] },
-    { id: 'src', label: 'FUENTE', title: 'FUENTES · A CÁMARA · B GENERADOR', picks: [['src.look', 'A · CÁMARA'], ['src.gen', 'B · GENERADOR']], knobs: ['gen.freq', 'gen.speed', 'gen.shape', 'gen.hue'] },
-    { id: 'mix', label: 'MEZCLA', title: 'MEZCLADOR Y CLAVE', picks: [['mix.mode', 'MODO']], fader: 'mix.fade', knobs: ['key.level', 'key.soft'], toggles: [['key.inv', 'INVERTIR']] },
-    { id: 'fb', label: 'BUCLE', title: 'BUCLE · CIRCUITO CERRADO', picks: [['fb.mode', 'MODO']], knobs: ['fb.amt', 'fb.zoom', 'fb.rot', 'fb.decay', 'fb.x', 'fb.y', 'fb.hue'] },
-    { id: 'geo', label: 'FORMA', title: 'GEOMETRÍA', picks: [['geo.mirror', 'ESPEJO']], knobs: ['geo.zoom', 'geo.rot', 'geo.spin', 'geo.kal', 'geo.tile', 'geo.warp', 'geo.wfreq'] },
-    { id: 'col', label: 'COLOR', title: 'COLOR', picks: [['col.pal', 'PALETA DE TINTA']], knobs: ['col.hue', 'col.sat', 'col.con', 'col.cycle', 'col.tint', 'col.post', 'col.solar'], toggles: [['col.inv', 'NEGATIVO']] },
-    { id: 'sig', label: 'SEÑAL', title: 'SEÑAL DE VÍDEO', knobs: ['sig.rgb', 'sig.tear', 'sig.vhold', 'sig.bleed', 'sig.pix', 'sig.scan', 'sig.noise', 'sig.strobe'] },
-    { id: 'mod', label: 'RITMO', title: 'MODULACIÓN', picks: [['lfo1.shape', 'LFO 1'], ['lfo2.shape', 'LFO 2'], ['aud.src', 'ENTRADA DE SONIDO']], knobs: ['lfo1.rate', 'lfo2.rate', 'aud.gain', 'aud.fall'] },
-    { id: 'out', label: 'SALIDA', title: 'SALIDA', picks: [['out.aspect', 'FORMATO'], ['out.quality', 'CALIDAD']], knobs: ['out.level', 'mod.morph'], toggles: [['out.flipX', 'VOLTEAR H'], ['out.flipY', 'VOLTEAR V']] },
+    { id: 'src', label: 'IMAGEN', title: 'IMAGEN · A CÁMARA · B FONDO', picks: [['src.look', 'A · CÁMARA'], ['src.gen', 'B · GENERADOR']], knobs: ['gen.freq', 'gen.speed', 'gen.shape', 'gen.hue'] },
+    { id: 'mix', label: 'MEZCLA', title: 'MEZCLA Y RECORTE', picks: [['mix.mode', 'MODO']], fader: 'mix.fade', knobs: ['key.level', 'key.soft'], toggles: [['key.inv', 'INVERTIR']] },
+    { id: 'fb', label: 'ECO', title: 'ECO · REALIMENTACIÓN', picks: [['fb.mode', 'MODO']], knobs: ['fb.amt', 'fb.zoom', 'fb.rot', 'fb.decay', 'fb.x', 'fb.y', 'fb.hue'] },
+    { id: 'geo', label: 'FORMA', title: 'FORMA Y ESPEJOS', picks: [['geo.mirror', 'ESPEJO']], knobs: ['geo.zoom', 'geo.rot', 'geo.spin', 'geo.kal', 'geo.tile', 'geo.warp', 'geo.wfreq'] },
+    { id: 'col', label: 'COLOR', title: 'COLOR Y PALETA', picks: [['col.pal', 'PALETA DE TINTA']], knobs: ['col.hue', 'col.sat', 'col.con', 'col.cycle', 'col.tint', 'col.post', 'col.solar'], toggles: [['col.inv', 'NEGATIVO']] },
+    { id: 'sig', label: 'EFECTOS', title: 'SEÑAL DE VIDEO · TV Y GLITCH', knobs: ['sig.rgb', 'sig.tear', 'sig.vhold', 'sig.bleed', 'sig.pix', 'sig.scan', 'sig.noise', 'sig.strobe'] },
+    { id: 'mod', label: 'RITMO', title: 'RITMO Y CABLES', picks: [['lfo1.shape', 'LFO 1'], ['lfo2.shape', 'LFO 2'], ['aud.src', 'ENTRADA DE SONIDO']], knobs: ['lfo1.rate', 'lfo2.rate', 'aud.gain', 'aud.fall'] },
+    { id: 'out', label: 'SALIDA', title: 'SALIDA Y PROYECTOR', picks: [['out.aspect', 'FORMATO'], ['out.quality', 'CALIDAD']], knobs: ['out.level', 'mod.morph'], toggles: [['out.flipX', 'VOLTEAR H'], ['out.flipY', 'VOLTEAR V']] },
   ];
 
   // ── Escenas de fábrica ──────────────────────────────────────────────────────
   const basePatch = () => { const p = {}; for (const id of SCENE_IDS) p[id] = P[id][1]; return p; };
   const scene = (name, p = {}, d = {}, r = []) => ({ name, p: Object.assign(basePatch(), p), d: Object.assign({}, D0, d), r });
   const FACTORY = () => [
-    scene('DIRECTO', { 'sig.scan': .22, 'sig.rgb': .08, 'col.sat': .56, 'col.con': .55 }, {}, [['bass', 'sig.rgb', .55], ['beat', 'geo.zoom', .1], ['high', 'col.con', .12]]),
+    scene('VIVO', { 'sig.scan': .22, 'sig.rgb': .08, 'col.sat': .56, 'col.con': .55 }, {}, [['bass', 'sig.rgb', .55], ['beat', 'geo.zoom', .1], ['high', 'col.con', .12]]),
     scene('TÚNEL', { 'fb.amt': .88, 'fb.zoom': .62, 'fb.rot': .53, 'fb.hue': .1, 'fb.decay': .86, 'col.sat': .6 }, {}, [['lfo1', 'fb.rot', .1], ['bass', 'fb.zoom', .2], ['mid', 'fb.hue', .2], ['beat', 'col.con', .14]]),
     scene('MANDALA', { 'geo.kal': .55, 'geo.spin': .56, 'geo.zoom': .44, 'fb.amt': .6, 'fb.zoom': .53, 'fb.decay': .84, 'col.sat': .66, 'lfo1.rate': .22 }, { 'fb.mode': 1 }, [['lfo1', 'geo.zoom', .12], ['beat', 'geo.zoom', .14], ['mid', 'col.hue', .3], ['bass', 'geo.warp', .35]]),
     scene('SILUETA', { 'mix.fade': 1, 'key.level': .5, 'key.soft': .3, 'gen.freq': .3, 'gen.speed': .64, 'gen.hue': .62, 'gen.shape': .5 }, { 'mix.mode': 5, 'src.gen': 2 }, [['bass', 'gen.freq', .3], ['lfo2', 'gen.hue', .2], ['beat', 'gen.shape', .3]]),
     scene('VHS', { 'sig.tear': .34, 'sig.bleed': .62, 'sig.scan': .5, 'sig.noise': .34, 'sig.rgb': .26, 'col.sat': .62, 'col.con': .56 }, {}, [['beat', 'sig.tear', .6], ['bass', 'sig.rgb', .45], ['lfo2', 'sig.noise', .12]]),
     scene('NEÓN', { 'col.solar': .72, 'col.tint': .82, 'col.post': .3, 'fb.amt': .5, 'fb.hue': .22, 'fb.decay': .86, 'fb.zoom': .52 }, { 'col.pal': 4, 'fb.mode': 1 }, [['lfo1', 'col.hue', .5], ['high', 'sig.rgb', .4], ['bass', 'fb.zoom', .16], ['beat', 'col.post', .25]]),
-    scene('OSCILOS', { 'mix.fade': .9, 'gen.freq': .5, 'gen.hue': .3, 'gen.shape': .2, 'fb.amt': .86, 'fb.zoom': .44, 'fb.hue': .07, 'fb.decay': .9, 'col.sat': .4 }, { 'mix.mode': 1, 'src.gen': 6, 'fb.mode': 1 }, [['bass', 'fb.zoom', -.14], ['mid', 'gen.hue', .3], ['beat', 'gen.freq', .35]]),
-    scene('CARTA', { 'mix.fade': 1 }, { 'src.gen': 8 }, []),
+    scene('ONDAS', { 'mix.fade': .9, 'gen.freq': .5, 'gen.hue': .3, 'gen.shape': .2, 'fb.amt': .86, 'fb.zoom': .44, 'fb.hue': .07, 'fb.decay': .9, 'col.sat': .4 }, { 'mix.mode': 1, 'src.gen': 6, 'fb.mode': 1 }, [['bass', 'fb.zoom', -.14], ['mid', 'gen.hue', .3], ['beat', 'gen.freq', .35]]),
+    scene('PRUEBA', { 'mix.fade': 1 }, { 'src.gen': 8 }, []),
   ];
 
   // ── Estado guardado ─────────────────────────────────────────────────────────
   const STORE = 'flip.stage.v3';        // v3: escenas de fábrica con reacción al sonido más marcada
   function fresh() { return { v: 3, scene: 0, scenes: FACTORY(), live: null, global: { aspect: 0, quality: 0, flipX: 0, flipY: 0, bpm: 0, p: {}, live: { url: '', slots: [] } }, midi: { cc: {}, note: {} } }; }
   function tidyPatch(patch, fallback) {
-    const out = { name: String(patch && patch.name || fallback.name).slice(0, 12), p: {}, d: {}, r: [] };
+    // (tres escenas de fábrica cambiaron de nombre: quien las tenía guardadas con el viejo, las ve con el nuevo)
+    const viejo = { DIRECTO: 'VIVO', OSCILOS: 'ONDAS', CARTA: 'PRUEBA' }, nombre = String(patch && patch.name || fallback.name).slice(0, 12);
+    const out = { name: viejo[nombre] === fallback.name ? fallback.name : nombre, p: {}, d: {}, r: [] };
     for (const id of SCENE_IDS) out.p[id] = Number.isFinite(patch && patch.p && patch.p[id]) ? clamp(patch.p[id]) : fallback.p[id];
     for (const id of Object.keys(D0)) out.d[id] = patch && patch.d && id in patch.d ? patch.d[id] : fallback.d[id];
     if (!LOOKS.some(l => l.key === out.d['src.look'])) out.d['src.look'] = 'RAW';
@@ -153,6 +167,7 @@ const flipStage = (() => {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       store.live = snapshot(store.scenes[store.scene].name);
+      if (typeof link !== 'undefined' && link.auto && link.auto.scene === store.scene && sameRoutes(live.r, link.auto.routes)) store.live.r = store.scenes[store.scene].r.map(r => r.slice());
       for (const id of GLOBAL_IDS) store.global.p[id] = live.p[id];
       try { localStorage.setItem(STORE, JSON.stringify(store)); } catch (_) {}
     }, 350);
@@ -609,7 +624,7 @@ void main() {
   function audioOptions() {
     const list = [{ kind: 'mic', id: '', label: 'MICRÓFONO' }];
     audio.devices.forEach((device, index) => list.push({ kind: 'mic', id: device.id, label: (device.label || 'ENTRADA ' + (index + 2)).toUpperCase().replace(/\s*\(.*?\)\s*/g, ' ').trim().slice(0, 18) }));
-    if (systemAudio()) list.push({ kind: 'system', id: '', label: 'ESTE ORDENADOR' });
+    if (systemAudio()) list.push({ kind: 'system', id: '', label: 'ESTA COMPUTADORA' });
     return list;
   }
   async function listDevices() {
@@ -640,7 +655,7 @@ void main() {
       stream.getAudioTracks()[0].addEventListener('ended', () => { if (audio.stream === stream) audioOff(); });
       feel.hush('stage-system', kind === 'system');                          // sus propios clics entrarían en el análisis
       listDevices();
-      readout(kind === 'system' ? 'SONIDO DEL ORDENADOR' : 'MIC ENCENDIDO');
+      readout(kind === 'system' ? 'SONIDO DE LA COMPUTADORA' : 'MIC ENCENDIDO');
       return true;
     } catch (error) {
       flipToast(error && error.name === 'NotAllowedError' ? 'Sin permiso de audio no hay reacción al sonido.' : 'No se pudo abrir esa entrada de sonido.');
@@ -834,7 +849,7 @@ void main() {
     return midi.knobs.indexOf(cc);
   }
   async function midiConnect() {
-    if (!navigator.requestMIDIAccess) { midi.state = 'none'; flipToast('Este navegador no tiene MIDI. En Android y en ordenador, usa Chrome.'); syncKeys(); return false; }
+    if (!navigator.requestMIDIAccess) { midi.state = 'none'; flipToast('Este navegador no tiene MIDI. En Android y en computadora, usa Chrome.'); syncKeys(); return false; }
     try { midi.access = await navigator.requestMIDIAccess({ sysex: false }); }
     catch (_) { midi.state = 'denied'; flipToast('Permiso de MIDI denegado: actívalo en los ajustes del sitio.'); syncKeys(); return false; }
     const bind = () => {
@@ -883,7 +898,9 @@ void main() {
       if (cc === 7) { midi.slew['out.level'] = x; return; }
       if (CC_SKIP.has(cc) || cc >= 120) return;
       const page = PAGES.find(entry => entry.id === ui.page) || PAGES[0];
-      const controls = page.fader ? [page.fader].concat(page.knobs) : page.knobs;
+      // (en FÁCIL la página no tiene mandos propios: van los cuatro de la escena; sin mandos, nada que mover)
+      const controls = ui.page === 'easy' ? easyKnobs() : page.fader ? [page.fader].concat(page.knobs) : page.knobs;
+      if (!controls.length) return;
       const id = controls[knobSlot(cc) % controls.length];
       midi.slew[id] = x;
       if (morph) delete morph.to[id];
@@ -934,7 +951,7 @@ void main() {
   // MEDIO / AGUDO / GOLPE tomados del master de Live en vez del micrófono, y el tempo y el compás
   // de Live como reloj. Formato de cada cuadro: { t, play, pos, bpm, m:[nivel,bajo,medio,agudo],
   // hits, hit, ears, tr:{ 'track:3': [nivel,bajo,medio,agudo] } }, todo de 0 a 1.
-  const link = { es: null, state: 'off', at: -1e9, frame: null, tracks: [], keys: LIVE_KEYS.map(() => ''), goal: LIVE_KEYS.map(() => 0), top: LIVE_KEYS.map(() => 0), hits: -1, lag: Infinity, demo: false, host: '', paintAt: 0 };
+  const link = { es: null, state: 'off', at: -1e9, frame: null, tracks: [], keys: LIVE_KEYS.map(() => ''), goal: LIVE_KEYS.map(() => 0), hi: LIVE_KEYS.map(() => .25), lo: LIVE_KEYS.map(() => .06), far: LIVE_KEYS.map(() => 0), prevAt: 0, auto: null, hits: -1, lag: Infinity, demo: false, host: '', paintAt: 0 };
   const linkFresh = () => performance.now() - link.at < 1200;
   const linkMaster = () => linkFresh() && !!link.frame && !!link.frame.ears && Array.isArray(link.frame.m);
   const linkTempo = () => (linkFresh() && link.frame && link.frame.bpm) || 0;
@@ -946,9 +963,69 @@ void main() {
       return u.origin + '/api/feed/stream?t=' + encodeURIComponent(u.searchParams.get('t'));
     } catch (_) { return ''; }
   }
+  // El papel de una pista, por su nombre (español e inglés). Sirve para dos cosas: llenar las seis tomas
+  // con lo que más se ve (bombo, bajo, caja, voz, teclas, platillos) y tender solos los cables.
+  const TRACK_ROLES = [
+    ['kick', /\b(kick|kik|kck|bd|bombo|drum\s*rack|drums?|bater[ií]a|bataca|kit)\b/i],
+    ['bass', /\b(bass|bajo|sub|808|reese|upright|contrabajo|synth\s*bass|moog)\b/i],
+    ['snare', /\b(snare|snr|sd|caja|tarola|clap|palmas?|rim|rimshot|redoblante)\b/i],
+    ['hats', /\b(hats?|hi[\s-]?hats?|hh|ch|oh|cymbal|platillos?|ride|crash|shaker|perc|percu|conga|bongo|toms?)\b/i],
+    ['vox', /\b(vox|voz|voces|vocals?|voice|canto|rap|coros?|lead|melod[ií]a?|solo|guitar|gtr|guitarra|brass|sax|trompeta)\b/i],
+    ['keys', /\b(keys?|teclas?|teclado|piano|rhodes|wurli|organ|[oó]rgano|pads?|chords?|acordes?|synth|sinte|saw|arp|strings?|cuerdas?|atmo|fx|efectos?|riser)\b/i],
+  ];
+  const ROLE_ORDER = ['kick', 'bass', 'snare', 'vox', 'keys', 'hats'];
+  const UTILITY = /\b(click|metro|cue|ref|reference|guide|gu[ií]a|sc|sidechain|mute)\b/i;
+  const roleOf = name => { const clean = String(name).replace(/^\s*\d+\s*[-·.:]?\s*/, ''); const hit = TRACK_ROLES.find(r => r[1].test(clean)); return hit ? hit[0] : ''; };
+  // Las pistas, en el orden en que conviene darles toma: una por papel, luego las demás como vengan
+  // en el set, y al final las de servicio (claqueta, guía, referencia), que no dicen nada a la imagen.
+  function linkPool() {
+    const first = [];
+    for (const role of ROLE_ORDER) { const t = link.tracks.find(t => !first.includes(t) && !UTILITY.test(t.name) && roleOf(t.name) === role); if (t) first.push(t); }
+    const rest = link.tracks.filter(t => !first.includes(t));
+    return first.concat(rest.filter(t => !UTILITY.test(t.name)), rest.filter(t => UTILITY.test(t.name)));
+  }
+  // Los cables de cada escena de fábrica cuando hay pistas de Live: [papel, mando, cuánto, de dónde si
+  // esa pista no está en el set (una fuente del master o un vaivén; «» = sin cable)].
+  const AUTOPATCH = [
+    [['bass', 'sig.rgb', .5, 'bass'], ['kick', 'geo.zoom', .14, 'beat'], ['hats', 'col.con', .16, 'high'], ['snare', 'sig.scan', .25, '']],
+    [['bass', 'fb.zoom', .2, 'bass'], ['kick', 'col.con', .16, 'beat'], ['vox', 'fb.hue', .22, 'mid'], ['keys', 'fb.rot', .1, 'lfo1']],
+    [['kick', 'geo.zoom', .16, 'beat'], ['bass', 'geo.warp', .34, 'bass'], ['keys', 'col.hue', .28, 'mid'], ['hats', 'geo.spin', .08, 'lfo1']],
+    [['bass', 'gen.freq', .3, 'bass'], ['kick', 'gen.shape', .3, 'beat'], ['vox', 'gen.hue', .24, 'lfo2'], ['snare', 'sig.rgb', .28, '']],
+    [['snare', 'sig.tear', .55, 'beat'], ['bass', 'sig.rgb', .42, 'bass'], ['hats', 'sig.noise', .2, 'lfo2'], ['kick', 'sig.vhold', .12, '']],
+    [['bass', 'fb.zoom', .18, 'bass'], ['kick', 'col.post', .26, 'beat'], ['hats', 'sig.rgb', .38, 'high'], ['vox', 'col.hue', .4, 'lfo1']],
+    [['bass', 'fb.zoom', -.14, 'bass'], ['kick', 'gen.freq', .35, 'beat'], ['vox', 'gen.hue', .3, 'mid'], ['keys', 'gen.shape', .22, '']],
+    [],
+  ];
+  const sameRoutes = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  // Solo si la escena sigue como salió de fábrica (nadie le movió un cable): entonces, al llegar Live,
+  // sus cables pasan de «el sonido del cuarto» a «cada instrumento». Lo que el usuario cableó no se toca.
+  function linkAutoPatch() {
+    if (link.state !== 'on' || !link.tracks.length) return false;
+    const factory = FACTORY()[store.scene];
+    const intact = sameRoutes(live.r, factory.r) || (link.auto && link.auto.scene === store.scene && sameRoutes(live.r, link.auto.routes));
+    if (!intact || !AUTOPATCH[store.scene].length) return false;
+    const slotOf = role => { const i = link.keys.findIndex(key => { const t = link.tracks.find(t => t.key === key); return t && roleOf(t.name) === role; }); return i < 0 ? '' : LIVE_KEYS[i]; };
+    const routes = [];
+    for (const [role, dst, amt, fallback] of AUTOPATCH[store.scene]) { const src = slotOf(role) || fallback; if (src && !routes.some(r => r[0] === src && r[1] === dst)) routes.push([src, dst, amt]); }
+    if (sameRoutes(routes, live.r)) { link.auto = { scene: store.scene, routes: routes.map(r => r.slice()) }; return false; }
+    live.r = routes;
+    link.auto = { scene: store.scene, routes: routes.map(r => r.slice()) };
+    ui.easyFor = -1;
+    if (ui.rig) { renderPage(); syncJacks(); }
+    return true;
+  }
+  // Al irse Live, una escena que seguía con los cables automáticos vuelve a los suyos.
+  function linkAutoUndo() {
+    const auto = link.auto;
+    link.auto = null;
+    if (!auto || auto.scene !== store.scene || !sameRoutes(live.r, auto.routes)) return;
+    live.r = store.scenes[store.scene].r.map(r => r.slice());
+    ui.easyFor = -1;
+    if (ui.rig) { renderPage(); syncJacks(); }
+  }
   // Cada toma recuerda el NOMBRE de su pista: si en Live cambian de orden, el cable sigue al instrumento.
   function linkAssign() {
-    const want = store.global.live.slots, used = new Set();
+    const want = store.global.live.slots, used = new Set(), pool = linkPool();
     link.keys = LIVE_KEYS.map((_, i) => {
       const t = want[i] && want[i] !== '-' && link.tracks.find(t => t.name === want[i] && !used.has(t.key));
       if (t) used.add(t.key);
@@ -957,10 +1034,10 @@ void main() {
     LIVE_KEYS.forEach((_, i) => {
       if (link.keys[i] || want[i] === '-') return;                       // ya tiene pista, o se dejó libre a propósito («-»)
       // (una toma cuya pista ya no existe —otro set— pasa a la siguiente pista sin toma)
-      const t = link.tracks.find(t => !used.has(t.key) && !want.includes(t.name));
+      const t = pool.find(t => !used.has(t.key) && !want.includes(t.name));
       if (t) { used.add(t.key); link.keys[i] = t.key; want[i] = t.name; }
     });
-    link.top.fill(0);
+    link.hi.fill(.25); link.lo.fill(.06); link.far.fill(0);
     linkLabels();
   }
   // El nombre de una pista, para una toma: sin el número que Live le pone delante («1-Drum Rack») y,
@@ -975,7 +1052,7 @@ void main() {
   function linkLabels() {
     LIVE_KEYS.forEach((key, i) => {
       const t = link.tracks.find(t => t.key === link.keys[i]), kept = store.global.live.slots[i];
-      const name = t ? t.name : kept && kept !== '-' ? kept : 'PISTA ' + (i + 1);
+      const name = t ? t.name : kept && kept !== '-' ? kept : 'LIBRE';
       SRC[key].label = linkShort(name, 16);
       const jack = ui.rig && ui.rig.querySelector('.rig-jack[data-src="' + key + '"]');
       if (jack) { jack.querySelector('.hw-print').textContent = linkShort(name, 8); jack.classList.toggle('is-idle', !t); jack.setAttribute('aria-label', 'Modulador ' + name); }
@@ -987,6 +1064,7 @@ void main() {
     link.demo = !!(info && info.demo);
     linkAssign();
     save();
+    if (link.state === 'on') { if (linkAutoPatch()) readout('PISTAS CONECTADAS SOLAS', 2200); }
   }
   function linkTake(f) {
     if (!f || typeof f.t !== 'number') return;
@@ -994,6 +1072,7 @@ void main() {
     link.frame = f; link.at = now;
     if (link.state !== 'on') {
       link.state = 'on'; linkPaint(); syncJacks();
+      if (linkAutoPatch()) readout('PISTAS CONECTADAS SOLAS', 2200);
       // al llegar la señal, las tomas de pista quedan a la vista (el pupitre se desplaza en pantallas bajas)
       const deck = ui.rig && ui.rig.querySelector('.rig-deck');
       if (deck && ui.page !== 'easy') requestAnimationFrame(() => { deck.scrollTop = deck.scrollHeight; });      // en FÁCIL todo cabe sin desplazar
@@ -1003,14 +1082,21 @@ void main() {
     link.lag = lag < link.lag ? lag : link.lag + .0005;
     if (link.hits >= 0 && f.hits > link.hits && f.ears) { audio.beat = Math.max(audio.beat, clamp(.55 + .45 * (f.hit == null ? 1 : f.hit))); audio.beats++; audio.lastBeat = now; }
     link.hits = f.hits;
-    // Cada pista usa TODO el recorrido de su toma, suene fuerte o bajito: su techo es su propio máximo
-    // reciente (baja muy despacio), con un mínimo para que el soplo de una pista vacía no cuente.
+    // Cada pista usa TODO el recorrido de su toma, suene fuerte o bajito. Su techo sube al instante y
+    // baja despacio (y deprisa si la pista lleva más de 2 s lejos de él: tras un golpe fuerte ya no
+    // tarda 24 s en recuperarse); su piso sigue el valle real, para que un colchón sostenido también
+    // respire; y el recorrido va de 7,5 a 30 dB según lo que la pista se mueva.
+    const dt = clamp((now - (link.prevAt || now)) / 1000, .01, .25);
+    link.prevAt = now;
     LIVE_KEYS.forEach((_, i) => {
       const v = link.keys[i] && f.tr && f.tr[link.keys[i]];
-      if (!v) { link.goal[i] = 0; return; }
-      link.top[i] = Math.max(v[0], (link.top[i] || 0) - .0007);
-      const ceil = Math.max(link.top[i], .45);
-      link.goal[i] = v[0] > .08 ? clamp(Math.pow(clamp((v[0] - (ceil - .42)) / .42), 1.3)) : 0;
+      if (!v || v[0] <= .06) { link.goal[i] = 0; link.lo[i] = Math.max(.05, link.lo[i] - .12 * dt); link.far[i] += dt; return; }      // puerta de ruido
+      const x = v[0];
+      link.far[i] = x > link.hi[i] - .1 ? 0 : link.far[i] + dt;
+      link.hi[i] = x > link.hi[i] ? x : Math.max(.18, link.hi[i] - (link.far[i] > 2 ? .085 : .012) * dt);
+      link.lo[i] = x < link.lo[i] ? link.lo[i] + (x - link.lo[i]) * Math.min(1, dt * 6) : Math.min(link.hi[i] - .14, link.lo[i] + .01 * dt);
+      const span = clamp(link.hi[i] - link.lo[i], .14, .55);
+      link.goal[i] = Math.pow(clamp((x - (link.hi[i] - span)) / span), 1.35);
     });
   }
   // El pulso de Live en este instante (el cuadro trae el suyo; se adelanta lo que tardó en llegar).
@@ -1033,10 +1119,24 @@ void main() {
     linkPaint();
     return true;
   }
+  // Enlace de un clic: quien da la señal (PITÁGORAS) abre FLIP con «#stage-live=<enlace de visuales>».
+  // Va en el fragmento, que no viaja a ningún servidor; aquí se valida (solo vale el enlace de solo
+  // escucha), se guarda y se borra de la barra de direcciones.
+  function linkFromHash() {
+    const hit = /[#&]stage-live=([^&]+)/.exec(location.hash || '');
+    if (!hit) return false;
+    let url = '';
+    try { url = linkUrl(decodeURIComponent(hit[1])); } catch (_) {}
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+    if (!url) return false;
+    store.global.live.url = url; save();
+    return true;
+  }
   function linkClose(keep) {
     if (link.es) { link.es.close(); link.es = null; }
     Object.assign(link, { state: 'off', frame: null, at: -1e9, tracks: [], hits: -1 });
-    link.goal.fill(0); link.top.fill(0); link.keys.fill('');
+    link.goal.fill(0); link.hi.fill(.25); link.lo.fill(.06); link.far.fill(0); link.keys.fill('');
+    linkAutoUndo();
     if (!keep) { store.global.live.url = ''; save(); }
     linkLabels();
   }
@@ -1049,6 +1149,7 @@ void main() {
       : !on ? 'LIVE · BUSCANDO A PITÁGORAS…'
       : 'LIVE · ' + (f.bpm ? Math.round(f.bpm) + ' BPM' : 'SIN TEMPO') + ' · ' + link.tracks.length + (link.tracks.length === 1 ? ' PISTA' : ' PISTAS') + (link.demo ? ' · DEMO' : f.ears ? '' : ' · SIN OÍDO DEL MASTER') + (f.play ? '' : ' · PARADO');
     put('rigLiveText', text);
+    if (ui.rig.classList.contains('rig-live-on') !== on) requestAnimationFrame(cables);   // las tomas cambian de fila: los cables, con ellas
     ui.rig.classList.toggle('rig-live-on', on);
     $('rigLive').classList.toggle('is-on', on);
     $('rigLive').classList.toggle('is-wait', link.state === 'connecting' || (link.state === 'on' && !on));
@@ -1174,7 +1275,8 @@ void main() {
     // medio), para que al entrar con cámara no asome el generador.
     const opening = typeof cameraRequest !== 'undefined' && !!cameraRequest;
     if (camReady() || opening) camMissSince = 0; else if (!camMissSince) camMissSince = performance.now();
-    const camless = !!camMissSince && performance.now() - camMissSince > 1500 && !(d['src.gen'] && v['mix.fade'] > .5);
+    // (la clave SILUETA recorta a la persona de la cámara: sin cámara no hay a quién recortar y salía negro)
+    const camless = !!camMissSince && performance.now() - camMissSince > 1500 && (!(d['src.gen'] && v['mix.fade'] > .5) || d['mix.mode'] === 5);
     c.i('uGen', camless ? 2 : d['src.gen']); c.i('uMixMode', camless ? 0 : d['mix.mode']); c.i('uFbMode', d['fb.mode']); c.i('uMirror', d['geo.mirror']); c.f('uKeyInv', d['key.inv'] ? 1 : 0);
     c.f('uGenFreq', lerp(1.5, 42, v['gen.freq'] * v['gen.freq'])); c.f('uGenPhase', ph.gen); c.f('uGenShape', v['gen.shape']); c.f('uGenHue', v['gen.hue']);
     c.f('uFade', camless ? 1 : v['mix.fade']); c.f('uKeyLevel', v['key.level']); c.f('uKeySoft', .01 + v['key.soft'] * .35);
@@ -1325,7 +1427,7 @@ void main() {
   // Grabación y foto de lo que sale.
   const rec = { on: false, recorder: null, chunks: [], t0: 0, mime: '' };
   function recStart() {
-    if (!eng.ok || typeof MediaRecorder === 'undefined') { flipToast('Este navegador no puede grabar vídeo.'); return; }
+    if (!eng.ok || typeof MediaRecorder === 'undefined') { flipToast('Este navegador no puede grabar video.'); return; }
     const feed = eng.canvas.captureStream(30);
     if (audio.on && audio.stream) audio.stream.getAudioTracks().forEach(track => feed.addTrack(track));
     let made;
@@ -1367,6 +1469,7 @@ void main() {
     for (const id of Object.keys(midi.slew)) delete midi.slew[id];
     live.d = Object.assign({}, target.d);
     live.r = target.r.map(r => r.slice());
+    link.auto = null; linkAutoPatch();
     patched();
     readout('E' + (index + 1) + ' ' + target.name, 1100);
     save();
@@ -1381,6 +1484,7 @@ void main() {
   function patched() {
     if (live.d['mix.mode'] === 5 && typeof flipSilhouette !== 'undefined') flipSilhouette.start();
     if (live.r.some(r => r[0] === 'hx' || r[0] === 'hy' || r[0] === 'pinch')) handsOn(true);
+    ui.easyFor = -1;
     if (!ui.rig) return;
     syncScenes(); renderPage(); syncJacks();
   }
@@ -1405,8 +1509,8 @@ void main() {
     syncJacks();
     if (ui.armed) readout(SRC[ui.armed].label + ' > TOCA UN MANDO', 4000); else readout('', 0);
     coach();
-    if (ui.armed && (ui.armed === 'bass' || ui.armed === 'mid' || ui.armed === 'high') && !audio.on && !audio.inject) flipToast('Enciende MIC para que los mandos sigan el sonido.', 2600);
-    if (ui.armed === 'note' && midi.state === 'off') flipToast('Pulsa MIDI para conectar tu controlador.', 2600);
+    if (ui.armed && (ui.armed === 'bass' || ui.armed === 'mid' || ui.armed === 'high' || ui.armed === 'beat') && !audio.on && !audio.inject && !linkMaster()) flipToast('Enciende MIC para que siga el sonido.', 2600);
+    if (ui.armed === 'note' && midi.state === 'off') flipToast('Toca MIDI para conectar tu controlador.', 2600);
     if (ui.armed && LIVE_KEYS.includes(ui.armed) && link.state !== 'on') flipToast('Conecta LIVE para que este mando siga una pista de Ableton.', 2600);
   }
 
@@ -1471,16 +1575,16 @@ void main() {
             <canvas id="stageCanvas" width="960" height="540"></canvas>
             <i class="rig-cross" id="rigCross"></i>
             <div class="rig-tally"><span id="rigTallyLive"><i></i>EN VIVO</span><span id="rigTallyOut">SALIDA</span><span id="rigTallyRec"><i></i>REC</span></div>
-            <div class="rig-tally rig-tally-right"><span id="rigTallyAudio" class="is-off"><b>SIN SONIDO</b><em class="vu"><u></u></em></span></div>
+            <div class="rig-tally rig-tally-right"><span id="rigTallyAudio" class="is-off" role="button" tabindex="0" aria-label="Escuchar música: enciende el micrófono"><b>ESCUCHAR MÚSICA</b><em class="vu"><u></u></em></span></div>
             <div class="rig-note" id="rigNote" role="status"></div>
             <div class="rig-clean-hint" id="rigCleanHint">Arrastra: PAD X · Y &nbsp;·&nbsp; Doble toque: siguiente escena &nbsp;·&nbsp; Atrás: salir</div>
           </div>
         </div>
         <div class="rig-side">
         <div class="rig-deck">
-          <div class="rig-row rig-row-scenes"><span class="hw-print">ESCENAS · MANTÉN PARA GUARDAR</span>${window.flipRollo ? `<img class="rollo-badge" src="${flipRollo.url('marca/placa-vs-27-clara.svg')}" alt="STAGE VS-27 PRO">` : '<span class="hw-print rig-badge">VS-27 · PRO</span>'}</div>
-          <div class="rig-scenes" id="rigScenes" role="radiogroup" aria-label="Escenas">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<button class="hw hw-keycap" type="button" role="radio" data-scene="${i}" data-feel="key" aria-label="Escena ${i + 1}"><span>${i + 1}</span></button>`).join('')}</div>
-          <div class="rig-tabs" id="rigTabs" role="tablist" aria-label="Módulos"><button class="hw hw-keycap rig-modo" data-color="gray" type="button" role="tab" data-page="easy"><span>FÁCIL</span></button><button class="hw hw-keycap rig-modo" data-color="gray" type="button" id="rigTaller" aria-label="Taller: el sintetizador completo"><span>TALLER</span></button>${PAGES.filter(page => page.id !== 'easy').map(page => `<button class="hw hw-keycap rig-tab" data-color="gray" type="button" role="tab" data-page="${page.id}"><span>${page.label}</span></button>`).join('')}</div>
+          <div class="rig-row rig-row-scenes"><span class="hw-print">ESCENAS</span><div class="rig-modos" id="rigModos" role="tablist" aria-label="Vista"><button class="hw hw-keycap rig-modo" data-color="gray" type="button" role="tab" data-page="easy"><span>FÁCIL</span></button><button class="hw hw-keycap rig-modo" data-color="gray" type="button" id="rigTaller" aria-label="Taller: el sintetizador completo"><span>TALLER</span></button></div>${window.flipRollo ? `<img class="rollo-badge" src="${flipRollo.url('marca/placa-vs-27-clara.svg')}" alt="STAGE VS-27 PRO">` : '<span class="hw-print rig-badge">VS-27 · PRO</span>'}</div>
+          <div class="rig-scenes" id="rigScenes" role="radiogroup" aria-label="Escenas">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<button class="hw hw-keycap" type="button" role="radio" data-scene="${i}" data-feel="key" aria-label="Escena ${i + 1}"><span>${i + 1}</span><em></em></button>`).join('')}</div>
+          <div class="rig-tabs" id="rigTabs" role="tablist" aria-label="Módulos">${PAGES.filter(page => page.id !== 'easy').map(page => `<button class="hw hw-keycap rig-tab" data-color="gray" type="button" role="tab" data-page="${page.id}"><span>${page.label}</span></button>`).join('')}</div>
           <p class="rig-coach" id="rigCoach" role="status"></p>
           <div class="rig-panel" id="rigPanel" role="tabpanel"></div>
           <button class="hw rig-live" id="rigLive" type="button" aria-haspopup="dialog" aria-label="Enlace con Ableton Live"><i></i><span id="rigLiveText">LIVE · CONECTAR CON ABLETON</span></button>
@@ -1515,13 +1619,17 @@ void main() {
   const toggleHtml = ([id, label]) => `<div class="rig-toggle"><button class="hw hw-switch" type="button" role="switch" aria-checked="false" data-toggle="${id}" aria-label="${label}"><i></i></button><span class="hw-print">${label}</span></div>`;
   // Los cuatro mandos que más cuentan en esta escena: primero los que ya llevan cable, luego los
   // que la escena movió más lejos de fábrica, y si faltan, cuatro de siempre.
+  // (se eligen al entrar a la escena y se quedan quietos: si se recalcularan con cada cable, las barras
+  //  cambiarían de sitio bajo el dedo)
   function easyKnobs() {
+    if (ui.easyIds && ui.easyFor === store.scene) return ui.easyIds;
     const picked = [];
     for (const r of live.r) if (!picked.includes(r[1]) && SCENE_IDS.includes(r[1]) && !/^lfo/.test(r[1])) picked.push(r[1]);
     const moved = SCENE_IDS.filter(id => !picked.includes(id) && !/^lfo/.test(id)).map(id => [Math.abs(live.p[id] - P[id][1]), id]).sort((a, b) => b[0] - a[0]);
     for (const [far, id] of moved) if (picked.length < 4 && far > .04) picked.push(id);
     for (const id of ['geo.zoom', 'col.hue', 'sig.rgb', 'fb.amt']) if (picked.length < 4 && !picked.includes(id)) picked.push(id);
-    return picked.slice(0, 4);
+    ui.easyFor = store.scene;
+    return (ui.easyIds = picked.slice(0, 4));
   }
   // Las fuentes que se enseñan en FÁCIL: las que ya llevan cable y, de las demás, las pistas de Live si
   // el enlace está encendido, o el sonido y un LFO si no.
@@ -1532,31 +1640,57 @@ void main() {
     const node = ui.rig && $('rigCoach');
     if (!node) return;
     clearTimeout(coachTimer);
-    const base = ui.armed ? SRC[ui.armed].label + ' › ahora toca el mando que quieres que mueva' : live.r.length ? 'Toca una fuente y luego un mando para conectar otro cable' : '1 · Toca una fuente de abajo     2 · Toca el mando que quieres que mueva';
+    const easy = ui.page === 'easy';
+    const base = easy ? (ui.pick ? 'Elige qué mueve «' + facil(ui.pick) + '»' : live.r.length ? 'Desliza una barra, o toca su color para cambiar qué la mueve.' : 'Toca «+ CONECTAR» en un efecto para que siga la música.')
+      : ui.armed ? SRC[ui.armed].label + ' › ahora toca la perilla que quieres que mueva' : live.r.length ? 'Toca una fuente y luego una perilla para conectar otro cable' : '1 · Toca una fuente de abajo     2 · Toca la perilla que quieres que mueva';
     node.textContent = text || base;
     node.classList.toggle('is-armed', !!ui.armed && !text);
     node.style.setProperty('--arm', ui.armed ? SRC[ui.armed].tone : 'transparent');
     if (text && ms) coachTimer = setTimeout(() => coach(), ms);
   }
+  // FÁCIL · cada efecto de la escena es una barra que se desliza, con una pastilla a su derecha que dice
+  // qué la mueve (y late con ello). Tocar la pastilla abre ahí mismo la lista de fuentes y cuánto
+  // la mueve. Son los mismos datos que el TALLER (live.p y live.r): allá se ven como perillas y cables.
+  const escHtml = text => String(text).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const pickList = () => (link.state === 'on' && linkFresh() ? LIVE_KEYS.filter((_, i) => link.keys[i]) : []).concat(['bass', 'mid', 'high', 'beat', 'lfo1', 'lfo2', 'padx', 'hx']);
+  const pctText = amt => (amt > 0 ? '+' : '') + Math.round(amt * 100) + ' %';
+  function stripHtml(id) {
+    const r = live.r.find(r => r[1] === id), open = ui.pick === id, name = escHtml(facil(id));
+    let html = `<div class="rig-tira${open ? ' is-open' : ''}" data-tira="${id}">
+      <div class="rig-fader" data-param="${id}" data-feel="none" role="slider" tabindex="0" aria-label="${name}" aria-valuemin="0" aria-valuemax="100"><span class="hw-print">${name}</span><div class="track"><i class="ring"></i><i class="cap"></i><i class="live"></i></div></div>
+      <button class="hw rig-pastilla${r ? ' is-on' : ''}" type="button" data-pill="${id}" data-feel="soft" style="--tone:${r ? SRC[r[0]].tone : 'transparent'}" aria-expanded="${open}" aria-label="${r ? 'Lo mueve ' + escHtml(srcFacil(r[0])) + '. Toca para cambiarlo' : 'Conectar ' + name + ' a una fuente'}">${r ? `<i class="led" data-led="${r[0]}"></i><span>${escHtml(srcFacil(r[0]))}</span>` : '<span>+ CONECTAR</span>'}</button>`;
+    if (open) html += `<div class="rig-elige" role="group" aria-label="Qué mueve ${name}">
+        <div class="rig-elige-fuentes">${pickList().map(key => `<button class="hw rig-fuente${r && r[0] === key ? ' is-on' : ''}" type="button" data-fuente="${key}" data-feel="key" style="--tone:${SRC[key].tone}" aria-pressed="${!!(r && r[0] === key)}"><i class="led" data-led="${key}"></i><span>${escHtml(srcFacil(key))}</span></button>`).join('')}</div>
+        ${r ? `<label class="rig-cuanto"><span class="hw-print">QUÉ TANTO LA MUEVE</span><input type="range" min="-100" max="100" step="2" value="${Math.round(r[2] * 100)}" data-cuanto="${id}" style="accent-color:${SRC[r[0]].tone}" aria-label="Qué tanto la mueve"><b>${pctText(r[2])}</b></label>` : ''}
+        <div class="rig-elige-teclas">${r ? '<button class="hw hw-keycap" data-color="gray" type="button" data-elige="quitar" data-feel="slide"><span>QUITAR</span></button>' : ''}<button class="hw hw-keycap" data-color="gray" type="button" data-elige="taller"><span>VER EN TALLER</span></button><button class="hw hw-keycap" type="button" data-elige="listo" data-feel="soft"><span>LISTO</span></button></div>
+      </div>`;
+    return html + '</div>';
+  }
+  // A qué página del TALLER pertenece un mando.
+  const pageOf = id => (PAGES.find(p => (p.knobs || []).includes(id) || p.fader === id) || PAGES[1]).id;
   function renderPage() {
     let page = PAGES.find(entry => entry.id === ui.page) || PAGES[0];
     const easy = page.id === 'easy';
-    if (easy) page = { id: 'easy', title: 'ESCENA ' + (store.scene + 1) + ' · ' + store.scenes[store.scene].name + ' · SUS MANDOS', knobs: easyKnobs() };
+    if (easy) page = { id: 'easy', title: 'ESCENA ' + (store.scene + 1) + ' · ' + store.scenes[store.scene].name, knobs: easyKnobs() };
+    if (easy && ui.armed) { ui.armed = ''; ui.rig.classList.remove('is-arming'); }      // en FÁCIL no hay «cable en la mano»
+    if (!easy || !page.knobs.includes(ui.pick)) ui.pick = '';
     ui.rig.classList.toggle('rig-easy', easy);
     $('rigTaller').classList.toggle('is-on', !easy);
-    let html = `<div class="rig-title hw-print">${page.title}</div>`;
+    let html = easy ? '' : `<div class="rig-title hw-print">${page.title}</div>`;
     if (page.picks) html += `<div class="rig-picks" data-count="${page.picks.length}">${page.picks.map(pickHtml).join('')}</div>`;
     if (page.fader) html += `<div class="rig-fader" data-param="${page.fader}" data-feel="none" role="slider" tabindex="0" aria-label="Fundido entre la cámara y el generador" aria-valuemin="0" aria-valuemax="100"><span class="hw-print">A</span><div class="track"><i class="ring"></i><i class="cap"></i><i class="live"></i></div><span class="hw-print">B</span></div>`;
-    html += `<div class="rig-knobs">${page.knobs.map(knobHtml).join('')}${(page.toggles || []).map(toggleHtml).join('')}`;
+    if (easy) html += `<div class="rig-tiras">${page.knobs.map(stripHtml).join('')}</div>`;
+    html += `<div class="rig-knobs">${easy ? '' : page.knobs.map(knobHtml).join('')}${(page.toggles || []).map(toggleHtml).join('')}`;
     if (page.id === 'src') html += `<div class="rig-toggle"><button class="hw hw-candy sm" data-color="blue" type="button" data-act="flip" aria-label="Cambiar de cámara">${icon('flip')}</button><span class="hw-print">GIRAR</span></div>`;
     html += '</div>';
     if (page.id === 'mod') html += `<div class="rig-keys"><button class="hw hw-keycap" type="button" data-act="sync"><span>A TEMPO</span></button><button class="hw hw-keycap" type="button" data-act="hands">${icon('hand')}<span>MANOS</span></button><button class="hw hw-keycap" type="button" data-act="unpatch"><span>QUITAR CABLES</span></button></div><div class="rig-routes" id="rigRoutes"></div>`;
     if (page.id === 'out') html += `<div class="rig-keys"><button class="hw hw-keycap" type="button" data-act="clean">${icon('full')}<span>PANTALLA COMPLETA</span></button><button class="hw hw-keycap" type="button" data-act="window">${svg('out')}<span>VENTANA EXTERNA</span></button><button class="hw hw-keycap" type="button" data-act="black"><span>NEGRO</span></button><button class="hw hw-keycap" type="button" data-act="unmidi"><span>OLVIDAR MIDI</span></button><button class="hw hw-keycap" type="button" data-act="factory"><span>FÁBRICA</span></button></div>
-      <p class="rig-help"><b>Teléfono:</b> cable USB-C a HDMI y tecla SALIDA: la pantalla entera es la señal. <b>Ordenador:</b> HDMI y VENTANA EXTERNA; doble clic para llenarla.</p>`;
+      <p class="rig-help"><b>Teléfono:</b> cable USB-C a HDMI y tecla SALIDA: la pantalla entera es la señal. <b>Computadora:</b> HDMI y VENTANA EXTERNA; doble clic para llenarla.</p>`;
     ui.panel.innerHTML = html;
     ui.ctl = {};
     ui.panel.querySelectorAll('[data-param]').forEach(node => { ui.ctl[node.dataset.param] = node; syncCtl(node.dataset.param); });
-    ui.rig.querySelectorAll('#rigTabs [data-page]').forEach(tab => { const on = tab.dataset.page === page.id; tab.classList.toggle('is-on', on); tab.setAttribute('aria-selected', String(on)); });
+    ui.pills = [...ui.panel.querySelectorAll('[data-led]')];
+    ui.rig.querySelectorAll('#rigTabs [data-page], #rigModos [data-page]').forEach(tab => { const on = tab.dataset.page === page.id; tab.classList.toggle('is-on', on); tab.setAttribute('aria-selected', String(on)); });
     syncPicks(); syncToggles(); syncKeys(); routesList(); syncJacks(); coach();
     requestAnimationFrame(cables);
   }
@@ -1582,7 +1716,7 @@ void main() {
   }
   function syncToggles() { if (ui.panel) ui.panel.querySelectorAll('[data-toggle]').forEach(node => node.setAttribute('aria-checked', String(!!getD(node.dataset.toggle)))); }
   function syncScenes() {
-    ui.rig.querySelectorAll('#rigScenes [data-scene]').forEach(key => { const on = +key.dataset.scene === store.scene; key.classList.toggle('is-on', on); key.setAttribute('aria-checked', String(on)); key.title = store.scenes[+key.dataset.scene].name; });
+    ui.rig.querySelectorAll('#rigScenes [data-scene]').forEach(key => { const on = +key.dataset.scene === store.scene; key.classList.toggle('is-on', on); key.setAttribute('aria-checked', String(on)); key.title = store.scenes[+key.dataset.scene].name; const em = key.querySelector('em'); if (em && em.textContent !== key.title) em.textContent = key.title; });
   }
   function syncJacks() {
     ui.rig.querySelectorAll('.rig-jack').forEach(jack => {
@@ -1617,6 +1751,7 @@ void main() {
   function cables() {
     const host = ui.cablesSvg;
     if (!host || !ui.rig) return;
+    if (ui.page === 'easy') { if (host.innerHTML) host.innerHTML = ''; return; }      // en FÁCIL las pastillas dicen qué mueve a qué
     const frame = ui.rig.getBoundingClientRect();
     if (!frame.width) { host.innerHTML = ''; return; }
     host.setAttribute('viewBox', `0 0 ${frame.width} ${frame.height}`);
@@ -1648,6 +1783,7 @@ void main() {
   function paint(now) {
     if (!ui.rig || state.clean) { lcd(false); return; }
     for (const [key, led] of ui.leds) led.style.opacity = (.22 + .78 * Math.abs(mods[key])).toFixed(2);
+    if (ui.pills) for (const led of ui.pills) led.style.opacity = (.3 + .7 * Math.abs(mods[led.dataset.led])).toFixed(2);
     if (link.state !== 'off' && now - link.paintAt > 700) linkPaint();
     for (const id of Object.keys(ui.ctl)) {
       const node = ui.ctl[id];
@@ -1662,18 +1798,20 @@ void main() {
     cross.style.left = (pad.x * 100).toFixed(1) + '%'; cross.style.top = ((1 - pad.y) * 100).toFixed(1) + '%';
     put('rigBpm', String(Math.round(bpmNow())));
     // El sonido, a la vista: de dónde entra, cuánto llega, y si no llega nada.
-    const chip = $('rigTallyAudio'), silent = audio.on && audio.quietFor > 4;
-    const label = !audio.on ? 'SIN SONIDO' : silent ? 'NO LLEGA SEÑAL' : audio.kind === 'system' ? 'ORDENADOR' : audio.kind === 'custom' ? 'PRUEBA' : 'MIC';
+    // (con el enlace LIVE el sonido es el del master de Ableton, no el del micrófono)
+    const liveOn = linkMaster(), heard = audio.on || liveOn;
+    const chip = $('rigTallyAudio'), silent = !liveOn && audio.on && audio.quietFor > 4;
+    const label = liveOn ? 'ABLETON' : !audio.on ? 'ESCUCHAR MÚSICA' : silent ? 'NO LLEGA SEÑAL' : audio.kind === 'system' ? 'COMPUTADORA' : audio.kind === 'custom' ? 'PRUEBA' : 'MIC';
     if (chip.firstChild.textContent !== label) chip.firstChild.textContent = label;
-    chip.classList.toggle('is-off', !audio.on); chip.classList.toggle('is-silent', silent);
-    chip.style.setProperty('--vu', audio.level.toFixed(2));
+    chip.classList.toggle('is-off', !heard); chip.classList.toggle('is-silent', silent);
+    chip.style.setProperty('--vu', (liveOn ? link.frame.m[0] : audio.level).toFixed(2));
     const wanted = live.r.some(r => r[0] === 'bass' || r[0] === 'mid' || r[0] === 'high' || r[0] === 'beat') || live.d['src.gen'] === 6 || live.d['src.gen'] === 7;
-    $('rigMic').classList.toggle('is-asking', !audio.on && !audio.busy && wanted);
+    $('rigMic').classList.toggle('is-asking', !heard && !audio.busy && wanted);
     $('rigTap').classList.toggle('is-beat', (ph.lfo[0] % 1) < .12 && !!live.d['lfo.sync']);
     $('rigMidi').classList.toggle('is-active', now - midi.seen < 120);
     if (!eng.ok) note(eng.error ? 'Este navegador no tiene WebGL 2: STAGE no puede dibujar aquí.' : '');
-    else if (!camReady()) note(live.d['src.gen'] && live.p['mix.fade'] > .5 ? '' : typeof cameraRequest !== 'undefined' && cameraRequest ? '' : 'Sin cámara: se ve un generador. Toca el monitor para activarla.');
-    else if (audio.on && audio.quietFor > 4) note('No llega sonido. Sube la música o elige otra entrada en MOD.');
+    else if (!camReady()) note(live.d['mix.mode'] === 5 ? 'SILUETA necesita la cámara para recortarte. Toca el monitor para activarla.' : live.d['src.gen'] && live.p['mix.fade'] > .5 ? '' : typeof cameraRequest !== 'undefined' && cameraRequest ? '' : 'Sin cámara: se ve un generador. Toca el monitor para activarla.');
+    else if (audio.on && audio.quietFor > 4) note('No llega sonido. Sube la música o elige otra entrada en RITMO.');
     else if (live.d['mix.mode'] === 5 && !eng.hasMask) note(flipSilhouette.status().phase === 'failed' ? 'El recorte de silueta necesita conexión la primera vez.' : 'Cargando el recorte de silueta…');
     else note('');
     lcd(false);
@@ -1725,6 +1863,8 @@ void main() {
       if (!drag) return;
       ui.drag = null;
       drag.node.classList.remove('is-held');
+      // (la primera vez que se mueve algo en FÁCIL, la guía dice cómo guardarlo; en el TALLER la pantallita sigue diciendo el valor)
+      if (drag.moved && !ui.toldKeep && ui.page === 'easy' && event.type !== 'pointercancel') { ui.toldKeep = true; coach('¿Te gusta cómo quedó? Mantén apretada una escena para guardarla ahí.', 5200); }
       if (drag.moved || event.type === 'pointercancel') return;
       const now = performance.now();
       if (drag.armed) {                                                   // toque con un cable en la mano: conecta o desconecta
@@ -1739,6 +1879,16 @@ void main() {
       } else readout(P[drag.id][0] + ' ' + describe(drag.id, live.p[drag.id]), 1200);
       ui.lastTap = { t: now, id: drag.id };
     };
+    ui.panel.addEventListener('input', event => {
+      const range = event.target.closest('[data-cuanto]');
+      if (!range) return;
+      const id = range.dataset.cuanto, r = live.r.find(r => r[1] === id);
+      if (!r) return;
+      let amt = clamp(+range.value / 100, -1, 1);
+      if (Math.abs(amt) < .04) amt = amt < 0 ? -.04 : .04;                 // en cero el cable se soltaría: para eso está QUITAR
+      setRoute(r[0], id, amt);
+      range.parentNode.querySelector('b').textContent = pctText(amt);
+    });
     ui.panel.addEventListener('pointerup', release);
     ui.panel.addEventListener('pointercancel', release);
     ui.panel.addEventListener('keydown', event => {
@@ -1763,6 +1913,31 @@ void main() {
       if (toggle) { setD(toggle.dataset.toggle, getD(toggle.dataset.toggle) ? 0 : 1); syncToggles(); return; }
       const unroute = event.target.closest('[data-unroute]');
       if (unroute) { const r = live.r[+unroute.dataset.unroute]; if (r) setRoute(r[0], r[1], 0); return; }
+      const pill = event.target.closest('[data-pill]');
+      if (pill) { ui.pick = ui.pick === pill.dataset.pill ? '' : pill.dataset.pill; renderPage(); const open = ui.panel.querySelector('.rig-tira.is-open'); if (open && open.scrollIntoView) open.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
+      const fuente = event.target.closest('[data-fuente]');
+      if (fuente && ui.pick) {
+        // una sola fuente por efecto en FÁCIL: la nueva ocupa el sitio de la anterior, con su misma fuerza
+        const old = live.r.find(r => r[1] === ui.pick), src = fuente.dataset.fuente;
+        if (old && old[0] === src) return;
+        const amt = old ? old[2] : .5, at = old ? live.r.indexOf(old) : -1;
+        if (old) live.r.splice(at, 1);
+        setRoute(src, ui.pick, amt);
+        const made = routeOf(src, ui.pick);
+        if (made && at >= 0) { live.r.splice(live.r.indexOf(made), 1); live.r.splice(at, 0, made); }      // en el sitio de la anterior
+        if ((src === 'bass' || src === 'mid' || src === 'high' || src === 'beat') && !audio.on && !audio.inject && !linkMaster()) flipToast('Toca ESCUCHAR MÚSICA para que siga el sonido.', 2600);
+        renderPage();
+        return;
+      }
+      const elige = event.target.closest('[data-elige]');
+      if (elige && ui.pick) {
+        const what = elige.dataset.elige, id = ui.pick, r = live.r.find(r => r[1] === id);
+        if (what === 'quitar' && r) setRoute(r[0], id, 0);
+        if (what === 'taller') { ui.page = ui.taller = pageOf(id); ui.pick = ''; renderPage(); const node = ui.ctl[id]; if (node) { node.classList.add('is-target'); setTimeout(() => node.classList.remove('is-target'), 1400); } return; }
+        ui.pick = '';
+        renderPage();
+        return;
+      }
       const key = event.target.closest('[data-act]');
       if (!key) return;
       const act = key.dataset.act;
@@ -1781,13 +1956,15 @@ void main() {
       syncKeys();
     });
     // Pestañas de módulo.
-    $('rigTabs').addEventListener('click', event => {
+    const pickPage = event => {
       const tab = event.target.closest('[data-page]');
       if (!tab) return;
       ui.page = tab.dataset.page;
       if (ui.page !== 'easy') ui.taller = ui.page;
       renderPage();
-    });
+    };
+    $('rigTabs').addEventListener('click', pickPage);
+    $('rigModos').addEventListener('click', pickPage);
     $('rigTaller').addEventListener('click', () => { if (ui.page === 'easy') { ui.page = ui.taller; renderPage(); } });
     // Escenas: toque para llamar, mantener para guardar.
     let hold = 0, held = false;
@@ -1817,6 +1994,11 @@ void main() {
     $('rigOut').addEventListener('click', () => (COARSE ? clean(!state.clean) : openWindow()));
     $('rigTap').addEventListener('click', event => { if (midi.learn) learnTarget('t:tap', event.currentTarget); else tap(); });
     $('rigMic').addEventListener('click', () => (audio.on ? audioOff() : audioOn()));
+    // «ESCUCHAR MÚSICA» sobre el monitor: lo mismo que MIC, donde se está mirando.
+    const chip = $('rigTallyAudio');
+    chip.addEventListener('pointerdown', event => event.stopPropagation());
+    chip.addEventListener('click', event => { event.stopPropagation(); if (!audio.on && !audio.busy && !linkMaster()) { feel.tap('primary', 'down', event.clientX); audioOn(); } });
+    chip.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); chip.click(); } });
     $('rigMidi').addEventListener('click', () => { if (midi.state === 'off' || midi.state === 'denied' || midi.state === 'none') midiConnect(); else setLearn(!midi.learn); });
     $('rigLive').addEventListener('click', () => linkSheet(true));
     $('rigLiveClose').addEventListener('click', () => linkSheet(false));
@@ -1884,10 +2066,7 @@ void main() {
     cancelFrame(mainFrame);
     pumpMain(); pumpOut(); wake(true);
     patched(); syncKeys(); lcd(true);
-    // La primera vez, dos frases que explican el aparato.
-    try {
-      if (!localStorage.getItem('flip.stage.hello')) { localStorage.setItem('flip.stage.hello', '1'); flipToast('Teclas 1 a 8: escenas. Toca una toma de abajo y luego una perilla para conectar un cable.', 6500); }
-    } catch (_) {}
+    linkFromHash();
     if (store.global.live.url && link.state === 'off') linkOpen(store.global.live.url, true);      // el enlace con Ableton vuelve solo
     if (!midi.access && navigator.permissions && navigator.requestMIDIAccess) {
       navigator.permissions.query({ name: 'midi' }).then(permission => { if (permission.state === 'granted' && state.active && !midi.access) midiConnect(); }).catch(() => {});

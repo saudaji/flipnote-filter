@@ -49,6 +49,7 @@ function feedServer() {
     await openModule(page, 'stage');
     await page.waitForFunction(() => window.flipStage && flipStage.active && flipStage.status().ok, null, { timeout: 15000 });
     await page.evaluate(() => { localStorage.removeItem('flip.stage.v3'); flipStage.reset(); });
+    await page.locator('#rigTaller').click();                          // las tomas de pista se ven en el TALLER (en FÁCIL son pastillas)
     const frame = (extra = {}) => ({ t: Date.now() / 1000, play: true, pos: 8, bpm: 128, m: [.8, .9, .4, .3], hits: 0, hit: 1, ears: true, tr: { 'track:0': [.95, .9, 0, 0], 'track:1': [.5, .5, 0, 0], 'track:2': [.1, 0, .1, 0] }, ...extra });
 
     // ── Apagado: las tomas de pista no estorban ──
@@ -66,8 +67,9 @@ function feedServer() {
       dentro: [...document.querySelectorAll('.rig-jack[data-live], #rigLive')].every(n => { const r = n.getBoundingClientRect(), deck = document.querySelector('.rig-transport').getBoundingClientRect(); return r.width > 20 && r.left >= -1 && r.right <= innerWidth + 1 && r.bottom <= deck.top + 1; }),
       rotulo: getComputedStyle(document.querySelector('.rig-jack[data-live] .hw-print')).color, fondo: getComputedStyle(document.getElementById('camBody')).backgroundColor }));
     assert.equal(on.s.live.state, 'on');
-    assert.deepEqual(on.s.live.names, ['KICK', 'BAJO', 'VOZ', 'HATS', 'KEYS', 'GTR'], 'cada toma toma el nombre de su pista');
-    assert.deepEqual(on.jacks, ['KICK', 'BAJO', 'VOZ', 'HATS', 'KEYS', 'GTR']);
+    // (una toma por papel —bombo, bajo, voz, teclas, platillos— y luego las demás en el orden del set)
+    assert.deepEqual(on.s.live.names, ['KICK', 'BAJO', 'VOZ', 'KEYS', 'HATS', 'GTR'], 'cada toma toma el nombre de su pista');
+    assert.deepEqual(on.jacks, ['KICK', 'BAJO', 'VOZ', 'KEYS', 'HATS', 'GTR']);
     assert.ok(on.dentro, 'la barra LIVE y la fila de pistas se ven sin desplazar');
     // los rótulos se leen: tinta oscura sobre fondo claro (STAGE pone sus mandos sobre el fondo)
     const lum = c => { const [r, g, b] = c.match(/[\d.]+/g).map(Number); return (.2126 * r + .7152 * g + .0722 * b) / 255; };
@@ -113,6 +115,46 @@ function feedServer() {
     assert.ok(cut.mods.lv1 < .02 && cut.mods.lv2 < .02, 'sin señal las tomas caen a cero');
     assert.notEqual(cut.s.bpmSource, 'LIVE', 'y el reloj vuelve al de la casa');
     step('sin señal: tomas a cero y reloj propio');
+
+    // ── Los cables se tienden solos, y el nivel es de cada pista ──
+    const SET2 = { tracks: ['1-Drum Rack', '2-Upright Far Bass', '3-Warm Saw Keys', 'Click', '5-Voz'].map((name, i) => ({ key: 'track:' + i, kind: 'track', index: i, name })), demo: false };
+    const solo = await page.evaluate(([set, f]) => {
+      flipStage.live.disconnect(); flipStage.reset(); flipStage.page('easy');
+      flipStage.recall(1, true);                                         // TÚNEL, tal como sale de fábrica
+      const fabrica = JSON.stringify(flipStage.status().routes);
+      flipStage.live.inject({ set }); flipStage.live.inject(f); flipStage.step(10, 16);
+      const conLive = flipStage.status();
+      const tiras = [...document.querySelectorAll('.rig-tira')].map(t => t.querySelector('.hw-print').textContent + ' ← ' + t.querySelector('.rig-pastilla').textContent.trim());
+      // otra escena, pero esta con un cable puesto por la persona: no se toca
+      flipStage.recall(2, true); const auto3 = JSON.stringify(flipStage.status().routes);
+      flipStage.live.disconnect(); flipStage.reset(); flipStage.recall(2, true); flipStage.route('lfo2', 'col.sat', .3);
+      const mia = JSON.stringify(flipStage.status().routes);
+      flipStage.live.inject({ set }); flipStage.live.inject(f); flipStage.step(10, 16);
+      const respetada = JSON.stringify(flipStage.status().routes) === mia;
+      // al irse Live, la escena con cables automáticos vuelve a los suyos
+      flipStage.recall(1, true); const puesta = JSON.stringify(flipStage.status().routes) !== fabrica;
+      flipStage.live.disconnect();
+      const vuelve = JSON.stringify(flipStage.status().routes) === fabrica;
+      return { nombres: conLive.live.names, rutas: conLive.routes, tiras, auto3, respetada, puesta, vuelve, chip: document.querySelector('#rigTallyAudio b').textContent };
+    }, [SET2, frame({ tr: { 'track:0': [.95, .9, 0, 0], 'track:1': [.6, .5, 0, 0], 'track:4': [.5, 0, .5, 0] } })]);
+    assert.deepEqual(solo.nombres.slice(0, 5), ['DRUM RACK', 'UPRIGHT FAR BASS', 'VOZ', 'WARM SAW KEYS', 'CLICK'], 'las tomas se llenan por papel (bombo, bajo, voz, teclas) y la claqueta va al final');
+    assert.deepEqual(solo.rutas, [['lv2', 'fb.zoom', .2], ['lv1', 'col.con', .16], ['lv3', 'fb.hue', .22], ['lv4', 'fb.rot', .1]], 'TÚNEL queda cableada a los instrumentos: ' + JSON.stringify(solo.rutas));
+    assert.deepEqual(solo.tiras, ['TÚNEL ← UPRIGHT FAR BASS', 'CONTRASTE ← DRUM RACK', 'ARCOÍRIS ← VOZ', 'ESPIRAL ← WARM SAW KEYS'], 'y en FÁCIL se lee qué instrumento mueve qué');
+    assert.ok(/lv1/.test(solo.auto3) && /"bass"|"mid"|"lfo1"/.test(solo.auto3) === (/"hats"/.test('') || true), 'al cambiar de escena, la nueva también recibe sus cables: ' + solo.auto3);
+    assert.ok(solo.respetada, 'una escena con un cable puesto a mano no se toca');
+    assert.ok(solo.puesta && solo.vuelve, 'al irse Live, la escena vuelve a sus cables de fábrica');
+    // una pista que suena bajito usa todo su recorrido (antes se quedaba en tres cuartos)
+    const bajito = await page.evaluate(set => {
+      flipStage.reset(); flipStage.live.inject({ set });
+      for (let i = 0; i < 40; i++) { flipStage.live.inject({ t: Date.now() / 1000, play: true, pos: 8 + i / 30, bpm: 128, m: [.8, .9, .4, .3], hits: 0, hit: 1, ears: true, tr: { 'track:0': [i % 6 < 2 ? .37 : .2, .3, 0, 0], 'track:1': [.03, 0, 0, 0] } }); flipStage.step(1, 33); }
+      let top = 0;
+      for (let i = 0; i < 12; i++) { flipStage.live.inject({ t: Date.now() / 1000, play: true, pos: 10 + i / 30, bpm: 128, m: [.8, .9, .4, .3], hits: 0, hit: 1, ears: true, tr: { 'track:0': [i % 6 < 2 ? .37 : .2, .3, 0, 0], 'track:1': [.03, 0, 0, 0] } }); flipStage.step(1, 33); top = Math.max(top, flipStage.mods().lv1); }
+      return { top, ruido: flipStage.mods().lv2 };
+    }, SET2);
+    assert.ok(bajito.top > .8 && bajito.ruido < .02, 'una pista a −34 dB llega arriba y el soplo de una vacía no cuenta: ' + JSON.stringify(bajito));
+    await page.evaluate(() => { flipStage.live.disconnect(); flipStage.reset(); });
+    await page.locator('#rigTaller').click();
+    step('cables solos por papel de la pista, respeto a lo cableado a mano y nivel propio', { tiras: solo.tiras, bajito: +bajito.top.toFixed(2) });
 
     // ── Por red de verdad ──
     await page.evaluate(() => flipStage.live.disconnect());

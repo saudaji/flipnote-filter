@@ -273,10 +273,25 @@
   // soft: { data, n } la referencia muy reducida promediando: de ahí salen los tonos. Una trama o un
   //       tramado representan un tono continuo con puntos de dos tintas; la curva que hay que copiar es
   //       la de ese tono, no la de los puntos (que solo tiene dos valores).
-  function analyze(thumb, fine, sparse, soft) {
+  // back: { rgb, share, samples } si la referencia tiene fondo liso («samples»: cuántas de las muestras de
+  //       «sparse» son del fondo). Con fondo, lo que se mide es la figura: el fondo no diluye el color
+  //       ni decide si la paleta es cerrada, y en los tonos cuenta como mucho por la mitad (la cámara
+  //       no se queda negra en sus tres cuartas partes porque la referencia lo fuera).
+  function analyze(thumb, fine, sparse, soft, back) {
     const n = thumb.width * thumb.height, lab = labImage(thumb.data, n);
     const sn2 = sparse ? sparse.n : n, slab = sparse ? labImage(sparse.data, sn2) : lab;
     const pal = palette(slab, sn2);
+    const behind = back ? (data, i) => Math.abs(data[i] - back.rgb[0]) + Math.abs(data[i + 1] - back.rgb[1]) + Math.abs(data[i + 2] - back.rgb[2]) <= 36 : () => false;
+    // (las muestras del fondo casan con su tinta sin error: el error que cuenta es el de la figura)
+    if (back && back.samples && back.samples < sn2) pal.error *= sn2 / (sn2 - back.samples);
+    // (y las partes de cada tinta vuelven a ser las de verdad: el fondo entró con menos muestras de las suyas)
+    if (back && back.samples && pal.colors.length > 1) {
+      const g = new Float32Array(3); toLab(back.rgb[0], back.rgb[1], back.rgb[2], g, 0);
+      let at = 0, bd = 1e9;
+      pal.colors.forEach((c, k) => { const d = Math.hypot(c[0] - g[0], c[1] - g[1], c[2] - g[2]); if (d < bd) { bd = d; at = k; } });
+      const rest = 1 - pal.shares[at];
+      if (bd < 0.12 && rest > 1e-6) pal.shares = pal.shares.map((w, k) => (k === at ? back.share : w * (1 - back.share) / rest));
+    }
     // ¿Paleta cerrada? Pocas tintas y la imagen pegada a ellas. «Pegada» se mide contra lo que separa
     // a las tintas entre sí: una foto de poco contraste también se queda en tres o cuatro centros y con
     // poco error absoluto, pero sus centros están casi tan cerca unos de otros como los puntos de ellos.
@@ -288,20 +303,29 @@
     // Tonos: los cuantiles de la luz de la referencia.
     const Ls = new Float32Array(n);
     for (let i = 0; i < n; i++) Ls[i] = lab[i * 3];
-    const tn = soft ? soft.n : sn2, tlab = soft ? labImage(soft.data, tn) : slab;
-    const sorted = new Float32Array(tn);
-    for (let i = 0; i < tn; i++) sorted[i] = tlab[i * 3];
+    let tn = soft ? soft.n : sn2;
+    const tlab = soft ? labImage(soft.data, tn) : slab;
+    let sorted = new Float32Array(tn);
+    if (back && soft) {
+      const own = [], rest = [];
+      for (let i = 0; i < tn; i++) (behind(soft.data, i * 4) ? rest : own).push(tlab[i * 3]);
+      const room = Math.min(rest.length, own.length);                       // el fondo: como mucho la mitad de los tonos
+      if (own.length >= 16) { sorted = Float32Array.from(own.concat(rest.slice(0, room))); tn = sorted.length; }
+      else for (let i = 0; i < tn; i++) sorted[i] = tlab[i * 3];
+    } else for (let i = 0; i < tn; i++) sorted[i] = tlab[i * 3];
     sorted.sort();
     const cdf = [];
     for (let i = 0; i <= 32; i++) cdf.push(+sorted[Math.min(tn - 1, Math.round(i / 32 * (tn - 1)))].toFixed(4));
 
     // Color según la luz: el color medio de cada nivel, y cuánto explica la luz el color.
     const bins = 16, sa = new Float32Array(bins), sb = new Float32Array(bins), sn = new Float32Array(bins);
-    let ma = 0, mb = 0;
-    for (let i = 0; i < n; i++) { const k = Math.min(bins - 1, (lab[i * 3] * bins) | 0); sa[k] += lab[i * 3 + 1]; sb[k] += lab[i * 3 + 2]; sn[k]++; ma += lab[i * 3 + 1]; mb += lab[i * 3 + 2]; }
-    ma /= n; mb /= n;
+    let ma = 0, mb = 0, nf = 0;
+    const skip = back ? new Uint8Array(n) : null;                  // los puntos del fondo
+    if (skip) { let rest = 0; for (let i = 0; i < n; i++) if (behind(thumb.data, i * 4)) { skip[i] = 1; rest++; } if (n - rest < 64) skip.fill(0); }
+    for (let i = 0; i < n; i++) { const k = Math.min(bins - 1, (lab[i * 3] * bins) | 0); sa[k] += lab[i * 3 + 1]; sb[k] += lab[i * 3 + 2]; sn[k]++; if (skip && skip[i]) continue; ma += lab[i * 3 + 1]; mb += lab[i * 3 + 2]; nf++; }
+    ma /= nf; mb /= nf;
     const ramp = [];
-    for (let k = 0; k < bins; k++) ramp.push(sn[k] > n * 0.002 ? [sa[k] / sn[k], sb[k] / sn[k]] : null);
+    for (let k = 0; k < bins; k++) ramp.push(sn[k] > nf * 0.002 ? [sa[k] / sn[k], sb[k] / sn[k]] : null);
     for (let k = 0; k < bins; k++) if (!ramp[k]) {                // niveles sin imagen: se rellenan con los vecinos
       let lo = k - 1, hi = k + 1;
       while (lo >= 0 && !ramp[lo]) lo--;
@@ -311,13 +335,16 @@
     }
     let total = 0, resid = 0;
     for (let i = 0; i < n; i++) {
+      if (skip && skip[i]) continue;
       const k = Math.min(bins - 1, (lab[i * 3] * bins) | 0), da = lab[i * 3 + 1] - ma, db = lab[i * 3 + 2] - mb, ra = lab[i * 3 + 1] - ramp[k][0], rb = lab[i * 3 + 2] - ramp[k][1];
       total += da * da + db * db; resid += ra * ra + rb * rb;
     }
-    const chroma = Math.sqrt(total / n);                           // cuánto color tiene (0 = gris)
+    const chroma = Math.sqrt(total / nf);                          // cuánto color tiene la figura (0 = gris)
     const explained = total > 1e-6 ? clamp(1 - resid / total, 0, 1) : 1;
     // (con varias tintas de distinto color, el color de la escena sigue contando algo: tope 0,8)
-    const rampMix = chroma < 0.012 ? 1 : Math.min(clamp((explained - 0.35) / 0.5, 0, 1), limited && K > 2 ? 0.8 : 1);
+    // (una figura luminosa sobre fondo liso es un mapa de degradado: del fondo al color y al blanco
+    //  según la luz; ahí manda la luz aunque dos colores compartan nivel)
+    const rampMix = chroma < 0.012 ? 1 : Math.max(back && !limited ? 0.75 : 0, Math.min(clamp((explained - 0.35) / 0.5, 0, 1), limited && K > 2 ? 0.8 : 1));
 
     // Lo fino: rejilla de píxel y trama, sobre el recorte sin reducir.
     const N = fine.n, lum = fine.lum, perWidth = fine.span / N;    // cuántas veces cabe el recorte a lo ancho
@@ -491,6 +518,10 @@
 
     const look = {
       v: 1, palette: pal.colors.map(c => c.map(v => +v.toFixed(4))), shares: pal.shares.map(v => +v.toFixed(3)), limited, error: +pal.error.toFixed(4),
+      back: back ? +back.share.toFixed(3) : 0,                       // cuánto de la referencia es fondo liso (0 = no lo tiene)
+      // (su color, solo si es un extremo —negro o blanco casi absolutos—: ahí el tramo del fondo se copia
+      //  entero y sin tinte. Un fondo de color medio es una tinta más del cartel y se trata como las otras.)
+      ground: back ? (() => { const g = new Float32Array(3); toLab(back.rgb[0], back.rgb[1], back.rgb[2], g, 0); return g[0] <= 0.15 || g[0] >= 0.92 ? [+g[0].toFixed(4), +g[1].toFixed(4), +g[2].toFixed(4)] : null; })() : null,
       cdf, ramp: ramp.map(p => [+p[0].toFixed(4), +p[1].toFixed(4)]), rampMix: +rampMix.toFixed(3), mean: [+ma.toFixed(4), +mb.toFixed(4)], chroma: +chroma.toFixed(4),
       pixel, screen, grain, edge, vignette, tone: 0.8, sat: 1, score: null,
     };
@@ -543,6 +574,7 @@
     uniform vec4 uDither;          // tipo (0 nada, 1 ordenado, 2 puntos, 3 líneas, 4 ruido), celdas a lo ancho, ángulo, fuerza
     uniform vec2 uGrain;           // cantidad, celdas a lo ancho
     uniform vec4 uChroma;          // color medio de la escena (a, b) y de la referencia (a, b)
+    uniform vec4 uGround;          // el fondo liso de la referencia: (luz, a, b, ¿lo tiene?)
     vec3 lab(vec3 c) {
       vec3 l = pow(clamp(c, 0., 1.), vec3(2.2));
       vec3 m = pow(vec3(dot(l, vec3(.4122214708, .5363325363, .0514459929)), dot(l, vec3(.2119034982, .6806995451, .1073969566)), dot(l, vec3(.0883024619, .2817188376, .6299787005))), vec3(1. / 3.));
@@ -599,6 +631,8 @@
       vec2 ab = (p.yz - uChroma.xy) * uSat + uChroma.zw;
       vec2 ramped = texture2D(uRamp, vec2(clamp(p.x, .03, .97), .5)).rg - .5;
       p.yz = mix(ab, ramped, uRampMix);
+      // Con fondo liso: lo que cae en su tono toma su color (un negro absoluto no lleva el tinte de la figura).
+      if (uGround.w > .5) p.yz = mix(uGround.yz, p.yz, smoothstep(.02, .2, abs(p.x - uGround.x)));
       // Viñeta y grano, antes de encajar en la paleta (así el grano también trama).
       vec2 c = uv - .5;
       p.x *= 1. - uVig * dot(c, c) * 2.2;
@@ -695,7 +729,7 @@
       const tex = (unit, filter) => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, filter], [gl.TEXTURE_MAG_FILTER, filter], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
       G.src = tex(0, gl.LINEAR); G.tone = tex(1, gl.LINEAR); G.ramp = tex(2, gl.LINEAR);
       const u = {};
-      for (const name of ['uSrc', 'uTone', 'uRamp', 'uCrop', 'uRes', 'uMirror', 'uCells', 'uScale', 'uSeed', 'uReveal', 'uAim', 'uLimited', 'uEdge', 'uVig', 'uSat', 'uRampMix', 'uPalN', 'uFlat', 'uPal', 'uPalRgb', 'uInk', 'uDither', 'uGrain', 'uChroma']) u[name] = gl.getUniformLocation(prog, name);
+      for (const name of ['uSrc', 'uTone', 'uRamp', 'uCrop', 'uRes', 'uMirror', 'uCells', 'uScale', 'uSeed', 'uReveal', 'uAim', 'uLimited', 'uEdge', 'uVig', 'uSat', 'uRampMix', 'uGround', 'uPalN', 'uFlat', 'uPal', 'uPalRgb', 'uInk', 'uDither', 'uGrain', 'uChroma']) u[name] = gl.getUniformLocation(prog, name);
       gl.uniform1i(u.uSrc, 0); gl.uniform1i(u.uTone, 1); gl.uniform1i(u.uRamp, 2);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       G.canvas = canvas; G.gl = gl; G.u = u; G.look = null; G.sceneAt = -1;
@@ -718,7 +752,7 @@
     // Una referencia casi toda de un tono (un cartel blanco con poca tinta) no se copia nivel a nivel:
     // lavaría la escena entera. Se copian solo sus extremos, y la escena conserva su propio reparto.
     const p05 = at(0.05), p50 = at(0.5), p95 = at(0.95), extreme = p95 - p50 < 0.06 || p50 - p05 < 0.06, lo02 = at(0.02), hi98 = at(0.98);
-    const m = new Float32Array(256);
+    const m = new Float32Array(256), flatOk = new Uint8Array(256), ground = look.ground && look.back ? look.ground[0] : null;
     // (en la prueba de parecido la «escena» es la propia referencia sin estilo: se copia nivel a nivel, sin topes)
     if (look.exact) {
       for (let i = 0; i < 256; i++) { const pos = i / 255 * bins, k = Math.min(bins - 1, pos | 0); out[i] = Math.round(255 * clamp(total > 0 ? at((cum[k] + (cum[k + 1] - cum[k]) * (pos - k)) / total) : i / 255, 0, 1)); }
@@ -730,7 +764,11 @@
       const pos = i / 255 * bins, k = Math.min(bins - 1, pos | 0);
       const rank = total > 0 ? (cum[k] + (cum[k + 1] - cum[k]) * (pos - k)) / total : i / 255;
       const matched = extreme ? lo02 + (hi98 - lo02) * Math.pow(rank, 0.9) : at(rank);
-      m[i] = i / 255 + (matched - i / 255) * amount;
+      // (el tramo que en la referencia es fondo —negro o blanco absoluto— va entero a ese tono: si se
+      //  quedara a medias, el negro salía gris azulado)
+      const onGround = ground != null && Math.abs(matched - ground) < 0.03;
+      m[i] = i / 255 + (matched - i / 255) * (onGround ? 1 : amount);
+      flatOk[i] = onGround ? 1 : 0;
       if (rank < 0.002) first = i; if (rank < 0.998) last = i;
     }
     // Tope de pendiente: ningún tramo de la curva se estira más de 2,4× ni se aplasta por debajo de
@@ -738,7 +776,7 @@
     // El suelo solo cuenta entre el tono más oscuro y el más claro de la escena: fuera no hay nada que
     // aplastar, y darle pendiente a esos tramos se la quitaba a los que sí tienen imagen.
     const span = m[255] - m[0], mean = span / 255, min = Math.min(0.35 / 255, mean * 0.6), max = Math.max(2.4 / 255, mean * 1.4), d = new Float32Array(255);
-    const floor = i => (i >= first && i <= last ? min : 0);
+    const floor = i => (i >= first && i <= last && !(flatOk[i] && flatOk[i + 1]) ? min : 0);
     for (let i = 0; i < 255; i++) d[i] = clamp(m[i + 1] - m[i], floor(i), max);
     for (let pass = 0; pass < 4; pass++) {
       let sum = 0, room = 0;
@@ -775,6 +813,7 @@
     gl.uniform1f(u.uVig, look.vignette || 0);
     gl.uniform1f(u.uSat, look.sat == null ? 1 : look.sat);
     gl.uniform1f(u.uRampMix, look.rampMix);
+    if (look.ground && look.back) gl.uniform4f(u.uGround, look.ground[0], look.ground[1], look.ground[2], 1); else gl.uniform4f(u.uGround, 0, 0, 0, 0);
     const ramp = new Uint8Array(16 * 4);
     look.ramp.forEach((p, k) => { ramp[k * 4] = Math.round(clamp(p[0] + 0.5, 0, 1) * 255); ramp[k * 4 + 1] = Math.round(clamp(p[1] + 0.5, 0, 1) * 255); ramp[k * 4 + 3] = 255; });
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.ramp);
@@ -1039,6 +1078,30 @@
   const say = (text, ms) => { if (window.flipShell && flipShell.hint) flipShell.hint(text, ms || 2600); };
 
   // Aprender de una imagen (lienzo, imagen o cuadro de cámara): mide, se pone a prueba y guarda.
+  // El fondo de una referencia, si lo tiene: un color liso (sin cambios entre vecinos) que ocupa al
+  // menos un cuarto de ella. cand: [cambio con sus vecinos, x, y] por muestra; full: sus puntos (RGBA).
+  function backdrop(cand, full, W) {
+    // negro absoluto o blanco absoluto: basta con que ocupen un quinto (aunque traigan el ruido de un JPEG)
+    const dark = [0, 0, 0, 0], light = [0, 0, 0, 0];
+    for (const [, x, y] of cand) {
+      const i = 4 * (y * W + x), hi = Math.max(full[i], full[i + 1], full[i + 2]), lo = Math.min(full[i], full[i + 1], full[i + 2]);
+      const to = hi <= 22 ? dark : lo >= 233 ? light : null;
+      if (to) { to[0] += full[i]; to[1] += full[i + 1]; to[2] += full[i + 2]; to[3]++; }
+    }
+    const end = dark[3] >= light[3] ? dark : light;
+    // (en niveles enteros: la conversión de color va por tabla, y con decimales no encuentra el nivel)
+    if (end[3] >= cand.length * 0.2) return { rgb: [Math.round(end[0] / end[3]), Math.round(end[1] / end[3]), Math.round(end[2] / end[3])], share: 0 };
+    const bins = new Map();
+    for (const [g, x, y] of cand) if (g <= 24) {
+      const i = 4 * (y * W + x), key = (full[i] >> 4) << 8 | (full[i + 1] >> 4) << 4 | full[i + 2] >> 4;
+      let b = bins.get(key); if (!b) bins.set(key, b = [0, 0, 0, 0]);
+      b[0] += full[i]; b[1] += full[i + 1]; b[2] += full[i + 2]; b[3]++;
+    }
+    let top = null;
+    for (const b of bins.values()) if (!top || b[3] > top[3]) top = b;
+    if (!top || top[3] < cand.length * 0.25) return null;
+    return { rgb: [Math.round(top[0] / top[3]), Math.round(top[1] / top[3]), Math.round(top[2] / top[3])], share: 0 };
+  }
   function learn(source, sw, sh, region) {
     const r = region || [0, 0, sw, sh];
     const long = Math.max(r[2], r[3]), k = Math.min(1, 256 / long);
@@ -1068,8 +1131,25 @@
       for (let c = 0; c < 3; c++) g += Math.abs(full[i + c] - full[i + c + 4]) + Math.abs(full[i + c] - full[i + c - 4]) + Math.abs(full[i + c] - full[i + c + 4 * W]) + Math.abs(full[i + c] - full[i + c - 4 * W]);
       cand.push([g, x, y]);
     }
-    const flat = cand.map(c => c[0]).sort((p, q) => p - q)[Math.floor(cand.length * 0.55)];
-    const kept = cand.filter(c => c[0] <= flat), sn = kept.length, pts = new Float32Array(sn * 5), sparse = new Uint8ClampedArray(sn * 4);
+    // ¿Fondo liso? Una figura sobre negro absoluto (o blanco, o un color plano) es casi toda fondo: sus
+    // puntos «de interior» —los más lisos— eran TODOS del fondo, y la figura se quedaba fuera de la
+    // paleta (un esqueleto azul y rosa sobre negro salía «dos tintas: negro y azul»). Si un solo color,
+    // liso, ocupa buena parte de la referencia, es el fondo: lo liso se busca en lo que NO es fondo, y
+    // el fondo entra en la paleta como una tinta más, sin pasar de la mitad de las muestras (para que
+    // las tintas de la figura no se queden por debajo de lo que cuenta como tinta).
+    const back = backdrop(cand, full, W);
+    const isBack = back ? i => Math.abs(full[i] - back.rgb[0]) + Math.abs(full[i + 1] - back.rgb[1]) + Math.abs(full[i + 2] - back.rgb[2]) <= 36 : () => false;
+    const figure = back ? cand.filter(c => !isBack(4 * (c[2] * W + c[1]))) : cand;
+    const flat = figure.map(c => c[0]).sort((p, q) => p - q)[Math.floor(figure.length * 0.55)];
+    let kept = figure.filter(c => c[0] <= flat), backN = 0;
+    if (back) {
+      const behind = cand.filter(c => isBack(4 * (c[2] * W + c[1])));
+      back.share = +(behind.length / cand.length).toFixed(3);
+      backN = Math.min(behind.length, kept.length);                // el fondo, como mucho la mitad de las muestras
+      const step = behind.length / Math.max(1, backN);
+      for (let k = 0; k < backN; k++) kept.push(behind[Math.floor(k * step)]);
+    }
+    const sn = kept.length, pts = new Float32Array(sn * 5), sparse = new Uint8ClampedArray(sn * 4);
     kept.forEach(([, x, y], k) => { const i = 4 * (y * W + x); pts.set([x / W - 0.5, y / H - 0.5, full[i], full[i + 1], full[i + 2]], k * 5); sparse.set([full[i], full[i + 1], full[i + 2], 255], k * 4); });
     const thumbData = thumb.ctx.getImageData(0, 0, tw, th).data;
     const low = halve(ref.canvas, 40);
@@ -1089,7 +1169,7 @@
         undo(thumbData, tw, th); undo(lowData, low.width, low.height);
       }
     }
-    let look = analyze({ data: thumbData, width: tw, height: th }, { lum, n: FFT_N, span, zoom: FFT_N / side }, { data: sparse, n: sn }, { data: lowData, n: low.width * low.height });
+    let look = analyze({ data: thumbData, width: tw, height: th }, { lum, n: FFT_N, span, zoom: FFT_N / side }, { data: sparse, n: sn }, { data: lowData, n: low.width * low.height }, back ? { rgb: back.rgb, share: back.share, samples: backN } : null);
     if (light) look.light = { bx: +light.bx.toFixed(3), by: +light.by.toFixed(3), r2: light.r2 };
     look = fit(look, fineCanvas.canvas, span, ref.canvas);
     look.name = nameOf(look);
@@ -1535,6 +1615,16 @@
   window.renderClon = renderClon;
   window.flipClon = {
     analyze, describe, nameOf, release, _fit: fit, _tone: (look, hist, amount) => Array.from(toneCurve(look, hist, amount == null ? 0.8 : amount, new Uint8Array(256))),
+    // (pruebas) pone un look sobre una imagen suelta y lo deja en «out»
+    _render(look, source, out) {
+      if (!ensureGl()) return false;
+      surface(probe, 32, 24); probe.ctx.drawImage(source, 0, 0, 32, 24);
+      const scene = sceneOf(probe.ctx.getImageData(0, 0, 32, 24).data, 32 * 24); scene.version = Math.random();
+      G.look = null;
+      draw(look, source, [0, 0, 1, 1], out.width, out.height, scene, { mirror: false, aim: false, reveal: 2, seed: 0.3 });
+      out.getContext('2d').drawImage(G.canvas, 0, 0, out.width, out.height);
+      return true;
+    },
     learn: (source, w, h, region) => learn(source, w || source.width, h || source.height, region),
     adopt: (source, w, h, region) => adopt(source, w || source.width, h || source.height, region),
     keep, forget, restore, rename, fav, use, gallery, capture, MAX: MAX_LOOKS,

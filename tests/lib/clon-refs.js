@@ -51,6 +51,25 @@
     return c;
   };
   window.clonRefs = {
+    // Una figura sobre fondo absoluto (negro o blanco). «fill» puede ser un color, o una función que
+    // devuelve un degradado (recibe el contexto).
+    silueta(n = 512, ground = '#000', fill = '#19d3e6') {
+      const c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d'), k = n / 512;
+      x.fillStyle = ground; x.fillRect(0, 0, n, n);
+      x.fillStyle = typeof fill === 'function' ? fill(x, k) : fill;
+      x.beginPath(); x.ellipse(256 * k, 170 * k, 70 * k, 86 * k, 0, 0, 7); x.fill();
+      x.beginPath(); x.ellipse(256 * k, 420 * k, 150 * k, 170 * k, 0, Math.PI, 0); x.fill(); x.fillRect(236 * k, 240 * k, 40 * k, 40 * k);
+      return c;
+    },
+    // Un resplandor sobre negro absoluto: blanco en el centro, rosa, azul, y se apaga.
+    resplandor(n = 512) {
+      const c = document.createElement('canvas'); c.width = c.height = n; const x = c.getContext('2d'), k = n / 512;
+      x.fillStyle = '#000'; x.fillRect(0, 0, n, n);
+      const g = x.createRadialGradient(256 * k, 250 * k, 0, 256 * k, 250 * k, 230 * k);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.18, '#ff7ad1'); g.addColorStop(0.45, '#2b7bff'); g.addColorStop(0.8, '#06103a'); g.addColorStop(1, '#000000');
+      x.fillStyle = g; x.fillRect(0, 0, n, n);
+      return c;
+    },
     // Trama de puntos: tinta rosa sobre crema, «cells» celdas a lo ancho, girada «deg» grados.
     dots(size = 400, cells = 40, deg = 30) {
       const ink = [226, 62, 120], paper = [244, 236, 214], a = deg * Math.PI / 180;

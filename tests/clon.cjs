@@ -3,6 +3,8 @@
 // seguir siendo verdad:
 //   · MIDE bien: la trama (celdas a lo ancho, ángulo, puntos o líneas), la rejilla de píxel y su
 //     tramado, la paleta (cuántas tintas y cuáles), el grano, la línea de tinta; y no ve lo que no hay;
+//   · ENTIENDE UNA FIGURA SOBRE FONDO ABSOLUTO: con negro o blanco puros ocupando casi toda la
+//     referencia, mide la figura (sus tintas, su degradado) y en la cámara el negro sale negro;
 //   · AGUANTA UNA FOTO: la referencia casi nunca llega limpia (luz desigual, desenfoque, ruido de
 //     sensor, JPEG, un poco girada, a otro tamaño): tiene que medir lo mismo, y no inventarse un
 //     píxel gordo por los bloques del JPEG ni un grano por el ruido de la cámara;
@@ -71,6 +73,45 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     assert.ok(lejos(tintas[0], INK.rosa) < 10 && lejos(tintas[1], INK.crema) < 10, 'las tintas medidas son las de la referencia: ' + JSON.stringify(tintas));
     assert.deepEqual([L.dots.name, L.pixel.name, L.poster.name, L.duotone.name], ['TRAMA ROSA', 'PÍXEL TURQUESA', 'CARTEL ROJO', 'DUOTONO AZUL'], 'cada look se nombra por lo que es');
     step('mide: trama, píxel, paleta, grano y tinta', { trama: [L.dots.screen.freq, +deg(L.dots).toFixed(1)], pixel: L.pixel.pixel, tintas: L.dots.palette.length, grano: L.grainy.grain.amount, ms: Math.max(...Object.values(L).map(l => l.ms)) });
+
+    // ── 1b · Una figura sobre negro o blanco absolutos ──
+    // (el fondo es casi toda la imagen: si manda él en las medidas, la figura no se entiende. Antes: un
+    //  resplandor azul y rosa sobre negro salía «cuatro tintas, 28 %», y una tinta degradada sobre
+    //  blanco, «una tinta: blanco»)
+    const figuras = await page.evaluate(() => {
+      const refs = {
+        roja: clonRefs.silueta(512, '#fff', '#d6233a'), cian: clonRefs.silueta(512, '#000', '#19d3e6'),
+        resplandor: clonRefs.resplandor(), degradada: clonRefs.silueta(512, '#fff', (x, k) => { const g = x.createLinearGradient(0, 80 * k, 0, 440 * k); g.addColorStop(0, '#1a2a8a'); g.addColorStop(1, '#e03a8c'); return g; }),
+      };
+      // una escena con luces y sombras: fondo oscuro, una cara clara
+      const scene = document.createElement('canvas'); scene.width = scene.height = 256; const c = scene.getContext('2d');
+      c.fillStyle = '#0c0d10'; c.fillRect(0, 0, 256, 256);
+      const sk = c.createLinearGradient(70, 0, 190, 0); sk.addColorStop(0, '#f3d7c2'); sk.addColorStop(1, '#6a4f3a'); c.fillStyle = sk; c.beginPath(); c.ellipse(128, 120, 52, 70, 0, 0, 7); c.fill();
+      c.fillStyle = '#8a93a8'; c.beginPath(); c.ellipse(128, 266, 113, 73, 0, Math.PI, 0); c.fill();
+      const out = {};
+      for (const [name, ref] of Object.entries(refs)) {
+        const look = flipClon.learn(ref), o = document.createElement('canvas'); o.width = o.height = 256;
+        flipClon._render(look, scene, o);
+        const d = o.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, 256, 256).data, seen = new Set();
+        let black = 0, white = 0, colour = 0;
+        for (let i = 0; i < d.length; i += 4) { const hi = Math.max(d[i], d[i + 1], d[i + 2]), lo = Math.min(d[i], d[i + 1], d[i + 2]); if (hi <= 10) black++; else if (lo >= 245) white++; else if (hi - lo > 60) colour++; seen.add((d[i] >> 3) << 10 | (d[i + 1] >> 3) << 5 | d[i + 2] >> 3); }
+        const n = d.length / 4;
+        out[name] = { nota: look.score, cerrada: look.limited, tintas: look.palette.length, partes: look.shares, fondo: look.back, suelo: look.ground && +look.ground[0].toFixed(2), nombre: look.name, negro: +(black / n).toFixed(2), blanco: +(white / n).toFixed(2), color: +(colour / n).toFixed(2), tonos: seen.size };
+      }
+      return out;
+    });
+    for (const k of ['roja', 'cian']) {
+      const f = figuras[k];
+      assert.ok(f.cerrada && f.tintas === 2 && f.nota >= 78, k + ': dos tintas planas (el fondo y la figura), bien reconstruida: ' + JSON.stringify(f));
+      assert.ok(Math.abs(f.fondo - 0.775) < 0.03 && Math.abs(Math.max(...f.partes) - 0.775) < 0.03, k + ': el fondo ocupa lo que ocupa (tres cuartos): ' + JSON.stringify(f));
+      assert.ok(f.tonos <= 6, k + ': puesta en la cámara, solo lleva sus dos tintas: ' + f.tonos);
+    }
+    assert.ok(figuras.cian.suelo < 0.1 && figuras.cian.negro > 0.3 && figuras.cian.color > 0.15, 'sobre negro: el negro sale negro absoluto y la figura, de su color: ' + JSON.stringify(figuras.cian));
+    assert.ok(figuras.roja.suelo > 0.95 && figuras.roja.blanco > 0.15 && figuras.roja.color > 0.3, 'sobre blanco: el blanco sale blanco y lo oscuro, de su color: ' + JSON.stringify(figuras.roja));
+    assert.ok(!figuras.resplandor.cerrada && figuras.resplandor.tintas >= 5 && figuras.resplandor.nota >= 80, 'un resplandor sobre negro es color continuo, no «cuatro tintas»: ' + JSON.stringify(figuras.resplandor));
+    assert.ok(figuras.resplandor.negro > 0.25 && figuras.resplandor.color > 0.1 && figuras.resplandor.tonos > 40, 'y puesto en la cámara: negro absoluto en lo oscuro y el degradado de colores en lo claro: ' + JSON.stringify(figuras.resplandor));
+    assert.ok(!figuras.degradada.cerrada && figuras.degradada.tintas >= 3 && figuras.degradada.nota >= 60, 'una tinta degradada sobre blanco se ve entera (antes: «una tinta: blanco»): ' + JSON.stringify(figuras.degradada));
+    step('una figura sobre negro o blanco absolutos se entiende', Object.fromEntries(Object.entries(figuras).map(([k, f]) => [k, { nota: f.nota, tintas: f.tintas, fondo: f.fondo, nombre: f.nombre }])));
 
     // ── 2 · Ponerse a prueba ──
     const notas = Object.fromEntries(Object.entries(L).map(([k, l]) => [k, l.score]));

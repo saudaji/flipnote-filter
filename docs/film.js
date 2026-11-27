@@ -748,6 +748,8 @@
     G.gl = null; G.film = null;
     if (lose) lose.loseContext();
     if (G.canvas) { G.canvas.width = G.canvas.height = 1; G.canvas = null; }
+    if (S.reel) { S.reel.width = S.reel.height = 1; S.reel = null; }
+    S.video = null;
   }
   // Un destino flotante del tamaño pedido (se rehace solo si cambia).
   function target(name, w, h, mips) {
@@ -944,27 +946,68 @@
   }
 
   // ── La cámara FILM ──────────────────────────────────────────────────────────────────────────────
-  const S = { ev: 0, push: 0, format: physics.F35, paper: 1, filter: 0, toner: 0, grain: true, frame: 0, ms: 0, tier: 0, gap: 0, last: 0, slow: 0 };
+  const S = { ev: 0, push: 0, format: physics.F35, paper: 1, filter: 0, toner: 0, grain: true, frame: 0, ms: 0, tier: 0, scale: 1, gap: 0, last: 0, slow: 0, probe: 0, video: null, reel: null, reelAt: 0 };
   const NF = physics.FILTERS.length - 1, NT = physics.TONERS.length - 1;
   // (lo guardado antes de los dos formatos de cine chico no lleva «v»: su lista empezaba en medio cuadro)
   try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && typeof saved === 'object') { S.ev = clamp(+saved.ev || 0, -2, 2); S.push = clamp(Math.round(+saved.push || 0), -1, 2); S.format = clamp(Math.round(saved.format == null ? physics.F35 : +saved.format + (saved.v >= 2 ? 0 : 2)), 0, NFMT); S.paper = clamp(Math.round(saved.paper == null ? 1 : +saved.paper), 0, 2); S.filter = clamp(Math.round(+saved.filter || 0), 0, NF); S.toner = clamp(Math.round(+saved.toner || 0), 0, NT); S.grain = saved.grain !== false; } } catch (_) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ v: 2, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain })); } catch (_) {} };
   const mine = key => idOf(key, S.push, S.paper, S.filter, S.toner);
+  // El ritmo real de la pantalla mientras FILM pinta. No se mide por los cuadros de la cámara (con poca
+  // luz la cámara misma baja a 15 por segundo y eso no es culpa del revelado), sino por los de la
+  // pantalla: si la gráfica no da abasto, la pantalla deja de llegar a sus cuadros. Si va por debajo
+  // de 22 por segundo un buen rato, se baja un escalón: primero menos cristales por celda (cine
+  // chico), luego el grano sorteado, y después se revela más pequeño.
+  function pace() {
+    if (S.probe) return;
+    let last = 0;
+    const tick = t => {
+      if (performance.now() - S.last > 600) { S.probe = 0; S.gap = 0; S.slow = 0; return; }
+      const d = t - last; last = t;
+      if (d > 0 && d < 500) {
+        S.gap += (d - S.gap) * (S.gap ? 0.1 : 1);
+        S.slow = S.gap > 45 ? S.slow + 1 : 0;
+        if (S.slow > 90) {
+          if (physics.FORMATS[S.format].small && S.grain && S.tier < 2) S.tier++; else if (S.scale > 0.6) S.scale = Math.max(0.6, S.scale * 0.8);
+          S.slow = 0; S.gap = 0;
+        }
+      }
+      S.probe = requestAnimationFrame(tick);
+    };
+    S.probe = requestAnimationFrame(tick);
+  }
+  const VIDEO_CAP = 1280;
   function renderFilm(source, srcW, srcH, ctx, mirror, variant, options) {
     if (!ensureGl()) return false;
     const started = performance.now(), opts = options || {};
     const outW = Math.max(1, Math.round(opts.outW || ctx.canvas.width)), outH = Math.max(1, Math.round(opts.outH || ctx.canvas.height));
-    const capture = opts.path === 'capture';
+    const capture = opts.path === 'capture', motion = capture && !!opts.motion;      // «motion»: un cuadro de vídeo, no una foto
+    // Grabando vídeo se revela UNA vez por cuadro: lo hace la vista previa, al tamaño del vídeo (con
+    // tope), y deja el cuadro en el «rollo»; el vídeo lo toma de ahí. Antes cada cuadro se revelaba dos
+    // veces —para el visor y, más grande, para el vídeo— y con cada cambio de tamaño la gráfica rehacía
+    // todos sus destinos: el teléfono no llegaba, y además el grano del vídeo salía quieto.
+    if (motion) {
+      const k = Math.min(1, VIDEO_CAP / Math.max(outW, outH));
+      S.video = { w: Math.max(16, Math.round(outW * k)), h: Math.max(16, Math.round(outH * k)), until: started + 400 };
+      if (S.reel && started - S.reelAt < 250 && Math.abs(S.reel.width / S.reel.height - outW / outH) < 0.02) {
+        ctx.save(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none'; ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(S.reel, 0, 0, outW, outH); ctx.restore();
+        return true;
+      }
+    }
+    const filming = !capture && S.video && started < S.video.until && Math.abs(S.video.w / S.video.h - outW / outH) < 0.02;
+    if (!capture && S.video && !filming && started >= S.video.until) { S.video = null; if (S.reel) { S.reel.width = S.reel.height = 1; S.reel = null; } }
     // Resolución interna: la de la salida, con tope. La vista previa se revela a su tamaño de verdad
     // (1024 puntos): revelada más pequeña y ampliada después, el grano llegaba emborronado, hecho velo.
-    const cap = capture ? 2560 : 1280, scale = Math.min(1, cap / Math.max(outW, outH));
-    const w = Math.max(16, Math.round(outW * scale)), h = Math.max(16, Math.round(outH * scale));
+    const still = capture && !motion, cap = still ? 2560 : 1280, scale = Math.min(1, cap / Math.max(outW, outH)) * (still ? 1 : S.scale);
+    const w = filming ? Math.max(16, Math.round(S.video.w * S.scale)) : motion ? Math.max(16, Math.round(S.video.w * S.scale)) : Math.max(16, Math.round(outW * scale));
+    const h = filming ? Math.max(16, Math.round(S.video.h * S.scale)) : motion ? Math.max(16, Math.round(S.video.h * S.scale)) : Math.max(16, Math.round(outH * scale));
     const [sx, sy, sw, sh] = typeof cropCoordsForDims === 'function' ? cropCoordsForDims(srcW, srcH, w, h) : [0, 0, srcW, srcH];
     const stock = physics.STOCKS[variant] ? variant : 'RETRATO400';
     let ready;
     try {
-      // (la foto espera a su película; la vista previa sigue con la que hubiera mientras llega la nueva)
-      ready = develop(source, w, h, { stock, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain, mirror, sync: capture, live: !capture, crop: [sx / srcW, sy / srcH, sw / srcW, sh / srcH], seed: capture ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
+      // (la foto espera a su película; la vista previa sigue con la que hubiera mientras llega la nueva.
+      //  El grano de la foto es fijo; el de la vista previa y el del vídeo cambia 24 veces por segundo)
+      ready = develop(source, w, h, { stock, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain, mirror, sync: still, live: !still, crop: [sx / srcW, sy / srcH, sw / srcW, sh / srcH], seed: still ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
     } catch (error) { console.warn(String(error && error.message || error)); G.failed = true; return false; }
     ctx.save();
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
@@ -976,17 +1019,15 @@
       ctx.drawImage(source, sx, sy, sw, sh, 0, 0, outW, outH);
     }
     ctx.restore();
+    if (ready && filming) {
+      // el cuadro recién revelado, al rollo (de ahí lo toma el vídeo)
+      if (!S.reel) S.reel = document.createElement('canvas');
+      if (S.reel.width !== w || S.reel.height !== h) { S.reel.width = w; S.reel.height = h; }
+      S.reel.getContext('2d').drawImage(G.canvas, 0, 0); S.reelAt = started;
+    }
     if (ready && !S.warmed) { S.warmed = true; for (const key of Object.keys(physics.STOCKS)) ask(mine(key)); }
     if (ready) { S.frame++; S.ms += (performance.now() - started - S.ms) * 0.1; }
-    // El ritmo de la vista previa con cristales dibujados: si va lenta un buen rato, se baja un escalón.
-    if (ready && !capture) {
-      const gap = started - S.last; S.last = started;
-      if (physics.FORMATS[S.format].small && S.grain && gap > 0 && gap < 500) {
-        S.gap += (gap - S.gap) * (S.gap ? 0.1 : 1);
-        S.slow = S.gap > 50 ? S.slow + 1 : 0;
-        if (S.slow > 45 && S.tier < 2) { S.tier++; S.slow = 0; S.gap = 0; }
-      } else { S.gap = 0; S.slow = 0; }
-    }
+    if (!still) { S.last = started; pace(); }
     return true;
   }
 
@@ -1034,6 +1075,6 @@
     // Avisa cuando las tablas de una película están listas (por omisión, con los ajustes puestos).
     ready: (stock, push = S.push, paper = S.paper, filter = S.filter, toner = S.toner) => ask(idOf(physics.STOCKS[stock] ? stock : 'RETRATO400', push, paper, filter, toner)).then(() => true),
     settings: () => ({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain }),
-    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null, tier: S.tier, gap: Math.round(S.gap) }),
+    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null, tier: S.tier, scale: S.scale, gap: Math.round(S.gap), filming: !!(S.video && performance.now() < S.video.until), reel: S.reel ? [S.reel.width, S.reel.height] : null }),
   };
 })();

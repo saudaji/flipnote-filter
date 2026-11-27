@@ -5508,7 +5508,7 @@ function drawCameraFrame(frame) {
       return frame;
     case 'film':
       if (!(window.renderFilm && renderFilm(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
-        { now: frame.options.now, path: frame.path, outW: frame.options.outW, outH: frame.options.outH }))) {
+        { now: frame.options.now, path: frame.path, outW: frame.options.outW, outH: frame.options.outH, motion: frame.options.motion }))) {
         // Sin gráfica (WebGL 2) no hay revelado: queda la cámara AUTO 03.
         try { drawCameraFrame({ ...frame, profile: { ...frame.profile, renderer: 'auto03' } }); } catch (_) {}
       }
@@ -13899,15 +13899,16 @@ function _getCamRecordingOptions() {
     options.onStop = () => {};
     return options;
   }
-  options.renderFrame = ({ ctx, width, height, now }) => {
+  options.renderFrame = ({ ctx, width, height, now, dims }) => {
     // These effects accumulate history on the live canvas; sample the exact presented frame.
     if (camFamily === 'CASKIA' && camVariant !== 'STD') {
       ctx.drawImage(display, 0, 0, width, height);
       return;
     }
     const cam = liveCamFrame();
+    // («motion»: es un cuadro de vídeo —la grabación manda sus medidas en «dims»—, no una foto)
     _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctx, false, {
-      path:'capture', now, resolution:options.resolution, outW:width, outH:height,
+      path:'capture', now, resolution:options.resolution, outW:width, outH:height, motion: !!dims,
     });
     _renderCamStickerLayer(ctx, false);
   };

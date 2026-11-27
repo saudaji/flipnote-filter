@@ -21,7 +21,8 @@
 //   · LOS CAJONES: la tira de cámaras va en tres (FILM · DIGITAL · CUSTOM); cada uno enseña solo las
 //     suyas y recuerda su última cámara; en FILM cada película es una diapositiva;
 //   · LA CÁMARA: sus películas y sus perillas (cada película enseña las que le tocan); lo ajustado se
-//     guarda; toma la foto; y al cambiar de cámara suelta la gráfica.
+//     guarda; toma la foto; grabando vídeo revela una sola vez por cuadro; y al cambiar de cámara
+//     suelta la gráfica.
 //   FLIP_URL=http://127.0.0.1:8760 node tests/film.cjs
 'use strict';
 const assert = require('node:assert/strict');
@@ -374,6 +375,32 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     assert.ok(a.miniatura, 'cada película tiene su miniatura en la tira');
     assert.ok(seenA.lit > 0.5 && seenA.colores > 40, 'el visor no queda en negro ni liso: ' + JSON.stringify(seenA));
     step('FILM se elige como una cámara más', { estado: a.s, visor: seenA });
+
+    // grabando vídeo se revela una sola vez por cuadro: lo hace el visor, al tamaño del vídeo, y el
+    // vídeo toma ese cuadro (antes: dos revelados por cuadro y la gráfica rehaciendo sus destinos)
+    const filming = await page.evaluate(async () => {
+      const proxy = document.createElement('canvas'); proxy.width = 1440; proxy.height = 1080;
+      const ctx = proxy.getContext('2d', { willReadFrequently: true }), wait = ms => new Promise(ok => setTimeout(ok, ms));
+      const shot = () => { const cam = liveCamFrame(); return renderFilm(cam.source, cam.srcW, cam.srcH, ctx, false, camVariant, { path: 'capture', outW: 1440, outH: 1080, motion: true }); };
+      const sum = () => { const d = ctx.getImageData(600, 400, 240, 240).data; let total = 0, hash = 0; for (let i = 0; i < d.length; i += 4) { total += d[i + 1]; hash = (hash * 31 + d[i] + d[i + 1] * 3) >>> 0; } return { media: Math.round(total / (d.length / 4)), hash }; };
+      const before = flipFilm.state(), seen = [], sizes = new Set(); let extra = 0, taken = 0;
+      for (let i = 0; i < 16; i++) {
+        const f0 = flipFilm.state().frame, ok = shot(), s = flipFilm.state();
+        if (i >= 6) { taken++; extra += s.frame - f0; sizes.add(s.size.join('×')); seen.push(sum()); }
+        if (!ok) return { failed: true };
+        await wait(45);
+      }
+      const during = flipFilm.state();
+      await wait(1200);
+      return { before: before.size, during: { size: during.size, reel: during.reel, filming: during.filming }, sizes: [...sizes], extra, taken, seen, after: flipFilm.state(), display: [display.width, display.height] };
+    });
+    assert.deepEqual([filming.during.size, filming.during.reel, filming.during.filming], [[1280, 960], [1280, 960], true], 'grabando, el visor revela al tamaño del vídeo (con tope) y lo deja en el rollo: ' + JSON.stringify(filming.during));
+    assert.deepEqual(filming.sizes, ['1280×960'], 'la gráfica no cambia de tamaño entre cuadro y cuadro: ' + filming.sizes);
+    assert.equal(filming.extra, 0, 'el cuadro de vídeo no se revela otra vez: toma el del rollo (' + filming.taken + ' cuadros)');
+    assert.ok(filming.seen.every(v => v.media > 12) && new Set(filming.seen.map(v => v.hash)).size >= 3, 'el vídeo lleva imagen y su grano se mueve: ' + JSON.stringify(filming.seen.slice(0, 4)));
+    assert.deepEqual([filming.after.size, filming.after.reel, filming.after.filming], [filming.display, null, false], 'al acabar, el visor vuelve a su tamaño y suelta el rollo: ' + JSON.stringify(filming.after));
+    assert.deepEqual([filming.after.tier, filming.after.scale], [0, 1], 'sin haber ido lenta, no se baja la calidad');
+    step('grabando vídeo se revela una vez por cuadro', { durante: filming.during, alAcabar: filming.after.size });
 
     // otra película: cambia la imagen (la de diario es más cálida)
     await pickCamera(page, 'FILM', 'CALIDO200');

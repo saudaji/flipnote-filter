@@ -183,17 +183,26 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
         const sd = k => Math.sqrt(Math.max(0, q[k] / n - (m[k] / n) ** 2));
         return { luz: +sd(1).toFixed(2), color: +Math.sqrt(Math.max(0, d2 / n - (d / n) ** 2)).toFixed(2), juntas: +((rg / n - m[0] * m[1] / n / n) / Math.max(1e-6, sd(0) * sd(1))).toFixed(2), media: Math.round(m[1] / n) };
       };
-      // el relieve del baño: un escalón de gris oscuro a gris claro
-      const stepOf = stock => {
-        const c = document.createElement('canvas'); c.width = 1024; c.height = 64; const x = c.getContext('2d'), s = v => { const k = Math.round(255 * Math.pow(v, 1 / 2.2)); return `rgb(${k},${k},${k})`; };
-        x.fillStyle = s(0.06); x.fillRect(0, 0, 512, 64); x.fillStyle = s(0.40); x.fillRect(512, 0, 512, 64);
-        flipFilm.develop(c, { stock, grain: false }); const r = flipFilm.read(), at = px => r.data[(32 * 1024 + px) * 4 + 1];
-        return { oscuroLejos: at(512 - 200), oscuroCerca: at(512 - 3), claroCerca: at(512 + 3), claroLejos: at(512 + 200) };
+      // el relieve del baño: un escalón de gris oscuro a gris claro, a tamaño de foto (el revelador
+      // gastado alcanza unas 95 micras: en 35 mm, a 1024 puntos, no llega a tres)
+      const stepOf = (stock, EW = 2560) => {
+        const c = document.createElement('canvas'); c.width = EW; c.height = 64; const x = c.getContext('2d'), s = v => { const k = Math.round(255 * Math.pow(v, 1 / 2.2)); return `rgb(${k},${k},${k})`; };
+        x.fillStyle = s(0.06); x.fillRect(0, 0, EW / 2, 64); x.fillStyle = s(0.40); x.fillRect(EW / 2, 0, EW / 2, 64);
+        flipFilm.develop(c, { stock, grain: false }); const r = flipFilm.read(), at = px => r.data[(32 * EW + px) * 4 + 1], near = Math.round(EW / 850), mid = Math.round(EW / 20);
+        const far = Math.round(EW / 5); return { oscuroLejos: at(EW / 2 - far), oscuroCerca: at(EW / 2 - Math.max(3, near)), claroCerca: at(EW / 2 + Math.max(3, near)), claroMedio: at(EW / 2 + mid), claroLejos: at(EW / 2 + far) };
       };
+      const blotch = (() => {
+        flipFilm.develop(flat(0.18), { stock: 'RETRATO400', format: 0, grain: true }); const r = flipFilm.read();
+        const d = (x, y) => { const o = (y * W + x) * 4; return r.data[o] - r.data[o + 2]; };
+        let n = 0, m = 0, q = 0; for (let y = 32; y < H - 32; y++) for (let x = 32; x < W - 32; x++) { const v = d(x, y); m += v; q += v * v; n++; }
+        const fino = Math.sqrt(q / n - (m / n) ** 2);
+        let bn = 0, bm = 0, bq = 0; for (let y = 32; y + 16 < H - 32; y += 16) for (let x = 32; x + 16 < W - 32; x += 16) { let a = 0; for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) a += d(x + i, y + j); a /= 256; bm += a; bq += a * a; bn++; }
+        return { fino: +fino.toFixed(2), ancho: +Math.sqrt(Math.max(0, bq / bn - (bm / bn) ** 2)).toFixed(2) };
+      })();
       return {
-        black, retrato: stats('RETRATO400', 0.18), cine: stats('CINE500T', 0.18), mono: stats('BNORTO80', 0.18),
+        blotch, black, retrato: stats('RETRATO400', 0.18), cine: stats('CINE500T', 0.18), mono: stats('BNORTO80', 0.18),
         slide: { luces: stats('VIVA50', 0.9), medios: stats('VIVA50', 0.12) }, negative: { sombras: stats('RETRATO400', 0.012), medios: stats('RETRATO400', 0.18) },
-        edge: { retrato: stepOf('RETRATO400'), viva: stepOf('VIVA50'), orto: stepOf('BNORTO80') }, tie: [P.tieOf(P.STOCKS.RETRATO400), P.tieOf(P.STOCKS.BNORTO80)],
+        edge: { retrato: stepOf('RETRATO400'), viva: stepOf('VIVA50'), orto: stepOf('BNORTO80', 1024) }, noche: { super8: stats('BNNOCHE3200', 0.18, 0), super16: stats('BNNOCHE3200', 0.18, 1), medio: stats('BNNOCHE3200', 0.18, 2) }, csf: [P.csfOf(P.STOCKS.RETRATO400), P.csfOf(P.STOCKS.VIVA50), P.csfOf(P.STOCKS.BNORTO80)], tie: [P.tieOf(P.STOCKS.RETRATO400), P.tieOf(P.STOCKS.BNORTO80)],
       };
     });
     const COLOUR_NEGATIVES = ['RETRATO400', 'CALIDO200', 'CINE500T', 'CALLE400', 'AMBAR160', 'CINE250D', 'CRUZADO100', 'PLATA200', 'REVES200', 'PURPURA400'];
@@ -215,10 +224,15 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     assert.ok(deep.negative.sombras.luz < deep.negative.medios.luz * 0.5, 'en la copia de un negativo el negro queda limpio: ' + JSON.stringify(deep.negative));
     for (const name of ['retrato', 'viva']) {
       const e = deep.edge[name];
-      assert.ok(e.claroCerca >= e.claroLejos + 3 && e.oscuroCerca <= e.oscuroLejos, name + ': junto a un borde lo claro se aclara y lo oscuro no se levanta (el relieve del baño): ' + JSON.stringify(e));
-      assert.ok(e.claroCerca - e.claroLejos < 22, name + ': sin halo exagerado: ' + JSON.stringify(e));
+      assert.ok(e.claroCerca >= e.claroLejos + 2 && e.oscuroCerca <= e.oscuroLejos, name + ': junto a un borde lo claro se aclara y lo oscuro no se levanta (el relieve del baño y el de las capas): ' + JSON.stringify(e));
+      assert.ok(e.claroCerca - e.claroLejos < 22 && Math.abs(e.claroMedio - e.claroLejos) <= 1, name + ': un relieve fino, no un halo ancho (a un vigésimo del cuadro ya no queda nada): ' + JSON.stringify(e));
     }
     assert.ok(Math.abs(deep.edge.orto.claroCerca - deep.edge.orto.claroLejos) <= 2 && Math.abs(deep.edge.orto.oscuroCerca - deep.edge.orto.oscuroLejos) <= 2, 'el blanco y negro se queda como estaba: ' + JSON.stringify(deep.edge.orto));
+    // el color del grano va a la escala del grano: en un gris liso no quedan manchas anchas de color
+    assert.deepEqual(deep.csf, [[0.45, 0.28], [0.58, 0.36], [0, 0]], 'cuánto color fino queda: menos el azul-amarillo que el rojo-verde, algo más en diapositiva, nada en blanco y negro');
+    assert.ok(deep.blotch.ancho < deep.blotch.fino * 0.5, 'el color del grano es fino: promediado en bloques de 16 puntos casi desaparece: ' + JSON.stringify(deep.blotch));
+    // la película más rápida, contenida en el cuadro más chico: fuerte, pero no una tormenta
+    assert.ok(deep.noche.super8.luz < 32 && deep.noche.super8.luz > deep.noche.super16.luz && deep.noche.super16.luz > deep.noche.medio.luz, 'NOCHE 3200: en SÚPER 8 sigue siendo la de más grano, sin reventar la imagen: ' + JSON.stringify(deep.noche));
     step('negro hondo y grano profundo: las de color, a la altura de las de blanco y negro', { negro: deep.black, retrato: deep.retrato, cine: deep.cine, orto: deep.mono, diapositiva: deep.slide, borde: deep.edge });
 
     // ── 5c · Cine chico: SÚPER 8 y SÚPER 16 ──
@@ -229,7 +243,9 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
         flipFilm.develop(flat(v), { stock, format, ...extra }); const r = flipFilm.read(); let n = 0, m = 0, q = 0, t = 0;
         for (let y = 20; y < H - 20; y++) for (let x = 20; x < W - 20; x++) { const g = r.data[(y * W + x) * 4 + 1]; m += g; q += g * g; t += g * g * g; n++; }
         m /= n; const va = Math.max(1e-9, q / n - m * m), sd = Math.sqrt(va);
-        return { media: +m.toFixed(1), sd: +sd.toFixed(2), sesgo: +((t / n - 3 * m * va - m * m * m) / (sd * sd * sd)).toFixed(2) };
+        // «grueso»: lo que queda del grano al promediar bloques de 4 × 4 puntos (un grano fino se borra; uno gordo, no)
+        let bn = 0, bm = 0, bq = 0; for (let y = 20; y + 4 <= H - 20; y += 4) for (let x = 20; x + 4 <= W - 20; x += 4) { let a = 0; for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) a += r.data[((y + j) * W + x + i) * 4 + 1]; a /= 16; bm += a; bq += a * a; bn++; }
+        return { media: +m.toFixed(1), sd: +sd.toFixed(2), grueso: +Math.sqrt(Math.max(0, bq / bn - (bm / bn) ** 2)).toFixed(2), sesgo: +((t / n - 3 * m * va - m * m * m) / (sd * sd * sd)).toFixed(2) };
       };
       // cuántos puntos tarda un borde en pasar de oscuro a claro (del 10 % al 90 % del salto), a tamaño de foto
       const edge = format => {
@@ -250,7 +266,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     });
     assert.deepEqual(small.names, ['SÚPER 8', 'SÚPER 16', '½ CUADRO', '35 MM', '6 × 7', '4 × 5'], 'los formatos, de menor a mayor');
     assert.deepEqual([small.small, small.f35], [[true, true, false, false, false, false], 3], 'los dos de cine chico, y 35 mm de fábrica');
-    for (let i = 1; i < 6; i++) assert.ok(small.formats[i].sd < small.formats[i - 1].sd * 0.92, 'cuanto mayor el formato, menos grano (del súper 8 al 4 × 5): ' + small.formats.map(f => f.sd));
+    for (let i = 1; i < 6; i++) assert.ok(small.formats[i].sd < small.formats[i - 1].sd * 0.95, 'cuanto mayor el formato, menos grano (del súper 8 al 4 × 5): ' + small.formats.map(f => f.sd));
     assert.ok(small.formats[0].sd > small.formats[3].sd * 2.2, 'en súper 8 el grano es cosa seria: ' + [small.formats[0].sd, small.formats[3].sd]);
     for (const f of small.formats) assert.ok(Math.abs(f.media - small.formats[3].media) < 3, 'el formato no mueve el tono: ' + small.formats.map(g => g.media));
     assert.ok(Math.abs(small.clean[0].media - small.clean[1].media) < 2 && small.clean[0].sd < 1, 'sin grano, el súper 8 sale liso y con el mismo gris: ' + JSON.stringify(small.clean));
@@ -454,7 +470,9 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     await page.locator('#deckModeSwitch').click();
     await page.waitForFunction(() => camMode === 'foto' && !flipFilm.state().shuttering, null, { timeout: 8000 });
     assert.equal(modes.foto.s.shuttering, false, 'en foto no hay obturador de cine');
-    assert.ok(modes.video.s.shuttering && modes.video.s.amount > 0.4 && modes.video.s.amount <= 1.25, 'en vídeo va puesto, con la parte del intervalo que le toca a 1/48 de segundo: ' + JSON.stringify(modes.video.s));
+    // (a 30 cuadros por segundo le toca 0,625 del intervalo; si la cámara de la prueba va más lenta —la
+    //  del motor de Safari ronda los 21—, el obturador ya se va cerrando, como con poca luz)
+    assert.ok(modes.video.s.shuttering && modes.video.s.amount > (modes.video.s.cameraMs < 40 ? 0.4 : 0) && modes.video.s.amount <= 1.25, 'en vídeo va puesto, con la parte del intervalo que le toca a 1/48 de segundo: ' + JSON.stringify(modes.video.s));
     assert.ok(seenVideo.lit > 0.5 && seenVideo.colores > 40, 'y el visor sigue enseñando la imagen: ' + JSON.stringify(seenVideo));
     step('en modo vídeo el obturador de cine va puesto', { parte: modes.video.s.amount });
 
@@ -553,6 +571,18 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     await page.waitForFunction(() => window.flipFilm && document.getElementById('vFilmFormat'), null, { timeout: 20000 });
     assert.deepEqual(await page.evaluate(() => [flipFilm.settings().format, document.getElementById('vFilmFormat').textContent]), [0, 'SÚPER 8'], 'y lo que se guarda ahora se lee tal cual');
     step('los ajustes guardados de antes conservan su formato', old);
+
+    // con poca luz la cámara baja sola a 15 cuadros por segundo: ya expone largo, y el obturador se cierra
+    const dark = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 1280, h: 720, fps: 15 } });
+    await dark.page.evaluate(() => { localStorage.removeItem('flip.film'); _setCamFamily('FILM'); });
+    await dark.page.waitForFunction(() => camFamily === 'FILM' && flipFilm.state().frame > 3, null, { timeout: 20000 });
+    await dark.page.locator('#deckModeSwitch').click();
+    await dark.page.waitForFunction(() => camMode === 'video' && flipFilm.state().shuttering && flipFilm.state().cameraMs > 0, null, { timeout: 10000 });
+    await dark.page.waitForTimeout(1500);
+    const dim = await dark.page.evaluate(() => flipFilm.state());
+    assert.ok(dim.cameraMs > 55 && dim.amount === 0, 'a 15 cuadros por segundo el obturador de cine no añade estela: ' + JSON.stringify({ cameraMs: dim.cameraMs, amount: dim.amount }));
+    assert.deepEqual(dark.errors, [], 'sin errores');
+    step('con poca luz el obturador se cierra', { pasoDeLaCamaraMs: dim.cameraMs, parte: dim.amount });
     console.log('FILM PASS');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

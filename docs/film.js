@@ -132,7 +132,7 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.58, 0.62, 0.66], gray: -0.62,
         dir: DIR0, dirRadius: 18,
         halation: { radius: 210, k: [0.035, 0.008, 0.001] },
-        grain: { rho: [0.9, 2.8, 5.2], sat: 0.5 }, edge: 0.22, contrast: 1.03,
+        grain: { rho: [0.9, 2.8, 5.2], sat: 0.5 }, scatter: 4.1, edge: 0.20, contrast: 1.03,
       },
       CALIDO200: {
         name: 'CÁLIDO 200', kind: 'negative', balance: 5500,
@@ -140,7 +140,7 @@
         dmin: [0.24, 0.62, 0.94], dmax: [2.20, 2.75, 3.15], gamma: [0.66, 0.70, 0.74], gray: -0.55,
         dir: [[0.16, 0.21, 0], [0.72, 0.16, 0.45], [0, 0.57, 0.15]], dirRadius: 20,
         halation: { radius: 220, k: [0.045, 0.010, 0.002] },
-        grain: { rho: [1.3, 4.0, 7.6], sat: 0.48 }, edge: 0.20,
+        grain: { rho: [1.3, 4.0, 7.6], sat: 0.48 }, scatter: 3.4, edge: 0.20,
         warm: 0.035,                                                   // su copia tira a cálida: un punto más de luz azul en la ampliadora (más tinte amarillo en el papel)
       },
       CINE500T: {
@@ -149,7 +149,7 @@
         dmin: [0.20, 0.56, 0.86], dmax: [1.95, 2.40, 2.75], gamma: [0.62, 0.65, 0.68], gray: -0.66,
         dir: [[0.14, 0.20, 0], [0.72, 0.14, 0.43], [0, 0.37, 0.12]], dirRadius: 18,
         halation: { radius: 235, k: [0.28, 0.07, 0.01] },
-        grain: { rho: [0.41, 1.45, 3.7], sat: 0.52 }, edge: 0.22, contrast: 1.04,
+        grain: { rho: [0.41, 1.45, 3.7], sat: 0.52 }, scatter: 4.9, edge: 0.20, contrast: 1.04,
       },
       // Negativo de calle con cuarta capa: tonos duros, verdes que tiran al cian, rojos hondos; las
       // sombras se enfrían y las luces se calientan (las capas no llevan el mismo contraste).
@@ -159,7 +159,7 @@
         dmin: [0.24, 0.60, 0.92], dmax: [2.15, 2.70, 3.05], gamma: [0.68, 0.70, 0.70], gray: -0.52,
         dir: dirOf(0.8), dirRadius: 20,
         halation: { radius: 215, k: [0.04, 0.009, 0.001] },
-        grain: { rho: [0.6, 1.9, 3.8], sat: 0.48 }, edge: 0.26,
+        grain: { rho: [0.6, 1.9, 3.8], sat: 0.48 }, scatter: 4.1, edge: 0.24,
         contrast: 1.07, cross: [1.09, 0.94, 1.0], paper: { toe: 1.75, shoulder: 1.8 },
       },
       // Negativo de álbum: la copia que se guardó treinta años. Luces ámbar, sombras con color.
@@ -169,7 +169,7 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.10, 2.60, 3.00], gamma: [0.60, 0.63, 0.64], gray: -0.60,
         dir: dirOf(1.2), dirRadius: 18,
         halation: { radius: 210, k: [0.04, 0.009, 0.001] },
-        grain: { rho: [1.1, 3.2, 6.0], sat: 0.5 }, edge: 0.16,
+        grain: { rho: [1.1, 3.2, 6.0], sat: 0.5 }, scatter: 3.4, edge: 0.14,
         cross: [1.05, 1.0, 0.76], cast: [-0.008, 0.004, 0.022], paper: { toe: 1.35, shoulder: 1.45 },
       },
       // Negativo de cine para luz de día: poco contraste, poco color, sombras largas, una gota de magenta.
@@ -179,7 +179,7 @@
         dmin: [0.20, 0.56, 0.86], dmax: [1.95, 2.40, 2.75], gamma: [0.54, 0.56, 0.58], gray: -0.68,
         dir: dirOf(0.62), dirRadius: 18,
         halation: { radius: 230, k: [0.11, 0.028, 0.004] },
-        grain: { rho: [0.58, 1.9, 4.35], sat: 0.52 }, edge: 0.20,
+        grain: { rho: [0.58, 1.9, 4.35], sat: 0.52 }, scatter: 4.1, edge: 0.20,
         contrast: 0.94, cast: [0, 0.010, -0.004], paper: { toe: 1.25, shoulder: 1.7 },
       },
       // ── diapositivas ──
@@ -190,7 +190,7 @@
         dmin: x3(0), dmax: x3(3.5), gamma: x3(1.5), gray: 0.30,
         dir: [[0.05, 0.036, 0], [0.237, 0.05, 0.094], [0.104, 0.027, 0.05]], dirRadius: 16,
         halation: { radius: 200, k: [0.02, 0.005, 0.001] },
-        grain: { rho: [1.0, 3.0, 5.3], sat: 0.5 }, edge: 0.08,
+        grain: { rho: [1.0, 3.0, 5.3], sat: 0.5 }, scatter: 3.0, edge: 0.05,
         sub: { share: [0.26, 0.44, 0.30], shift: [-0.32, 0, 0.34] },
       },
       // Diapositiva de reportero: color contenido, sombras duras, cielos hondos sin magenta.
@@ -200,7 +200,7 @@
         dmin: x3(0), dmax: x3(3.6), gamma: x3(1.36), gray: 0.24,
         dir: [[0.05, 0.028, -0.138], [0.016, 0.05, -0.046], [-0.037, 0.042, 0.05]], dirRadius: 16,
         halation: { radius: 200, k: [0.02, 0.005, 0.001] },
-        grain: { rho: [0.55, 1.6, 3.0], sat: 0.5 }, edge: 0.08,
+        grain: { rho: [0.55, 1.6, 3.0], sat: 0.5 }, scatter: 3.0, edge: 0.05,
         sub: { share: [0.34, 0.42, 0.24], shift: [-0.30, 0, 0.36] }, tint: [0.985, 1, 1.03],
       },
       // ── experimentales ──
@@ -211,7 +211,7 @@
         dmin: [0.18, 0.22, 0.30], dmax: [2.6, 2.8, 3.0], gamma: [0.80, 0.84, 0.80], gray: -0.46,
         dir: dirOf(1.25), dirRadius: 18,
         halation: { radius: 200, k: [0.03, 0.007, 0.001] },
-        grain: { rho: [1.0, 3.0, 5.6], sat: 0.5 }, edge: 0.26,
+        grain: { rho: [1.0, 3.0, 5.6], sat: 0.5, csf: [0.55, 0.35] }, scatter: 3.0, edge: 0.24,
         cross: [0.95, 1.16, 0.60], cast: [0.006, -0.02, 0.012], paper: { toe: 1.8, shoulder: 1.8 },
       },
       // Negativo sin blanquear: la plata se queda en la película. Metálico, duro, casi sin color.
@@ -221,7 +221,7 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.60, 0.63, 0.66], gray: -0.60,
         dir: dirOf(1.0), dirRadius: 18,
         halation: { radius: 215, k: [0.05, 0.012, 0.002] },
-        grain: { rho: [0.6, 1.85, 3.7], sat: 0.45 }, edge: 0.28,
+        grain: { rho: [0.6, 1.85, 3.7], sat: 0.45, csf: [0.85, 0.65] }, scatter: 4.1, edge: 0.24,
         silver: 0.95, contrast: 1.24, cast: [0.005, 0, -0.006], paper: { toe: 1.7, shoulder: 1.8 },
       },
       // El rollo cargado al revés: todo en rojos, naranjas y amarillos.
@@ -232,7 +232,7 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.62, 0.66, 0.70], gray: -0.62,
         dir: dirOf(0.7), dirRadius: 18,
         halation: { radius: 210, k: [0.03, 0.03, 0.02] },
-        grain: { rho: [0.6, 1.9, 3.6], sat: 0.5 }, edge: 0.20,
+        grain: { rho: [0.6, 1.9, 3.6], sat: 0.5, csf: [0.55, 0.35] }, scatter: 4.1, edge: 0.20,
       },
       // Película de colores cambiados: la capa del verde forma el tinte de la del azul, y al revés.
       // El follaje sale púrpura; el cielo, verde agua; los amarillos, rosa. El rojo se queda.
@@ -242,7 +242,7 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.62, 0.64, 0.64], gray: -0.60,
         dir: dirOf(0.9), dirRadius: 18,
         halation: { radius: 210, k: [0.04, 0.009, 0.001] },
-        grain: { rho: [0.7, 2.2, 4.2], sat: 0.5 }, edge: 0.20,
+        grain: { rho: [0.7, 2.2, 4.2], sat: 0.5, csf: [0.55, 0.35] }, scatter: 4.1, edge: 0.20,
       },
       // ── blanco y negro ──
       // Grano finísimo; no ve del todo el rojo (los labios y la piel ganan cuerpo). Sombras suaves y con
@@ -253,7 +253,7 @@
         dmin: x3(0.26), dmax: x3(2.25), gamma: x3(0.62), gray: -0.64,
         dir: dirOf(0, 0.28), dirRadius: 13,
         halation: { radius: 190, k: x3(0.012) },
-        grain: { rho: [3.4, 10.0, 18.0], sat: 0.5 },
+        grain: { rho: [3.4, 10.0, 18.0], sat: 0.5 }, scatter: 2.3,
         paper: { toe: 1.75, shoulder: 1.4 },
       },
       // La de reportero de toda la vida: ve todos los colores, grano con carácter, pie largo.
@@ -263,7 +263,7 @@
         dmin: x3(0.30), dmax: x3(2.35), gamma: x3(0.64), gray: -0.58,
         dir: dirOf(0, 0.36), dirRadius: 16,
         halation: { radius: 215, k: x3(0.03) },
-        grain: { rho: [0.34, 1.0, 2.0], sat: 0.45 },
+        grain: { rho: [0.34, 1.0, 2.0], sat: 0.45 }, scatter: 4.7,
         paper: { toe: 1.5, shoulder: 1.9 },
       },
       // Ortocromática: ciega al rojo. Labios y pecas oscuros, cielos blancos, mucho contraste.
@@ -273,7 +273,7 @@
         dmin: x3(0.24), dmax: x3(2.40), gamma: x3(0.72), gray: -0.56,
         dir: dirOf(0, 0.32), dirRadius: 13,
         halation: { radius: 190, k: x3(0.02) },
-        grain: { rho: [2.2, 6.5, 12.0], sat: 0.5 },
+        grain: { rho: [2.2, 6.5, 12.0], sat: 0.5 }, scatter: 2.3,
         contrast: 1.08, paper: { toe: 1.6, shoulder: 2.0 },
       },
       // La de noche: rapidísima, grano como arena, sin capa antihalo (las luces se abren en un velo).
@@ -283,7 +283,7 @@
         dmin: x3(0.36), dmax: x3(2.20), gamma: x3(0.60), gray: -0.50,
         dir: dirOf(0, 0.3), dirRadius: 18,
         halation: { radius: 240, k: x3(0.2) },
-        grain: { rho: [0.085, 0.26, 0.55], sat: 0.4 },
+        grain: { rho: [0.085, 0.26, 0.55], sat: 0.4, calm: { below: 8, by: 2.3 } }, scatter: 6.7,   // «calm»: en un cuadro de menos de 8 mm lleva 2,3 veces más cristales (nunca hubo una película así de rápida en SÚPER 8: sería una tormenta)
         contrast: 1.1, paper: { toe: 1.6, shoulder: 1.9 },
       },
     };
@@ -310,7 +310,12 @@
     // rápida) y los finos. Y cuánto dispersa la luz cada clase de emulsión (la desviación de su mancha,
     // en micras; en color la capa roja, que va al fondo, es la que más, y la azul, arriba, la que menos).
     const CLOUD = { coarse: 8.3, fine: 5.5 };
-    const SCATTER = { negative: 3.6, reversal: 3.0, mono: 2.6 }, SCATTER_LAYER = [1.25, 1, 0.8];
+    const SCATTER = { negative: 3.6, reversal: 3.0, mono: 2.6 }, SCATTER_LAYER = [1.25, 1, 0.8];     // (cada película puede traer la suya: «scatter»)
+    // El alcance del baño (micras): hasta dónde llega el revelador gastado en una máquina con agitación
+    // (negativo de color) y en un proceso de diapositiva. Con 260, en SÚPER 8 era un halo de 46 puntos.
+    // (La fuerza —«edge» de cada película— va algo por encima de la de un revelado de máquina: con la
+    //  justa, a tamaño de visor el relieve no se alcanzaba a ver. Es una decisión de gusto.)
+    const BATH = { negative: 95, reversal: 65 };
     // Cuántos cristales por micra² tiene cada capa respecto a la verde (la azul los lleva más grandes y
     // menos numerosos; la roja, algo más grandes).
     const layerSize = (film, c) => (film.mono ? 1 : c === 2 ? 0.65 : c === 0 ? 0.92 : 1);
@@ -528,9 +533,16 @@
     // En una película de verdad cada capa tiene sus cristales y su grano es independiente: de cerca,
     // confeti de colores. A tamaño de pantalla eso se lee como ruido de sensor y como un velo claro,
     // no como grano. Las nuestras atan casi todo el grano entre capas —grano de luminancia, como el de
-    // la plata— y dejan una parte propia de cada capa, en nubes más anchas: el color que respira dentro.
+    // la plata— y dejan lo propio de cada capa como color.
     const TIE = 0.86;
     const tieOf = stock => (stock.kind === 'mono' ? 1 : stock.grain.tie == null ? TIE : stock.grain.tie);
+    // Lo propio de cada capa es el color del grano, y va a la MISMA escala que el grano (una nube de
+    // tinte mide de 2 a 8 micras; en manchas anchas se volvía un moteado pastel, y sin bajar de fuerza
+    // con el tamaño, como manda la estadística). El ojo distingue mucho peor el color fino que la luz
+    // fina, y el azul-amarillo peor que el rojo-verde: lo que queda de cada eje, [rojo-verde,
+    // azul-amarillo]. (Auditoría de Neon; referencia: la sensibilidad al contraste de color de Mullen, 1985.)
+    const CSF = { negative: [0.45, 0.28], reversal: [0.58, 0.36], mono: [0, 0] };
+    const csfOf = stock => stock.grain.csf || CSF[stock.kind];
 
     // El revelado de UN punto, en JavaScript y sin atajos: la referencia contra la que se mide el
     // sombreador. rgb lineal con el gris medio en 0,18. Devuelve densidades y la imagen (RGB lineal).
@@ -549,7 +561,7 @@
       return { H, D, n, print: table ? table.print(n) : null };
     }
 
-    return { LAM, STOCKS, PAPER, PAPERS, FORMATS, F35, CLOUD, SCATTER, SCATTER_LAYER, layerSize, FILTERS, TONERS, SUB, X0, X1, XN, TIE, tieOf, prepare, printTable, curveTable, develop, upsample, planck, viewer, D65, clamp };
+    return { LAM, STOCKS, PAPER, PAPERS, FORMATS, F35, CLOUD, SCATTER, SCATTER_LAYER, BATH, layerSize, FILTERS, TONERS, SUB, X0, X1, XN, TIE, tieOf, CSF, csfOf, prepare, printTable, curveTable, develop, upsample, planck, viewer, D65, clamp };
   })();
 
   if (typeof module !== 'undefined' && module.exports) { module.exports = physics; return; }
@@ -663,7 +675,9 @@
       void main() { o = vec4(curve(log10v(mix(textureLod(uH, vUv, 1.).rgb, mix(texture(uHalo, vUv).rgb, texture(uWide, vUv).rgb, .3), uK))), 1.); }`,
     final: simple => HEAD + (simple ? EXPOSE : 'uniform sampler2D uH, uHalo, uWide, uSpread, uBath; uniform float uEdge;') + `
       uniform sampler3D uPrint; uniform vec3 uK, uRange, uShift, uNoise;   // uNoise = (¿grano?, lado del grumo en puntos, 1/lado en micras)
-      uniform vec3 uDirR, uDirG, uDirB; uniform float uSeed, uMode, uMono; uniform vec2 uRes, uTie;   // uTie = (raíz de lo que comparten las capas, raíz de lo propio)
+      uniform vec3 uDirR, uDirG, uDirB; uniform float uSeed, uMode, uMono; uniform vec2 uRes, uTie, uCsf;   // uTie.x = raíz de lo que comparten las capas; uCsf = cuánto color fino queda (rojo-verde, azul-amarillo)
+      // El color del grano: lo que cada capa tiene de propio, sin su parte de luz (esa ya la lleva el grano compartido).
+      vec3 colorDe(vec3 v) { const vec3 LUMA = vec3(.2126, .7152, .0722); vec3 ch = (v - dot(LUMA, v)) * vec3(uCsf.x, uCsf.x, uCsf.y); return ch - dot(LUMA, ch); }
       // Cine chico: los cristales, uno por uno. uCry = (radio de la nube gruesa en puntos, nubes por celda,
       // signo, fuerza); uCryF = lo mismo para la fina (radio, nubes por celda, fuerza); uMc y uMf = cuántos
       // cristales caben en una celda de cada capa si todos forman imagen. Con uCry.x en 0, apagado.
@@ -725,25 +739,25 @@
         // D · el grano: dos tamaños de grumo; su fuerza sale de la tabla (cristales revelados) y del formato
         if (uNoise.x > .5) {
           vec2 p = gl_FragCoord.xy / uNoise.y;
-          float fino = (uNoise.y > 1.2 ? grumos(p, uSeed) : gauss(floor(p), uSeed)).r, grueso = grumos(p * .43, uSeed + 91.).r;
+          vec3 finos = uNoise.y > 1.2 ? grumos(p, uSeed) : gauss(floor(p), uSeed), gruesos = grumos(p * .43, uSeed + 91.);
+          float fino = finos.r, grueso = gruesos.r;
           if (uCry.x > 0.) {
             // Cine chico: los cristales gruesos y los finos, uno por uno (compartidos por las capas); en
-            // color, además, las nubes de tinte propias de cada capa. En una diapositiva lo que forma
-            // imagen es lo que NO se reveló: el signo va al revés.
+            // color, además, el color propio de cada capa, a la escala del grano. En una diapositiva lo
+            // que forma imagen es lo que NO se reveló: el signo va al revés.
             vec3 grain = lookup(xe, COARSE) * uCry.w * cristales(gl_FragCoord.xy, uCry.x, uCry.y, uMc, lookup(xe, QFAST), uSeed + 91.)
                        + lookup(xe, FINE) * uCryF.z * cristales(gl_FragCoord.xy, uCryF.x, uCryF.y, uMf, lookup(xe, QMID), uSeed);
             n += uCry.z * uTie.x * grain;
-            if (uMono < .5) n += uNoise.z * uTie.y * lookup(xe, NOISE) * grumos(mat2(.8, .6, -.6, .8) * p * .31, uSeed + 173.);
+            if (uMono < .5) n += uNoise.z * lookup(xe, NOISE) * colorDe(grumos(p, uSeed + 173.));
           }
           else if (uMono > .5) n += lookup(xe, NOISE) * uNoise.z * (.8 * fino + .6 * grueso);   // una sola emulsión: un solo grano
           else {
             // Color: el grano es el de la plata —el mismo dibujo que en blanco y negro—, compartido por
             // las tres capas, y cada tamaño lleva la fuerza de SUS cristales: los gruesos (la sub-emulsión
             // rápida, la única que se revela con poca luz) mandan en lo poco expuesto, y los finos se suman
-            // al subir la exposición. Encima, lo propio de cada capa: nubes de tinte anchas, giradas para
-            // que no caigan sobre el dibujo de la plata; es el color que se mueve dentro del grano.
-            vec3 nubes = grumos(mat2(.8, .6, -.6, .8) * p * .31, uSeed + 173.);
-            n += uNoise.z * (uTie.x * (lookup(xe, FINE) * fino + lookup(xe, COARSE) * grueso) + uTie.y * lookup(xe, NOISE) * nubes);
+            // al subir la exposición. Encima, el color: lo que cada capa tiene de propio (los otros dos
+            // canales de esos mismos sorteos), a la misma escala que el grano y rebajado como lo ve el ojo.
+            n += uNoise.z * (uTie.x * (lookup(xe, FINE) * fino + lookup(xe, COARSE) * grueso) + lookup(xe, NOISE) * colorDe(vec3(finos.g, finos.b, gruesos.g)));   // (sorteos que el grano compartido no usa; la capa azul, con el dibujo grueso: sus cristales son los mayores)
           }
         }
         if (uMode > .5) { o = vec4(clamp(n, 0., 1.), 1.); return; }                    // (pruebas: el negativo)
@@ -940,7 +954,7 @@
       }
       // 1b · cine chico: la emulsión dispersa la luz unas micras, y aquí unas micras ya son puntos
       if (format.small) {
-        const spread = physics.SCATTER[stock.kind] / upp, by = film.mono ? [1, 1, 1] : physics.SCATTER_LAYER, sig = by.map(f => Math.max(0.3, spread * f));
+        const spread = (stock.scatter || physics.SCATTER[stock.kind]) / upp, by = film.mono ? [1, 1, 1] : physics.SCATTER_LAYER, sig = by.map(f => Math.max(0.3, spread * f));
         blur(exposed, 's1', w, h, 1 / w, 0, 0, sig);
         blur('s1', 'H', w, h, 0, 1 / h, 0, sig);
       }
@@ -970,7 +984,7 @@
       blur('d', 'spread', hw, hh, 0, 1 / hh, 0, ds);
       // 4b · el baño: la misma densidad, promediada a la distancia a la que se gasta el revelador
       if (stock.edge) {
-        const reach = (stock.edgeRadius || 260) / upp / 2, lod = clamp(Math.round(Math.log2(Math.max(1, reach / 2.4))), 0, 6), ef = 1 << lod;
+        const reach = (stock.edgeRadius || physics.BATH[stock.kind] || 95) / upp / 2, lod = clamp(Math.round(Math.log2(Math.max(1, reach / 2.4))), 0, 6), ef = 1 << lod;
         const ew = Math.max(2, Math.ceil(hw / ef)), eh = Math.max(2, Math.ceil(hh / ef));
         blur('first', 'e', ew, eh, 1 / ew, 0, lod, reach / ef);
         blur('e', 'bath', ew, eh, 0, 1 / eh, 0, reach / ef);
@@ -995,12 +1009,12 @@
     const d = stock.dir;
     gl.uniform3f(P.u.uDirR, d[0][0], d[0][1], d[0][2]); gl.uniform3f(P.u.uDirG, d[1][0], d[1][1], d[1][2]); gl.uniform3f(P.u.uDirB, d[2][0], d[2][1], d[2][2]);
     // el grumo de grano mide unas 11 micras: en puntos, según el formato; su fuerza baja con su lado
-    const cell = Math.max(1, 11 / upp);
-    gl.uniform3f(P.u.uNoise, o.grain === false ? 0 : 1, cell, 1 / (cell * upp));
+    const cell = Math.max(1, 11 / upp), calm = stock.grain.calm && format.mm < stock.grain.calm.below ? stock.grain.calm.by : 1, soften = 1 / Math.sqrt(calm);
+    gl.uniform3f(P.u.uNoise, o.grain === false ? 0 : 1, cell, soften / (cell * upp));
     gl.uniform1f(P.u.uSeed, o.seed || 0); gl.uniform1f(P.u.uMode, o.mode || 0); gl.uniform1f(P.u.uMono, film.mono ? 1 : 0);
     gl.uniform2f(P.u.uRes, w, h);
-    const tie = physics.tieOf(stock);
-    gl.uniform2f(P.u.uTie, Math.sqrt(tie), Math.sqrt(1 - tie));
+    const tie = physics.tieOf(stock), csf = physics.csfOf(stock);
+    gl.uniform2f(P.u.uTie, Math.sqrt(tie), Math.sqrt(1 - tie)); gl.uniform2f(P.u.uCsf, csf[0], csf[1]);
     // (en la vista previa, si el teléfono no llega a 20 cuadros por segundo dibujando cristales, se le
     //  piden menos por celda y, si ni así, el grano vuelve a sortearse como en los formatos grandes; la
     //  foto los dibuja siempre)
@@ -1009,10 +1023,10 @@
       // cristal a cristal: el radio de cada nube en puntos (nunca menos de lo que un punto puede enseñar),
       // cuántos cristales caben en una celda de ese lado, y la fuerza que le toca a una nube de ese tamaño
       const rc = Math.max(1.25, physics.CLOUD.coarse / upp), rf = Math.max(1.25, physics.CLOUD.fine / upp), rho = stock.grain.rho;
-      const perCell = (density, r) => [0, 1, 2].map(c => density * physics.layerSize(film, c) * Math.pow(r * upp, 2));
+      const perCell = (density, r) => [0, 1, 2].map(c => calm * density * physics.layerSize(film, c) * Math.pow(r * upp, 2));
       const mc = perCell(rho[0], rc), mf = perCell(rho[1], rf);
-      gl.uniform4f(P.u.uCry, rc, o.live ? 3 - tier : 4, film.reversal ? -1 : 1, 0.757 / (rc * upp));
-      gl.uniform3f(P.u.uCryF, rf, o.live ? 2 - tier : 3, 0.757 / (rf * upp));
+      gl.uniform4f(P.u.uCry, rc, o.live ? 3 - tier : 4, film.reversal ? -1 : 1, soften * 0.757 / (rc * upp));
+      gl.uniform3f(P.u.uCryF, rf, o.live ? 2 - tier : 3, soften * 0.757 / (rf * upp));
       gl.uniform3f(P.u.uMc, mc[0], mc[1], mc[2]); gl.uniform3f(P.u.uMf, mf[0], mf[1], mf[2]);
     } else gl.uniform4f(P.u.uCry, 0, 0, 1, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -1057,9 +1071,12 @@
     const el = typeof HTMLVideoElement !== 'undefined' && source instanceof HTMLVideoElement ? source : (typeof vid !== 'undefined' ? vid : null);
     if (!el || typeof el.requestVideoFrameCallback !== 'function') return null;
     if (S.clock && S.clock.el === el) return S.clock;
-    const clock = S.clock = { el, seq: 0, time: 0, used: 0, usedTime: 0 };
+    const clock = S.clock = { el, seq: 0, time: 0, used: 0, usedTime: 0, period: 0, shown: 0 };
     const tick = (now, meta) => {
-      clock.seq++; clock.time = meta && meta.mediaTime ? meta.mediaTime * 1000 : now;
+      // (el paso de la cámara: lo que tarda de un cuadro al siguiente, aunque el visor se salte alguno)
+      const at = meta && meta.mediaTime ? meta.mediaTime * 1000 : now, shown = meta && meta.presentedFrames || clock.seq + 1, step = clock.seq ? (at - clock.time) / Math.max(1, shown - clock.shown) : 0;
+      if (step > 5 && step < 250) clock.period += (step - clock.period) * (clock.period ? 0.2 : 1);
+      clock.shown = shown; clock.seq++; clock.time = at;
       if (S.clock === clock && performance.now() - S.last < 1500) el.requestVideoFrameCallback(tick); else if (S.clock === clock) S.clock = null;
     };
     el.requestVideoFrameCallback(tick);
@@ -1071,7 +1088,11 @@
     const clock = cameraClock(source);
     let fresh = true, dt = started - S.shotAt;
     if (clock && clock.seq > 0) { fresh = clock.seq !== clock.used; dt = clock.time - clock.usedTime; if (fresh) { clock.used = clock.seq; clock.usedTime = clock.time; } }
-    if (fresh) { S.shotAt = started; S.amount = dt > 8 && dt < 150 ? Math.min(1.25, SHUTTER_MS / dt) : 0; }
+    // Con poca luz la cámara del teléfono baja sola de 24 cuadros por segundo: ya está exponiendo cada
+    // cuadro más tiempo que un obturador de cine, y la estela ya viene en la imagen. Ahí el nuestro se
+    // cierra (del todo a 20 por segundo), para no duplicarla.
+    const dim = clock && clock.period ? clamp((50 - clock.period) / (50 - 1000 / 24), 0, 1) : 1;
+    if (fresh) { S.shotAt = started; S.amount = dt > 8 && dt < 150 ? Math.min(1.25, SHUTTER_MS / dt) * dim : 0; }
     return { fresh, amount: S.amount };
   }
   function renderFilm(source, srcW, srcH, ctx, mirror, variant, options) {
@@ -1176,6 +1197,6 @@
     // (pruebas) olvida el cuadro anterior del obturador
     forgetMotion() { G.motion.have = G.motion.flow = false; },
     settings: () => ({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain }),
-    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null, tier: S.tier, scale: S.scale, shutter: S.shutter, shuttering: !!S.shut, amount: +S.amount.toFixed(3), gap: Math.round(S.gap), filming: !!(S.video && performance.now() < S.video.until), reel: S.reel ? [S.reel.width, S.reel.height] : null }),
+    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null, tier: S.tier, scale: S.scale, shutter: S.shutter, shuttering: !!S.shut, amount: +S.amount.toFixed(3), cameraMs: S.clock ? Math.round(S.clock.period) : 0, gap: Math.round(S.gap), filming: !!(S.video && performance.now() < S.video.until), reel: S.reel ? [S.reel.width, S.reel.height] : null }),
   };
 })();

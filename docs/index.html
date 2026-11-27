@@ -13999,7 +13999,7 @@ function _stillLuma(source, sx, sy, sw, sh, w, h, slot) {
   mean /= out.length;
   let dev = 0;
   for (let i = 0; i < out.length; i++) { out[i] -= mean; dev += out[i] * out[i]; }
-  return { data: out, dev: Math.sqrt(dev) };
+  return { data: out, dev: Math.sqrt(dev), mean };
 }
 const _stillSlots = [{}, {}];
 // El recorte de la toma que enseña lo mismo que el vídeo: centrado, con el alto y el ancho del vídeo,
@@ -14016,7 +14016,8 @@ function _matchStillFraming(bitmap, video) {
     let dot = 0;
     for (let i = 0; i < got.data.length; i++) dot += got.data[i] * ref.data[i];
     const score = ref.dev > 1 && got.dev > 1 ? dot / (ref.dev * got.dev) : 0;
-    if (!best || score > best.score) best = { sx, sy, sw, sh, score, wide: +wide.toFixed(2) };
+    // (y cuánta luz trae frente al visor: la toma se expone por su cuenta)
+    if (!best || score > best.score) best = { sx, sy, sw, sh, score, wide: +wide.toFixed(2), light: got.mean > 1 ? ref.mean / got.mean : 1 };
   }
   return best;
 }
@@ -14056,8 +14057,16 @@ async function sensorStill() {
     const k = Math.min(1, SENSOR_STILL_SIDE / Math.max(fit.sw, fit.sh)), w = Math.max(2, Math.round(fit.sw * k)), h = Math.max(2, Math.round(fit.sh * k));
     const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
     const cx = canvas.getContext('2d'); cx.imageSmoothingEnabled = true; try { cx.imageSmoothingQuality = 'high'; } catch (_) {}
+    // La toma se lleva a la luz del visor (medido en un Pixel: a veces llega un 20 % más oscura): la
+    // foto es lo que se vio. Solo si se aparta de verdad, y sin pasar de un tercio arriba o abajo.
+    const light = Math.abs(fit.light - 1) > 0.06 ? Math.max(0.75, Math.min(1.35, fit.light)) : 1;
     cx.drawImage(bitmap, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, w, h);
-    _lastPhotoInfo = { from: 'sensor', sensor: [bitmap.width, bitmap.height], source: [w, h], score: +fit.score.toFixed(2), wide: fit.wide, ms: Math.round(performance.now() - started) };
+    // (sin el filtro de brillo del lienzo, que no todos los motores tienen: para oscurecer, un velo
+    //  negro; para aclarar, la imagen sumada a sí misma en esa parte)
+    if (light < 1) { cx.globalAlpha = 1 - light; cx.fillStyle = '#000'; cx.fillRect(0, 0, w, h); }
+    else if (light > 1) { cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = light - 1; cx.drawImage(canvas, 0, 0); }
+    cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';
+    _lastPhotoInfo = { from: 'sensor', sensor: [bitmap.width, bitmap.height], source: [w, h], score: +fit.score.toFixed(2), wide: fit.wide, light: +light.toFixed(2), ms: Math.round(performance.now() - started) };
     bitmap.close();
     return { source: canvas, srcW: w, srcH: h };
   } catch (error) {

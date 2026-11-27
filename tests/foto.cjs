@@ -34,13 +34,13 @@ const { launch, openFlip, pickCamera } = require('./lib/harness.cjs');
         window.__sensorOpts = opts;
         window.ImageCapture = class { constructor(track) { this.track = track; }
           async takePhoto() {
-            const { wide = 1.2, portrait = false, other = false, fail = false } = window.__sensorOpts;
+            const { wide = 1.2, portrait = false, other = false, fail = false, dim = 1 } = window.__sensorOpts;
             if (fail) throw new Error('la cámara no dio la foto');
             const W = portrait ? 1800 : 2400, H = portrait ? 2400 : 1800, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
             x.fillStyle = '#394a3a'; x.fillRect(0, 0, W, H);
             const full = Math.min(W, H * vid.videoWidth / vid.videoHeight), sw = full / wide, sh = sw * vid.videoHeight / vid.videoWidth, sx = (W - sw) / 2, sy = (H - sh) / 2;
             if (other) { for (let i = 0; i < 400; i++) { x.fillStyle = 'hsl(' + (i * 47 % 360) + ' 70% ' + (20 + i * 13 % 60) + '%)'; x.fillRect((i * 733) % W, (i * 419) % H, 180, 130); } }
-            else { x.drawImage(vid, sx, sy, sw, sh); x.globalAlpha = 0.35; x.fillStyle = '#fff'; for (let xx = sx; xx < sx + sw; xx += 3) x.fillRect(xx, sy, 1.2, sh); x.globalAlpha = 1; }
+            else { x.drawImage(vid, sx, sy, sw, sh); if (dim !== 1) { x.globalAlpha = 1 - dim; x.fillStyle = '#000'; x.fillRect(sx, sy, sw, sh); x.globalAlpha = 1; } x.globalAlpha = 0.35; x.fillStyle = '#fff'; for (let xx = sx; xx < sx + sw; xx += 3) x.fillRect(xx, sy, 1.2, sh); x.globalAlpha = 1; }
             return new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.9));
           } };
       };
@@ -72,17 +72,21 @@ const { launch, openFlip, pickCamera } = require('./lib/harness.cjs');
       const video = await __foto();
       __sensor({ wide: 1.2 }); const sensor = await __foto();
       __sensor({ wide: 1 }); const tight = await __foto();
+      __sensor({ wide: 1, dim: 0.75 }); const dark = await __foto();
       __sensor({ portrait: true }); const turned = await __foto();
       __sensor({ other: true }); const other = await __foto();
       __sensor({ fail: true }); const failed = await __foto();
       // en una cámara de píxel gordo no se pide la toma
       __sensor({ wide: 1.2 }); const dsi = await (async () => { const fam = camFamily, v = camVariant; _setCamFamily('DSI'); await new Promise(ok => setTimeout(ok, 400)); const r = await __foto(); _setCamFamily(fam); camVariant = v; if (typeof _applyCamState === 'function') _applyCamState(); return r; })();
       flipFilm.set({ grain: true });
-      return { video, sensor, tight, turned, other, failed, dsi };
+      return { video, sensor, tight, dark, turned, other, failed, dsi };
     });
     assert.equal(two.video.info.from, 'video', 'sin toma del sensor, la foto sale del vídeo');
     assert.ok(two.sensor.info.from === 'sensor' && Math.abs(two.sensor.info.wide - 1.2) <= 0.041 && two.sensor.info.score > 0.6, 'con ella, se revela la toma, recortada a lo que enseña el visor (traía un 20 % más de campo): ' + JSON.stringify(two.sensor.info));
     assert.ok(two.tight.info.from === 'sensor' && two.tight.info.wide <= 1.041, 'y si trae el mismo campo, entera: ' + JSON.stringify(two.tight.info));
+    // (la toma de mentira lleva rayas blancas, así que de por sí llega algo más clara que el visor: se
+    //  compara la misma toma con y sin oscurecer un 25 %)
+    assert.ok(two.dark.info.from === 'sensor' && two.dark.info.light >= two.tight.info.light * 1.15 && two.dark.info.light <= 1.35 && two.tight.info.light >= 0.75, 'la toma se lleva a la luz del visor: si llega más oscura se aclara, sin pasar de un tercio (en un Pixel llegó un 20 % más oscura): ' + JSON.stringify([two.tight.info.light, two.dark.info.light]));
     assert.ok(two.sensor.fine > two.video.fine * 1.6, 'la foto de la toma trae detalle que el vídeo no tiene (rayas de un punto): ' + two.video.fine + ' → ' + two.sensor.fine);
     assert.ok(two.turned.info.from === 'video' && two.other.info.from === 'video' && two.failed.info.from === 'video', 'una toma girada, una que no casa con el visor o un fallo: se usa el vídeo, y se dice por qué: ' + JSON.stringify([two.turned.info.why, two.other.info.why, two.failed.info.why]));
     assert.equal(two.dsi.info.from, 'video', 'a una cámara de píxel gordo no se le pide la toma');

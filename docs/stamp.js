@@ -160,10 +160,24 @@ function _stampText(ctx, text, x, y, size, family, fill, options = {}) {
   ctx.font = `${options.weight || 700} ${size.toFixed(2)}px ${family}`;
   ctx.textAlign = options.align || 'center';
   ctx.textBaseline = 'alphabetic';
-  try { ctx.letterSpacing = ((options.spacing || 0) * size).toFixed(2) + 'px'; } catch (_) {}
-  const cx = options.align && options.align !== 'center' ? x : x + (options.spacing || 0) * size * 0.5;
-  if (options.stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = options.strokeWidth || size * 0.09; ctx.strokeStyle = options.stroke; ctx.strokeText(text, cx, y); }
+  const spacing = (options.spacing || 0) * size;
+  if (options.stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = options.strokeWidth || size * 0.09; ctx.strokeStyle = options.stroke; }
   ctx.fillStyle = fill;
+  if (spacing && !('letterSpacing' in ctx)) {
+    // Safari anterior a 18.4 no espacia las letras en el lienzo: se ponen una a una.
+    const chars = Array.from(String(text)), widths = chars.map(ch => ctx.measureText(ch).width);
+    const total = widths.reduce((sum, w) => sum + w, 0) + spacing * (chars.length - 1), align = options.align || 'center';
+    let at = align === 'center' ? x - total / 2 : align === 'right' || align === 'end' ? x - total : x;
+    ctx.textAlign = 'left';
+    for (let i = 0; i < chars.length; i++) { if (options.stroke) ctx.strokeText(chars[i], at, y); at += widths[i] + spacing; }
+    at -= total + spacing;
+    for (let i = 0; i < chars.length; i++) { ctx.fillText(chars[i], at, y); at += widths[i] + spacing; }
+    ctx.restore();
+    return;
+  }
+  try { ctx.letterSpacing = spacing.toFixed(2) + 'px'; } catch (_) {}
+  const cx = options.align && options.align !== 'center' ? x : x + spacing * 0.5;
+  if (options.stroke) ctx.strokeText(text, cx, y);
   ctx.fillText(text, cx, y);
   ctx.restore();
 }

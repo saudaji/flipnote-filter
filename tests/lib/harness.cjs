@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { chromium } = require('playwright-core');
+const { chromium, webkit, devices } = require('playwright-core');
 
 const URL = process.env.FLIP_URL || 'http://127.0.0.1:8760';
 // Pixel 10 Pro XL en Chrome para Android, medido en el teléfono por depuración USB: con la barra
@@ -17,7 +17,15 @@ const PIXEL = {
   userAgent: 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Mobile Safari/537.36',
 };
 
+// FLIP_ENGINE=webkit corre las pruebas con el motor de Safari (el WebKit de Playwright:
+// `node node_modules/playwright-core/cli.js install webkit`), con la pantalla y la identidad de un
+// iPhone. No es un iPhone —no tiene su cámara ni su sistema—, pero sí su motor de página: lo que
+// Safari no entiende, aquí tampoco. Sin cámara de mentira del navegador, la de escena va siempre.
+const ENGINE = process.env.FLIP_ENGINE === 'webkit' ? 'webkit' : 'chromium';
+const IPHONE = { ...devices['iPhone 15'] };
+
 async function launch(options = {}) {
+  if (ENGINE === 'webkit') return webkit.launch({ headless: options.headless !== false });
   const args = [
     '--use-fake-device-for-media-stream',
     '--use-fake-ui-for-media-stream',
@@ -34,7 +42,7 @@ async function launch(options = {}) {
 // Abre FLIP con el kit de página. sceneCamera sustituye la cámara por una escena.
 async function openFlip(browser, options = {}) {
   const context = await browser.newContext({
-    ...(options.desktop ? { viewport: { width: 1280, height: 800 } } : PIXEL),
+    ...(options.desktop ? { viewport: { width: 1280, height: 800 } } : ENGINE === 'webkit' ? IPHONE : PIXEL),
     acceptDownloads: true,
     ...(options.context || {}),
   });
@@ -43,8 +51,9 @@ async function openFlip(browser, options = {}) {
   // piel: 'objeto' abre la carcasa de aparato (de fábrica FLIP abre la piel INTERFAZ). Se fija antes
   // de cargar, una sola vez por contexto: si la prueba cambia de piel después, se respeta.
   if (options.piel) await context.addInitScript(piel => { try { if (!sessionStorage.getItem('flip.prueba.piel')) { localStorage.setItem('flip.piel', piel); sessionStorage.setItem('flip.prueba.piel', '1'); } } catch (_) {} }, options.piel);
-  if (options.sceneCamera) {
-    await context.addInitScript(config => { window.__flipSceneCamera = config; }, options.sceneCamera);
+  const sceneCamera = options.sceneCamera || (ENGINE === 'webkit' ? { scene: 'roomLit', w: 720, h: 1280, fps: 30 } : null);
+  if (sceneCamera) {
+    await context.addInitScript(config => { window.__flipSceneCamera = config; }, sceneCamera);
     await context.addInitScript({ path: path.join(__dirname, 'scene-camera.js') });
   }
   const page = await context.newPage();
@@ -107,4 +116,4 @@ function probe(file) {
   return JSON.parse(raw);
 }
 
-module.exports = { URL, PIXEL, launch, openFlip, openModule, pickVariant, pickCamera, stageTab, saveDataUrl, encodeClip, probe };
+module.exports = { URL, PIXEL, IPHONE, ENGINE, launch, openFlip, openModule, pickVariant, pickCamera, stageTab, saveDataUrl, encodeClip, probe };

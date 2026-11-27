@@ -676,7 +676,8 @@
     else node.alt = 'Última foto tomada con FLIP';
     stage.appendChild(node);
     const size = last.blob.size > 1048576 ? (last.blob.size / 1048576).toFixed(1) + ' MB' : Math.round(last.blob.size / 1024) + ' KB';
-    $('viewerMeta').textContent = `${last.filename} · ${size} · guardado en Descargas`;
+    // (en iPhone una descarga va a Archivos, no a Fotos: a Fotos se llega con COMPARTIR)
+    $('viewerMeta').textContent = `${last.filename} · ${size} · ` + (typeof _IS_IOS !== 'undefined' && _IS_IOS ? 'COMPARTIR › Guardar imagen lo lleva a Fotos' : 'guardado en Descargas');
     $('viewerShare').hidden = !(navigator.canShare && navigator.canShare({ files: [new File([last.blob], last.filename, { type: last.blob.type })] }));
   }
   $('deckGallery').addEventListener('click', () => {

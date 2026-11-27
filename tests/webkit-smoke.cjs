@@ -24,7 +24,15 @@ async function launchWebKit() {
   return null;
 }
 
+// Con la sesión del Mac bloqueada, el WebKit de Playwright pinta pero no acepta toques (dice que
+// <html> los intercepta): la prueba no puede decir nada, así que avisa y no falla.
+function screenLocked() {
+  if (process.platform !== 'darwin') return false;
+  try { return /"CGSSessionScreenIsLocked"\s*=\s*Yes/.test(require('node:child_process').execFileSync('ioreg', ['-n', 'Root', '-d1'], { encoding: 'utf8' })); } catch (_) { return false; }
+}
+
 async function main() {
+  if (screenLocked()) { console.log('AVISO · la sesión del Mac está bloqueada y WebKit no acepta toques: prueba omitida'); return; }
   const browser = await launchWebKit();
   if (!browser) { console.log('AVISO · WebKit no está instalado (npx playwright install webkit): prueba omitida'); return; }
   try {

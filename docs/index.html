@@ -22,6 +22,22 @@
   <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700&family=Cinzel:wght@700&family=IBM+Plex+Mono:wght@400;600&family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=Doto:wght@400..900&family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
   <title>FLIP</title>
   <script>
+  // iPhone y iPad: al tocar un campo de letra pequeña Safari agranda la página, y como FLIP no se
+  // desplaza, se quedaba agrandada sin vuelta. Con este tope no la agranda (el zoom de accesibilidad
+  // del sistema sigue funcionando).
+  (function () {
+    try {
+      var apple = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var meta = document.querySelector('meta[name="viewport"]');
+      if (apple && meta && meta.content.indexOf('maximum-scale') < 0) meta.content += ', maximum-scale=1';
+      // Y dos dedos sobre el visor agrandaban la página entera (Safari no hace caso de quien le pide
+      // que no): el gesto de pellizco es de las pegatinas, no de la página.
+      document.addEventListener('gesturestart', function (event) { event.preventDefault(); }, { passive: false });
+      document.addEventListener('gesturechange', function (event) { event.preventDefault(); }, { passive: false });
+    } catch (_) {}
+  })();
+  </script>
+  <script>
   // Si FLIP no llega a arrancar, que lo diga en vez de quedarse en blanco. Sintaxis antigua a
   // propósito: esto tiene que funcionar en el navegador donde lo demás no.
   // Con las cookies bloqueadas (ajuste de Safari en iPhone, o un navegador dentro de otra app), solo
@@ -112,6 +128,12 @@
     *, *::before, *::after {
       margin:0; padding:0; box-sizing:border-box;
       -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    }
+    /* iPhone y iPad (solo ellos entienden -webkit-touch-callout): mantener el dedo sobre una tecla, un
+       rótulo o el visor no selecciona texto ni saca el menú de copiar o guardar imagen. */
+    @supports (-webkit-touch-callout: none) {
+      body { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+      input, textarea, select, [contenteditable] { -webkit-user-select:auto; user-select:auto; }
     }
     :root {
       --ink:#0F380F; --dark:#306230; --mid:#8BAC0F; --paper:#9BBC0F;
@@ -6614,6 +6636,36 @@ function _getDolphinScanCanvas(outW, outH) {
 function _getDolphinCaptureSampleDims() {
   return { sampleW:DSI_W, sampleH:DSI_H };
 }
+// Safari (iPhone, iPad) no tiene filtros en el lienzo: asignar ctx.filter no hace nada, y lo que
+// debía ser un resplandor desenfocado salía como una copia nítida encima (la imagen, quemada y sin
+// halo). Donde no los hay, el desenfoque se hace reduciendo la imagen y volviéndola a ampliar.
+let _canvasFilters = null;
+const _softCanvases = new Map();
+function canvasHasFilters() {
+  if (_canvasFilters === null) { try { _canvasFilters = 'filter' in CanvasRenderingContext2D.prototype; } catch (_) { _canvasFilters = false; } }
+  return _canvasFilters;
+}
+// Dibuja «source» desenfocado «px» puntos, ocupando dw × dh desde la esquina del lienzo.
+function drawBlurred(ctx, source, px, dw, dh) {
+  if (canvasHasFilters()) { ctx.filter = `blur(${px}px)`; ctx.drawImage(source, 0, 0, dw, dh); ctx.filter = 'none'; return; }
+  // (reducir a un tercio de «px» veces y ampliar con suavizado abre un halo de ese ancho. Se reduce
+  //  por mitades: de un salto, el navegador se salta puntos en vez de promediarlos y la luz crece.)
+  const k = Math.max(2, px * 3), w = Math.max(2, Math.round(dw / k)), h = Math.max(2, Math.round(dh / k));
+  const scratch = (cw, ch) => {
+    const key = cw + 'x' + ch;
+    let c = _softCanvases.get(key);
+    if (!c) { if (_softCanvases.size > 24) _softCanvases.clear(); c = document.createElement('canvas'); c.width = cw; c.height = ch; _softCanvases.set(key, c); }
+    return c;
+  };
+  const shrink = (from, fw, fh, tw, th) => { const c = scratch(tw, th), x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; x.globalCompositeOperation = 'copy'; x.drawImage(from, 0, 0, fw, fh, 0, 0, tw, th); return c; };
+  let small = source, cw = source.width || dw, ch = source.height || dh;
+  while (cw > w * 2 || ch > h * 2) { const nw = Math.max(w, Math.ceil(cw / 2)), nh = Math.max(h, Math.ceil(ch / 2)); small = shrink(small, cw, ch, nw, nh); cw = nw; ch = nh; }
+  if (cw !== w || ch !== h || small === source) small = shrink(small, cw, ch, w, h);
+  const smooth = ctx.imageSmoothingEnabled, quality = ctx.imageSmoothingQuality;
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(small, 0, 0, w, h, 0, 0, dw, dh);
+  ctx.imageSmoothingEnabled = smooth; ctx.imageSmoothingQuality = quality;
+}
 function _renderDolphinCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   const sampleW = Math.max(32, options.sampleW || DSI_W);
   const sampleH = Math.max(32, options.sampleH || DSI_H);
@@ -6679,14 +6731,12 @@ function _renderDolphinCore(source, srcW, srcH, targetCtx, mirror, options = {})
   targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
 
   const baseGlow = isLgcy ? dlpResonanceVal * 0.7 / 100 : dlpResonanceVal / 100;
-  const glowBlur = isLgcy ? '1.5px' : '3px';
+  const glowBlur = isLgcy ? 1.5 : 3;
   if (baseGlow > 0.01) {
     targetCtx.save();
     targetCtx.globalCompositeOperation = 'screen';
     targetCtx.globalAlpha = baseGlow;
-    targetCtx.filter = `blur(${glowBlur})`;
-    targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
-    targetCtx.filter = 'none';
+    drawBlurred(targetCtx, renderTarget.canvas, glowBlur, outW, outH);
     targetCtx.globalAlpha = 1;
     targetCtx.globalCompositeOperation = 'source-over';
     targetCtx.restore();
@@ -7824,9 +7874,7 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
     targetCtx.save();
     targetCtx.globalCompositeOperation = 'screen';
     targetCtx.globalAlpha = 0.08;
-    targetCtx.filter = 'blur(1px)';
-    targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
-    targetCtx.filter = 'none';
+    drawBlurred(targetCtx, renderTarget.canvas, 1, outW, outH);
     targetCtx.restore();
     targetCtx.drawImage(_getVfdThermalOverlayCanvas(outW, outH), 0, 0, outW, outH);
     return;
@@ -7856,12 +7904,9 @@ function _renderVfdCore(source, srcW, srcH, targetCtx, mirror, options = {}) {
   targetCtx.save();
   targetCtx.globalCompositeOperation = 'screen';
   targetCtx.globalAlpha = 0.34;
-  targetCtx.filter = 'blur(4px)';
-  targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
+  drawBlurred(targetCtx, renderTarget.canvas, 4, outW, outH);
   targetCtx.globalAlpha = 0.16;
-  targetCtx.filter = 'blur(1.6px)';
-  targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
-  targetCtx.filter = 'none';
+  drawBlurred(targetCtx, renderTarget.canvas, 1.6, outW, outH);
   targetCtx.globalAlpha = 1;
   targetCtx.globalCompositeOperation = 'source-over';
   targetCtx.restore();
@@ -8181,14 +8226,11 @@ function _renderAuto03Core(source, srcW, srcH, targetCtx, mirror, now = 0, optio
   targetCtx.drawImage(renderTarget.canvas, 0, 0, outW, outH);
   targetCtx.globalCompositeOperation = 'screen';
   targetCtx.globalAlpha = 0.09 + cfg.bloom * 0.85;
-  targetCtx.filter = `blur(${flash ? 2.4 : 1.6}px)`;
-  targetCtx.drawImage(bloomTarget.canvas, 0, 0, outW, outH);
+  drawBlurred(targetCtx, bloomTarget.canvas, flash ? 2.4 : 1.6, outW, outH);
   if (flash) {
     targetCtx.globalAlpha = 0.04 + cfg.bloom * 0.35;
-    targetCtx.filter = 'blur(4.2px)';
-    targetCtx.drawImage(bloomTarget.canvas, 0, 0, outW, outH);
+    drawBlurred(targetCtx, bloomTarget.canvas, 4.2, outW, outH);
   }
-  targetCtx.filter = 'none';
   targetCtx.globalAlpha = 1;
   targetCtx.globalCompositeOperation = 'source-over';
   targetCtx.imageSmoothingEnabled = false;
@@ -10329,7 +10371,9 @@ function cameraGateMessage(error) {
   if (!error) return ['Cámara apagada', 'FLIP necesita la cámara para este módulo.'];
   switch (error.name) {
     case 'NotAllowedError': case 'SecurityError':
-      return ['Cámara bloqueada', 'El navegador no dio permiso. Toca el candado de la barra de direcciones, permite la cámara y vuelve a intentarlo.'];
+      return ['Cámara bloqueada', _IS_IOS
+        ? 'Safari no dio permiso. En la barra de direcciones abre el menú de la página › Ajustes del sitio web › Cámara › Permitir, y vuelve a intentarlo. Si no aparece: Ajustes del iPhone › Apps › Safari › Cámara.'
+        : 'El navegador no dio permiso. Toca el candado de la barra de direcciones, permite la cámara y vuelve a intentarlo.'];
     case 'NotFoundError': case 'OverconstrainedError':
       return ['Sin cámara', 'No se encontró una cámara disponible en este dispositivo.'];
     case 'NotReadableError': case 'AbortError':
@@ -10608,7 +10652,8 @@ function syncCameraCadence() {
 }
 const _isMobile      = window.innerWidth <= 768 || /Mobi|Android/i.test(navigator.userAgent);
 const IS_ANDROID     = /Android/i.test(navigator.userAgent);
-const _IS_IOS        = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+// (un iPad dice ser un Mac: se le reconoce por tener pantalla táctil)
+const _IS_IOS        = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const ASCII_DEV_MAX     = IS_ANDROID ? 120 : (_isMobile ? 900 : 1400);
 // Live preview cap: still lighter than final render, but high enough to recover dense glyph texture.
 const ASCII_PREVIEW_MAX = IS_ANDROID ? 72 : (_isMobile ? 220 : 420);
@@ -11180,6 +11225,8 @@ function _renderVhsStep(srcCanvas, targetCtx, params, audio, t) {
   targetCtx.filter = 'saturate(' + (1 - 0.15 * k).toFixed(2) + ')';
   targetCtx.drawImage(srcCanvas, 0, 0, w, h);
   targetCtx.filter = 'none';
+  // (sin filtros de lienzo —Safari—: el mismo punto menos de color, mezclando hacia el gris)
+  if (!canvasHasFilters() && k > 0) { targetCtx.globalCompositeOperation = 'saturation'; targetCtx.globalAlpha = 0.15 * k; targetCtx.fillStyle = '#808080'; targetCtx.fillRect(0, 0, w, h); targetCtx.globalAlpha = 1; targetCtx.globalCompositeOperation = 'source-over'; }
 
   // jitter — global horizontal offset per frame
   const jitterAmt = ((params.jitter != null ? params.jitter : 20) / 100) * k;
@@ -12630,6 +12677,16 @@ class FlipAudioEngine {
       if (this.sourceNode) { try { this.sourceNode.disconnect(); } catch (_) {} }
       this.sourceNode = this.ctx.createMediaStreamSource(this.micStream);
       this.sourceNode.connect(this.inputGain);
+      // iPhone: abrir el micrófono con la cámara encendida a veces le apaga la pista de vídeo (el
+      // visor se queda congelado mientras el sonido sigue). Se mira un instante después y, si pasó,
+      // se vuelve a abrir la cámara.
+      if (_IS_IOS) setTimeout(() => {
+        try {
+          if (!stream || cameraParked || (typeof extMicOnlyMode !== 'undefined' && extMicOnlyMode)) return;
+          const dead = stream.getVideoTracks().every(t => t.readyState === 'ended' || t.muted) || vid.videoWidth === 0;
+          if (dead) Promise.resolve(startCamera(facingMode)).catch(() => {});
+        } catch (_) {}
+      }, 350);
       return true;
     } catch (err) {
       this.state = 'UNAVAILABLE';
@@ -13650,7 +13707,8 @@ function _downloadBlob(blob, filename) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // (en iPhone la descarga espera a que la persona la acepte: soltar el archivo al segundo la cortaba)
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 async function saveBlob(blob, filename) {
   blob = await _sealFlipVideo(blob);

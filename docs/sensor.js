@@ -14,6 +14,10 @@
 // Cada elemento de vídeo tiene su propio estado. Si el navegador no tiene VideoFrame, el formato
 // no es conocido o algo falla tres veces seguidas, devuelve null y quien llama sigue usando el
 // vídeo como antes.
+//
+// En iPhone y iPad (WebKit) NO se usa: allí leer el vídeo no cuesta, y los planos nativos vienen
+// como los da el sensor —acostados—, con el giro como dato aparte: copiados tal cual, la imagen
+// salía girada un cuarto de vuelta, como con el teléfono en horizontal.
 const flipSensor = (() => {
   'use strict';
   // Lado corto del cuadro reducido. Los motores muestrean como mucho a 320 × 240.
@@ -99,11 +103,19 @@ const flipSensor = (() => {
     }
   }
 
+  // ¿El cuadro nativo viene girado respecto a lo que el vídeo enseña? Lo dice él mismo (rotation,
+  // flip) o se le nota: sus lados son los del vídeo, cambiados.
+  function turned(frame, video) {
+    if (frame.rotation || frame.flip) return true;
+    const vw = video && video.videoWidth, vh = video && video.videoHeight;
+    return !!vw && vw !== vh && frame.displayWidth === vh && frame.displayHeight === vw;
+  }
+
   // Convierte un VideoFrame al canvas de un estado. Devuelve false si no sabe leerlo.
-  async function convertInto(state, frame) {
+  async function convertInto(state, frame, video) {
     const kind = KINDS[frame.format];
     if (!kind) { state.why = 'formato ' + frame.format; return false; }
-    if (frame.rotation || frame.flip) { state.why = 'cuadro con orientación'; return false; }
+    if (turned(frame, video)) { state.why = 'cuadro con orientación'; return false; }
     const rect = frame.visibleRect;
     const w = rect.width, h = rect.height;
     if (frame.displayWidth !== w || frame.displayHeight !== h) { state.why = 'píxel no cuadrado'; return false; }
@@ -141,7 +153,8 @@ const flipSensor = (() => {
     if (++state.fails >= 3) state.disabled = true;
   }
 
-  const supported = typeof VideoFrame === 'function';
+  const APPLE = /iPhone|iPad|iPod/i.test(navigator.userAgent) || /Apple/i.test(navigator.vendor || '');
+  const supported = typeof VideoFrame === 'function' && !APPLE;
 
   async function read(video) {
     if (!supported || !video || !video.videoWidth) return null;
@@ -151,7 +164,7 @@ const flipSensor = (() => {
     let frame = null;
     try {
       frame = new VideoFrame(video);
-      if (!(await convertInto(state, frame))) { fail(state); return null; }
+      if (!(await convertInto(state, frame, video))) { fail(state); return null; }
       state.at = performance.now();
       state.fails = 0;
       return state;
@@ -200,8 +213,8 @@ const flipSensor = (() => {
       try {
         frame = new VideoFrame(video);
         const kind = KINDS[frame.format], rect = frame.visibleRect;
-        if (!kind || frame.rotation || frame.flip || frame.displayWidth !== rect.width || frame.displayHeight !== rect.height) {
-          st.disabled = true; st.why = 'formato ' + frame.format; st.out = null;
+        if (!kind || turned(frame, video) || frame.displayWidth !== rect.width || frame.displayHeight !== rect.height) {
+          st.disabled = true; st.why = kind ? 'cuadro con orientación' : 'formato ' + frame.format; st.out = null;
           return;
         }
         const size = frame.allocationSize();
@@ -237,15 +250,16 @@ const flipSensor = (() => {
       return { offset: full ? 0 : 16 / 255, scale: full ? 1 : 255 / 219, rv: c[0], gu: c[1], gv: c[2], bu: c[3] };
     },
     // Para pruebas: convierte un VideoFrame suelto y devuelve su canvas.
-    async convertFrame(frame) {
+    // («video»: opcional, lo que el vídeo dice medir; sirve para notar un cuadro girado)
+    async convertFrame(frame, video) {
       const state = { canvas: null, ctx: null, image: null, raw: null, width: 0, height: 0, why: '', info: null };
-      return (await convertInto(state, frame)) ? state : null;
+      return (await convertInto(state, frame, video)) ? state : { failed: true, why: state.why };
     },
     usable: video => supported && !(video && states.get(video) && states.get(video).disabled),
     pending: video => !!(video && states.get(video) && states.get(video).busy),
     status(video) {
       const state = video && states.get(video);
-      if (!state) return { active: false, disabled: !supported, why: supported ? 'sin cuadros' : 'sin VideoFrame', info: null };
+      if (!state) return { active: false, disabled: !supported, why: supported ? 'sin cuadros' : APPLE ? 'no hace falta en WebKit' : 'sin VideoFrame', info: null };
       return { active: !state.disabled && !!state.info, disabled: state.disabled, why: state.why, info: state.info };
     },
   };

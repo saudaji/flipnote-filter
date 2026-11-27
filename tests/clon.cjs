@@ -113,6 +113,38 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     assert.ok(!figuras.degradada.cerrada && figuras.degradada.tintas >= 3 && figuras.degradada.nota >= 60, 'una tinta degradada sobre blanco se ve entera (antes: «una tinta: blanco»): ' + JSON.stringify(figuras.degradada));
     step('una figura sobre negro o blanco absolutos se entiende', Object.fromEntries(Object.entries(figuras).map(([k, f]) => [k, { nota: f.nota, tintas: f.tintas, fondo: f.fondo, nombre: f.nombre }])));
 
+    // ── 1c · Contra la verdad: estilos de receta conocida (tests/lib/clon-estilos.js) ──
+    // referencia = estilo(escena A). El clon puesto sobre A tiene que reconstruirla, y puesto sobre otra
+    // escena tiene que dejarla con el reparto de color de la referencia. Las distancias son en OKLab × 100
+    // (2 apenas se nota). Antes de esta tanda: neón 11,5 (sin resplandor, cian + rosa promediados, el
+    // negro en gris), foto con dominante 5,2 (su degradado tomado por luz desigual y aplanado).
+    await page.addScriptTag({ path: path.join(__dirname, 'lib', 'clon-estilos.js') });
+    const verdad = await page.evaluate(() => {
+      const E = clonEstilos, n = 384, A = E.scenes.retrato(n), B = E.scenes.cuarto(n), out = {};
+      for (const name of E.names) {
+        const rA = E.styled(A, E.recipes[name]), look = flipClon.learn(rA, n, n);
+        const cA = document.createElement('canvas'), cB = document.createElement('canvas'); cA.width = cA.height = cB.width = cB.height = n;
+        flipClon._render(look, A, cA); flipClon._render(look, B, cB);
+        const f = v => +(v * 100).toFixed(1), dA = E.apart(cA, rA), px = (c, x, y) => Math.max(...c.getContext('2d', { willReadFrequently: true }).getImageData(x, y, 1, 1).data.slice(0, 3));
+        out[name] = { lejos: f(dA.lejos), cerca: f(dA.cerca), otra: f(E.apart(cB, rA).reparto), cerrada: look.limited, suave: look.soft || 0, resplandor: look.glow || null, hombro: px(cA, 192, 350), halo: [px(rA, 348, 60), px(cA, 348, 60)], dice: flipClon.describe(look) };
+      }
+      return out;
+    });
+    const V = verdad;
+    assert.ok(V.neon.resplandor && Math.abs(V.neon.resplandor.amount - 0.7) < 0.25 && V.neon.resplandor.size >= 0.024 && V.neon.resplandor.size <= 0.038, 'el resplandor del neón se mide (cantidad 0,7, ancho 3 %): ' + JSON.stringify(V.neon.resplandor));
+    assert.ok(Math.abs(V.neon.halo[0] - V.neon.halo[1]) <= 14, 'y se pinta: junto a la lámpara hay la misma luz que en la referencia: ' + V.neon.halo);
+    assert.ok(V.neon.hombro <= 2, 'el negro absoluto sale negro absoluto (antes, gris 10): ' + V.neon.hombro);
+    assert.ok(V.neon.lejos < 4, 'el neón se reconstruye (antes 11,5): ' + V.neon.lejos);
+    assert.ok(V.termico.suave > 0.009 && V.termico.suave < 0.017 && V.cian.suave > 0.009 && V.cian.suave < 0.021, 'la suavidad se mide (1,2 % y 1,6 % del ancho): ' + V.termico.suave + ' / ' + V.cian.suave);
+    assert.ok(!V.termico.resplandor && !V.cian.resplandor && !V.cianotipo.resplandor && !V.dominante.resplandor && !V.cartel.resplandor, 'sin resplandor donde no lo hay');
+    assert.ok(!V.neon.suave && !V.cianotipo.suave && !V.dominante.suave && !V.cartel.suave, 'sin suavidad donde la imagen es nítida');
+    assert.ok(V.termico.lejos < 4 && V.cian.lejos < 4.5 && V.cianotipo.lejos < 2.5 && V.cartel.lejos < 3.5, 'los demás se reconstruyen: ' + JSON.stringify([V.termico.lejos, V.cian.lejos, V.cianotipo.lejos, V.cartel.lejos]));
+    assert.ok(V.dominante.lejos < 2.2, 'una foto con dominante conserva los colores de la escena, corridos (antes 5,2): ' + V.dominante.lejos);
+    assert.ok(V.cartel.cerrada && !V.neon.cerrada && !V.dominante.cerrada, 'el cartel sigue siendo de tintas planas; lo demás, color continuo');
+    for (const name of ['neon', 'termico', 'cian', 'cianotipo', 'dominante']) assert.ok(V[name].otra < 3, name + ': otra escena queda con el reparto de color de la referencia: ' + V[name].otra);
+    assert.ok(/resplandor/.test(V.neon.dice) && /suave/.test(V.cian.dice), 'y lo dice: ' + V.neon.dice + ' / ' + V.cian.dice);
+    step('contra la verdad: reconstruye estilos de receta conocida', Object.fromEntries(Object.entries(V).map(([k, v]) => [k, [v.lejos, v.cerca, v.otra]])));
+
     // ── 2 · Ponerse a prueba ──
     const notas = Object.fromEntries(Object.entries(L).map(([k, l]) => [k, l.score]));
     for (const [k, nota] of Object.entries(notas)) assert.ok(nota >= 74, 'reconstruye su referencia (' + k + '): ' + nota + ' %');

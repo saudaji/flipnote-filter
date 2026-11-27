@@ -15,13 +15,19 @@
 //       · la trama: con una transformada de Fourier se busca un pico periódico; da cuántas celdas
 //         caben a lo ancho, a qué ángulo, y si son puntos (dos picos en cruz) o líneas (uno);
 //       · la rejilla de píxel (bloques planos con saltos a intervalos fijos) y su tramado;
-//       · el grano (ruido fino en las zonas lisas), las líneas de tinta y la viñeta.
+//       · el grano (ruido fino en las zonas lisas), las líneas de tinta y la viñeta;
+//       · el reparto de color entero (una nube de muestras), para cuando a una misma luz hay varios
+//         colores —un neón cian y rosa, una foto con dominante—;
+//       · la suavidad (qué tan desenfocados están sus bordes más nítidos) y el resplandor (la luz que
+//         lo que brilla derrama sobre un fondo oscuro), que se le quita antes de medir lo demás.
 //
 //   2 · APLICAR (renderClon). Un sombreador pinta la cámara en vivo: iguala los tonos de la escena a
 //       los de la referencia (los de TU escena, medidos cada pocos cuadros), lleva el color hacia el
 //       suyo, y si la paleta es cerrada encaja cada punto en sus tintas con el tramado que tenía
 //       (puntos, líneas, ordenado o ruido), sobre su rejilla de píxel si la había; luego contorno,
-//       grano y viñeta.
+//       grano y viñeta. En color continuo, el color sale de llevar la nube de colores de la escena a
+//       la de la referencia (transporte por rebanadas, en una tabla de 16³). Antes de todo eso la
+//       escena se desenfoca si la referencia era suave, y al final se suma el resplandor.
 //
 //   3 · PONERSE A PRUEBA (fit). Para no fiarse de las medidas: a la referencia se le quita el estilo
 //       (se emborrona hasta dejar solo sus manchas de color), se la vuelve a estilizar con lo
@@ -30,8 +36,10 @@
 //       final es el «parecido» que se enseña. Un look que no sabe reconstruir su propia referencia
 //       saca mala nota, y se ve.
 //
-// Lo que clona: color, tonos, trama, píxel, grano y contorno. Lo que no: el dibujo (el trazo de una
-// ilustración, la tipografía, el contenido). Eso pediría un modelo generativo.
+// Lo que clona: color, tonos, trama, píxel, grano, contorno, suavidad y resplandor. Lo que no: el
+// dibujo (el trazo de una ilustración, la tipografía, el contenido) ni qué parte de la escena es «la
+// figura». Eso pediría un modelo generativo.
+// Se prueba contra la verdad en tests/clon.cjs: estilos de receta conocida (tests/lib/clon-estilos.js).
 (function () {
   'use strict';
   const KEY = 'flip.clon', MAX_LOOKS = 30, A_MANO = 4, REVEAL_MS = 760, FFT_N = 256, FIT_N = 128, COLOR_FAR = 0.1;
@@ -277,7 +285,204 @@
   //       «sparse» son del fondo). Con fondo, lo que se mide es la figura: el fondo no diluye el color
   //       ni decide si la paleta es cerrada, y en los tonos cuenta como mucho por la mitad (la cámara
   //       no se queda negra en sus tres cuartas partes porque la referencia lo fuera).
-  function analyze(thumb, fine, sparse, soft, back) {
+  // ── Llevar un reparto de color a otro (transporte por rebanadas, Pitié y otros, 2005) ──
+  // Dos nubes de puntos en OKLab: la escena (ya con los tonos de la referencia) y la referencia. Se
+  // busca cómo mover cada color de la escena para que su nube quede como la de la referencia,
+  // moviendo lo menos posible: lo cálido y claro de la escena va a lo cálido y claro de la referencia,
+  // lo frío a lo frío. Se hace por rebanadas: se miran las dos nubes a lo largo de una dirección, se
+  // igualan sus repartos en esa dirección (como una curva de tonos), y se repite con otras direcciones
+  // hasta que casan desde todas. Lo mismo que se le hace a la nube se le hace a una rejilla de 16³
+  // colores, y esa rejilla es la tabla con la que el sombreador mueve cada punto de la imagen.
+  const OT_M = 600, OT_N = 16, OT_KNOTS = 40, OT_SPAN = 0.32, OT_TURNS = 10, OT_JITTER = 0.012, OT_SMOOTH = 1;
+  // (los puestos en que se comparan los dos repartos: más juntos en los extremos, que es donde viven
+  //  los brillos y las sombras pequeñas —una lámpara, un reflejo—; repartidos por igual, se los comía el vecino)
+  const OT_AT = Array.from({ length: OT_KNOTS + 1 }, (_, j) => 0.5 * (1 - Math.cos(Math.PI * j / OT_KNOTS)));
+  const OT_BASES = (() => {                                       // direcciones fijas (las mismas siempre: la tabla no baila)
+    const list = [[[1, 0, 0], [0, 1, 0], [0, 0, 1]]];
+    let seed = 0x9e3779b9;
+    const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296 - 0.5; };
+    while (list.length < OT_TURNS) {
+      const u = [rnd(), rnd(), rnd()], v = [rnd(), rnd(), rnd()], nu = Math.hypot(u[0], u[1], u[2]);
+      for (let i = 0; i < 3; i++) u[i] /= nu;
+      const d = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+      for (let i = 0; i < 3; i++) v[i] -= d * u[i];
+      const nv = Math.hypot(v[0], v[1], v[2]);
+      if (nv < 0.2) continue;
+      for (let i = 0; i < 3; i++) v[i] /= nv;
+      list.push([u, v, [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]]);
+    }
+    return list;
+  })();
+  const OT_NOISE = (() => { const out = new Float32Array(2048); let seed = 77; const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }; for (let i = 0; i < out.length; i++) out[i] = (rnd() + rnd() + rnd() + rnd() - 2) * 1.732; return out; })();
+  // Cuánto se usa el reparto. Si en la referencia la luz decide el color (un duotono, un mapa de
+  // calor), nada: cada punto toma el color medio de su nivel de luz, sea cálido o frío en la escena
+  // (ahí la nube de la referencia es un hilo, y llevar una nube a un hilo no dice nada del color). Si
+  // a una misma luz hay varios colores, entero.
+  const otKeep = look => { const t = clamp(((look.byLight == null ? 0 : look.byLight) - 0.75) / 0.15, 0, 1); return 1 - t * t * (3 - 2 * t); };
+  const otNode = i => { const t = (2 * (i + 0.5) / OT_N - 1); return OT_SPAN * t * Math.abs(t); };   // más fina cerca del gris
+  // Las muestras de la referencia, ya ordenadas a lo largo de cada dirección (se hace una vez por look).
+  function otTarget(look) {
+    if (look._ot && look._ot.from === look.ot) return look._ot;
+    const M = look.ot.length / 6, pts = new Float32Array(M * 3);
+    for (let i = 0; i < M; i++) { pts[i * 3] = parseInt(look.ot.substr(i * 6, 2), 16) / 255; pts[i * 3 + 1] = parseInt(look.ot.substr(i * 6 + 2, 2), 16) / 255 - 0.5; pts[i * 3 + 2] = parseInt(look.ot.substr(i * 6 + 4, 2), 16) / 255 - 0.5; }
+    const knots = [];
+    for (const basis of OT_BASES) for (const e of basis) {
+      const line = new Float32Array(M);
+      for (let i = 0; i < M; i++) line[i] = pts[i * 3] * e[0] + pts[i * 3 + 1] * e[1] + pts[i * 3 + 2] * e[2];
+      line.sort();
+      const k = new Float32Array(OT_KNOTS + 1);
+      for (let j = 0; j <= OT_KNOTS; j++) k[j] = line[Math.round(OT_AT[j] * (M - 1))];
+      knots.push(k);
+    }
+    Object.defineProperty(look, '_ot', { value: { from: look.ot, knots }, enumerable: false, configurable: true, writable: true });   // (no se guarda con el look)
+    return look._ot;
+  }
+  // scene: Float32Array de (luz ya con la curva del look, a, b) por muestra. Devuelve la tabla: por
+  // cada nudo de la rejilla (16 de luz × 16 × 16 de color), cuánto se mueven su a y su b.
+  const otWork = { grid: null, line: null, from: new Float32Array(OT_KNOTS + 1) };
+  function transport(look, scene, count) {
+    const target = otTarget(look), G3 = OT_N * OT_N * OT_N, X = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) { X[i * 3] = scene[i * 3]; X[i * 3 + 1] = scene[i * 3 + 1] + OT_JITTER * OT_NOISE[(i * 2) & 2047]; X[i * 3 + 2] = scene[i * 3 + 2] + OT_JITTER * OT_NOISE[(i * 2 + 1) & 2047]; }
+    if (!otWork.grid) { otWork.grid = new Float32Array(G3 * 3); otWork.home = new Float32Array(G3 * 3); for (let z = 0, o = 0; z < OT_N; z++) for (let y = 0; y < OT_N; y++) for (let x = 0; x < OT_N; x++, o += 3) { otWork.home[o] = z / (OT_N - 1); otWork.home[o + 1] = otNode(x); otWork.home[o + 2] = otNode(y); } }
+    const grid = otWork.grid, from = otWork.from, line = otWork.line && otWork.line.length === count ? otWork.line : (otWork.line = new Float32Array(count));
+    grid.set(otWork.home);
+    // (v, a lo largo de «e»: de su puesto en la escena al valor que ocupa ese puesto en la referencia)
+    const shift = (v, to) => {
+      if (v <= from[0]) return to[0] - from[0];
+      if (v >= from[OT_KNOTS]) return to[OT_KNOTS] - from[OT_KNOTS];
+      let lo = 0, hi = OT_KNOTS;
+      while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (from[mid] <= v) lo = mid; else hi = mid; }
+      const span = from[hi] - from[lo], t = span > 1e-7 ? (v - from[lo]) / span : 0.5;
+      return to[lo] + (to[hi] - to[lo]) * t - v;
+    };
+    for (let turn = 0; turn < OT_TURNS; turn++) for (let axis = 0; axis < 3; axis++) {
+      const e = OT_BASES[turn][axis], to = target.knots[turn * 3 + axis];
+      for (let i = 0; i < count; i++) line[i] = X[i * 3] * e[0] + X[i * 3 + 1] * e[1] + X[i * 3 + 2] * e[2];
+      const sorted = line.slice().sort();
+      for (let j = 0; j <= OT_KNOTS; j++) from[j] = sorted[Math.round(OT_AT[j] * (count - 1))];
+      for (let i = 0; i < count; i++) { const d = shift(line[i], to); X[i * 3] += d * e[0]; X[i * 3 + 1] += d * e[1]; X[i * 3 + 2] += d * e[2]; }
+      for (let o = 0; o < G3 * 3; o += 3) { const d = shift(grid[o] * e[0] + grid[o + 1] * e[1] + grid[o + 2] * e[2], to); grid[o] += d * e[0]; grid[o + 1] += d * e[1]; grid[o + 2] += d * e[2]; }
+    }
+    let out = new Float32Array(G3 * 2);
+    for (let i = 0; i < G3; i++) { out[i * 2] = grid[i * 3 + 1] - otWork.home[i * 3 + 1]; out[i * 2 + 1] = grid[i * 3 + 2] - otWork.home[i * 3 + 2]; }
+    // La tabla se alisa (cada nudo con sus vecinos, en las tres direcciones): las rebanadas se igualan
+    // con pocos puntos, y sin alisar dos colores casi iguales de la escena podían irse a tintes
+    // distintos —bandas de color en un degradado oscuro—.
+    for (let pass = 0; pass < OT_SMOOTH; pass++) for (const stride of [1, OT_N, OT_N * OT_N]) {
+      const next = new Float32Array(G3 * 2);
+      for (let i = 0; i < G3; i++) {
+        const at = Math.floor(i / stride) % OT_N, lo = at > 0 ? i - stride : i, hi = at < OT_N - 1 ? i + stride : i;
+        next[i * 2] = 0.25 * out[lo * 2] + 0.5 * out[i * 2] + 0.25 * out[hi * 2]; next[i * 2 + 1] = 0.25 * out[lo * 2 + 1] + 0.5 * out[i * 2 + 1] + 0.25 * out[hi * 2 + 1];
+      }
+      out = next;
+    }
+    return out;
+  }
+  // ── Suavidad y resplandor: lo que le pasa a la luz, no al color ──
+  // Desenfoque gaussiano de un plano (tres pasadas de caja), en el sitio.
+  function blurPlane(plane, w, h, sigma) {
+    if (sigma < 0.3) return plane;
+    const r = Math.max(1, Math.round(Math.sqrt(sigma * sigma * 4 + 1) / 2 - 0.5)), tmp = new Float32Array(w * h), k = 1 / (2 * r + 1);
+    for (let pass = 0; pass < 3; pass++) {
+      for (let y = 0; y < h; y++) { let sum = 0; const o = y * w; for (let x = -r; x <= r; x++) sum += plane[o + clamp(x, 0, w - 1)]; for (let x = 0; x < w; x++) { tmp[o + x] = sum * k; sum += plane[o + Math.min(w - 1, x + r + 1)] - plane[o + Math.max(0, x - r)]; } }
+      for (let x = 0; x < w; x++) { let sum = 0; for (let y = -r; y <= r; y++) sum += tmp[clamp(y, 0, h - 1) * w + x]; for (let y = 0; y < h; y++) { plane[y * w + x] = sum * k; sum += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x]; } }
+    }
+    return plane;
+  }
+  // ¿Qué tan suave es la referencia? En sus bordes más marcados se compara el salto de luz visto de
+  // cerca (dos cajas de 2 puntos, una a cada lado) con el salto visto de lejos (cajas de 8): en un
+  // borde nítido son iguales; en uno desenfocado, de cerca apenas hay salto. El cociente dice el
+  // ancho del desenfoque (y el grano no lo engaña: se promedia dentro de las cajas). Devuelve la
+  // desviación del desenfoque en fracción del ancho, o 0 si la imagen es nítida.
+  const SOFT_F = u => 2 * (0.5 * (1 + erf(u / Math.SQRT2)) + (Math.exp(-u * u / 2) - 1) * 0.3989423 / u - 0.5);
+  function erf(x) { const t = 1 / (1 + 0.3275911 * Math.abs(x)), y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x < 0 ? -y : y; }
+  function softOf(L, w, h) {
+    if (w < 48 || h < 48) return 0;
+    const W1 = w + 1, sat = new Float64Array(W1 * (h + 1));
+    for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += L[y * w + x]; sat[(y + 1) * W1 + x + 1] = sat[y * W1 + x + 1] + row; } }
+    const box = (x0, y0, x1, y1) => (sat[y1 * W1 + x1] - sat[y0 * W1 + x1] - sat[y1 * W1 + x0] + sat[y0 * W1 + x0]) / ((x1 - x0) * (y1 - y0));
+    // el salto entre dos cajas de lado s pegadas en (x, y), en horizontal (dir 0) o vertical (dir 1)
+    const jump = (x, y, s, dir) => (dir ? box(x - (s >> 1), y, x + (s >> 1), y + s) - box(x - (s >> 1), y - s, x + (s >> 1), y) : box(x, y - (s >> 1), x + s, y + (s >> 1)) - box(x - s, y - (s >> 1), x, y + (s >> 1)));
+    const far = [];
+    for (let dir = 0; dir < 2; dir++) for (let y = 12; y < h - 12; y += 2) for (let x = 12; x < w - 12; x += 2) { const d = Math.abs(jump(x, y, 8, dir)); if (d >= 0.08) far.push([d, x, y, dir]); }
+    if (far.length < 40) return 0;
+    far.sort((p, q) => q[0] - p[0]);
+    // (el grano también da saltos de cerca: se mide en las zonas lisas —donde de lejos no hay salto— y se descuenta)
+    const calm = [];
+    for (let y = 12; y < h - 12; y += 3) for (let x = 12; x < w - 12; x += 3) if (Math.abs(jump(x, y, 8, 0)) < 0.02 && Math.abs(jump(x, y, 8, 1)) < 0.02) calm.push(Math.abs(jump(x, y, 2, 0)));
+    calm.sort((p, q) => p - q);
+    const noise = calm.length > 20 ? calm[calm.length >> 1] / 0.6745 : 0;
+    const top = far.slice(0, Math.max(40, Math.round(far.length * 0.25))), ratios = [];
+    for (const [, x, y, dir] of top) {
+      let near = 0, wide = 0;
+      for (let k = -3; k <= 3; k++) { const xx = dir ? x : x + k, yy = dir ? y + k : y; near = Math.max(near, Math.abs(jump(xx, yy, 2, dir))); wide = Math.max(wide, Math.abs(jump(xx, yy, 8, dir))); }
+      ratios.push(Math.sqrt(Math.max(0, near * near - 4 * noise * noise)) / wide);
+    }
+    ratios.sort((p, q) => p - q);
+    // (los bordes más nítidos de la imagen son los que dicen su nitidez: la parte alta del cociente)
+    const r = ratios[Math.floor(ratios.length * (noise > 0.01 ? 0.6 : 0.75))];
+    let sigma = 0.3;
+    while (sigma < 8 && SOFT_F(2 / sigma) / SOFT_F(8 / sigma) > r) sigma *= 1.06;
+    return sigma >= SOFT_MIN ? +(Math.min(sigma, 6) / w).toFixed(4) : 0;
+  }
+  // ¿Tiene resplandor? Sobre fondo oscuro, lo que brilla derrama luz a su alrededor. Se prueba el
+  // modelo que luego pinta la cámara —imagen + cantidad × (lo que brilla, emborronado)— con varios
+  // anchos: en los puntos oscuros que rodean a lo que brilla, la luz que hay dividida entre la que
+  // el modelo pondría debe dar lo mismo cerca que lejos (esa es la cantidad). Una figura nítida sin
+  // resplandor da cero (alrededor está negro); una mancha desenfocada da un cociente que cambia con
+  // la distancia. Devuelve la cantidad, el ancho (fracción del ancho de la imagen) y la referencia
+  // SIN su resplandor («bare»), que es de la que se miden los tonos y el color.
+  const GLOW_FROM = 0.1, GLOW_SIZES = [0.012, 0.015, 0.019, 0.024, 0.03, 0.038, 0.048, 0.06], SOFT_MIN = 1.5;
+  const glowSource = (R, G, B, n) => { const out = [new Float32Array(n), new Float32Array(n), new Float32Array(n)]; for (let i = 0; i < n; i++) { const y = 0.2126 * R[i] + 0.7152 * G[i] + 0.0722 * B[i], t = clamp((y - GLOW_FROM) / GLOW_FROM, 0, 1), k = t * t * (3 - 2 * t); out[0][i] = R[i] * k; out[1][i] = G[i] * k; out[2][i] = B[i] * k; } return out; };
+  function glowOf(data, w, h, softSigma) {
+    const n = w * h, R = new Float32Array(n), Gc = new Float32Array(n), B = new Float32Array(n), Y = new Float32Array(n);
+    for (let i = 0; i < n; i++) { R[i] = LIN[data[i * 4]]; Gc[i] = LIN[data[i * 4 + 1]]; B[i] = LIN[data[i * 4 + 2]]; Y[i] = 0.2126 * R[i] + 0.7152 * Gc[i] + 0.0722 * B[i]; }
+    const sorted = Y.slice().sort(), top = sorted[Math.floor(0.995 * (n - 1))], ground = sorted[Math.floor(0.05 * (n - 1))];
+    if (top < 0.2 || sorted[Math.floor(0.25 * (n - 1))] > 0.02) return null;        // sin nada que brille, o sin oscuro alrededor
+    const luma = planes => { const out = new Float32Array(n); for (let i = 0; i < n; i++) out[i] = 0.2126 * planes[0][i] + 0.7152 * planes[1][i] + 0.0722 * planes[2][i]; return out; };
+    const measure = (source, size) => {
+      const H = blurPlane(luma(source), w, h, size * w), ratios = [];
+      for (let i = 0; i < n; i++) if (Y[i] < GLOW_FROM && H[i] > 0.02 * top) ratios.push((Y[i] - ground) / H[i]);
+      if (ratios.length < n * 0.015) return null;
+      ratios.sort((p, q) => p - q);
+      const at = q => ratios[Math.floor(q * (ratios.length - 1))], amount = at(0.25);
+      return { amount, size, spread: (at(0.45) - at(0.1)) / Math.max(amount, 1e-3) };
+    };
+    let source = glowSource(R, Gc, B, n), best = null;
+    for (const size of GLOW_SIZES) {
+      if (softSigma && size < softSigma * 2.2) continue;            // (un borde desenfocado no es resplandor)
+      const m = measure(source, size);
+      if (m && (!best || m.spread < best.spread)) best = m;
+    }
+    if (!best || best.amount < 0.08 || best.amount > 3 || best.spread > 0.6) return null;
+    // Quitarlo: imagen − cantidad × halo. Lo que brilla se midió con el resplandor puesto, así que se
+    // repite una vez con la imagen ya limpia.
+    let halo = null;
+    for (let pass = 0; pass < 2; pass++) {
+      halo = source.map(plane => blurPlane(plane.slice(), w, h, best.size * w));
+      if (pass === 0) {
+        source = glowSource(R.map((v, i) => Math.max(0, v - best.amount * halo[0][i])), Gc.map((v, i) => Math.max(0, v - best.amount * halo[1][i])), B.map((v, i) => Math.max(0, v - best.amount * halo[2][i])), n);
+        const again = measure(source, best.size);
+        if (again && again.amount > 0) best.amount = again.amount;
+      }
+    }
+    const enc = v => Math.round(255 * Math.pow(clamp(v, 0, 1), 1 / 2.2)), bare = new Uint8ClampedArray(data);
+    for (let i = 0; i < n; i++) {
+      // (donde casi toda la luz era resplandor, lo que queda al quitarlo es el error de la medida, no
+      //  imagen: ese punto era fondo)
+      const g = best.amount * (0.2126 * halo[0][i] + 0.7152 * halo[1][i] + 0.0722 * halo[2][i]), left = Y[i] - g, k = left < 0.3 * g ? ground / Math.max(Y[i] - g, 1e-6) : 1, cut = left < 0.3 * g && left <= 0 ? 0 : k;
+      bare[i * 4] = enc((R[i] - best.amount * halo[0][i]) * cut); bare[i * 4 + 1] = enc((Gc[i] - best.amount * halo[1][i]) * cut); bare[i * 4 + 2] = enc((B[i] - best.amount * halo[2][i]) * cut);
+    }
+    return {
+      amount: +best.amount.toFixed(3), size: best.size, spread: +best.spread.toFixed(2), bare,
+      // (lo que el resplandor le suma, en luz lineal, a un punto cualquiera de la referencia: x, y de 0 a 1)
+      at: (x, y) => { const i = clamp(Math.floor(y * h), 0, h - 1) * w + clamp(Math.floor(x * w), 0, w - 1); return [best.amount * halo[0][i], best.amount * halo[1][i], best.amount * halo[2][i]]; },
+    };
+  }
+  const hex2 = v => (256 + Math.round(clamp(v + 0.5, 0, 1) * 255)).toString(16).slice(1);
+  // mid: la referencia a media reducción (unos 128 puntos de lado), para los tonos de una imagen de
+  // color continuo sin trama.
+  function analyze(thumb, fine, sparse, soft, back, mid) {
     const n = thumb.width * thumb.height, lab = labImage(thumb.data, n);
     const sn2 = sparse ? sparse.n : n, slab = sparse ? labImage(sparse.data, sn2) : lab;
     const pal = palette(slab, sn2);
@@ -303,22 +508,27 @@
     // Tonos: los cuantiles de la luz de la referencia.
     const Ls = new Float32Array(n);
     for (let i = 0; i < n; i++) Ls[i] = lab[i * 3];
-    let tn = soft ? soft.n : sn2;
-    const tlab = soft ? labImage(soft.data, tn) : slab;
-    let sorted = new Float32Array(tn);
-    if (back && soft) {
-      const own = [], rest = [];
-      for (let i = 0; i < tn; i++) (behind(soft.data, i * 4) ? rest : own).push(tlab[i * 3]);
-      const room = Math.min(rest.length, own.length);                       // el fondo: como mucho la mitad de los tonos
-      if (own.length >= 16) { sorted = Float32Array.from(own.concat(rest.slice(0, room))); tn = sorted.length; }
-      else for (let i = 0; i < tn; i++) sorted[i] = tlab[i * 3];
-    } else for (let i = 0; i < tn; i++) sorted[i] = tlab[i * 3];
-    sorted.sort();
-    const cdf = [];
-    for (let i = 0; i <= 32; i++) cdf.push(+sorted[Math.min(tn - 1, Math.round(i / 32 * (tn - 1)))].toFixed(4));
+    const tones = from => {
+      let tn = from ? from.n : sn2;
+      const tlab = from ? labImage(from.data, tn) : slab;
+      let sorted = new Float32Array(tn);
+      if (back && from) {
+        const own = [], rest = [];
+        for (let i = 0; i < tn; i++) (behind(from.data, i * 4) ? rest : own).push(tlab[i * 3]);
+        const room = Math.min(rest.length, own.length);                     // el fondo: como mucho la mitad de los tonos
+        if (own.length >= 16) { sorted = Float32Array.from(own.concat(rest.slice(0, room))); tn = sorted.length; }
+        else for (let i = 0; i < tn; i++) sorted[i] = tlab[i * 3];
+      } else for (let i = 0; i < tn; i++) sorted[i] = tlab[i * 3];
+      sorted.sort();
+      const cdf = [];
+      for (let i = 0; i <= 32; i++) cdf.push(+sorted[Math.min(tn - 1, Math.round(i / 32 * (tn - 1)))].toFixed(4));
+      return { tn, sorted, cdf };
+    };
+    const { tn, sorted } = tones(soft);
+    let { cdf } = tones(soft);
 
     // Color según la luz: el color medio de cada nivel, y cuánto explica la luz el color.
-    const bins = 16, sa = new Float32Array(bins), sb = new Float32Array(bins), sn = new Float32Array(bins);
+    const bins = 32, sa = new Float32Array(bins), sb = new Float32Array(bins), sn = new Float32Array(bins);     // (los looks de antes traen 16 niveles)
     let ma = 0, mb = 0, nf = 0;
     const skip = back ? new Uint8Array(n) : null;                  // los puntos del fondo
     if (skip) { let rest = 0; for (let i = 0; i < n; i++) if (behind(thumb.data, i * 4)) { skip[i] = 1; rest++; } if (n - rest < 64) skip.fill(0); }
@@ -341,6 +551,19 @@
     }
     const chroma = Math.sqrt(total / nf);                          // cuánto color tiene la figura (0 = gris)
     const explained = total > 1e-6 ? clamp(1 - resid / total, 0, 1) : 1;
+    // El reparto de color de la referencia, en muestras: OT_M puntos (luz, a, b) tomados de toda ella.
+    // Con el color medio de cada nivel de luz, una referencia con dos colores a la misma luz (un neón
+    // cian y rosa, un mapa de calor) salía apagada —cian + rosa = lavanda—. Con las muestras, la cámara
+    // lleva el reparto de color de la escena al de la referencia entero (ver «transport»). El fondo
+    // liso entra como en los tonos: sin pasar de la mitad.
+    let ot;
+    if (!limited) {
+      const own = [], rest = [];
+      for (let i = 0; i < n; i++) (skip && skip[i] ? rest : own).push(i);
+      const take = Math.min(rest.length, own.length), list = own.concat(rest.filter((_, j) => Math.floor(j * take / Math.max(1, rest.length)) !== Math.floor((j - 1) * take / Math.max(1, rest.length))));
+      ot = '';
+      for (let k = 0; k < OT_M; k++) { const i = list[Math.min(list.length - 1, Math.floor((k + 0.5) * list.length / OT_M))]; ot += hex2(lab[i * 3] - 0.5) + hex2(lab[i * 3 + 1]) + hex2(lab[i * 3 + 2]); }
+    }
     // (con varias tintas de distinto color, el color de la escena sigue contando algo: tope 0,8)
     // (una figura luminosa sobre fondo liso es un mapa de degradado: del fondo al color y al blanco
     //  según la luz; ahí manda la luz aunque dos colores compartan nivel)
@@ -516,6 +739,11 @@
     const even = Math.max(...four) - Math.min(...four) < 0.4 * (centre - corners);
     const vignette = !limited && even && centre > 0.2 && (centre - corners) / centre > 0.16 ? +clamp((centre - corners) / centre * 0.9, 0, 0.6).toFixed(3) : 0;
 
+    // Los tonos salen de la referencia muy reducida cuando lleva trama, píxel o tintas planas (ahí un
+    // punto es tinta o papel, y el tono es su mezcla). En color continuo esa reducción se come lo fino:
+    // las líneas claras de un neón, los brillos, el negro pegado a una figura. Ahí se miden a media
+    // reducción (lo justo para promediar el grano).
+    if (mid && !limited && !pixel && screen.type === 'none') cdf = tones(mid).cdf;
     const look = {
       v: 1, palette: pal.colors.map(c => c.map(v => +v.toFixed(4))), shares: pal.shares.map(v => +v.toFixed(3)), limited, error: +pal.error.toFixed(4),
       back: back ? +back.share.toFixed(3) : 0,                       // cuánto de la referencia es fondo liso (0 = no lo tiene)
@@ -523,12 +751,15 @@
       //  entero y sin tinte. Un fondo de color medio es una tinta más del cartel y se trata como las otras.)
       ground: back ? (() => { const g = new Float32Array(3); toLab(back.rgb[0], back.rgb[1], back.rgb[2], g, 0); return g[0] <= 0.15 || g[0] >= 0.92 ? [+g[0].toFixed(4), +g[1].toFixed(4), +g[2].toFixed(4)] : null; })() : null,
       cdf, ramp: ramp.map(p => [+p[0].toFixed(4), +p[1].toFixed(4)]), rampMix: +rampMix.toFixed(3), mean: [+ma.toFixed(4), +mb.toFixed(4)], chroma: +chroma.toFixed(4),
-      pixel, screen, grain, edge, vignette, tone: 0.8, sat: 1, score: null,
+      ot, byLight: +explained.toFixed(3),
+      pixel, screen, grain, edge, vignette, tone: 1, sat: 1, score: null,
     };
     look.name = nameOf(look);
     return look;
   }
 
+  // ¿Duotono? La luz decide el color entero (un solo color por nivel). Los looks de antes solo traen la mezcla.
+  const duo = look => (look.byLight != null ? clamp((look.byLight - 0.35) / 0.5, 0, 1) : look.rampMix) > 0.75;
   // Un nombre que diga qué es: el tipo de imagen y su color dominante.
   function nameOf(look) {
     let hue = 'GRIS', best = 0.035;
@@ -539,7 +770,7 @@
       const deg = (Math.atan2(c[2], c[1]) * 180 / Math.PI + 360) % 360;
       hue = deg < 20 ? 'ROSA' : deg < 50 ? 'ROJO' : deg < 78 ? 'NARANJA' : deg < 108 ? 'ÁMBAR' : deg < 135 ? 'LIMA' : deg < 172 ? 'VERDE' : deg < 215 ? 'TURQUESA' : deg < 275 ? 'AZUL' : deg < 320 ? 'VIOLETA' : 'ROSA';
     });
-    const kind = look.pixel ? 'PÍXEL' : look.screen.type === 'dot' ? 'TRAMA' : look.screen.type === 'line' ? 'LÍNEAS' : look.limited ? (look.palette.length <= 2 ? 'TINTA' : 'CARTEL') : look.rampMix > 0.75 ? 'DUOTONO' : 'FOTO';
+    const kind = look.pixel ? 'PÍXEL' : look.screen.type === 'dot' ? 'TRAMA' : look.screen.type === 'line' ? 'LÍNEAS' : look.limited ? (look.palette.length <= 2 ? 'TINTA' : 'CARTEL') : duo(look) ? 'DUOTONO' : 'FOTO';
     return kind + ' ' + hue;
   }
   function describe(look) {
@@ -550,6 +781,8 @@
     else if (look.screen.type === 'bayer') parts.push('tramado ordenado');
     else if (look.screen.type === 'noise') parts.push('tramado de ruido');
     if (look.grain.amount > 0.03 && look.screen.type !== 'noise') parts.push('grano');
+    if (look.soft) parts.push('suave');
+    if (look.glow) parts.push('resplandor');
     if (look.edge) parts.push('línea de tinta');
     if (look.vignette) parts.push('viñeta');
     return parts.join(' · ') + (look.score != null ? ' · parecido ' + look.score + ' %' : '');
@@ -575,6 +808,8 @@
     uniform vec2 uGrain;           // cantidad, celdas a lo ancho
     uniform vec4 uChroma;          // color medio de la escena (a, b) y de la referencia (a, b)
     uniform vec4 uGround;          // el fondo liso de la referencia: (luz, a, b, ¿lo tiene?)
+    uniform sampler2D uLut;        // cuánto se mueve el color (a, b) de cada punto: 16 rebanadas de luz, cada una de 16 × 16
+    uniform vec2 uOt;              // ¿el look trae su reparto de color? (los de antes, no: van con el color medio por nivel); y cuánto cuenta el color de la escena
     vec3 lab(vec3 c) {
       vec3 l = pow(clamp(c, 0., 1.), vec3(2.2));
       vec3 m = pow(vec3(dot(l, vec3(.4122214708, .5363325363, .0514459929)), dot(l, vec3(.2119034982, .6806995451, .1073969566)), dot(l, vec3(.0883024619, .2817188376, .6299787005))), vec3(1. / 3.));
@@ -630,7 +865,12 @@
       // más sale del color que la referencia le pone a cada nivel.
       vec2 ab = (p.yz - uChroma.xy) * uSat + uChroma.zw;
       vec2 ramped = texture2D(uRamp, vec2(clamp(p.x, .03, .97), .5)).rg - .5;
-      p.yz = mix(ab, ramped, uRampMix);
+      if (uOt.x > .5) {
+        vec2 t = clamp(p.yz / ${OT_SPAN}, -1., 1.), w = clamp(.5 + .5 * sign(t) * sqrt(abs(t)), .03125, .96875);
+        float z = clamp(p.x, 0., 1.) * 15., z0 = floor(z), z1 = min(15., z0 + 1.);
+        vec2 moved = p.yz + mix(texture2D(uLut, vec2((z0 + w.x) / 16., w.y)).rg, texture2D(uLut, vec2((z1 + w.x) / 16., w.y)).rg, z - z0) - .5;
+        p.yz = mix(ramped, uChroma.zw + (moved - uChroma.zw) * uSat, uOt.y);
+      } else p.yz = mix(ab, ramped, uRampMix);
       // Con fondo liso: lo que cae en su tono toma su color (un negro absoluto no lleva el tinte de la figura).
       if (uGround.w > .5) p.yz = mix(uGround.yz, p.yz, smoothstep(.02, .2, abs(p.x - uGround.x)));
       // Viñeta y grano, antes de encajar en la paleta (así el grano también trama).
@@ -705,6 +945,40 @@
       gl_FragColor = vec4(col, 1.);
     }`;
 
+  // Las pasadas de la luz (suavidad antes de pintar el look, resplandor después): copiar reduciendo,
+  // quedarse con lo que brilla, desenfocar a lo largo de un eje y sumar. Todo en luz lineal.
+  const VERT2 = 'attribute vec2 aPos; varying vec2 vT; void main() { vT = aPos * .5 + .5; gl_Position = vec4(aPos, 0., 1.); }';
+  const FRAG2 = `
+    #ifdef GL_FRAGMENT_PRECISION_HIGH
+    precision highp float;
+    #else
+    precision mediump float;
+    #endif
+    varying vec2 vT;
+    uniform sampler2D uA, uB;
+    uniform vec4 uBox;             // qué parte de la entrada se copia: origen y tamaño
+    uniform vec2 uStep;            // al copiar, lo que mide un punto de la salida en la entrada; al desenfocar, el paso
+    uniform float uMode, uGain, uFrom;
+    uniform float uK[5];           // los pesos del desenfoque (centro y cuatro a cada lado)
+    vec3 lin(vec3 c) { return pow(c, vec3(2.2)); }
+    vec3 enc(vec3 c) { return pow(clamp(c, 0., 1.), vec3(1. / 2.2)); }
+    void main() {
+      vec3 s = vec3(0.);
+      if (uMode > 2.5) { gl_FragColor = vec4(enc(lin(texture2D(uA, vT).rgb) + uGain * lin(texture2D(uB, vT).rgb)), 1.); return; }
+      if (uMode > .5 && uMode < 1.5) {
+        s = lin(texture2D(uA, vT).rgb) * uK[0];
+        for (int i = 1; i < 5; i++) s += (lin(texture2D(uA, vT + uStep * float(i)).rgb) + lin(texture2D(uA, vT - uStep * float(i)).rgb)) * uK[i];
+      } else {
+        vec2 q = uBox.xy + vT * uBox.zw;
+        for (int j = 0; j < 4; j++) for (int i = 0; i < 4; i++) {
+          vec3 c = lin(texture2D(uA, q + (vec2(float(i), float(j)) - 1.5) * .25 * uStep).rgb);
+          if (uMode > 1.5) c *= smoothstep(uFrom, 2. * uFrom, dot(c, vec3(.2126, .7152, .0722)));
+          s += c;
+        }
+        s /= 16.;
+      }
+      gl_FragColor = vec4(enc(s), 1.);
+    }`;
   const G = { canvas: null, gl: null, u: null, src: null, tone: null, ramp: null, failed: false, lost: 0 };
   function ensureGl() {
     if (G.gl) return true;
@@ -717,22 +991,29 @@
       if (!gl) throw new Error('CLON: sin WebGL');
       canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); G.lost++; G.gl = null; G.canvas = null; G.look = null; });
       const shader = (type, text) => { const s = gl.createShader(type); gl.shaderSource(s, text); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('CLON: ' + gl.getShaderInfoLog(s)); return s; };
-      const prog = gl.createProgram();
-      gl.attachShader(prog, shader(gl.VERTEX_SHADER, VERT)); gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FRAG));
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('CLON: ' + gl.getProgramInfoLog(prog));
+      const program = (vert, frag) => {
+        const pr = gl.createProgram();
+        gl.attachShader(pr, shader(gl.VERTEX_SHADER, vert)); gl.attachShader(pr, shader(gl.FRAGMENT_SHADER, frag));
+        gl.bindAttribLocation(pr, 0, 'aPos');
+        gl.linkProgram(pr);
+        if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error('CLON: ' + gl.getProgramInfoLog(pr));
+        return pr;
+      };
+      const prog = program(VERT, FRAG), post = program(VERT2, FRAG2), v = {};
+      gl.useProgram(post);
+      for (const name of ['uA', 'uB', 'uBox', 'uStep', 'uMode', 'uGain', 'uFrom', 'uK']) v[name] = gl.getUniformLocation(post, name);
+      gl.uniform1i(v.uA, 4); gl.uniform1i(v.uB, 5);
       gl.useProgram(prog);
       gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-      const at = gl.getAttribLocation(prog, 'aPos');
-      gl.enableVertexAttribArray(at); gl.vertexAttribPointer(at, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       const tex = (unit, filter) => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, filter], [gl.TEXTURE_MAG_FILTER, filter], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
-      G.src = tex(0, gl.LINEAR); G.tone = tex(1, gl.LINEAR); G.ramp = tex(2, gl.LINEAR);
+      G.src = tex(0, gl.LINEAR); G.tone = tex(1, gl.LINEAR); G.ramp = tex(2, gl.LINEAR); G.lut = tex(3, gl.LINEAR); G.table = null;
       const u = {};
-      for (const name of ['uSrc', 'uTone', 'uRamp', 'uCrop', 'uRes', 'uMirror', 'uCells', 'uScale', 'uSeed', 'uReveal', 'uAim', 'uLimited', 'uEdge', 'uVig', 'uSat', 'uRampMix', 'uGround', 'uPalN', 'uFlat', 'uPal', 'uPalRgb', 'uInk', 'uDither', 'uGrain', 'uChroma']) u[name] = gl.getUniformLocation(prog, name);
-      gl.uniform1i(u.uSrc, 0); gl.uniform1i(u.uTone, 1); gl.uniform1i(u.uRamp, 2);
+      for (const name of ['uSrc', 'uTone', 'uRamp', 'uCrop', 'uRes', 'uMirror', 'uCells', 'uScale', 'uSeed', 'uReveal', 'uAim', 'uLimited', 'uEdge', 'uVig', 'uSat', 'uRampMix', 'uGround', 'uLut', 'uOt', 'uPalN', 'uFlat', 'uPal', 'uPalRgb', 'uInk', 'uDither', 'uGrain', 'uChroma']) u[name] = gl.getUniformLocation(prog, name);
+      gl.uniform1i(u.uSrc, 0); gl.uniform1i(u.uTone, 1); gl.uniform1i(u.uRamp, 2); gl.uniform1i(u.uLut, 3);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-      G.canvas = canvas; G.gl = gl; G.u = u; G.look = null; G.sceneAt = -1;
+      G.canvas = canvas; G.gl = gl; G.u = u; G.look = null; G.sceneAt = -1; G.prog = prog; G.post = post; G.v = v; G.fb = {};
       return true;
     } catch (error) { G.failed = true; G.gl = null; G.canvas = null; console.warn(String(error && error.message || error)); return false; }
   }
@@ -766,7 +1047,8 @@
       const matched = extreme ? lo02 + (hi98 - lo02) * Math.pow(rank, 0.9) : at(rank);
       // (el tramo que en la referencia es fondo —negro o blanco absoluto— va entero a ese tono: si se
       //  quedara a medias, el negro salía gris azulado)
-      const onGround = ground != null && Math.abs(matched - ground) < 0.03;
+      // (o más allá: con fondo negro, todo lo que caiga por debajo de él también es fondo)
+      const onGround = ground != null && (Math.abs(matched - ground) < 0.03 || (ground < 0.5 ? matched < ground : matched > ground));
       m[i] = i / 255 + (matched - i / 255) * (onGround ? 1 : amount);
       flatOk[i] = onGround ? 1 : 0;
       if (rank < 0.002) first = i; if (rank < 0.998) last = i;
@@ -776,17 +1058,30 @@
     // El suelo solo cuenta entre el tono más oscuro y el más claro de la escena: fuera no hay nada que
     // aplastar, y darle pendiente a esos tramos se la quitaba a los que sí tienen imagen.
     const span = m[255] - m[0], mean = span / 255, min = Math.min(0.35 / 255, mean * 0.6), max = Math.max(2.4 / 255, mean * 1.4), d = new Float32Array(255);
-    const floor = i => (i >= first && i <= last && !(flatOk[i] && flatOk[i + 1]) ? min : 0);
-    for (let i = 0; i < 255; i++) d[i] = clamp(m[i + 1] - m[i], floor(i), max);
-    for (let pass = 0; pass < 4; pass++) {
-      let sum = 0, room = 0;
+    // El tramo del fondo no entra en el reparto: es plano y se queda plano. (Antes, cuando el tope
+    // dejaba la curva corta, lo que faltaba se repartía entre todos los tramos, el del fondo incluido,
+    // y un negro absoluto salía gris oscuro.) Si con el tope no se llega arriba, con fondo se afloja el
+    // tope: ahí importa más que el negro sea negro y la figura llegue a su luz.
+    const onRun = i => flatOk[i] && flatOk[i + 1], floor = i => (i >= first && i <= last && !onRun(i) ? min : 0);
+    let cap = max;
+    for (let widen = 0; widen < 5; widen++) {
+      for (let i = 0; i < 255; i++) d[i] = onRun(i) ? 0 : clamp(m[i + 1] - m[i], floor(i), cap);
+      let sum = 0;
+      for (let pass = 0; pass < 4; pass++) {
+        let room = 0;
+        sum = 0;
+        for (let i = 0; i < 255; i++) sum += d[i];
+        const need = span - sum;
+        if (Math.abs(need) < 1e-5) break;
+        for (let i = 0; i < 255; i++) room += onRun(i) ? 0 : need > 0 ? cap - d[i] : d[i] - floor(i);
+        if (room < 1e-7) break;
+        const k = Math.min(1, Math.abs(need) / room);
+        for (let i = 0; i < 255; i++) if (!onRun(i)) d[i] += need > 0 ? (cap - d[i]) * k : -(d[i] - floor(i)) * k;
+      }
+      sum = 0;
       for (let i = 0; i < 255; i++) sum += d[i];
-      const need = span - sum;
-      if (Math.abs(need) < 1e-5) break;
-      for (let i = 0; i < 255; i++) room += need > 0 ? max - d[i] : d[i] - floor(i);
-      if (room < 1e-7) break;
-      const k = Math.min(1, Math.abs(need) / room);
-      for (let i = 0; i < 255; i++) d[i] += need > 0 ? (max - d[i]) * k : -(d[i] - floor(i)) * k;
+      if (ground == null || span - sum < 0.01) break;
+      cap *= 1.6;
     }
     for (let i = 0, v = m[0]; i < 256; i++) {
       out[i] = Math.round(255 * clamp(v, 0, 1));
@@ -814,16 +1109,49 @@
     gl.uniform1f(u.uSat, look.sat == null ? 1 : look.sat);
     gl.uniform1f(u.uRampMix, look.rampMix);
     if (look.ground && look.back) gl.uniform4f(u.uGround, look.ground[0], look.ground[1], look.ground[2], 1); else gl.uniform4f(u.uGround, 0, 0, 0, 0);
-    const ramp = new Uint8Array(16 * 4);
+    gl.uniform2f(u.uOt, look.ot && !look.limited ? 1 : 0, otKeep(look));
+    const ramp = new Uint8Array(look.ramp.length * 4);
     look.ramp.forEach((p, k) => { ramp[k * 4] = Math.round(clamp(p[0] + 0.5, 0, 1) * 255); ramp[k * 4 + 1] = Math.round(clamp(p[1] + 0.5, 0, 1) * 255); ramp[k * 4 + 3] = 255; });
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.ramp);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 16, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, ramp);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, look.ramp.length, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, ramp);
   }
   // Pinta «source» con el look en el lienzo del sombreador (w × h). scene: histograma de luz y color medio.
-  const toneBytes = new Uint8Array(256);
+  const toneBytes = new Uint8Array(256), lutBytes = new Uint8Array(OT_N * OT_N * OT_N * 4);
+  // Un lienzo intermedio (textura + su marco), del tamaño pedido.
+  function target(name, w, h) {
+    const gl = G.gl;
+    let t = G.fb[name];
+    if (!t) { t = G.fb[name] = { tex: gl.createTexture(), fb: gl.createFramebuffer(), w: 0, h: 0 }; gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, t.tex); for (const [k, val] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, val); }
+    if (t.w !== w || t.h !== h) {
+      gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, t.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
+      t.w = w; t.h = h;
+    }
+    return t;
+  }
+  // Una pasada de la luz: de la textura «from» (y «plus», al sumar) al lienzo «to» (o a la salida).
+  const kernel = new Float32Array(5);
+  function pass(mode, from, to, w, h, o) {
+    const gl = G.gl, v = G.v;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, to ? to.fb : null);
+    gl.viewport(0, 0, w, h);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, from);
+    // (la segunda entrada se suelta cuando no se usa: si se quedara puesta la de un cuadro anterior y
+    //  resultara ser el lienzo al que ahora se pinta, WebGL lo toma por leer y escribir a la vez y no pinta)
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, o.plus || null);
+    const box = o.box || [0, 0, 1, 1];
+    gl.uniform4f(v.uBox, box[0], box[1], box[2], box[3]);
+    gl.uniform2f(v.uStep, o.step[0], o.step[1]);
+    gl.uniform1f(v.uMode, mode); gl.uniform1f(v.uGain, o.gain || 0); gl.uniform1f(v.uFrom, GLOW_FROM);
+    if (o.sigma) { let sum = 0; for (let i = 0; i < 5; i++) { kernel[i] = Math.exp(-i * i / (2 * o.sigma * o.sigma)); sum += i ? 2 * kernel[i] : kernel[i]; } for (let i = 0; i < 5; i++) kernel[i] /= sum; gl.uniform1fv(v.uK, kernel); }
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
   function draw(look, source, crop, w, h, scene, extra) {
     const gl = G.gl, u = G.u;
     if (G.canvas.width !== w || G.canvas.height !== h) { G.canvas.width = w; G.canvas.height = h; }
+    gl.useProgram(G.prog);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, w, h);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.src);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
@@ -835,7 +1163,37 @@
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.tone);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 256, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, toneBytes);
       G.sceneAt = scene.version == null ? -1 : scene.version;
+      if (look.ot && !look.limited && scene.samples && otKeep(look) > 0.01) {
+        // La nube de la escena con los tonos ya puestos, y de ahí la tabla. En vivo la tabla sigue a
+        // la nueva poco a poco («extra.follow»): la escena se mide con pocos puntos y de golpe parpadearía.
+        const count = scene.samples.length / 3, cloud = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) { cloud[i * 3] = toneBytes[Math.round(clamp(scene.samples[i * 3], 0, 1) * 255)] / 255; cloud[i * 3 + 1] = scene.samples[i * 3 + 1]; cloud[i * 3 + 2] = scene.samples[i * 3 + 2]; }
+        const fresh = transport(look, cloud, count), follow = extra.follow == null || !G.table || G.tableOf !== look.ot ? 1 : extra.follow;
+        if (follow >= 1) G.table = fresh; else for (let i = 0; i < fresh.length; i++) G.table[i] += (fresh[i] - G.table[i]) * follow;
+        G.tableOf = look.ot;
+        const bytes = lutBytes;
+        for (let z = 0; z < OT_N; z++) for (let y = 0; y < OT_N; y++) for (let x = 0; x < OT_N; x++) { const i = ((z * OT_N + y) * OT_N + x) * 2, o = (y * OT_N * OT_N + z * OT_N + x) * 4; bytes[o] = Math.round(clamp(G.table[i] + 0.5, 0, 1) * 255); bytes[o + 1] = Math.round(clamp(G.table[i + 1] + 0.5, 0, 1) * 255); bytes[o + 3] = 255; }
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, G.lut);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, OT_N * OT_N, OT_N, 0, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
+      }
     }
+    // La suavidad de la referencia: la escena se desenfoca antes de pintarla (en un lienzo pequeño:
+    // el desenfoque mide siempre unos 2 puntos de ese lienzo, sea cual sea el tamaño de la salida).
+    const plain = extra.aim || extra.plain, soft = !plain && look.soft > 0 ? look.soft : 0, glow = !plain && look.glow && look.glow.amount > 0 ? look.glow : null;
+    if (soft) {
+      const aw = Math.max(32, Math.min(w, Math.round(2 / soft))), ah = Math.max(8, Math.round(aw * h / w)), a = target('a', aw, ah), b = target('b', aw, ah);
+      gl.useProgram(G.post);
+      pass(0, G.src, a, aw, ah, { box: crop, step: [crop[2] / aw, crop[3] / ah] });
+      pass(1, a.tex, b, aw, ah, { step: [1 / aw, 0], sigma: soft * aw });
+      pass(1, b.tex, a, aw, ah, { step: [0, 1 / ah], sigma: soft * aw });
+      gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.useProgram(G.prog);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, a.tex);
+      crop = [0, 0, 1, 1];
+    }
+    const main = glow ? target('m', w, h) : null;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, main ? main.fb : null);
+    gl.viewport(0, 0, w, h);
     gl.uniform4f(u.uCrop, crop[0], crop[1], crop[2], crop[3]);
     gl.uniform2f(u.uRes, w, h);
     gl.uniform1f(u.uMirror, extra.mirror ? 1 : 0);
@@ -845,6 +1203,17 @@
     gl.uniform1f(u.uAim, extra.aim ? 1 : 0);
     gl.uniform4f(u.uChroma, scene.mean[0], scene.mean[1], look.mean[0], look.mean[1]);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    // El resplandor: lo que brilla en la imagen ya pintada, emborronado y sumado encima.
+    if (glow) {
+      const gw = Math.max(32, Math.min(Math.max(32, w >> 1), Math.round(2.4 / glow.size))), gh = Math.max(8, Math.round(gw * h / w)), g1 = target('g1', gw, gh), g2 = target('g2', gw, gh);
+      gl.useProgram(G.post);
+      pass(2, main.tex, g1, gw, gh, { step: [1 / gw, 1 / gh] });
+      pass(1, g1.tex, g2, gw, gh, { step: [1 / gw, 0], sigma: glow.size * gw });
+      pass(1, g2.tex, g1, gw, gh, { step: [0, 1 / gh], sigma: glow.size * gw });
+      pass(3, main.tex, null, w, h, { step: [0, 0], plus: g1.tex, gain: glow.amount });
+      gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.useProgram(G.prog);
+    }
   }
 
   // ── Medir una imagen (para comparar dos): color, tonos, espectro y contornos ──
@@ -912,8 +1281,13 @@
   function sceneOf(data, n, bins) {
     const hist = new Float32Array(bins || 64), tmp = new Float32Array(3), top = hist.length - 1;
     let a = 0, b = 0;
-    for (let i = 0, p = 0; i < n; i++, p += 4) { toLab(data[p], data[p + 1], data[p + 2], tmp, 0); hist[Math.min(top, (tmp[0] * (top + 1)) | 0)]++; a += tmp[1]; b += tmp[2]; }
-    return { hist, mean: [a / n, b / n] };
+    // (y hasta 1024 de sus puntos, repartidos por toda ella: la nube de color que se lleva a la de la referencia)
+    const step = Math.max(1, Math.ceil(n / 1024)), samples = new Float32Array(Math.ceil(n / step) * 3);
+    for (let i = 0, p = 0; i < n; i++, p += 4) {
+      toLab(data[p], data[p + 1], data[p + 2], tmp, 0); hist[Math.min(top, (tmp[0] * (top + 1)) | 0)]++; a += tmp[1]; b += tmp[2];
+      if (i % step === 0) samples.set(tmp, (i / step) * 3);
+    }
+    return { hist, mean: [a / n, b / n], samples };
   }
 
   // Reducir promediando: a mitades, hasta que el lado mayor no pase de «max» (reducir de golpe no
@@ -937,7 +1311,8 @@
   //   · con un recorte SIN reducir: ¿son las mismas tintas, la misma textura, los mismos contornos?
   // own: el look medido de ESTA referencia, si el que se prueba es otro (la versión sin estilo la
   // decide la referencia: con el look que se prueba, cada candidato se medía contra una base distinta).
-  function fit(look, ref, span, whole, own) {
+  // bare: la referencia sin su resplandor, si lo tiene (es la «escena» de la que se parte en la entera).
+  function fit(look, ref, span, whole, own, bare) {
     if (!ensureGl()) return look;
     // (con píxel gordo los bloques van al doble: en uno pequeño caben dos o tres celdas del tramado y su
     //  color medio depende de cuáles tocaron)
@@ -953,7 +1328,7 @@
     if (whole) {
       all.ctx.imageSmoothingEnabled = true; all.ctx.imageSmoothingQuality = 'high';
       all.ctx.drawImage(halve(whole, n * 2), 0, 0, n, n);
-      allSoft.ctx.imageSmoothingEnabled = true; allSoft.ctx.imageSmoothingQuality = 'high'; allSoft.ctx.drawImage(halve(all.canvas, 16), 0, 0, n, n);
+      allSoft.ctx.imageSmoothingEnabled = true; allSoft.ctx.imageSmoothingQuality = 'high'; allSoft.ctx.drawImage(halve(bare || all.canvas, 16), 0, 0, n, n);
       allBlocks = blocks(all.ctx.getImageData(0, 0, n, n).data);
       allScene = sceneOf(allSoft.ctx.getImageData(0, 0, n, n).data, n * n);
     }
@@ -1006,8 +1381,15 @@
     for (let i = 0; i <= 32; i++) cropCdf.push(cropL[Math.min(n * n - 1, Math.round(i / 32 * (n * n - 1)))]);
     const scene = sceneOf(softData, n * n, 256);
     const scale = side / span, px = new Uint8Array(n * n * 4);
+    // (y lo mismo su reparto de color: el del recorte, no el de la referencia entera)
+    let cropOt;
+    if (look.ot) {
+      const cd = crop.ctx.getImageData(0, 0, n, n).data;
+      cropOt = '';
+      for (let k = 0; k < OT_M; k++) { const i = Math.floor((k + 0.5) * n * n / OT_M) * 4; toLab(cd[i], cd[i + 1], cd[i + 2], tmp, 0); cropOt += hex2(tmp[0] - 0.5) + hex2(tmp[1]) + hex2(tmp[2]); }
+    }
     const crisp = candidate => {
-      draw({ ...candidate, cdf: cropCdf, mean: scene.mean, vignette: 0, exact: true }, soft.canvas, [0, 0, 1, 1], n, n, scene, { scale, seed: 0.37 });
+      draw({ ...candidate, cdf: cropCdf, ot: cropOt, mean: scene.mean, vignette: 0, exact: true }, soft.canvas, [0, 0, 1, 1], n, n, scene, { scale, seed: 0.37, plain: true });
       gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, px);
     };
     const score = candidate => {
@@ -1016,7 +1398,7 @@
       const d = distance(features(px, n, true), target);
       d.place = 0;
       if (allBlocks) {
-        draw(candidate, allSoft.canvas, [0, 0, 1, 1], n, n, allScene, { scale: n / whole.width, seed: 0.37 });
+        draw({ ...candidate, soft: 0 }, allSoft.canvas, [0, 0, 1, 1], n, n, allScene, { scale: n / whole.width, seed: 0.37 });
         gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, px);
         const got = blocks(px);
         let err = 0;
@@ -1031,7 +1413,7 @@
     };
     // Los mandos continuos, de uno en uno: se prueba alrededor de lo medido y se queda el que más acerca.
     const knobs = [
-      ['sat', l => l.sat, (l, v) => { l.sat = v; }, look.limited || look.rampMix > 0.9 ? [1] : [0.6, 0.8, 1, 1.25, 1.5]],
+      ['sat', l => l.sat, (l, v) => { l.sat = v; }, look.limited || look.ot || look.rampMix > 0.9 ? [1] : [0.6, 0.8, 1, 1.25, 1.5]],
       // (con paleta cerrada, la trama de puntos o de líneas es lo que da los tonos: va entera)
       ['strength', l => l.screen.strength, (l, v) => { l.screen.strength = v; }, look.screen.type === 'none' || (look.limited && (look.screen.type === 'dot' || look.screen.type === 'line')) ? [look.screen.strength] : [0.5, 0.75, 1].map(k => +(clamp(look.screen.strength * k, 0, 1)).toFixed(3)).concat(look.screen.strength < 1 ? [+clamp(look.screen.strength * 1.3, 0, 1).toFixed(3)] : [])],
       ['grain', l => l.grain.amount, (l, v) => { l.grain.amount = v; }, // (el grano no se sube por encima de lo medido: subiría para imitar el detalle que el emborronado quitó)
@@ -1055,7 +1437,7 @@
   }
 
   // ── Los looks guardados ─────────────────────────────────────────────────────
-  const S = { looks: [], aim: false, revealAt: 0, frame: 0, ms: 0, scene: { hist: new Float32Array(64).fill(1), mean: [0, 0] }, sceneAt: -1e9, last: null, busy: false };
+  const S = { looks: [], aim: false, revealAt: 0, frame: 0, ms: 0, scene: { hist: new Float32Array(64).fill(1), mean: [0, 0], samples: null, follow: 1 }, sceneAt: -1e9, last: null, busy: false };
   try { const saved = JSON.parse(localStorage.getItem(KEY) || '[]'); if (Array.isArray(saved)) S.looks = saved.filter(l => l && l.v === 1 && l.id && Array.isArray(l.palette)); } catch (_) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S.looks)); } catch (_) {} };
   const family = () => (typeof CAM_FAMILIES !== 'undefined' ? CAM_FAMILIES.CLON : null);
@@ -1157,7 +1539,7 @@
     // ¿Luz desigual? Si un plano de luz la explica Y al deshacerlo la paleta mejora, se deshace (en
     // las muestras de la paleta, en la miniatura y en la imagen de los tonos).
     let light = null;
-    const plane = lightPlane(pts, sn);
+    const plane = lightPlane(pts, sn), asIs = plane ? { thumb: new Uint8ClampedArray(thumbData), low: new Uint8ClampedArray(lowData), sparse: new Uint8ClampedArray(sparse) } : null;
     if (plane) {
       const fixed = new Uint8ClampedArray(sn * 4);
       for (let k = 0; k < sn; k++) { const gain = lightGain(plane, pts[k * 5], pts[k * 5 + 1]); fixed[k * 4] = sparse[k * 4] * gain; fixed[k * 4 + 1] = sparse[k * 4 + 1] * gain; fixed[k * 4 + 2] = sparse[k * 4 + 2] * gain; fixed[k * 4 + 3] = 255; }
@@ -1169,9 +1551,34 @@
         undo(thumbData, tw, th); undo(lowData, low.width, low.height);
       }
     }
-    let look = analyze({ data: thumbData, width: tw, height: th }, { lum, n: FFT_N, span, zoom: FFT_N / side }, { data: sparse, n: sn }, { data: lowData, n: low.width * low.height }, back ? { rgb: back.rgb, share: back.share, samples: backN } : null);
+    // (una imagen a la mitad, promediando de 2 × 2)
+    const half = t => { const w2 = tw >> 1, h2 = th >> 1, out = new Uint8ClampedArray(w2 * h2 * 4); for (let y = 0; y < h2; y++) for (let x = 0; x < w2; x++) for (let c = 0; c < 3; c++) { const i = 4 * (2 * y * tw + 2 * x) + c; out[4 * (y * w2 + x) + c] = (t[i] + t[i + 4] + t[i + 4 * tw] + t[i + 4 * tw + 4] + 2) >> 2; } return { data: out, n: w2 * h2 }; };
+    const measure = (t, l, sp) => analyze({ data: t, width: tw, height: th }, { lum, n: FFT_N, span, zoom: FFT_N / side }, { data: sp, n: sn }, { data: l, n: low.width * low.height }, back ? { rgb: back.rgb, share: back.share, samples: backN } : null, half(t));
+    let look = measure(thumbData, lowData, sparse);
+    // (la luz desigual solo se deshace en un cartel: tintas planas que la luz del cuarto aclara de un
+    //  lado. En una imagen de color continuo, un degradado es de la imagen —un cielo, un fondo de
+    //  estudio—: deshacerlo le aplanaba los tonos y le cambiaba los colores)
+    if (light && !look.limited) { light = null; look = measure(asIs.thumb, asIs.low, asIs.sparse); }
     if (light) look.light = { bx: +light.bx.toFixed(3), by: +light.by.toFixed(3), r2: light.r2 };
-    look = fit(look, fineCanvas.canvas, span, ref.canvas);
+    // Suavidad y resplandor (solo en color continuo sin trama ni píxel: en un cartel, el borde es el look).
+    let bare = null;
+    if (!look.limited && !look.pixel && look.screen.type === 'none') {
+      const t = light ? thumbData : asIs ? asIs.thumb : thumbData, sp = light ? sparse : asIs ? asIs.sparse : sparse, L = new Float32Array(tw * th), tmp3 = new Float32Array(3);
+      for (let i = 0; i < tw * th; i++) { toLab(t[i * 4], t[i * 4 + 1], t[i * 4 + 2], tmp3, 0); L[i] = tmp3[0]; }
+      const soft = softOf(L, tw, th), glow = glowOf(t, tw, th, soft);
+      if (glow) {
+        // Los tonos, el color y la paleta se miden otra vez sobre la referencia sin su resplandor: si
+        // no, el halo contaba como tonos de la imagen y la cámara lo ponía dos veces.
+        bare = surface({ canvas: null, ctx: null }, tw, th);
+        const im = bare.ctx.createImageData(tw, th); im.data.set(glow.bare); bare.ctx.putImageData(im, 0, 0);
+        const low2 = halve(bare.canvas, 40), lowBare = low2.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, low2.width, low2.height).data, spBare = new Uint8ClampedArray(sp);
+        for (let k = 0; k < sn; k++) { const g = glow.at(pts[k * 5] + 0.5, pts[k * 5 + 1] + 0.5); for (let c = 0; c < 3; c++) spBare[k * 4 + c] = Math.round(255 * Math.pow(Math.max(0, LIN[sp[k * 4 + c]] - g[c]), 1 / 2.2)); }
+        look = analyze({ data: glow.bare, width: tw, height: th }, { lum, n: FFT_N, span, zoom: FFT_N / side }, { data: spBare, n: sn }, { data: lowBare, n: low2.width * low2.height }, back ? { rgb: back.rgb, share: back.share, samples: backN } : null, half(glow.bare));
+        look.glow = { amount: glow.amount, size: glow.size };
+      }
+      if (soft) look.soft = soft;
+    }
+    look = fit(look, fineCanvas.canvas, span, ref.canvas, undefined, bare && bare.canvas);
     look.name = nameOf(look);
     // La miniatura para la galería: el centro de la referencia, 96 × 96 (unos 3 KB; no sale del teléfono).
     try {
@@ -1301,12 +1708,13 @@
       if (mix > 0) {
         for (let i = 0; i < 64; i++) S.scene.hist[i] += (fresh.hist[i] - S.scene.hist[i]) * mix;
         S.scene.mean[0] += (fresh.mean[0] - S.scene.mean[0]) * mix; S.scene.mean[1] += (fresh.mean[1] - S.scene.mean[1]) * mix;
+        S.scene.samples = fresh.samples; S.scene.follow = mix;
         S.scene.version = (S.scene.version || 0) + 1;
       }
       S.sceneAt = started;
     }
     const reveal = started - S.revealAt < REVEAL_MS && opts.path !== 'capture' ? (started - S.revealAt) / REVEAL_MS : 2;
-    draw(look || NEUTRAL, source, crop, w, h, S.scene, { mirror, aim, reveal, seed: (Math.floor(started / 66) % 97) / 97 });
+    draw(look || NEUTRAL, source, crop, w, h, S.scene, { mirror, aim, reveal, seed: (Math.floor(started / 66) % 97) / 97, follow: S.scene.follow });
     ctx.save();
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
     ctx.imageSmoothingEnabled = !(look && (look.pixel || look.limited));
@@ -1369,7 +1777,7 @@
   function mascot(cls, ms) { const b = $('deckShutter'); if (!b) return; b.classList.add(cls); setTimeout(() => b.classList.remove(cls), ms); }
   function doubleWink() { const b = $('deckShutter'); if (!b) return; b.classList.add('guino'); setTimeout(() => b.classList.remove('guino'), 90); setTimeout(() => b.classList.add('guino'), 170); setTimeout(() => b.classList.remove('guino'), 260); }
   // Qué clase de look es (su sello en la tarjeta) y con qué pinta (su franja de color).
-  const kindOf = l => (l.pixel ? 'pixel' : l.screen && l.screen.type === 'dot' ? 'trama' : l.screen && l.screen.type === 'line' ? 'lineas' : l.limited ? 'cartel' : l.rampMix > 0.75 ? 'duotono' : 'foto');
+  const kindOf = l => (l.pixel ? 'pixel' : l.screen && l.screen.type === 'dot' ? 'trama' : l.screen && l.screen.type === 'line' ? 'lineas' : l.limited ? 'cartel' : duo(l) ? 'duotono' : 'foto');
   const SEALS = {
     trama: '<circle cx="3" cy="3" r="1.6"/><circle cx="7.4" cy="3" r="1.6"/><circle cx="3" cy="7.4" r="1.6"/><circle cx="7.4" cy="7.4" r="1.6"/>',
     lineas: '<path d="M0 4.2 5 1.3M0 8 10 2.2M5 9.4 10 6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>',
@@ -1386,7 +1794,7 @@
       return 'linear-gradient(90deg,' + pal.map((c, i) => { const from = at; at += w[i] / sum * 100; return ink(c) + ' ' + from.toFixed(1) + '% ' + (at - 0.7).toFixed(1) + '%, #0B0C14 ' + (at - 0.7).toFixed(1) + '% ' + at.toFixed(1) + '%'; }).join(',') + ')';
     }
     // color continuo: del más oscuro al más claro, con el color que la referencia le pone a cada nivel de luz
-    return 'linear-gradient(90deg,' + [2, 6, 10, 14].map(k => { const r = (l.ramp && l.ramp[k]) || [0, 0], m = l.rampMix == null ? 1 : l.rampMix, mean = l.mean || [0, 0]; return ink([(k + 0.5) / 16, mean[0] + (r[0] - mean[0]) * Math.max(0.35, m), mean[1] + (r[1] - mean[1]) * Math.max(0.35, m)]); }).join(',') + ')';
+    return 'linear-gradient(90deg,' + [2, 6, 10, 14].map(k => { const r = (l.ramp && l.ramp[Math.floor(k * l.ramp.length / 16)]) || [0, 0], m = l.rampMix == null ? 1 : l.rampMix, mean = l.mean || [0, 0]; return ink([(k + 0.5) / 16, mean[0] + (r[0] - mean[0]) * Math.max(0.35, m), mean[1] + (r[1] - mean[1]) * Math.max(0.35, m)]); }).join(',') + ')';
   }
   const ORDERS = ['recientes', 'tipo', 'parecido'];
   let order = 'recientes';
@@ -1614,7 +2022,7 @@
 
   window.renderClon = renderClon;
   window.flipClon = {
-    analyze, describe, nameOf, release, _fit: fit, _tone: (look, hist, amount) => Array.from(toneCurve(look, hist, amount == null ? 0.8 : amount, new Uint8Array(256))),
+    analyze, describe, nameOf, release, _fit: fit, _transport: transport, _scene: sceneOf, _tone: (look, hist, amount) => Array.from(toneCurve(look, hist, amount == null ? 0.8 : amount, new Uint8Array(256))),
     // (pruebas) pone un look sobre una imagen suelta y lo deja en «out»
     _render(look, source, out) {
       if (!ensureGl()) return false;

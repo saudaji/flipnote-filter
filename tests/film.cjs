@@ -9,6 +9,10 @@
 //   · LA HALACIÓN: una luz sobre negro deja un halo, rojo antes que verde y azul; mucho en la película
 //     de cine sin capa antihalo y casi nada en las otras; y no inventa luz (lo que da, lo quita);
 //   · EL GRANO: se ve, es mayor cuanto más chico el formato, cambia con la densidad y se puede quitar;
+//   · NEGRO HONDO Y GRANO PROFUNDO: las de color dejan el negro tan hondo como las de blanco y negro,
+//     y su grano mueve la luz más que el color (las capas lo comparten);
+//   · CINE CHICO (SÚPER 8 y SÚPER 16): el cuadro es tan pequeño que el grano se dibuja cristal a
+//     cristal (sueltos donde llegó poca luz), la emulsión quita nitidez, y el tono no se mueve;
 //   · EMPUJE y PAPEL mueven el contraste hacia donde dicen;
 //   · CADA PELÍCULA ES LO QUE DICE: el blanco y negro no tiene color y cambia con FILTRO y VIRADO; la
 //     ortocromática no ve el rojo; la diapositiva tiene más color y EXPOSICIÓN la aclara de verdad; la
@@ -121,9 +125,9 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
       const out = {};
       for (const stock of ['CINE500T', 'RETRATO400']) {
         // (modo 2: la exposición que le llega a cada capa, en log10 H; 0…1 son −3…+3)
-        flipFilm.develop(c, { stock, grain: false, format: 1, mode: 2 });
+        flipFilm.develop(c, { stock, grain: false, format: 3, mode: 2 });
         const e = flipFilm.read(), at = r => { const o = ((H / 2) * W + Math.round(W / 2 + r)) * 4; return [0, 1, 2].map(k => +(e.data[o + k] / 255 * 6 - 3).toFixed(2)); };
-        flipFilm.develop(c, { stock, grain: false, format: 1 });
+        flipFilm.develop(c, { stock, grain: false, format: 3 });
         const p = flipFilm.read(), ring = r => { const o = ((H / 2) * W + Math.round(W / 2 + r)) * 4; return [0, 1, 2].map(k => +filmKit.toLin(p.data[o + k]).toFixed(4)); };
         out[stock] = { expo: { near: at(46), far: at(120) }, print: { near: ring(46), mid: ring(52), far: ring(150), centre: ring(0) } };
       }
@@ -139,7 +143,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
 
     // ── 5 · El grano ──
     const grain = await page.evaluate(() => {
-      // (una tira de 1024 de ancho: en medio cuadro cada punto son 23 micras de película, como en una foto)
+      // (una tira de 1024 de ancho: en medio cuadro —el formato 2— cada punto son 23 micras de película, como en una foto)
       const W = 1024, H = 256, flat = v => { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); const s = Math.round(255 * Math.pow(v, 1 / 2.2)); x.fillStyle = `rgb(${s},${s},${s})`; x.fillRect(0, 0, W, H); return c; };
       const sd = (canvas, options) => {
         flipFilm.develop(canvas, { stock: 'RETRATO400', ...options });
@@ -149,10 +153,10 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
       };
       const mid = flat(0.18);
       return {
-        off: sd(mid, { grain: false, format: 1 }), formats: [0, 1, 2, 3].map(format => sd(mid, { grain: true, format })),
-        tones: [0.01, 0.18, 0.7].map(v => sd(flat(v), { grain: true, format: 0 })),
-        pushed: sd(mid, { grain: true, format: 0, push: 2 }), plain: sd(mid, { grain: true, format: 0, push: 0 }),
-        seeds: [1.1, 2.2].map(seed => { flipFilm.develop(mid, { stock: 'RETRATO400', format: 0, seed }); const r = flipFilm.read(); return r.data[(128 * W + 128) * 4 + 1]; }),
+        off: sd(mid, { grain: false, format: 3 }), formats: [2, 3, 4, 5].map(format => sd(mid, { grain: true, format })),
+        tones: [0.01, 0.18, 0.7].map(v => sd(flat(v), { grain: true, format: 2 })),
+        pushed: sd(mid, { grain: true, format: 2, push: 2 }), plain: sd(mid, { grain: true, format: 2, push: 0 }),
+        seeds: [1.1, 2.2].map(seed => { flipFilm.develop(mid, { stock: 'RETRATO400', format: 2, seed }); const r = flipFilm.read(); return r.data[(128 * W + 128) * 4 + 1]; }),
       };
     });
     assert.ok(grain.off < 0.004, 'sin grano, un gris liso sale liso: ' + grain.off);
@@ -169,7 +173,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
       const black = Object.fromEntries(Object.keys(P.STOCKS).map(stock => [stock, +lum(filmKit.patches([filmKit.gray(-8), filmKit.gray(0)], { stock })[0]).toFixed(4)]));
       // un gris liso con grano: cuánto se mueve la luminancia, cuánto el color, y cuánto van juntas las capas
       const W = 1024, H = 256, flat = v => { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); const s = Math.round(255 * Math.pow(v, 1 / 2.2)); x.fillStyle = `rgb(${s},${s},${s})`; x.fillRect(0, 0, W, H); return c; };
-      const stats = (stock, v, format = 0) => {
+      const stats = (stock, v, format = 2) => {
         flipFilm.develop(flat(v), { stock, format, grain: true }); const r = flipFilm.read();
         let n = 0; const m = [0, 0, 0], q = [0, 0, 0]; let rg = 0, d = 0, d2 = 0;
         for (let y = 20; y < H - 20; y++) for (let x = 20; x < W - 20; x++) { const o = (y * W + x) * 4, R = r.data[o], G = r.data[o + 1], B = r.data[o + 2]; m[0] += R; m[1] += G; m[2] += B; q[0] += R * R; q[1] += G * G; q[2] += B * B; rg += R * G; d += R - G; d2 += (R - G) * (R - G); n++; }
@@ -213,6 +217,46 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     }
     assert.ok(Math.abs(deep.edge.orto.claroCerca - deep.edge.orto.claroLejos) <= 2 && Math.abs(deep.edge.orto.oscuroCerca - deep.edge.orto.oscuroLejos) <= 2, 'el blanco y negro se queda como estaba: ' + JSON.stringify(deep.edge.orto));
     step('negro hondo y grano profundo: las de color, a la altura de las de blanco y negro', { negro: deep.black, retrato: deep.retrato, cine: deep.cine, orto: deep.mono, diapositiva: deep.slide, borde: deep.edge });
+
+    // ── 5c · Cine chico: SÚPER 8 y SÚPER 16 ──
+    const small = await page.evaluate(() => {
+      const P = flipFilm.physics, W = 1024, H = 256;
+      const flat = v => { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); const s = Math.round(255 * Math.pow(v, 1 / 2.2)); x.fillStyle = `rgb(${s},${s},${s})`; x.fillRect(0, 0, W, H); return c; };
+      const stat = (stock, v, format, extra) => {
+        flipFilm.develop(flat(v), { stock, format, ...extra }); const r = flipFilm.read(); let n = 0, m = 0, q = 0, t = 0;
+        for (let y = 20; y < H - 20; y++) for (let x = 20; x < W - 20; x++) { const g = r.data[(y * W + x) * 4 + 1]; m += g; q += g * g; t += g * g * g; n++; }
+        m /= n; const va = Math.max(1e-9, q / n - m * m), sd = Math.sqrt(va);
+        return { media: +m.toFixed(1), sd: +sd.toFixed(2), sesgo: +((t / n - 3 * m * va - m * m * m) / (sd * sd * sd)).toFixed(2) };
+      };
+      // cuántos puntos tarda un borde en pasar de oscuro a claro (del 10 % al 90 % del salto), a tamaño de foto
+      const edge = format => {
+        const EW = 2560, c = document.createElement('canvas'); c.width = EW; c.height = 64; const x = c.getContext('2d'), s = v => { const k = Math.round(255 * Math.pow(v, 1 / 2.2)); return `rgb(${k},${k},${k})`; };
+        x.fillStyle = s(0.06); x.fillRect(0, 0, EW / 2, 64); x.fillStyle = s(0.40); x.fillRect(EW / 2, 0, EW / 2, 64);
+        flipFilm.develop(c, { stock: 'RETRATO400', format, grain: false }); const r = flipFilm.read(), at = px => r.data[(32 * EW + px) * 4 + 1], lo = at(EW / 2 - 500), hi = at(EW / 2 + 500);
+        let width = 0; for (let px = EW / 2 - 40; px < EW / 2 + 40; px++) { const v = at(px); if (v > lo + 0.1 * (hi - lo) && v < lo + 0.9 * (hi - lo)) width++; }
+        return width;
+      };
+      return {
+        names: P.FORMATS.map(f => f.name), small: P.FORMATS.map(f => !!f.small), f35: P.F35,
+        formats: [0, 1, 2, 3, 4, 5].map(f => stat('RETRATO400', 0.18, f)), clean: [0, 3].map(f => stat('RETRATO400', 0.18, f, { grain: false })),
+        // el negativo (no la copia) de una zona casi sin exponer: ahí los cristales revelados son pocos
+        thin: { super8: stat('BNNOCHE3200', 0.004, 0, { mode: 1 }), mm35: stat('BNNOCHE3200', 0.004, 3, { mode: 1 }) },
+        slide: { luces: stat('VIVA50', 0.9, 0), medios: stat('VIVA50', 0.12, 0) },
+        edges: [edge(0), edge(1), edge(3)], live: stat('RETRATO400', 0.18, 0, { live: true }), state: flipFilm.state(),
+      };
+    });
+    assert.deepEqual(small.names, ['SÚPER 8', 'SÚPER 16', '½ CUADRO', '35 MM', '6 × 7', '4 × 5'], 'los formatos, de menor a mayor');
+    assert.deepEqual([small.small, small.f35], [[true, true, false, false, false, false], 3], 'los dos de cine chico, y 35 mm de fábrica');
+    for (let i = 1; i < 6; i++) assert.ok(small.formats[i].sd < small.formats[i - 1].sd * 0.92, 'cuanto mayor el formato, menos grano (del súper 8 al 4 × 5): ' + small.formats.map(f => f.sd));
+    assert.ok(small.formats[0].sd > small.formats[3].sd * 2.2, 'en súper 8 el grano es cosa seria: ' + [small.formats[0].sd, small.formats[3].sd]);
+    for (const f of small.formats) assert.ok(Math.abs(f.media - small.formats[3].media) < 3, 'el formato no mueve el tono: ' + small.formats.map(g => g.media));
+    assert.ok(Math.abs(small.clean[0].media - small.clean[1].media) < 2 && small.clean[0].sd < 1, 'sin grano, el súper 8 sale liso y con el mismo gris: ' + JSON.stringify(small.clean));
+    assert.ok(small.thin.super8.sesgo > 0.5 && Math.abs(small.thin.mm35.sesgo) < 0.3, 'donde llegó poca luz los cristales se ven sueltos (en 35 mm son demasiados por punto para verse uno a uno): ' + JSON.stringify(small.thin));
+    assert.ok(small.slide.luces.sd < small.slide.medios.sd * 0.5, 'la diapositiva en súper 8 también deja limpios los blancos: ' + JSON.stringify(small.slide));
+    assert.ok(small.edges[0] > small.edges[1] && small.edges[1] >= small.edges[2] && small.edges[0] >= small.edges[2] + 2, 'la emulsión quita nitidez cuando el cuadro es chico: ' + small.edges);
+    assert.ok(Math.abs(small.live.sd - small.formats[0].sd) < small.formats[0].sd * 0.15 && Math.abs(small.live.media - small.formats[0].media) < 2, 'la vista previa (menos huecos por celda) da el mismo grano que la foto: ' + JSON.stringify([small.live, small.formats[0]]));
+    assert.equal(small.state.tier, 0, 'sin haber ido lenta, la vista previa dibuja todos sus cristales');
+    step('cine chico: SÚPER 8 y SÚPER 16 dibujan el grano cristal a cristal', { grano: small.formats.map(f => f.sd), sueltos: small.thin, borde: small.edges });
 
     // ── 6 · EMPUJE y PAPEL ──
     const contrast = await page.evaluate(() => {
@@ -414,6 +458,18 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     await page.waitForFunction(() => !flipFilm.state().gl, null, { timeout: 20000 });
     assert.deepEqual(errors, [], 'sin errores');
     step('al cambiar de cámara suelta la gráfica');
+
+    // quien traía ajustes guardados de antes de los formatos de cine chico conserva SU formato
+    await page.evaluate(() => localStorage.setItem('flip.film', JSON.stringify({ ev: 0, push: 0, format: 0, paper: 1, filter: 0, toner: 0, grain: true })));
+    await page.reload();
+    await page.waitForFunction(() => window.flipFilm && document.getElementById('vFilmFormat'), null, { timeout: 20000 });
+    const old = await page.evaluate(() => ({ s: flipFilm.settings(), text: document.getElementById('vFilmFormat').textContent, max: document.getElementById('filmFormat').max }));
+    assert.deepEqual([old.s.format, old.text, old.max], [2, '½ CUADRO', '5'], 'lo guardado como medio cuadro sigue siendo medio cuadro: ' + JSON.stringify(old));
+    await page.evaluate(() => flipFilm.set({ format: 0 }));
+    await page.reload();
+    await page.waitForFunction(() => window.flipFilm && document.getElementById('vFilmFormat'), null, { timeout: 20000 });
+    assert.deepEqual(await page.evaluate(() => [flipFilm.settings().format, document.getElementById('vFilmFormat').textContent]), [0, 'SÚPER 8'], 'y lo que se guarda ahora se lee tal cual');
+    step('los ajustes guardados de antes conservan su formato', old);
     console.log('FILM PASS');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

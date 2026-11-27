@@ -300,7 +300,20 @@
     // El papel de blanco y negro (plata sobre fibra).
     const BW_PAPER = { dmin: 0.05, dmax: 2.15, gamma: 2.2, toe: 1.5, shoulder: 1.4 };
     const PAPERS = [{ name: 'SUAVE', grade: 0.84 }, { name: 'NORMAL', grade: 1 }, { name: 'DURO', grade: 1.2 }];
-    const FORMATS = [{ name: '½ CUADRO', mm: 24 }, { name: '35 MM', mm: 36 }, { name: '6 × 7', mm: 70 }, { name: '4 × 5', mm: 127 }];
+    // Los formatos, del más pequeño al más grande: el ancho del cuadro, en milímetros. En los dos de cine
+    // chico («small») el cuadro es tan pequeño que una nube de tinte ya ocupa varios puntos de la imagen:
+    // ahí el grano no se sortea como estadística, se dibuja cristal a cristal, y la emulsión —que
+    // dispersa la luz unas micras— ya quita nitidez.
+    const FORMATS = [{ name: 'SÚPER 8', mm: 5.8, small: true }, { name: 'SÚPER 16', mm: 12.4, small: true }, { name: '½ CUADRO', mm: 24 }, { name: '35 MM', mm: 36 }, { name: '6 × 7', mm: 70 }, { name: '4 × 5', mm: 127 }];
+    const F35 = 3;                                                   // el formato de fábrica
+    // El radio (en micras) de la nube que deja cada cristal revelado: los gruesos (la sub-emulsión
+    // rápida) y los finos. Y cuánto dispersa la luz cada clase de emulsión (la desviación de su mancha,
+    // en micras; en color la capa roja, que va al fondo, es la que más, y la azul, arriba, la que menos).
+    const CLOUD = { coarse: 8.3, fine: 5.5 };
+    const SCATTER = { negative: 3.6, reversal: 3.0, mono: 2.6 }, SCATTER_LAYER = [1.25, 1, 0.8];
+    // Cuántos cristales por micra² tiene cada capa respecto a la verde (la azul los lleva más grandes y
+    // menos numerosos; la roja, algo más grandes).
+    const layerSize = (film, c) => (film.mono ? 1 : c === 2 ? 0.65 : c === 0 ? 0.92 : 1);
     // Filtros de color delante del objetivo (blanco y negro): qué deja pasar cada uno. El fotómetro
     // compensa la luz que quitan: un gris se queda donde estaba y los colores cambian de tono.
     const cutOn = (at, soft, floor = 0.01) => spec(l => floor + (1 - floor) / (1 + Math.exp(-(l - at) / soft)));
@@ -488,6 +501,7 @@
     function curveTable(film) {
       const { stock, curves, push, reversal } = film, sub = stock.sub || SUB;
       const out = new Float32Array(XN * 4), noise = new Float32Array(XN * 4), coarse = new Float32Array(XN * 4), fine = new Float32Array(XN * 4);
+      const qFast = new Float32Array(XN * 4), qMid = new Float32Array(XN * 4);     // qué parte de los cristales gruesos y de los finos forma imagen
       for (let i = 0; i < XN; i++) {
         const x = X0 + (X1 - X0) * i / (XN - 1);
         for (let c = 0; c < 3; c++) {
@@ -499,15 +513,16 @@
           // queda limpia —los blancos— no hay grano: ahí no queda nada que forme tinte).
           // La capa azul lleva cristales más grandes y menos numerosos; la roja, algo más grandes.
           // Empujar agranda el grano.
-          const p = cv.p(x), size = film.mono ? 1 : c === 2 ? 0.65 : c === 0 ? 0.92 : 1, boost = 1 + 0.8 * Math.max(0, push);
+          const p = cv.p(x), size = layerSize(film, c), boost = 1 + 0.8 * Math.max(0, push);
           const part = j => { const q = reversal ? 1 - p[j] : p[j]; return Math.pow(cv.range * sub.share[j], 2) * q * (1 - stock.grain.sat * q) / (stock.grain.rho[j] * size) * boost; };
           const fast = part(0), rest = part(1) + part(2);
           noise[i * 4 + c] = Math.sqrt(fast + rest) / cv.range;                                        // en unidades de «n» (0…1 del recorrido), por micra
           coarse[i * 4 + c] = Math.sqrt(fast) / cv.range; fine[i * 4 + c] = Math.sqrt(rest) / cv.range;
+          qFast[i * 4 + c] = reversal ? 1 - p[0] : p[0]; qMid[i * 4 + c] = reversal ? 1 - p[1] : p[1];
         }
-        out[i * 4 + 3] = 1; noise[i * 4 + 3] = 1; coarse[i * 4 + 3] = 1; fine[i * 4 + 3] = 1;
+        out[i * 4 + 3] = 1; noise[i * 4 + 3] = 1; coarse[i * 4 + 3] = 1; fine[i * 4 + 3] = 1; qFast[i * 4 + 3] = 1; qMid[i * 4 + 3] = 1;
       }
-      return { x0: X0, x1: X1, n: XN, density: out, noise, coarse, fine };
+      return { x0: X0, x1: X1, n: XN, density: out, noise, coarse, fine, qFast, qMid };
     }
     // Cuánto del grano comparten las tres capas de una película de color (de 0 a 1 de su varianza).
     // En una película de verdad cada capa tiene sus cristales y su grano es independiente: de cerca,
@@ -534,7 +549,7 @@
       return { H, D, n, print: table ? table.print(n) : null };
     }
 
-    return { LAM, STOCKS, PAPER, PAPERS, FORMATS, FILTERS, TONERS, SUB, X0, X1, XN, TIE, tieOf, prepare, printTable, curveTable, develop, upsample, planck, viewer, D65, clamp };
+    return { LAM, STOCKS, PAPER, PAPERS, FORMATS, F35, CLOUD, SCATTER, SCATTER_LAYER, layerSize, FILTERS, TONERS, SUB, X0, X1, XN, TIE, tieOf, prepare, printTable, curveTable, develop, upsample, planck, viewer, D65, clamp };
   })();
 
   if (typeof module !== 'undefined' && module.exports) { module.exports = physics; return; }
@@ -557,12 +572,15 @@
   //   4 · el inhibidor se difunde unas micras                                       (a la mitad; 2 pasadas)
   //   4b · el baño: la misma densidad a décimas de milímetro (películas de color)   (reducida; 2 pasadas)
   //   5 · revelado final (con el freno de las capas vecinas y el del baño), grano, ampliadora y soporte
+  // En cine chico (SÚPER 8 y SÚPER 16) hay dos pasadas más (1b: la emulsión dispersa la luz) y el grano
+  // del paso 5 deja de sortearse como estadística: se dibuja cristal a cristal (hasta 63 huecos por punto,
+  // cada uno con su cuenta de Poisson).
   // El último paso hace por cada punto: 5 lecturas en coma flotante, 21 de las tablas de la película,
   // unos 80 sorteos para el grano (dos tamaños de cristal y las nubes de tinte de cada capa) y la tabla
   // de copia en 3D. En el visor son 786 000 puntos, 24 granos distintos por segundo.
   // Si el teléfono no da destinos flotantes, queda el paso 5 solo, sin halación ni difusión.
   const $ = id => document.getElementById(id);
-  const KEY = 'flip.film';
+  const KEY = 'flip.film', NFMT = physics.FORMATS.length - 1;
   const VERT = `#version 300 es
     in vec2 aPos; out vec2 vUv;
     void main() { vUv = aPos * .5 + .5; gl_Position = vec4(aPos, 0., 1.); }`;
@@ -571,8 +589,10 @@
     in vec2 vUv; out vec4 o;
     uniform sampler2D uCurves; uniform vec2 uX;                    // tablas de la película; uX = (x0, 1/(x1 − x0))
     vec3 lookup(vec3 x, float row) { vec3 t = clamp((x - uX.x) * uX.y, 0., 1.) * (1023. / 1024.) + .5 / 1024.; return vec3(texture(uCurves, vec2(t.r, row)).r, texture(uCurves, vec2(t.g, row)).g, texture(uCurves, vec2(t.b, row)).b); }
-    vec3 curve(vec3 x) { return lookup(x, .125); }                 // (filas de la tabla: densidad, grano, grano grueso, grano fino)
-    vec3 curveAt(float x) { return texture(uCurves, vec2(clamp((x - uX.x) * uX.y, 0., 1.) * (1023. / 1024.) + .5 / 1024., .125)).rgb; }   // las tres capas con una misma exposición
+    // (filas de la tabla: densidad, grano, grano grueso, grano fino, y qué parte de los cristales gruesos y de los finos forma imagen)
+    const float DENSITY = 1. / 12., NOISE = 3. / 12., COARSE = 5. / 12., FINE = 7. / 12., QFAST = 9. / 12., QMID = 11. / 12.;
+    vec3 curve(vec3 x) { return lookup(x, DENSITY); }
+    vec3 curveAt(float x) { return texture(uCurves, vec2(clamp((x - uX.x) * uX.y, 0., 1.) * (1023. / 1024.) + .5 / 1024., DENSITY)).rgb; }   // las tres capas con una misma exposición
     vec3 log10v(vec3 v) { return log(max(v, vec3(1e-6))) * .4342944819; }
     float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973)); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }`;
   const EXPOSE = `
@@ -589,10 +609,10 @@
   const FRAG = {
     expose: HEAD + EXPOSE + `void main() { o = vec4(exposure(vUv), 1.); }`,
     blur: HEAD + `
-      uniform sampler2D uTex; uniform vec2 uStep; uniform float uLod, uSigma;
+      uniform sampler2D uTex; uniform vec2 uStep; uniform float uLod; uniform vec3 uSigma;      // (un ancho por capa)
       void main() {
-        vec3 sum = vec3(0.); float total = 0.;
-        for (int i = -7; i <= 7; i++) { float w = exp(-float(i * i) / (2. * uSigma * uSigma)); sum += w * textureLod(uTex, vUv + float(i) * uStep, uLod).rgb; total += w; }
+        vec3 sum = vec3(0.), total = vec3(0.);
+        for (int i = -7; i <= 7; i++) { vec3 w = exp(-float(i * i) / (2. * uSigma * uSigma)); sum += w * textureLod(uTex, vUv + float(i) * uStep, uLod).rgb; total += w; }
         o = vec4(sum / total, 1.);
       }`,
     first: HEAD + `
@@ -601,6 +621,40 @@
     final: simple => HEAD + (simple ? EXPOSE : 'uniform sampler2D uH, uHalo, uWide, uSpread, uBath; uniform float uEdge;') + `
       uniform sampler3D uPrint; uniform vec3 uK, uRange, uShift, uNoise;   // uNoise = (¿grano?, lado del grumo en puntos, 1/lado en micras)
       uniform vec3 uDirR, uDirG, uDirB; uniform float uSeed, uMode, uMono; uniform vec2 uRes, uTie;   // uTie = (raíz de lo que comparten las capas, raíz de lo propio)
+      // Cine chico: los cristales, uno por uno. uCry = (radio de la nube gruesa en puntos, nubes por celda,
+      // signo, fuerza); uCryF = lo mismo para la fina (radio, nubes por celda, fuerza); uMc y uMf = cuántos
+      // cristales caben en una celda de cada capa si todos forman imagen. Con uCry.x en 0, apagado.
+      uniform vec4 uCry; uniform vec3 uCryF, uMc, uMf;
+      // Cuántos cristales forman imagen en un hueco, cuando se esperan «m»: una ley de Poisson, sorteada
+      // con el número «u» del hueco (el mismo para las tres capas: comparten cristal). Hasta cuatro se
+      // cuentan uno a uno; con más, ya da igual contarlos que estimarlos.
+      vec3 conteo(vec3 m, float u) {
+        float z = log(u / (1. - u)) * .5513;
+        vec3 many = max(vec3(0.), floor(m + sqrt(m) * z + .5));
+        if (min(m.r, min(m.g, m.b)) >= 4.) return many;                 // (lo denso no paga la cuenta uno a uno)
+        vec3 pr = exp(-m), cdf = pr, k = vec3(0.);
+        for (int i = 1; i <= 10; i++) { k += step(cdf, vec3(u)); pr *= m / float(i); cdf += pr; }
+        return mix(k, many, step(4., m));
+      }
+      // La película, vista de cerca: el plano se reparte en celdas del tamaño de una nube; cada celda
+      // tiene unos huecos con sitio fijo (sorteado), y en cada hueco hay tantos cristales como dicte la
+      // exposición de ESTE punto. Cada cristal deja una nube redonda. Donde llegó poca luz se ven sueltos;
+      // donde llegó mucha, se enciman. Devuelve cuánto se aparta de su media (en lo denso, desviación 1).
+      vec3 cristales(vec2 frag, float radius, float slots, vec3 perCell, vec3 q, float salt) {
+        vec2 p = frag / radius, cell = floor(p);
+        vec3 full = max(perCell * q, vec3(1e-4)), m = full / slots, sum = vec3(0.);
+        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+          vec2 c = cell + vec2(float(i), float(j));
+          for (float s = 0.; s < slots; s += 1.) {
+            vec2 at = c + vec2(hash(c + salt + s * 7.31), hash(c.yx + salt + 3.7 + s * 5.17)) - p;
+            float r2 = dot(at, at);
+            // (lo que cuenta es cuánto se aparta cada hueco de lo esperado: así el sitio de los huecos,
+            //  que es fijo, no añade un moteado propio cuando hay muchos cristales en cada uno)
+            if (r2 < 1.) { float k = 1. - r2; sum += (conteo(m, clamp(hash(c * 1.37 + salt + 11.3 + s * 3.91), 1e-4, .9999)) - m) * k * k; }
+          }
+        }
+        return sum / sqrt(full * .6283185);
+      }
       vec3 gauss(vec2 cell, float salt) {
         vec3 a = vec3(hash(cell + salt), hash(cell + salt + 17.3), hash(cell + salt + 41.9)), b = vec3(hash(cell.yx + salt + 5.1), hash(cell.yx + salt + 23.7), hash(cell.yx + salt + 67.2));
         return sqrt(-2. * log(max(a, vec3(1e-4)))) * cos(6.2831853 * b);
@@ -629,7 +683,16 @@
         if (uNoise.x > .5) {
           vec2 p = gl_FragCoord.xy / uNoise.y;
           float fino = (uNoise.y > 1.2 ? grumos(p, uSeed) : gauss(floor(p), uSeed)).r, grueso = grumos(p * .43, uSeed + 91.).r;
-          if (uMono > .5) n += lookup(xe, .375) * uNoise.z * (.8 * fino + .6 * grueso);   // una sola emulsión: un solo grano
+          if (uCry.x > 0.) {
+            // Cine chico: los cristales gruesos y los finos, uno por uno (compartidos por las capas); en
+            // color, además, las nubes de tinte propias de cada capa. En una diapositiva lo que forma
+            // imagen es lo que NO se reveló: el signo va al revés.
+            vec3 grain = lookup(xe, COARSE) * uCry.w * cristales(gl_FragCoord.xy, uCry.x, uCry.y, uMc, lookup(xe, QFAST), uSeed + 91.)
+                       + lookup(xe, FINE) * uCryF.z * cristales(gl_FragCoord.xy, uCryF.x, uCryF.y, uMf, lookup(xe, QMID), uSeed);
+            n += uCry.z * uTie.x * grain;
+            if (uMono < .5) n += uNoise.z * uTie.y * lookup(xe, NOISE) * grumos(mat2(.8, .6, -.6, .8) * p * .31, uSeed + 173.);
+          }
+          else if (uMono > .5) n += lookup(xe, NOISE) * uNoise.z * (.8 * fino + .6 * grueso);   // una sola emulsión: un solo grano
           else {
             // Color: el grano es el de la plata —el mismo dibujo que en blanco y negro—, compartido por
             // las tres capas, y cada tamaño lleva la fuerza de SUS cristales: los gruesos (la sub-emulsión
@@ -637,7 +700,7 @@
             // al subir la exposición. Encima, lo propio de cada capa: nubes de tinte anchas, giradas para
             // que no caigan sobre el dibujo de la plata; es el color que se mueve dentro del grano.
             vec3 nubes = grumos(mat2(.8, .6, -.6, .8) * p * .31, uSeed + 173.);
-            n += uNoise.z * (uTie.x * (lookup(xe, .875) * fino + lookup(xe, .625) * grueso) + uTie.y * lookup(xe, .375) * nubes);
+            n += uNoise.z * (uTie.x * (lookup(xe, FINE) * fino + lookup(xe, COARSE) * grueso) + uTie.y * lookup(xe, NOISE) * nubes);
           }
         }
         if (uMode > .5) { o = vec4(clamp(n, 0., 1.), 1.); return; }                    // (pruebas: el negativo)
@@ -673,7 +736,7 @@
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       const tex = (target, filter) => { const t = gl.createTexture(); gl.bindTexture(target, t); gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); if (target === gl.TEXTURE_3D) gl.texParameteri(target, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE); return t; };
       G.tex = { src: tex(gl.TEXTURE_2D, gl.LINEAR), curves: tex(gl.TEXTURE_2D, gl.LINEAR), print: tex(gl.TEXTURE_3D, gl.LINEAR) };
-      for (const name of ['H', 'a', 'b', 'c', 'wide', 'first', 'd', 'spread', 'e', 'bath']) { G.tex[name] = tex(gl.TEXTURE_2D, name === 'H' || name === 'first' ? gl.LINEAR_MIPMAP_NEAREST : gl.LINEAR); G.fbo[name] = gl.createFramebuffer(); G.size[name] = [0, 0]; }
+      for (const name of ['H', 'H0', 's1', 'a', 'b', 'c', 'wide', 'first', 'd', 'spread', 'e', 'bath']) { G.tex[name] = tex(gl.TEXTURE_2D, name === 'H' || name === 'first' ? gl.LINEAR_MIPMAP_NEAREST : gl.LINEAR); G.fbo[name] = gl.createFramebuffer(); G.size[name] = [0, 0]; }
       canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); G.gl = null; G.lost++; G.film = null; });
       G.canvas = canvas; G.gl = gl;
       return true;
@@ -756,24 +819,24 @@
       if (sync) put(id, null);
       else { ask(id, true); if (!made.has(id)) return G.film && made.get(G.film) || null; }
     }
-    const set = made.get(id), rows = new Float32Array(physics.XN * 4 * 4);
-    [set.curves.density, set.curves.noise, set.curves.coarse, set.curves.fine].forEach((row, i) => rows.set(row, physics.XN * 4 * i));
+    const set = made.get(id), rows = new Float32Array(physics.XN * 4 * 6);
+    [set.curves.density, set.curves.noise, set.curves.coarse, set.curves.fine, set.curves.qFast, set.curves.qMid].forEach((row, i) => rows.set(row, physics.XN * 4 * i));
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.tex.curves);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, physics.XN, 4, 0, gl.RGBA, gl.FLOAT, rows);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, physics.XN, 6, 0, gl.RGBA, gl.FLOAT, rows);
     gl.bindTexture(gl.TEXTURE_3D, G.tex.print);
     gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, set.print.size, set.print.size, set.print.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, set.print.data);
     G.film = id;
     return set;
   }
   // Revela «source» y lo deja en el lienzo del motor (w × h).
-  //   o: { stock, ev, push, format (0…3), paper (0…2), filter (0…4), toner (0…4), grain, mirror, crop [x, y, w, h] en 0…1, seed, mode (0 copia, 1 negativo, 2 exposición) }
+  //   o: { stock, ev, push, format (0…5), live (vista previa: menos huecos por celda al dibujar cristales), paper (0…2), filter (0…4), toner (0…4), grain, mirror, crop [x, y, w, h] en 0…1, seed, mode (0 copia, 1 negativo, 2 exposición) }
   function develop(source, w, h, o) {
     const gl = G.gl, set = loadFilm(o.stock, o.push, clamp(o.paper == null ? 1 : o.paper | 0, 0, 2), o.filter | 0, o.toner | 0, o.sync);
     if (!set) return null;
     const { film } = set, stock = film.stock;
     if (G.canvas.width !== w || G.canvas.height !== h) { G.canvas.width = w; G.canvas.height = h; }
-    const upp = physics.FORMATS[clamp(o.format | 0, 0, 3)].mm * 1000 / Math.max(w, h);          // micras de película por punto
+    const format = physics.FORMATS[clamp(o.format == null ? physics.F35 : o.format | 0, 0, NFMT)], upp = format.mm * 1000 / Math.max(w, h);   // micras de película por punto
     const range = film.curves.map(c => c.range), shift = film.shiftAt(o.ev);
     const common = prog => {
       gl.useProgram(prog.p);
@@ -795,14 +858,20 @@
     gl.disable(gl.BLEND);
     const k = stock.halation.k;
     if (G.float) {
+      const blur = (from, to, tw, th, dx, dy, lod, sig) => { const sg = Array.isArray(sig) ? sig : [sig, sig, sig].map(v => Math.max(0.35, v)); target(to, tw, th); common(G.prog.blur); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.tex[from]); gl.uniform1i(G.prog.blur.u.uTex, 1); gl.uniform2f(G.prog.blur.u.uStep, dx, dy); gl.uniform1f(G.prog.blur.u.uLod, lod); gl.uniform3f(G.prog.blur.u.uSigma, sg[0], sg[1], sg[2]); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
       // 1 · exponer
-      target('H', w, h); common(G.prog.expose); exposing(G.prog.expose);
+      target(format.small ? 'H0' : 'H', w, h); common(G.prog.expose); exposing(G.prog.expose);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      // 1b · cine chico: la emulsión dispersa la luz unas micras, y aquí unas micras ya son puntos
+      if (format.small) {
+        const spread = physics.SCATTER[stock.kind] / upp, by = film.mono ? [1, 1, 1] : physics.SCATTER_LAYER, sig = by.map(f => Math.max(0.3, spread * f));
+        blur('H0', 's1', w, h, 1 / w, 0, 0, sig);
+        blur('s1', 'H', w, h, 0, 1 / h, 0, sig);
+      }
       gl.bindTexture(gl.TEXTURE_2D, G.tex.H); gl.generateMipmap(gl.TEXTURE_2D);
       // 2 · halación: el rebote cae a «radius» micras; se desenfoca sobre una copia reducida
       const sigma = stock.halation.radius / upp * 0.6, level = clamp(Math.round(Math.log2(Math.max(1, sigma / 2.4))), 0, 6), f = 1 << level;
       const bw = Math.max(2, Math.ceil(w / f)), bh = Math.max(2, Math.ceil(h / f)), st = sigma / f;
-      const blur = (from, to, tw, th, dx, dy, lod, sig) => { target(to, tw, th); common(G.prog.blur); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.tex[from]); gl.uniform1i(G.prog.blur.u.uTex, 1); gl.uniform2f(G.prog.blur.u.uStep, dx, dy); gl.uniform1f(G.prog.blur.u.uLod, lod); gl.uniform1f(G.prog.blur.u.uSigma, Math.max(0.35, sig)); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
       blur('H', 'a', bw, bh, 1 / bw, 0, level, st);
       blur('a', 'b', bw, bh, 0, 1 / bh, 0, st);
       // …y su cola: el rebote no acaba en seco (la luz que vuelve a rebotar llega más lejos). Un segundo
@@ -856,15 +925,30 @@
     gl.uniform2f(P.u.uRes, w, h);
     const tie = physics.tieOf(stock);
     gl.uniform2f(P.u.uTie, Math.sqrt(tie), Math.sqrt(1 - tie));
+    // (en la vista previa, si el teléfono no llega a 20 cuadros por segundo dibujando cristales, se le
+    //  piden menos por celda y, si ni así, el grano vuelve a sortearse como en los formatos grandes; la
+    //  foto los dibuja siempre)
+    const tier = o.live ? S.tier : 0;
+    if (format.small && o.grain !== false && tier < 2) {
+      // cristal a cristal: el radio de cada nube en puntos (nunca menos de lo que un punto puede enseñar),
+      // cuántos cristales caben en una celda de ese lado, y la fuerza que le toca a una nube de ese tamaño
+      const rc = Math.max(1.25, physics.CLOUD.coarse / upp), rf = Math.max(1.25, physics.CLOUD.fine / upp), rho = stock.grain.rho;
+      const perCell = (density, r) => [0, 1, 2].map(c => density * physics.layerSize(film, c) * Math.pow(r * upp, 2));
+      const mc = perCell(rho[0], rc), mf = perCell(rho[1], rf);
+      gl.uniform4f(P.u.uCry, rc, o.live ? 3 - tier : 4, film.reversal ? -1 : 1, 0.757 / (rc * upp));
+      gl.uniform3f(P.u.uCryF, rf, o.live ? 2 - tier : 3, 0.757 / (rf * upp));
+      gl.uniform3f(P.u.uMc, mc[0], mc[1], mc[2]); gl.uniform3f(P.u.uMf, mf[0], mf[1], mf[2]);
+    } else gl.uniform4f(P.u.uCry, 0, 0, 1, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return G.canvas;
   }
 
   // ── La cámara FILM ──────────────────────────────────────────────────────────────────────────────
-  const S = { ev: 0, push: 0, format: 1, paper: 1, filter: 0, toner: 0, grain: true, frame: 0, ms: 0 };
+  const S = { ev: 0, push: 0, format: physics.F35, paper: 1, filter: 0, toner: 0, grain: true, frame: 0, ms: 0, tier: 0, gap: 0, last: 0, slow: 0 };
   const NF = physics.FILTERS.length - 1, NT = physics.TONERS.length - 1;
-  try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && typeof saved === 'object') { S.ev = clamp(+saved.ev || 0, -2, 2); S.push = clamp(Math.round(+saved.push || 0), -1, 2); S.format = clamp(Math.round(saved.format == null ? 1 : +saved.format), 0, 3); S.paper = clamp(Math.round(saved.paper == null ? 1 : +saved.paper), 0, 2); S.filter = clamp(Math.round(+saved.filter || 0), 0, NF); S.toner = clamp(Math.round(+saved.toner || 0), 0, NT); S.grain = saved.grain !== false; } } catch (_) {}
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain })); } catch (_) {} };
+  // (lo guardado antes de los dos formatos de cine chico no lleva «v»: su lista empezaba en medio cuadro)
+  try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && typeof saved === 'object') { S.ev = clamp(+saved.ev || 0, -2, 2); S.push = clamp(Math.round(+saved.push || 0), -1, 2); S.format = clamp(Math.round(saved.format == null ? physics.F35 : +saved.format + (saved.v >= 2 ? 0 : 2)), 0, NFMT); S.paper = clamp(Math.round(saved.paper == null ? 1 : +saved.paper), 0, 2); S.filter = clamp(Math.round(+saved.filter || 0), 0, NF); S.toner = clamp(Math.round(+saved.toner || 0), 0, NT); S.grain = saved.grain !== false; } } catch (_) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify({ v: 2, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain })); } catch (_) {} };
   const mine = key => idOf(key, S.push, S.paper, S.filter, S.toner);
   function renderFilm(source, srcW, srcH, ctx, mirror, variant, options) {
     if (!ensureGl()) return false;
@@ -880,7 +964,7 @@
     let ready;
     try {
       // (la foto espera a su película; la vista previa sigue con la que hubiera mientras llega la nueva)
-      ready = develop(source, w, h, { stock, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain, mirror, sync: capture, crop: [sx / srcW, sy / srcH, sw / srcW, sh / srcH], seed: capture ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
+      ready = develop(source, w, h, { stock, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain, mirror, sync: capture, live: !capture, crop: [sx / srcW, sy / srcH, sw / srcW, sh / srcH], seed: capture ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
     } catch (error) { console.warn(String(error && error.message || error)); G.failed = true; return false; }
     ctx.save();
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
@@ -894,6 +978,15 @@
     ctx.restore();
     if (ready && !S.warmed) { S.warmed = true; for (const key of Object.keys(physics.STOCKS)) ask(mine(key)); }
     if (ready) { S.frame++; S.ms += (performance.now() - started - S.ms) * 0.1; }
+    // El ritmo de la vista previa con cristales dibujados: si va lenta un buen rato, se baja un escalón.
+    if (ready && !capture) {
+      const gap = started - S.last; S.last = started;
+      if (physics.FORMATS[S.format].small && S.grain && gap > 0 && gap < 500) {
+        S.gap += (gap - S.gap) * (S.gap ? 0.1 : 1);
+        S.slow = S.gap > 50 ? S.slow + 1 : 0;
+        if (S.slow > 45 && S.tier < 2) { S.tier++; S.slow = 0; S.gap = 0; }
+      } else { S.gap = 0; S.slow = 0; }
+    }
     return true;
   }
 
@@ -905,7 +998,7 @@
   const KNOBS = [
     ['filmEv', 'vFilmEv', () => Math.round(S.ev * 3), v => { S.ev = clamp(v / 3, -2, 2); }, v => signed(v / 3, 1)],
     ['filmPush', 'vFilmPush', () => S.push, v => { S.push = clamp(v, -1, 2); }, v => signed(v)],
-    ['filmFormat', 'vFilmFormat', () => S.format, v => { S.format = clamp(v, 0, 3); }, v => physics.FORMATS[v].name],
+    ['filmFormat', 'vFilmFormat', () => S.format, v => { S.format = clamp(v, 0, NFMT); }, v => physics.FORMATS[v].name],
     ['filmPaper', 'vFilmPaper', () => S.paper, v => { S.paper = clamp(v, 0, 2); }, v => physics.PAPERS[v].name, kind => kind !== 'reversal'],
     ['filmFilter', 'vFilmFilter', () => S.filter, v => { S.filter = clamp(v, 0, NF); }, v => physics.FILTERS[v].name, kind => kind === 'mono'],
     ['filmToner', 'vFilmToner', () => S.toner, v => { S.toner = clamp(v, 0, NT); }, v => physics.TONERS[v].name, kind => kind === 'mono'],
@@ -933,14 +1026,14 @@
     develop(source, options = {}) {
       if (!ensureGl()) return null;
       const w = options.w || source.width || source.videoWidth, h = options.h || source.height || source.videoHeight;
-      return develop(source, w, h, { stock: options.stock || 'RETRATO400', ev: options.ev || 0, push: options.push || 0, format: options.format == null ? 1 : options.format, paper: options.paper, filter: options.filter, toner: options.toner, grain: options.grain, mirror: false, sync: true, seed: options.seed == null ? 7.31 : options.seed, mode: options.mode || 0 });
+      return develop(source, w, h, { stock: options.stock || 'RETRATO400', ev: options.ev || 0, push: options.push || 0, format: options.format == null ? physics.F35 : options.format, live: !!options.live, paper: options.paper, filter: options.filter, toner: options.toner, grain: options.grain, mirror: false, sync: true, seed: options.seed == null ? 7.31 : options.seed, mode: options.mode || 0 });
     },
     // Lee el lienzo del motor (RGBA de 8 bits, de arriba abajo).
     read() { const gl = G.gl, w = G.canvas.width, h = G.canvas.height, raw = new Uint8Array(w * h * 4), out = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, raw); for (let y = 0; y < h; y++) out.set(raw.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4); return { data: out, w, h }; },
-    set(values) { if (values.ev != null) S.ev = clamp(+values.ev, -2, 2); if (values.push != null) S.push = clamp(Math.round(+values.push), -1, 2); if (values.format != null) S.format = clamp(Math.round(+values.format), 0, 3); if (values.paper != null) S.paper = clamp(Math.round(+values.paper), 0, 2); if (values.filter != null) S.filter = clamp(Math.round(+values.filter), 0, NF); if (values.toner != null) S.toner = clamp(Math.round(+values.toner), 0, NT); if (values.grain != null) S.grain = !!values.grain; save(); syncUI(); return this.settings(); },
+    set(values) { if (values.ev != null) S.ev = clamp(+values.ev, -2, 2); if (values.push != null) S.push = clamp(Math.round(+values.push), -1, 2); if (values.format != null) S.format = clamp(Math.round(+values.format), 0, NFMT); if (values.paper != null) S.paper = clamp(Math.round(+values.paper), 0, 2); if (values.filter != null) S.filter = clamp(Math.round(+values.filter), 0, NF); if (values.toner != null) S.toner = clamp(Math.round(+values.toner), 0, NT); if (values.grain != null) S.grain = !!values.grain; save(); syncUI(); return this.settings(); },
     // Avisa cuando las tablas de una película están listas (por omisión, con los ajustes puestos).
     ready: (stock, push = S.push, paper = S.paper, filter = S.filter, toner = S.toner) => ask(idOf(physics.STOCKS[stock] ? stock : 'RETRATO400', push, paper, filter, toner)).then(() => true),
     settings: () => ({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain }),
-    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null }),
+    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null, tier: S.tier, gap: Math.round(S.gap) }),
   };
 })();

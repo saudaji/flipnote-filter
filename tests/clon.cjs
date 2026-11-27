@@ -171,6 +171,11 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
       const trusted = read({}), faced = read({ faces: face }), faceless = read({ faces: [] });
       // el borde: de la persona al fondo se pasa poco a poco (cuántos puntos tarda en caer del 80 % al 20 %)
       let from = -1, to = -1; const top = faced(200, 170); for (let x = 200; x < 300; x++) { const v = faced(x, 170); if (from < 0 && v < top * 0.8) from = x; if (to < 0 && v < top * 0.2) { to = x; break; } }
+      // el filo: justo por fuera de la cabeza, del lado de la lámpara (el cuarto ahí es claro), no asoma el cuarto.
+      // (se mira sin el resplandor del look, que sí pone luz ahí)
+      const bare = document.createElement('canvas'); bare.width = bare.height = n; flipClon._render({ ...look, glow: null }, B, bare, { data: both, width: m, height: m, faces: face });
+      const bd = bare.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, n, n).data, edgeAt = (x, y) => Math.max(bd[4 * (y * n + x)], bd[4 * (y * n + x) + 1], bd[4 * (y * n + x) + 2]);
+      out.filo = [edgeAt(237, 170), edgeAt(240, 160), edgeAt(200, 124), edgeAt(226, 170)];
       return { ...out, mueble: [trusted(75, 280), faced(75, 280)], caraConCara: faced(200, 170), sinCara: [faceless(90, 100), faceless(200, 170)], borde: to - from, vacia: Math.max(dn[0], dn[1], dn[2]), datos: [!!look.backdrop, !!look.cdfFig, look.otOwn], dice: flipClon.describe({ ...look, figure: true }) };
     });
     assert.ok(figura.datos[0] && figura.datos[1] && figura.datos[2] >= 60, 'el look de fondo liso guarda el color de su fondo y los tonos y muestras de la figura sola: ' + figura.datos);
@@ -181,6 +186,7 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     assert.ok(/figura recortada/.test(figura.dice), 'y lo dice: ' + figura.dice);
     assert.ok(figura.mueble[0] > 12 && figura.mueble[1] <= 3 && figura.caraConCara > 140, 'lo que el detector toma por persona sin serlo (un mueble) no cuenta: solo la mancha que toca una cara: ' + JSON.stringify([figura.mueble, figura.caraConCara]));
     assert.ok(Math.abs(figura.sinCara[0] - figura.ventana[0]) <= 2, 'sin ninguna cara a la vista nada es figura: el look va por luz: ' + figura.sinCara);
+    assert.ok(figura.filo.slice(0, 3).every(v => v <= 8) && figura.filo[3] > 60, 'por fuera del borde no asoma el cuarto de detrás (antes, una raya de color alrededor de la persona), y por dentro sí hay persona: ' + figura.filo);
     assert.ok(figura.borde >= 4, 'y el borde no corta en seco: de la persona al fondo se pasa en ' + figura.borde + ' puntos');
     step('FIGURA: la persona toma el look y lo demás se va al fondo', figura);
 

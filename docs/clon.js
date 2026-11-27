@@ -887,7 +887,9 @@
       // Con fondo liso: lo que cae en su tono toma su color (un negro absoluto no lleva el tinte de la figura).
       if (uGround.w > .5) p.yz = mix(uGround.yz, p.yz, smoothstep(.02, .2, abs(p.x - uGround.x)));
       // FIGURA: lo que no es persona es fondo, y toma el color del fondo de la referencia.
-      if (uBack.w > .5) p = mix(uBack.xyz, p, smoothstep(.2, .8, texture2D(uMask, vec2(uMirror > .5 ? 1. - q.x : q.x, q.y)).r));
+      // (el corte va por DENTRO del borde de la máscara: el detector la da un pelo holgada, y con el
+      //  corte centrado en su borde asomaba un filo del cuarto de detrás —una raya roja alrededor del pelo—)
+      if (uBack.w > .5) p = mix(uBack.xyz, p, smoothstep(.5, .92, texture2D(uMask, vec2(uMirror > .5 ? 1. - q.x : q.x, q.y)).r));
       // Viñeta y grano, antes de encajar en la paleta (así el grano también trama).
       vec2 c = uv - .5;
       p.x *= 1. - uVig * dot(c, c) * 2.2;
@@ -1754,7 +1756,7 @@
     for (let i = 0; i < n; i++) count += keep[i];
     if (count < n * 0.02) { FIG.last = null; return (FIG.out = null); }
     const soft = feather(Float32Array.from(keep, (k, i) => (k ? data[i] : 0)), w, h);
-    if (FIG.last && FIG.lastW === w && FIG.lastH === h) for (let i = 0; i < n; i++) soft[i] = 0.6 * soft[i] + 0.4 * FIG.last[i];
+    if (FIG.last && FIG.lastW === w && FIG.lastH === h) for (let i = 0; i < n; i++) soft[i] = 0.75 * soft[i] + 0.25 * FIG.last[i];
     FIG.last = soft; FIG.lastW = w; FIG.lastH = h;
     return (FIG.out = { data: soft, width: w, height: h, seq: mask.seq, share: count / n });
   }

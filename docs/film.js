@@ -1095,6 +1095,32 @@
     if (fresh) { S.shotAt = started; S.amount = dt > 8 && dt < 150 ? Math.min(1.25, SHUTTER_MS / dt) * dim : 0; }
     return { fresh, amount: S.amount };
   }
+  // ── La ventanilla (solo cine chico, solo con el rollo corriendo) ──
+  // Una cámara de SÚPER 8 no tiene garfio de registro: la película baila en la ventanilla unas
+  // micras de un cuadro a otro (más en vertical, que es por donde tira el garfio), y su motor sin
+  // cristal no da exactamente la misma exposición a cada cuadro. Son micras y centésimas de paso,
+  // medidas sobre la película: en SÚPER 8 se ven, en SÚPER 16 apenas, y de ½ CUADRO en adelante no
+  // existen (ahí sería disfraz). En una foto tampoco: no corre el rollo.
+  //   vaivén: deriva lenta (tensión del rollo, 0,4 y 1,1 Hz) + temblor del garfio (~9 Hz, un 30 %)
+  //   pulso:  ± EV por cuadro de película (24 por segundo), cada uno parecido al anterior (ρ = 0,4)
+  const GATE = { 'SÚPER 8': { x: 12, y: 18, ev: 0.04 }, 'SÚPER 16': { x: 4, y: 6, ev: 0.015 } }, GATE_OVER = 0.012, TAU = Math.PI * 2;
+  function gateAt(now, format) {
+    const g = GATE[format.name];
+    if (!g) { S.gate = null; return null; }
+    if (!S.gate || now - S.gate.at > 600) S.gate = { since: now, frame: -1, pulse: 0 };       // el rollo arranca
+    const G0 = S.gate, t = now / 1000, ease = 1 - Math.exp(-(now - G0.since) / 300);           // (entra suave: el cuadro no pega un salto)
+    const sway = (a, b, c, ph) => 0.5 * Math.sin(TAU * a * t + ph) + 0.2 * Math.sin(TAU * b * t + 1.3 + ph) + 0.3 * Math.sin(TAU * c * t + 2.1 * Math.sin(TAU * 0.31 * t + ph));
+    const frame = Math.floor(now / (1000 / 24));
+    if (frame !== G0.frame) {
+      // (un número por cuadro de película, siempre el mismo para ese cuadro)
+      let h = Math.imul(frame ^ 0x9e3779b9, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+      G0.pulse = 0.4 * G0.pulse + 0.9165 * ((h >>> 0) / 2147483648 - 1); G0.frame = frame;
+    }
+    G0.at = now;
+    const um = format.mm * 1000;
+    G0.now = { x: ease * g.x * sway(0.43, 1.13, 8.7, 0) / um, y: ease * g.y * sway(0.37, 0.97, 9.4, 1.9) / um, ev: ease * g.ev * clamp(G0.pulse, -2, 2) / 2, over: ease * GATE_OVER };
+    return G0.now;
+  }
   function renderFilm(source, srcW, srcH, ctx, mirror, variant, options) {
     if (!ensureGl()) return false;
     const started = performance.now(), opts = options || {};
@@ -1123,11 +1149,14 @@
     const [sx, sy, sw, sh] = typeof cropCoordsForDims === 'function' ? cropCoordsForDims(srcW, srcH, w, h) : [0, 0, srcW, srcH];
     const stock = physics.STOCKS[variant] ? variant : 'RETRATO400', shut = still ? null : shutterFor(source, started);
     if (!still) S.shut = shut;
+    // (la ventanilla: el cuadro se lee un pelo más adentro —para que el vaivén no enseñe el borde— y corrido)
+    const gate = filming || motion ? gateAt(started, physics.FORMATS[S.format]) : (S.gate = null), cw = sw / srcW, ch = sh / srcH;
+    const crop = gate ? [sx / srcW + cw * (gate.over / 2 + gate.x), sy / srcH + ch * (gate.over / 2 + gate.y * w / h), cw * (1 - gate.over), ch * (1 - gate.over)] : [sx / srcW, sy / srcH, cw, ch];
     let ready;
     try {
       // (la foto espera a su película; la vista previa sigue con la que hubiera mientras llega la nueva.
       //  El grano de la foto es fijo; el de la vista previa y el del vídeo cambia 24 veces por segundo)
-      ready = develop(source, w, h, { stock, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain, mirror, sync: still, live: !still, shutter: shut, crop: [sx / srcW, sy / srcH, sw / srcW, sh / srcH], seed: still ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
+      ready = develop(source, w, h, { stock, ev: S.ev + (gate ? gate.ev : 0), push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain, mirror, sync: still, live: !still, shutter: shut, crop, seed: still ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
     } catch (error) { console.warn(String(error && error.message || error)); G.failed = true; return false; }
     ctx.save();
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
@@ -1197,6 +1226,6 @@
     // (pruebas) olvida el cuadro anterior del obturador
     forgetMotion() { G.motion.have = G.motion.flow = false; },
     settings: () => ({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain }),
-    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null, tier: S.tier, scale: S.scale, shutter: S.shutter, shuttering: !!S.shut, amount: +S.amount.toFixed(3), cameraMs: S.clock ? Math.round(S.clock.period) : 0, gap: Math.round(S.gap), filming: !!(S.video && performance.now() < S.video.until), reel: S.reel ? [S.reel.width, S.reel.height] : null }),
+    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null, tier: S.tier, scale: S.scale, shutter: S.shutter, shuttering: !!S.shut, amount: +S.amount.toFixed(3), cameraMs: S.clock ? Math.round(S.clock.period) : 0, gap: Math.round(S.gap), gate: S.gate && S.gate.now ? { x: +S.gate.now.x.toFixed(5), y: +S.gate.now.y.toFixed(5), ev: +S.gate.now.ev.toFixed(4) } : null, filming: !!(S.video && performance.now() < S.video.until), reel: S.reel ? [S.reel.width, S.reel.height] : null }),
   };
 })();

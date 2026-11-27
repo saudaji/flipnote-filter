@@ -460,6 +460,35 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     assert.deepEqual([filming.after.tier, filming.after.scale], [0, 1], 'sin haber ido lenta, no se baja la calidad');
     step('grabando vídeo se revela una vez por cuadro', { durante: filming.during, alAcabar: filming.after.size });
 
+    // la ventanilla: en cine chico, con el rollo corriendo, el cuadro baila unas micras y la exposición
+    // late; en 35 mm y en la foto, no (números de la auditoría de Neon: ±12 y ±18 µm, ±0,04 EV en SÚPER 8)
+    const gate = await page.evaluate(async () => {
+      const proxy = document.createElement('canvas'); proxy.width = 1440; proxy.height = 1080;
+      const ctx = proxy.getContext('2d', { willReadFrequently: true }), wait = ms => new Promise(ok => setTimeout(ok, ms));
+      const roll = async (format, frames) => {
+        flipFilm.set({ format }); await wait(700);
+        const seen = [];
+        for (let i = 0; i < frames; i++) { const cam = liveCamFrame(); renderFilm(cam.source, cam.srcW, cam.srcH, ctx, false, camVariant, { path: 'capture', outW: 1440, outH: 1080, motion: true }); seen.push(flipFilm.state().gate); await wait(45); }
+        await wait(900);
+        return seen;
+      };
+      const s8 = await roll(0, 36), s16 = await roll(1, 20), full = await roll(3, 6);
+      flipFilm.set({ format: 0 }); await wait(700);
+      const cam = liveCamFrame(); renderFilm(cam.source, cam.srcW, cam.srcH, ctx, false, camVariant, { path: 'capture', outW: 1440, outH: 1080 });
+      const photo = flipFilm.state().gate;
+      flipFilm.set({ format: 3 }); await wait(300);
+      return { s8, s16, full, photo };
+    });
+    const span = (rows, k) => { const v = rows.filter(Boolean).map(r => r[k]); return v.length ? +(Math.max(...v) - Math.min(...v)).toFixed(5) : 0; };
+    const late = gate.s8.slice(12);
+    assert.ok(late.every(Boolean), 'en SÚPER 8, grabando, la ventanilla está puesta');
+    assert.ok(span(late, 'x') > 0.0005 && span(late, 'y') > 0.0008 && late.every(g => Math.abs(g.x) <= 12.5 / 5800 && Math.abs(g.y) <= 18.5 / 5800), 'el cuadro baila, y no más de 12 µm a lo ancho y 18 a lo alto: ' + JSON.stringify([span(late, 'x'), span(late, 'y')]));
+    assert.ok(span(late, 'ev') > 0.008 && late.every(g => Math.abs(g.ev) <= 0.0401), 'la exposición late, ±0,04 EV como mucho: ' + span(late, 'ev'));
+    assert.ok(Math.abs(gate.s8[0].x) < 0.0004 && Math.abs(gate.s8[0].y) < 0.0006, 'entra suave: el primer cuadro no pega un salto: ' + JSON.stringify(gate.s8[0]));
+    assert.ok(span(gate.s16.slice(8), 'y') > 0 && span(gate.s16.slice(8), 'y') < span(late, 'y') && gate.s16.every(g => g && Math.abs(g.ev) <= 0.0151), 'en SÚPER 16, mucho menos');
+    assert.ok(gate.full.every(g => g === null) && gate.photo === null, 'en 35 mm no hay vaivén, y en una foto tampoco: ' + JSON.stringify([gate.full[0], gate.photo]));
+    step('la ventanilla: en cine chico el cuadro baila y la exposición late; en 35 mm y en foto, no', { super8: [span(late, 'x'), span(late, 'y'), span(late, 'ev')], super16: span(gate.s16.slice(8), 'y') });
+
     // en modo vídeo el obturador de cine va puesto (el visor enseña lo que se va a grabar); en foto, no
     const modes = { foto: await page.evaluate(() => ({ modo: camMode, s: flipFilm.state() })) };
     await page.locator('#deckModeSwitch').click();

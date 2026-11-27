@@ -11839,6 +11839,7 @@ const FLIP_AUDIO_DEFAULT_SETTINGS = {
   resolution: 'medium',
   audioMode: 'off',
   saveMode: 'files',
+  saveV: 0,                       // (2: ya se decidió dónde se guarda en este aparato; ver _flipSaveModeMigrate)
   effects: {
     lofi: { enabled: false, mix: 60, tone: 1200, crush: 8, grit: 20 },
     springReverb: { enabled: false, mix: 22, size: 1.8, decay: 1.6 },
@@ -11877,6 +11878,9 @@ const FLIP_AUDIO_MODE_OPTIONS = [
   { id:'lofi', label:'LO-FI' },
 ];
 const FLIP_SAVE_MODE_OPTIONS = [
+  // CARRETE: la toma cae en el carrete de FLIP sin preguntar nada (carrete.js) y luego se sacan todas
+  // juntas. ARCHIVOS: una descarga por toma. COMPARTIR: la hoja de compartir por toma.
+  { id:'roll', label:'CARRETE' },
   { id:'files', label:'ARCHIVOS' },
   { id:'share', label:'COMPARTIR' },
 ];
@@ -11942,13 +11946,24 @@ function _flipMergeSettings(base, incoming) {
   });
   return next;
 }
+// En un teléfono, disparar no debe lanzar una descarga ni una hoja de compartir por toma (en iPhone
+// era un aviso cada vez; en Android, una notificación): lo de fábrica ahí es el CARRETE de FLIP. Quien
+// venía con ARCHIVOS —que era lo único de fábrica— pasa una vez a CARRETE; en una computadora, donde
+// una descarga no estorba, se queda como estaba. Quien elija ARCHIVOS después, lo conserva.
+function _flipSaveModeMigrate(settings) {
+  if (!settings.saveV) {
+    settings.saveV = 2;
+    if ((IS_ANDROID || _IS_IOS) && settings.saveMode === 'files') settings.saveMode = 'roll';
+  }
+  return settings;
+}
 function loadFlipAudioSettings() {
   try {
     const raw = localStorage.getItem(FLIP_AUDIO_SETTINGS_KEY);
-    if (!raw) return _flipCloneSettings(FLIP_AUDIO_DEFAULT_SETTINGS);
-    return _flipMergeSettings(FLIP_AUDIO_DEFAULT_SETTINGS, JSON.parse(raw));
+    if (!raw) return _flipSaveModeMigrate(_flipCloneSettings(FLIP_AUDIO_DEFAULT_SETTINGS));
+    return _flipSaveModeMigrate(_flipMergeSettings(FLIP_AUDIO_DEFAULT_SETTINGS, JSON.parse(raw)));
   } catch (_) {
-    return _flipCloneSettings(FLIP_AUDIO_DEFAULT_SETTINGS);
+    return _flipSaveModeMigrate(_flipCloneSettings(FLIP_AUDIO_DEFAULT_SETTINGS));
   }
 }
 function saveFlipAudioSettings() {
@@ -20748,6 +20763,7 @@ window.__flipMainReady = true;                              // el guion llegó h
 <script src="./mp4-flat.js"></script>
 <script src="./feel.js"></script>
 <script src="./brand/rollo-en-anil/activar.js"></script>
+<script src="./carrete.js"></script>
 <script src="./shell.js"></script>
 <script src="./silueta.js"></script>
 <script src="./escucha.js"></script>

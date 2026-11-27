@@ -51,6 +51,10 @@ async function openFlip(browser, options = {}) {
   // piel: 'objeto' abre la carcasa de aparato (de fábrica FLIP abre la piel INTERFAZ). Se fija antes
   // de cargar, una sola vez por contexto: si la prueba cambia de piel después, se respeta.
   if (options.piel) await context.addInitScript(piel => { try { if (!sessionStorage.getItem('flip.prueba.piel')) { localStorage.setItem('flip.piel', piel); sessionStorage.setItem('flip.prueba.piel', '1'); } } catch (_) {} }, options.piel);
+  // En un teléfono (y las pruebas se hacen pasar por uno) las tomas van de fábrica al CARRETE de FLIP,
+  // sin descarga. Las pruebas de siempre esperan la descarga de cada toma: abren con GUARDAR EN ·
+  // ARCHIVOS ya elegido. La del carrete pide `carrete: true` y abre como un teléfono recién estrenado.
+  if (!options.carrete) await context.addInitScript(() => { try { if (!localStorage.getItem('flip_audio_settings')) localStorage.setItem('flip_audio_settings', JSON.stringify({ saveMode: 'files', saveV: 2 })); } catch (_) {} });
   const sceneCamera = options.sceneCamera || (ENGINE === 'webkit' ? { scene: 'roomLit', w: 720, h: 1280, fps: 30 } : null);
   if (sceneCamera) {
     await context.addInitScript(config => { window.__flipSceneCamera = config; }, sceneCamera);

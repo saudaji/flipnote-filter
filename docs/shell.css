@@ -969,6 +969,15 @@ button.launcher-card small, .launcher-modo small { align-self: start; font: 500 
 #shellViewer.is-open { display: flex; animation: launcher-in .2s ease-out; }
 .viewer-stage { flex: 1; min-height: 0; display: grid; place-items: center; border-radius: 10px; background: #0b0c0d; box-shadow: 0 0 0 5px #232427, 0 0 0 12px #ded6c4, 0 2px 0 13px var(--cream-deep), inset 0 0 30px rgba(0, 0, 0, .8); margin: 10px; overflow: hidden; }
 .viewer-stage img, .viewer-stage video { max-width: 100%; max-height: 100%; image-rendering: auto; }
+/* El carrete: una tira de tomas; la que se ve lleva marco, la que sigue sin guardar fuera, un punto. */
+.viewer-roll { display: flex; gap: 7px; overflow-x: auto; padding: 2px 2px 4px; flex: 0 0 auto; scrollbar-width: none; }
+.viewer-roll[hidden], #viewerAllRow[hidden], #viewerDelete[hidden] { display: none !important; }
+.viewer-roll button { position: relative; flex: 0 0 54px; height: 54px; border: 0; border-radius: 9px; background: #0b0c0d center / cover no-repeat; box-shadow: 0 0 0 2px #232427; cursor: pointer; }
+.viewer-roll button[aria-selected="true"] { box-shadow: 0 0 0 3px #0A9A5B; }
+.viewer-roll button.pendiente::after { content: ''; position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: #ff6b35; box-shadow: 0 0 0 2px #0b0c0d; }
+.viewer-roll button.es-video::before { content: '▶'; position: absolute; left: 5px; bottom: 3px; font-size: 10px; color: #fff; text-shadow: 0 1px 2px #000; }
+/* cuántas tomas siguen sin sacar del carrete */
+#deckGallery[data-pendientes]::before { content: attr(data-pendientes); position: absolute; top: -5px; right: -5px; z-index: 3; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: #ff6b35; color: #fff; font: 800 11px/18px var(--font-ui); text-align: center; box-shadow: 0 1px 0 rgba(0, 0, 0, .4); }
 .viewer-meta { text-align: center; font: 800 12px/1.4 var(--font-dot); letter-spacing: .04em; color: var(--ink-dim); text-transform: uppercase; }
 .viewer-actions { display: flex; gap: 10px; }
 .viewer-actions button { flex: 1; min-height: 50px; border-radius: 11px; border: 0; cursor: pointer; font: 800 12px/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--ink); background: linear-gradient(180deg, #fbf8f1, #ebe5d7); box-shadow: 0 4px 0 var(--cream-deep), inset 0 1px 0 #fff; }

@@ -114,10 +114,12 @@
       : `<div class="launcher-card" data-mode="${id}"><button class="hw launcher-modo" type="button" data-go-mode="${id}"><em>${icon(ico)}</em><strong>${title}</strong><small>${sub}</small></button>` +
         `<div class="launcher-subs" role="group" aria-label="Variantes de ${title}">${subs.map(([key, label]) => `<button class="hw launcher-sub" type="button" data-module="${key}">${label}</button>`).join('')}</div></div>`).join('')}</div>`);
   const viewer = el('div', { id: 'shellViewer', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Última toma' }, `
-    <div class="launcher-head"><h2>ÚLTIMA TOMA</h2><button class="hw hw-candy sm" id="viewerClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
+    <div class="launcher-head"><h2 id="viewerTitle">ÚLTIMA TOMA</h2><button class="hw hw-candy sm" id="viewerClose" type="button" aria-label="Cerrar">${icon('close')}</button></div>
     <div class="viewer-stage" id="viewerStage"></div>
+    <div class="viewer-roll" id="viewerRoll" role="listbox" aria-label="Tomas del carrete" hidden></div>
     <div class="viewer-meta" id="viewerMeta"></div>
-    <div class="viewer-actions"><button type="button" id="viewerSave">Guardar otra vez</button><button type="button" class="primary" id="viewerShare">Compartir</button></div>`);
+    <div class="viewer-actions"><button type="button" id="viewerSave">Guardar otra vez</button><button type="button" id="viewerDelete" hidden>Borrar</button><button type="button" class="primary" id="viewerShare">Compartir</button></div>
+    <div class="viewer-actions" id="viewerAllRow" hidden><button type="button" class="primary" id="viewerAll">Guardar todo</button></div>`);
   document.body.append(top, lcd, osd, deck, launcher, viewer);
 
   // La portada: el aparato saluda en su pantalla.
@@ -632,20 +634,43 @@
     });
   }
 
-  // ── Última toma ─────────────────────────────────────────────────────────────
-  let last = null;
+  // ── Última toma y carrete ────────────────────────────────────────────────────
+  // Con GUARDAR EN · CARRETE (lo de fábrica en un teléfono) disparar no lanza una descarga ni una hoja
+  // de compartir por toma: la toma cae en el carrete de FLIP (carrete.js) y la tecla TOMA lo abre. Ahí
+  // se ven todas, y un solo toque las saca juntas: en iPhone, a Fotos por la hoja de compartir (una
+  // vez, no una por toma); en Android y en computadora, a Descargas. Con ARCHIVOS o COMPARTIR todo
+  // sigue como antes y esto es el visor de la última toma.
+  let last = null, roll = [], cur = null, batch = null, sureAt = 0;
+  const hasRoll = () => typeof flipCarrete !== 'undefined';
+  const rollMode = () => hasRoll() && typeof flipAudioSettings !== 'undefined' && flipAudioSettings && flipAudioSettings.saveMode === 'roll';
+  const iOS = () => typeof _IS_IOS !== 'undefined' && _IS_IOS;
+  const fileOf = row => new File([row.blob], row.filename, { type: row.blob.type });
   const originalSave = saveBlob;
   saveBlob = async function (blob, filename) {
     // El visor guarda la toma ya sellada: lo que enseña es lo que se comparte.
     try { blob = await _sealFlipVideo(blob); } catch (_) {}
-    try { remember(blob, filename); } catch (_) {}
+    let thumb = '';
+    try { thumb = remember(blob, filename) || ''; } catch (_) {}
+    if (rollMode() && blob && /^(image|video)\//.test(blob.type || '')) {
+      try {
+        const card = await flipCarrete.add(blob, filename, thumb);
+        if (last && last.blob === blob) last.id = card.id;
+        await syncRoll();
+        return;
+      } catch (error) {
+        // (lleno de tomas sin guardar, o el navegador no dejó: la toma no se pierde, se baja como antes)
+        flipToast(String(error && error.message) === 'lleno' ? 'Carrete lleno: saca o borra tomas. Esta se bajó aparte.' : 'No pude guardarla en el carrete: se bajó aparte.', 4200);
+        return _downloadBlob(blob, filename);
+      }
+    }
     return originalSave.call(this, blob, filename);
   };
   function remember(blob, filename) {
-    if (!blob || !/^(image|video)\//.test(blob.type || '')) return;
+    if (!blob || !/^(image|video)\//.test(blob.type || '')) return '';
     if (last) URL.revokeObjectURL(last.url);
     last = { blob, filename, url: URL.createObjectURL(blob), video: /^video\//.test(blob.type), at: new Date() };
     const button = $('deckGallery'), face = button.querySelector('b');
+    let thumbUrl = '';
     button.classList.add('has-shot');
     button.classList.toggle('is-video', last.video);
     if (last.video) {
@@ -656,40 +681,132 @@
         const source = (shown && $(shown)) || display;
         thumb.width = 120; thumb.height = Math.round(120 * source.height / source.width);
         thumb.getContext('2d').drawImage(source, 0, 0, thumb.width, thumb.height);
-        face.style.backgroundImage = `url(${thumb.toDataURL('image/jpeg', 0.7)})`;
+        thumbUrl = thumb.toDataURL('image/jpeg', 0.7);
+        face.style.backgroundImage = `url(${thumbUrl})`;
       } catch (_) { face.style.backgroundImage = ''; }
     } else face.style.backgroundImage = `url(${last.url})`;
     button.classList.remove('pop');
     void button.offsetWidth;
     button.classList.add('pop');
+    return thumbUrl;
   }
-  function openViewer(open) {
+  // Lo que hay en el carrete, y cuántas tomas siguen sin sacar (la tecla TOMA lo enseña).
+  async function syncRoll() {
+    if (!hasRoll()) return;
+    try { roll = await flipCarrete.list(); } catch (_) { roll = []; }
+    const button = $('deckGallery'), pending = roll.filter(c => !c.saved).length;
+    if (pending) button.dataset.pendientes = String(pending); else delete button.dataset.pendientes;
+    if (roll.length && !last) { button.classList.add('has-shot'); button.classList.toggle('is-video', roll[0].video); button.querySelector('b').style.backgroundImage = roll[0].thumb ? `url(${roll[0].thumb})` : ''; }
+    if (!roll.length && !last) button.classList.remove('has-shot');
+    if (viewer.classList.contains('is-open')) paintRoll();
+  }
+  // Las primeras tomas pendientes, ya leídas y hechas archivo: la hoja de compartir tiene que abrirse
+  // en el mismo toque, sin esperar a leer nada (y no acepta montones: de diez en diez como mucho).
+  async function prepareBatch() {
+    batch = null;
+    if (!hasRoll() || !navigator.canShare) return;
+    const pending = roll.filter(c => !c.saved).slice(0, 10), rows = (await Promise.all(pending.map(c => flipCarrete.get(c.id).catch(() => null)))).filter(Boolean);
+    let files = rows.map(fileOf), ids = rows.map(r => r.id);
+    while (files.length > 1 && !navigator.canShare({ files })) { files = files.slice(0, Math.ceil(files.length / 2)); ids = ids.slice(0, files.length); }
+    if (files.length && navigator.canShare({ files })) batch = { files, ids };
+  }
+  function paintRoll() {
+    const strip = $('viewerRoll'), pending = roll.filter(c => !c.saved).length, on = roll.length > 0;
+    strip.hidden = !on;
+    $('viewerTitle').textContent = on ? 'CARRETE' + (pending ? ' · ' + pending + ' SIN GUARDAR' : ' · TODO GUARDADO') : 'ÚLTIMA TOMA';
+    strip.innerHTML = roll.map(c => `<button type="button" role="option" class="${c.saved ? '' : 'pendiente'}${c.video ? ' es-video' : ''}" data-toma="${c.id}" aria-selected="${cur && cur.id === c.id}" aria-label="${c.video ? 'Video' : 'Foto'}${c.saved ? '' : ', sin guardar'}" style="${c.thumb ? `background-image:url(${c.thumb})` : ''}"></button>`).join('');
+    const all = $('viewerAll'), row = $('viewerAllRow');
+    row.hidden = !pending;
+    all.textContent = iOS() ? `Guardar ${pending === 1 ? 'la toma' : 'las ' + pending} en Fotos` : `Bajar ${pending === 1 ? 'la toma' : 'las ' + pending} a Descargas`;
+    $('viewerDelete').hidden = !(cur && cur.id != null);
+    $('viewerDelete').textContent = 'Borrar';
+    $('viewerSave').textContent = on ? 'Bajar esta' : 'Guardar otra vez';
+    prepareBatch();
+  }
+  function stageShow() {
     const stage = $('viewerStage');
     stage.innerHTML = '';
-    viewer.classList.toggle('is-open', open);
-    // Mientras se mira la última toma, la cámara descansa (rest.js).
-    if (window.flipRest) flipRest[open && last ? 'hold' : 'release']('viewer');
-    if (!open || !last) return;
-    const node = document.createElement(last.video ? 'video' : 'img');
-    node.src = last.url;
-    if (last.video) { node.controls = true; node.playsInline = true; node.loop = true; node.autoplay = true; }
-    else node.alt = 'Última foto tomada con FLIP';
+    if (!cur) { $('viewerMeta').textContent = ''; return; }
+    const node = document.createElement(cur.video ? 'video' : 'img');
+    node.src = cur.url;
+    if (cur.video) { node.controls = true; node.playsInline = true; node.loop = true; node.autoplay = true; }
+    else node.alt = 'Toma hecha con FLIP';
     stage.appendChild(node);
-    const size = last.blob.size > 1048576 ? (last.blob.size / 1048576).toFixed(1) + ' MB' : Math.round(last.blob.size / 1024) + ' KB';
+    const size = cur.blob.size > 1048576 ? (cur.blob.size / 1048576).toFixed(1) + ' MB' : Math.round(cur.blob.size / 1024) + ' KB';
+    const card = cur.id != null ? roll.find(c => c.id === cur.id) : null;
     // (en iPhone una descarga va a Archivos, no a Fotos: a Fotos se llega con COMPARTIR)
-    $('viewerMeta').textContent = `${last.filename} · ${size} · ` + (typeof _IS_IOS !== 'undefined' && _IS_IOS ? 'COMPARTIR › Guardar imagen lo lleva a Fotos' : 'guardado en Descargas');
-    $('viewerShare').hidden = !(navigator.canShare && navigator.canShare({ files: [new File([last.blob], last.filename, { type: last.blob.type })] }));
+    $('viewerMeta').textContent = `${cur.filename} · ${size} · ` + (card ? (card.saved ? 'ya guardada fuera de FLIP' : 'en el carrete de FLIP, sin guardar fuera') : iOS() ? 'COMPARTIR › Guardar imagen lo lleva a Fotos' : 'guardado en Descargas');
+    $('viewerShare').hidden = !(navigator.canShare && navigator.canShare({ files: [fileOf(cur)] }));
+  }
+  // Enseña una toma del carrete (la lee de su almacén) o, sin carrete, la última.
+  async function pick(id) {
+    if (cur && cur.own) URL.revokeObjectURL(cur.url);
+    cur = null;
+    if (id != null && last && last.id === id) cur = { ...last, own: false };
+    else if (id != null) { const row = await flipCarrete.get(id).catch(() => null); if (row) cur = { id: row.id, blob: row.blob, filename: row.filename, url: URL.createObjectURL(row.blob), video: /^video\//.test(row.type), own: true }; }
+    if (!cur && last) cur = { ...last, own: false };
+    stageShow();
+    if (viewer.classList.contains('is-open')) paintRoll();
+  }
+  async function openViewer(open) {
+    viewer.classList.toggle('is-open', open);
+    // Mientras se mira una toma, la cámara descansa (rest.js).
+    if (window.flipRest) flipRest[open && (last || roll.length) ? 'hold' : 'release']('viewer');
+    if (!open) { $('viewerStage').innerHTML = ''; if (cur && cur.own) URL.revokeObjectURL(cur.url); cur = null; return; }
+    if (last) { cur = { ...last, own: false }; stageShow(); }                 // la última, al instante
+    paintRoll();
+    if (!last && roll.length) await pick(roll[0].id);
+  }
+  async function markSaved(ids) {
+    if (!hasRoll() || !ids.length) return;
+    try { await flipCarrete.saved(ids); } catch (_) {}
+    await syncRoll();
+    stageShow();
   }
   $('deckGallery').addEventListener('click', () => {
-    if (last) openViewer(true);
-    else flipToast('Aquí aparecerá tu última foto o video.');
+    if (last || roll.length) openViewer(true);
+    else flipToast('Aquí aparecerán tus fotos y videos.');
   });
   $('viewerClose').addEventListener('click', () => openViewer(false));
-  $('viewerSave').addEventListener('click', () => { if (last) _downloadBlob(last.blob, last.filename); });
+  $('viewerRoll').addEventListener('click', event => { const key = event.target.closest('[data-toma]'); if (key) pick(Number(key.dataset.toma)); });
+  $('viewerSave').addEventListener('click', () => { if (!cur) return; _downloadBlob(cur.blob, cur.filename); if (cur.id != null) markSaved([cur.id]); });
   $('viewerShare').addEventListener('click', async () => {
-    if (!last) return;
-    try { await navigator.share({ files: [new File([last.blob], last.filename, { type: last.blob.type })] }); } catch (_) {}
+    if (!cur) return;
+    const id = cur.id;
+    try { await navigator.share({ files: [fileOf(cur)] }); if (id != null) markSaved([id]); } catch (_) {}
   });
+  // Borrar pide confirmarlo con un segundo toque (una toma sin guardar no vuelve).
+  $('viewerDelete').addEventListener('click', async () => {
+    if (!cur || cur.id == null) return;
+    const key = $('viewerDelete'), now = performance.now();
+    if (now - sureAt > 2600 || key.dataset.de !== String(cur.id)) { sureAt = now; key.dataset.de = String(cur.id); key.textContent = '¿Borrar? Toca otra vez'; return; }
+    sureAt = 0;
+    const id = cur.id;
+    if (last && last.id === id) { URL.revokeObjectURL(last.url); last = null; }
+    try { await flipCarrete.remove([id]); } catch (_) {}
+    await syncRoll();
+    if (roll.length) await pick(roll[0].id); else openViewer(false);
+  });
+  // Sacar todas las pendientes de una vez.
+  $('viewerAll').addEventListener('click', async () => {
+    const pending = roll.filter(c => !c.saved);
+    if (!pending.length) return;
+    if (iOS() && batch && batch.files.length) {
+      const ids = batch.ids.slice();
+      try { await navigator.share({ files: batch.files }); await markSaved(ids); }
+      catch (error) { if (!error || error.name !== 'AbortError') flipToast('No se pudo abrir la hoja de compartir. Prueba toma por toma.', 3600); }
+      return;
+    }
+    const done = [];
+    for (const c of pending) {
+      const row = await flipCarrete.get(c.id).catch(() => null);
+      if (!row) continue;
+      _downloadBlob(row.blob, row.filename); done.push(c.id);
+      await new Promise(resolve => setTimeout(resolve, 320));           // (el navegador corta las descargas en ráfaga)
+    }
+    await markSaved(done);
+  });
+  syncRoll();
 
   // El sonido y la vibración de las teclas viven en feel.js.
   document.addEventListener('keydown', event => {

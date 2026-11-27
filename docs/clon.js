@@ -2,8 +2,9 @@
 //
 // Se le enseña una referencia —un cartel al que se apunta, una portada, una foto que se abre— y
 // arma con ella una cámara nueva que funciona en vivo. No elige «la cámara de FLIP que más se
-// parece»: mide la referencia y construye un look a su medida. Todo ocurre en el aparato, sin red y
-// sin modelos de IA: es estadística de la imagen y un sombreador.
+// parece»: mide la referencia y construye un look a su medida. Todo ocurre en el aparato: es
+// estadística de la imagen y un sombreador (el único modelo es el detector de personas de la tecla
+// FIGURA, opcional: también corre en el aparato, y se descarga la primera vez que se usa).
 //
 // Tres pasos:
 //
@@ -37,8 +38,9 @@
 //       saca mala nota, y se ve.
 //
 // Lo que clona: color, tonos, trama, píxel, grano, contorno, suavidad y resplandor. Lo que no: el
-// dibujo (el trazo de una ilustración, la tipografía, el contenido) ni qué parte de la escena es «la
-// figura». Eso pediría un modelo generativo.
+// dibujo (el trazo de una ilustración, la tipografía, el contenido). Eso pediría un modelo generativo.
+// Qué parte de la escena es «la figura» solo lo sabe con la tecla FIGURA (looks de fondo liso), que
+// usa el detector de personas de FLIP; sin ella, o si no hay una persona, el look se reparte por luz.
 // Se prueba contra la verdad en tests/clon.cjs: estilos de receta conocida (tests/lib/clon-estilos.js).
 (function () {
   'use strict';

@@ -103,6 +103,17 @@
         { gain: .42, bands: [[920, .85, 2.4, .66, .55], [1650, .85, 1.5, .52, .48]] },
         { at: 16, bands: [[2250, .9, 2.0, .9, .44], [1220, .85, 2.8, .66, .52], [3800, .85, 1.0, .44, .4], [540, .85, 3.8, .28, .54]] },
       ] },
+      // FORMATO, al entrar a cine chico (½ CUADRO → SÚPER 16): destrabe breve (0 ms) y asiento más hondo
+      // de la ventanilla (14 ms). Y al salir: subida con cuerpo (0 ms) y muesca nítida de vuelta (12 ms).
+      // (diseño: Gemini Neon)
+      gateIn: { contact: .14, lp: 7800, hits: [
+        { gain: .48, bands: [[2300, .9, 1.1, .6, .4], [1250, .85, 1.6, .55, .48]] },
+        { at: 14, bands: [[1120, .88, 2.8, .92, .52], [580, .88, 4.0, .74, .56], [2100, .85, 1.3, .4, .45], [290, .85, 5.0, .34, .54]] },
+      ] },
+      gateOut: { contact: .12, lp: 8800, hits: [
+        { gain: .44, bands: [[980, .88, 2.2, .68, .54], [1750, .85, 1.4, .5, .48]] },
+        { at: 12, bands: [[2150, .9, 1.8, .88, .42], [1180, .85, 2.5, .62, .5], [3600, .85, .95, .4, .4]] },
+      ] },
       tick: { contact: .13, lp: 6800, hits: [
         { bands: [[1850, .85, 1.2, .85, .45], [980, .85, 1.7, .58, .5], [3200, .8, .75, .38, .45], [520, .85, 2.0, .2, .55]] },
       ] },
@@ -186,6 +197,14 @@
         { gain: .42, bands: [[1200, .95, 1.8, .64, .5], [2100, .95, 1.2, .5, .44]] },
         { at: 12, bands: [[2700, 1.1, 1.5, .9, .36], [1500, 1.0, 2.1, .62, .44], [4500, 1.0, .8, .4, .34]] },
       ] },
+      gateIn: { contact: .09, lp: 7600, hits: [
+        { gain: .48, bands: [[2800, 1.1, .95, .62, .34], [1550, 1.0, 1.3, .52, .42]] },
+        { at: 11, bands: [[1480, 1.05, 2.1, .9, .42], [780, 1.0, 3.0, .68, .5], [2700, 1.0, 1.0, .38, .38]] },
+      ] },
+      gateOut: { contact: .08, lp: 8600, hits: [
+        { gain: .42, bands: [[1250, 1.0, 1.7, .62, .48], [2150, 1.0, 1.1, .48, .42]] },
+        { at: 10, bands: [[2600, 1.1, 1.4, .88, .36], [1450, 1.0, 2.0, .58, .44], [4200, 1.0, .75, .36, .34]] },
+      ] },
       tick: { contact: .09, lp: 7200, hits: [
         { bands: [[2150, 1.1, .95, .85, .36], [1250, 1.0, 1.3, .5, .44], [3600, .95, .55, .3, .38]] },
       ] },
@@ -232,6 +251,12 @@
     lookSeat: { rank: 3, down: { sound: 'lookSeat', gain: .70, vib: [7, 12, 10] } },
     lookTrash: { rank: 3, down: { sound: 'lookTrash', gain: .52, vib: [11, 16, 5] } },
     lookUndo: { rank: 3, down: { sound: 'lookUndo', gain: .66, vib: [5, 16, 11] } },
+    gateIn: { rank: 2, down: { sound: 'gateIn', gain: .58, vib: [6, 16, 11] } },
+    gateOut: { rank: 2, down: { sound: 'gateOut', gain: .52, vib: [10, 14, 5] } },
+    // Grabar en FILM: el motor agarra paso (tres pulsos acelerando) y, al cortar, frena y se traba.
+    // Solo tacto, como en las demás cámaras: nada que se cuele al micrófono.
+    filmRecStart: { rank: 5, down: { vib: [9, 44, 6, 28, 5, 17, 10] } },
+    filmRecStop: { rank: 5, down: { vib: [11, 20, 7, 36, 6] } },
   };
   // De la pieza más concreta a la más genérica.
   const MAP = [
@@ -544,7 +569,8 @@
       const video = hit.node.id === 'deckShutter' && document.body.classList.contains('cam-video');
       // Con AL GOLPE el toque solo arma: el disparo suena cuando de verdad cae la foto (escucha.js).
       const waits = hit.node.id === 'deckShutter' && window.flipEscucha && flipEscucha.waits && flipEscucha.waits();
-      if (video) emit(mine && mine.wasRecording ? 'recStop' : 'recStart', 'down', x);
+      const film = typeof camFamily !== 'undefined' && camFamily === 'FILM';
+      if (video) emit(mine && mine.wasRecording ? (film ? 'filmRecStop' : 'recStop') : (film ? 'filmRecStart' : 'recStart'), 'down', x);
       else if (waits) emit('shutter', 'arm', x);
       else emit('shutter', 'fire', x);
     }

@@ -206,7 +206,7 @@
   function setValue(entry, next, x, quiet) {
     const input = entry.input, min = Number(input.min || 0), max = Number(input.max || 100), step = Number(input.step) > 0 ? Number(input.step) : 1;
     const snapped = clamp(min + Math.round((next - min) / step) * step, min, max);
-    const text = String(+snapped.toFixed(4));
+    const text = String(+snapped.toFixed(4)), prev = Number(input.value);
     if (text === input.value) return false;
     input.value = text;
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -214,7 +214,10 @@
     if (feel() && !quiet) {
       // En los extremos la perilla topa (una vez); en medio, una muesca que sube de tono con el recorrido.
       const at = snapped <= min ? 'min' : snapped >= max ? 'max' : '';
-      if (!(feel().edge && feel().edge(input, at, x))) feel().detent(x, (snapped - min) / ((max - min) || 1));
+      // (FORMATO de FILM: cruzar entre cine chico —SÚPER 8, SÚPER 16— y foto fija se siente distinto de las demás muescas)
+      const cross = input.id === 'filmFormat' ? (prev >= 2 && snapped <= 1 ? 'gateIn' : prev <= 1 && snapped >= 2 ? 'gateOut' : '') : '';
+      if (cross && feel().tap) { if (feel().edge) feel().edge(input, ''); feel().tap(cross, 'down', x); }
+      else if (!(feel().edge && feel().edge(input, at, x))) feel().detent(x, (snapped - min) / ((max - min) || 1));
     }
     readout(entry);
     return true;

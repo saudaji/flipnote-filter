@@ -8,8 +8,11 @@
 // detiene el dibujo.
 //
 //   flipSilhouette.start()                         carga el detector (se puede llamar siempre)
-//   flipSilhouette.push(src, sx, sy, sw, sh, mirror)  ofrece un cuadro; se ignora si hay uno en curso
-//   flipSilhouette.latest(edadMáx)                 { data, width, height, seq, at } o null
+//   flipSilhouette.push(src, sx, sy, sw, sh, mirror, { faces })  ofrece un cuadro; se ignora si hay uno en curso.
+//                                                  Con faces: true, la máscara llega con las caras del cuadro
+//   flipSilhouette.latest(edadMáx)                 { data, width, height, seq, at, faces } o null
+//                                                  faces: [[x0, y0, x1, y1, confianza], …] en fracción del
+//                                                  cuadro; null si no se pidieron o su modelo aún no carga
 //   flipSilhouette.status()                        { phase, mode, message, ms }
 //   flipSilhouette.retry()                         tras un fallo
 //   flipSilhouette.use(fn)                         detector propio (pruebas)
@@ -18,6 +21,7 @@ const flipSilhouette = (() => {
   const LIB = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/+esm';
   const WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wasm';
   const MODEL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
+  const FACES = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
   const INPUT = 256;            // lado largo de la imagen que recibe el modelo
   const INIT_TIMEOUT = 30000;   // la primera vez descarga unos 10 MB
   const FRAME_TIMEOUT = 4000;
@@ -36,8 +40,9 @@ const flipSilhouette = (() => {
     s.message = message;
   }
 
-  function accept(data, width, height, ms) {
-    s.mask = { data, width, height, seq: ++s.seq, at: performance.now() };
+  function accept(data, width, height, ms, faces, faceState) {
+    s.mask = { data, width, height, seq: ++s.seq, at: performance.now(), faces: faces || null };
+    if (faceState != null) s.faces = faceState;
     s.ms = ms;
     s.strikes = 0;
   }
@@ -72,7 +77,7 @@ const flipSilhouette = (() => {
         } else if (msg.type === 'mask') {
           if (worker !== s.worker) return;
           settle();
-          accept(msg.data, msg.width, msg.height, msg.ms);
+          accept(msg.data, msg.width, msg.height, msg.ms, msg.faces, msg.faceState);
         } else if (msg.type === 'error') {
           if (!ready) { clearTimeout(timer); worker.terminate(); reject(new Error(msg.message)); return; }
           if (worker === s.worker) { settle(); strike(msg.message); }
@@ -177,7 +182,7 @@ const flipSilhouette = (() => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
-  function push(source, sx, sy, sw, sh, mirror) {
+  function push(source, sx, sy, sw, sh, mirror, opts) {
     s.lastUse = performance.now();
     if (s.phase !== 'ready' || s.busy || !(sw > 0) || !(sh > 0)) return false;
     // 30 siluetas por segundo como mucho: quien dibuja a 60 o a 120 reutiliza la última. Segmentar
@@ -193,7 +198,7 @@ const flipSilhouette = (() => {
     if (s.mode === 'custom') {
       try {
         const mask = s.provider(s.input);
-        if (mask) accept(mask.data, mask.width, mask.height, performance.now() - s.sentAt);
+        if (mask) accept(mask.data, mask.width, mask.height, performance.now() - s.sentAt, mask.faces, mask.faces ? 'ready' : '');
       } finally {
         s.busy = false;
       }
@@ -201,7 +206,7 @@ const flipSilhouette = (() => {
       const bitmap = s.input.transferToImageBitmap();
       const worker = s.worker;
       s.frameTimer = setTimeout(() => { if (worker === s.worker) { settle(); strike('sin respuesta'); } }, FRAME_TIMEOUT);
-      worker.postMessage({ type: 'frame', id: ++s.frameId, bitmap }, [bitmap]);
+      worker.postMessage({ type: 'frame', id: ++s.frameId, bitmap, faces: opts && opts.faces ? FACES : undefined }, [bitmap]);
     } else {
       // Fuera de la tarea de dibujo, para que este cuadro llegue a pantalla antes de inferir.
       setTimeout(() => {
@@ -250,6 +255,7 @@ const flipSilhouette = (() => {
 
   return {
     start, push, latest, retry, use,
-    status: () => ({ phase: s.phase, mode: s.mode, message: s.message, ms: s.ms, error: s.error || '', seq: s.seq }),
+    // (faces: cómo va el modelo de caras, si alguien lo pidió: '', 'loading', 'ready' o 'failed')
+    status: () => ({ phase: s.phase, mode: s.mode, message: s.message, ms: s.ms, error: s.error || '', seq: s.seq, faces: s.faces || '' }),
   };
 })();

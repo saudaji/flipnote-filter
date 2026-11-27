@@ -887,7 +887,7 @@
       // Con fondo liso: lo que cae en su tono toma su color (un negro absoluto no lleva el tinte de la figura).
       if (uGround.w > .5) p.yz = mix(uGround.yz, p.yz, smoothstep(.02, .2, abs(p.x - uGround.x)));
       // FIGURA: lo que no es persona es fondo, y toma el color del fondo de la referencia.
-      if (uBack.w > .5) p = mix(uBack.xyz, p, smoothstep(.3, .7, texture2D(uMask, vec2(uMirror > .5 ? 1. - q.x : q.x, q.y)).r));
+      if (uBack.w > .5) p = mix(uBack.xyz, p, smoothstep(.2, .8, texture2D(uMask, vec2(uMirror > .5 ? 1. - q.x : q.x, q.y)).r));
       // Viñeta y grano, antes de encajar en la paleta (así el grano también trama).
       vec2 c = uv - .5;
       p.x *= 1. - uVig * dot(c, c) * 2.2;
@@ -1709,7 +1709,8 @@
   // ── FIGURA: la cámara sabe qué es persona y qué es fondo ─────────────────────
   // Sin esto, «una figura clara sobre negro» se traduce por luz: lo claro de la escena brilla y lo
   // oscuro se va a negro, sea persona o pared. Con la tecla FIGURA (en looks de fondo liso) se usa el
-  // detector de personas de FLIP —el mismo de STAGE y FLOW; corre en el teléfono—: lo que no es
+  // detector de personas de FLIP —el mismo de STAGE y FLOW; corre en el teléfono—, y solo cuenta la
+  // persona a la que se le ve la cara (ver «confirmFigure»): lo que no es
   // persona toma el color del fondo de la referencia, y la persona recibe los tonos y los colores de la
   // FIGURA de la referencia (medidos sin su fondo), repartidos según la luz y el color de la persona
   // sola. Si no hay nadie en cuadro, o el detector aún no carga, la cámara sigue como siempre.
@@ -1723,6 +1724,41 @@
     Object.defineProperty(look, '_fig', { value: { from: look.ot, sat: look.sat, look: fig }, enumerable: false, configurable: true, writable: true });
     return fig;
   }
+  // La figura confirmada. El detector de personas es un modelo de selfies: sin nadie cerca toma por
+  // persona un sillón, una cortina, una lámpara. Así que de su máscara solo cuentan las manchas que
+  // TOCAN UNA CARA (el detector de caras va junto, en el mismo cuadro): se rellena la mancha desde la
+  // cara y lo demás se tira. Si la persona se da la vuelta, la mancha se sigue unos segundos por donde
+  // estaba; sin cara y sin rastro, no hay figura y la cámara reparte el look por luz, como siempre.
+  // El borde se difumina (un 1,5 % del ancho) y se mezcla con el de la máscara anterior: recortado
+  // en seco sobre un fondo liso, parece una calcomanía.
+  const FIG = { seq: -1, out: null, last: null, lastW: 0, lastH: 0, faceAt: -1e9 };
+  function confirmFigure(mask, now) {
+    if (!mask) return null;
+    if (mask.seq != null && mask.seq === FIG.seq) return FIG.out;
+    FIG.seq = mask.seq == null ? -1 : mask.seq;
+    const w = mask.width, h = mask.height, n = w * h, data = mask.data, keep = new Uint8Array(n), stack = [];
+    const seed = i => { if (!keep[i] && data[i] > 0.5) { keep[i] = 1; stack.push(i); } };
+    const faces = (mask.faces || []).filter(f => f[4] >= 0.5);
+    for (const f of faces) {
+      // (la cara y un poco más abajo: el cuello y los hombros, por si la máscara deja un hueco en la cara)
+      const x0 = Math.max(0, Math.floor(f[0] * w)), x1 = Math.min(w - 1, Math.ceil(f[2] * w)), y0 = Math.max(0, Math.floor(f[1] * h)), y1 = Math.min(h - 1, Math.ceil((f[3] + (f[3] - f[1]) * 0.4) * h));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) seed(y * w + x);
+    }
+    if (faces.length) FIG.faceAt = now;
+    else if (FIG.last && FIG.lastW === w && FIG.lastH === h && now - FIG.faceAt < 4000) for (let i = 0; i < n; i++) if (FIG.last[i] > 0.6) seed(i);
+    while (stack.length) {
+      const i = stack.pop(), x = i % w;
+      if (x > 0) seed(i - 1); if (x < w - 1) seed(i + 1); if (i >= w) seed(i - w); if (i < n - w) seed(i + w);
+    }
+    let count = 0;
+    for (let i = 0; i < n; i++) count += keep[i];
+    if (count < n * 0.02) { FIG.last = null; return (FIG.out = null); }
+    const soft = feather(Float32Array.from(keep, (k, i) => (k ? data[i] : 0)), w, h);
+    if (FIG.last && FIG.lastW === w && FIG.lastH === h) for (let i = 0; i < n; i++) soft[i] = 0.6 * soft[i] + 0.4 * FIG.last[i];
+    FIG.last = soft; FIG.lastW = w; FIG.lastH = h;
+    return (FIG.out = { data: soft, width: w, height: h, seq: mask.seq, share: count / n });
+  }
+  const feather = (plane, w, h) => blurPlane(plane, w, h, Math.max(0.8, w * 0.015));
   // Los puntos de una imagen (RGBA) que caen sobre la persona; null si casi no hay persona.
   function figurePixels(data, w, h, mask) {
     const out = new Uint8ClampedArray(w * h * 4);
@@ -1761,10 +1797,17 @@
     let mask = null;
     if (look && look.figure && backOf(look) && !aim && typeof flipSilhouette !== 'undefined') {
       flipSilhouette.start();
-      flipSilhouette.push(source, sx, sy, sw, sh, false);
-      mask = flipSilhouette.latest(1200);
-      const phase = mask ? 'ready' : flipSilhouette.status().phase;
-      if (phase !== S.figSaid && opts.path !== 'capture') { S.figSaid = phase; if (phase === 'failed') say('FIGURA necesita conexión la primera vez', 4200); else if (phase !== 'ready') say('Cargando el recorte de figura…', 2600); }
+      flipSilhouette.push(source, sx, sy, sw, sh, false, { faces: true });
+      const raw = flipSilhouette.latest(1200);
+      mask = confirmFigure(raw, started);
+      // (y se dice qué pasa, una vez por cambio: cargando, sin conexión, o que no hay una cara a la vista)
+      const phase = raw ? (mask ? 'ready' : raw.faces ? 'nobody' : 'loading') : flipSilhouette.status().phase;
+      if (phase !== S.figSaid && opts.path !== 'capture' && !(phase === 'nobody' && started - (S.figSaidAt || 0) < 6000)) {
+        S.figSaid = phase; S.figSaidAt = started;
+        if (phase === 'failed') say('FIGURA necesita conexión la primera vez', 4200);
+        else if (phase === 'nobody') say('FIGURA · no veo una cara: el look va por luz', 3000);
+        else if (phase !== 'ready') say('Cargando el recorte de figura…', 2600);
+      }
     }
     // La escena se mide de vez en cuando (su luz y su color medio) y se sigue despacio.
     if (started - S.sceneAt > 330 || !!mask !== !!S.figMask) {
@@ -2107,10 +2150,12 @@
   window.flipClon = {
     analyze, describe, nameOf, release, _fit: fit, _transport: transport, _scene: sceneOf, _tone: (look, hist, amount) => Array.from(toneCurve(look, hist, amount == null ? 0.8 : amount, new Uint8Array(256))),
     // (pruebas) pone un look sobre una imagen suelta y lo deja en «out»
-    // (con «mask» —{ data, width, height }, 1 donde hay persona— y un look de fondo liso, como con la tecla FIGURA)
+    // (con «mask» —{ data, width, height }, 1 donde hay persona— y un look de fondo liso, como con la
+    //  tecla FIGURA. Si la máscara trae «faces», se confirma como en vivo: solo lo que toca una cara)
     _render(look, source, out, mask) {
       if (!ensureGl()) return false;
       surface(probe, 32, 24); probe.ctx.drawImage(source, 0, 0, 32, 24);
+      if (mask) { FIG.seq = -1; FIG.last = null; mask = mask.faces === undefined ? { data: feather(Float32Array.from(mask.data), mask.width, mask.height), width: mask.width, height: mask.height } : confirmFigure({ ...mask, seq: null }, performance.now()); }
       const all = probe.ctx.getImageData(0, 0, 32, 24).data, own = mask && backOf(look) ? figurePixels(all, 32, 24, mask) : null;
       const scene = own ? sceneOf(own.data, own.count) : sceneOf(all, 32 * 24); scene.version = Math.random();
       G.look = null;
@@ -2123,6 +2168,6 @@
     keep, forget, restore, rename, fav, use, gallery, capture, MAX: MAX_LOOKS,
     looks: () => JSON.parse(JSON.stringify(S.looks)),
     aim(on) { if (on != null) { S.aim = !!on; paint(); } return S.aim; },
-    state: () => ({ looks: S.looks.length, aim: S.aim, busy: S.busy, frame: S.frame, ms: +S.ms.toFixed(2), gl: !!G.gl, failed: G.failed, lost: G.lost, current: current() ? current().id : null, figure: current() && backOf(current()) ? { on: !!current().figure, cut: !!S.figOn, share: S.figShare || 0 } : null }),
+    state: () => ({ looks: S.looks.length, aim: S.aim, busy: S.busy, frame: S.frame, ms: +S.ms.toFixed(2), gl: !!G.gl, failed: G.failed, lost: G.lost, current: current() ? current().id : null, figure: current() && backOf(current()) ? { on: !!current().figure, cut: !!S.figOn, share: S.figShare || 0, faces: typeof flipSilhouette !== 'undefined' ? flipSilhouette.status().faces : '' } : null }),
   };
 })();

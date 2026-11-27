@@ -162,7 +162,16 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
       // sin nadie en cuadro (máscara vacía) todo sigue como sin FIGURA
       const none = { data: new Float32Array(m * m), width: m, height: m }, o = document.createElement('canvas'); o.width = o.height = n; flipClon._render(look, B, o, none);
       const dn = o.getContext('2d', { willReadFrequently: true }).getImageData(90, 100, 1, 1).data;
-      return { ...out, vacia: Math.max(dn[0], dn[1], dn[2]), datos: [!!look.backdrop, !!look.cdfFig, look.otOwn], dice: flipClon.describe({ ...look, figure: true }) };
+      // El detector de verdad es un modelo de selfies y a veces toma un mueble por persona. Aquí su
+      // máscara trae a la persona Y a la caja verde del cuarto; con las caras del cuadro, solo cuenta
+      // la mancha que toca una cara. Y sin ninguna cara, nada es figura.
+      mx.fillRect(40 * k, 250 * k, 70 * k, 60 * k);
+      const md2 = mx.getImageData(0, 0, m, m).data, both = Float32Array.from({ length: m * m }, (_, i) => md2[i * 4] / 255), face = [[166 / 384, 128 / 384, 234 / 384, 212 / 384, 0.9]];
+      const read = extra => { const c = document.createElement('canvas'); c.width = c.height = n; flipClon._render(look, B, c, { data: both, width: m, height: m, ...extra }); const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, n, n).data; return (x, y) => Math.max(d[4 * (y * n + x)], d[4 * (y * n + x) + 1], d[4 * (y * n + x) + 2]); };
+      const trusted = read({}), faced = read({ faces: face }), faceless = read({ faces: [] });
+      // el borde: de la persona al fondo se pasa poco a poco (cuántos puntos tarda en caer del 80 % al 20 %)
+      let from = -1, to = -1; const top = faced(200, 170); for (let x = 200; x < 300; x++) { const v = faced(x, 170); if (from < 0 && v < top * 0.8) from = x; if (to < 0 && v < top * 0.2) { to = x; break; } }
+      return { ...out, mueble: [trusted(75, 280), faced(75, 280)], caraConCara: faced(200, 170), sinCara: [faceless(90, 100), faceless(200, 170)], borde: to - from, vacia: Math.max(dn[0], dn[1], dn[2]), datos: [!!look.backdrop, !!look.cdfFig, look.otOwn], dice: flipClon.describe({ ...look, figure: true }) };
     });
     assert.ok(figura.datos[0] && figura.datos[1] && figura.datos[2] >= 60, 'el look de fondo liso guarda el color de su fondo y los tonos y muestras de la figura sola: ' + figura.datos);
     assert.ok(figura.ventana[0] > 90 && figura.ventana[1] <= 3 && figura.lampara[1] <= 6 && figura.piso[1] <= 3, 'con FIGURA, lo que no es persona se va al negro del fondo (la ventana: ' + figura.ventana + ', la lámpara: ' + figura.lampara + ')');
@@ -170,6 +179,9 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     assert.ok(figura.junto[1] > 4 && figura.junto[1] < figura.cara[1], 'con su resplandor derramado sobre el fondo: ' + figura.junto);
     assert.ok(Math.abs(figura.vacia - figura.ventana[0]) <= 2, 'sin nadie en cuadro, la cámara sigue como siempre: ' + figura.vacia + ' / ' + figura.ventana[0]);
     assert.ok(/figura recortada/.test(figura.dice), 'y lo dice: ' + figura.dice);
+    assert.ok(figura.mueble[0] > 12 && figura.mueble[1] <= 3 && figura.caraConCara > 140, 'lo que el detector toma por persona sin serlo (un mueble) no cuenta: solo la mancha que toca una cara: ' + JSON.stringify([figura.mueble, figura.caraConCara]));
+    assert.ok(Math.abs(figura.sinCara[0] - figura.ventana[0]) <= 2, 'sin ninguna cara a la vista nada es figura: el look va por luz: ' + figura.sinCara);
+    assert.ok(figura.borde >= 4, 'y el borde no corta en seco: de la persona al fondo se pasa en ' + figura.borde + ' puntos');
     step('FIGURA: la persona toma el look y lo demás se va al fondo', figura);
 
     // ── 2 · Ponerse a prueba ──
@@ -442,10 +454,11 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
       const E = clonEstilos, look = flipClon.keep(flipClon.learn(E.styled(E.scenes.retrato(384), E.recipes.neon), 384, 384));
       flipClon.use(look.id);
       // (un detector de mentira: «hay una persona» en el centro del cuadro)
-      flipSilhouette.use(input => { const w = 64, h = Math.max(8, Math.round(64 * input.height / input.width)), data = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (((x / w - 0.5) / 0.22) ** 2 + ((y / h - 0.5) / 0.34) ** 2 < 1) data[y * w + x] = 1; return { data, width: w, height: h }; });
+      window.__cara = true;
+      flipSilhouette.use(input => { const w = 64, h = Math.max(8, Math.round(64 * input.height / input.width)), data = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (((x / w - 0.5) / 0.22) ** 2 + ((y / h - 0.5) / 0.34) ** 2 < 1) data[y * w + x] = 1; return { data, width: w, height: h, faces: window.__cara ? [[0.42, 0.3, 0.58, 0.46, 0.9]] : [] }; });
     });
     await objeto.page.waitForTimeout(500);
-    const antes = await objeto.page.evaluate(() => { const row = document.querySelector('.clon-teclas'), key = row.querySelector('[data-clon="figura"]'), r = row.getBoundingClientRect(), kr = key.getBoundingClientRect(); return { visible: !key.hidden && kr.width > 20 && kr.height > 20, cabe: r.right <= innerWidth + 1 && kr.right <= innerWidth + 1, puesta: key.getAttribute('aria-pressed'), figura: flipClon.state().figure }; });
+    const antes = await objeto.page.evaluate(() => { const row = document.querySelector('.clon-teclas'), key = row.querySelector('[data-clon="figura"]'), r = row.getBoundingClientRect(), kr = key.getBoundingClientRect(); return { visible: !key.hidden && kr.width > 20 && kr.height > 20, cabe: r.right <= innerWidth + 1 && kr.right <= innerWidth + 1, puesta: key.getAttribute('aria-pressed'), figura: (({ on, cut, share }) => ({ on, cut, share }))(flipClon.state().figure) }; });
     assert.deepEqual(antes, { visible: true, cabe: true, puesta: 'false', figura: { on: false, cut: false, share: 0 } }, 'en un look de fondo liso, la tecla FIGURA aparece (apagada) y cabe: ' + JSON.stringify(antes));
     await objeto.page.locator('.clon-teclas [data-clon="figura"]').click();
     await objeto.page.waitForFunction(() => { const f = flipClon.state().figure; return f && f.on && f.cut; }, null, { timeout: 8000 });
@@ -457,6 +470,14 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     });
     assert.ok(puesta.tecla === 'true' && puesta.guardada && puesta.figura.share > 0.05, 'al tocarla queda puesta, guardada con el look, y hay persona en cuadro: ' + JSON.stringify(puesta.figura));
     assert.ok(puesta.esquinas.every(v => v <= 6) && puesta.centro > 60, 'en el visor, fuera de la persona está el negro del fondo y dentro hay imagen: ' + JSON.stringify([puesta.esquinas, puesta.centro]));
+    // la persona se va (ya no hay cara): se la sigue unos segundos y luego la cámara vuelve a repartir por luz
+    await objeto.page.evaluate(() => { window.__cara = false; });
+    await objeto.page.waitForTimeout(1500);
+    const siguiendo = await objeto.page.evaluate(() => flipClon.state().figure.cut);
+    await objeto.page.waitForFunction(() => !flipClon.state().figure.cut, null, { timeout: 9000 });
+    assert.equal(siguiendo, true, 'sin cara un momento (se dio la vuelta), la figura se sigue');
+    await objeto.page.evaluate(() => { window.__cara = true; });
+    await objeto.page.waitForFunction(() => flipClon.state().figure.cut, null, { timeout: 6000 });
     assert.deepEqual(objeto.errors, []);
     step('piel OBJETO: captura con sus teclas y abre su galería; FIGURA aparece solo con fondo liso y recorta en vivo', { ...fila, figura: puesta.figura });
 

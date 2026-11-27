@@ -511,21 +511,26 @@
     const tones = from => {
       let tn = from ? from.n : sn2;
       const tlab = from ? labImage(from.data, tn) : slab;
-      let sorted = new Float32Array(tn);
+      let sorted = new Float32Array(tn), fig = null;
       if (back && from) {
         const own = [], rest = [];
         for (let i = 0; i < tn; i++) (behind(from.data, i * 4) ? rest : own).push(tlab[i * 3]);
         const room = Math.min(rest.length, own.length);                     // el fondo: como mucho la mitad de los tonos
-        if (own.length >= 16) { sorted = Float32Array.from(own.concat(rest.slice(0, room))); tn = sorted.length; }
+        if (own.length >= 16) {
+          sorted = Float32Array.from(own.concat(rest.slice(0, room))); tn = sorted.length;
+          // (y los tonos de la figura sola, para cuando la cámara sabe qué es figura: tecla FIGURA)
+          const mine = Float32Array.from(own).sort();
+          fig = []; for (let i = 0; i <= 32; i++) fig.push(+mine[Math.min(mine.length - 1, Math.round(i / 32 * (mine.length - 1)))].toFixed(4));
+        }
         else for (let i = 0; i < tn; i++) sorted[i] = tlab[i * 3];
       } else for (let i = 0; i < tn; i++) sorted[i] = tlab[i * 3];
       sorted.sort();
       const cdf = [];
       for (let i = 0; i <= 32; i++) cdf.push(+sorted[Math.min(tn - 1, Math.round(i / 32 * (tn - 1)))].toFixed(4));
-      return { tn, sorted, cdf };
+      return { tn, sorted, cdf, fig };
     };
     const { tn, sorted } = tones(soft);
-    let { cdf } = tones(soft);
+    let { cdf, fig: cdfFig } = tones(soft);
 
     // Color según la luz: el color medio de cada nivel, y cuánto explica la luz el color.
     const bins = 32, sa = new Float32Array(bins), sb = new Float32Array(bins), sn = new Float32Array(bins);     // (los looks de antes traen 16 niveles)
@@ -556,13 +561,13 @@
     // cian y rosa, un mapa de calor) salía apagada —cian + rosa = lavanda—. Con las muestras, la cámara
     // lleva el reparto de color de la escena al de la referencia entero (ver «transport»). El fondo
     // liso entra como en los tonos: sin pasar de la mitad.
-    let ot;
+    let ot, otOwn = 0;
     if (!limited) {
       const own = [], rest = [];
       for (let i = 0; i < n; i++) (skip && skip[i] ? rest : own).push(i);
       const take = Math.min(rest.length, own.length), list = own.concat(rest.filter((_, j) => Math.floor(j * take / Math.max(1, rest.length)) !== Math.floor((j - 1) * take / Math.max(1, rest.length))));
       ot = '';
-      for (let k = 0; k < OT_M; k++) { const i = list[Math.min(list.length - 1, Math.floor((k + 0.5) * list.length / OT_M))]; ot += hex2(lab[i * 3] - 0.5) + hex2(lab[i * 3 + 1]) + hex2(lab[i * 3 + 2]); }
+      for (let k = 0; k < OT_M; k++) { const at = Math.min(list.length - 1, Math.floor((k + 0.5) * list.length / OT_M)), i = list[at]; if (at < own.length) otOwn++; ot += hex2(lab[i * 3] - 0.5) + hex2(lab[i * 3 + 1]) + hex2(lab[i * 3 + 2]); }
     }
     // (con varias tintas de distinto color, el color de la escena sigue contando algo: tope 0,8)
     // (una figura luminosa sobre fondo liso es un mapa de degradado: del fondo al color y al blanco
@@ -743,7 +748,7 @@
     // punto es tinta o papel, y el tono es su mezcla). En color continuo esa reducción se come lo fino:
     // las líneas claras de un neón, los brillos, el negro pegado a una figura. Ahí se miden a media
     // reducción (lo justo para promediar el grano).
-    if (mid && !limited && !pixel && screen.type === 'none') cdf = tones(mid).cdf;
+    if (mid && !limited && !pixel && screen.type === 'none') { const fine = tones(mid); cdf = fine.cdf; cdfFig = fine.fig; }
     const look = {
       v: 1, palette: pal.colors.map(c => c.map(v => +v.toFixed(4))), shares: pal.shares.map(v => +v.toFixed(3)), limited, error: +pal.error.toFixed(4),
       back: back ? +back.share.toFixed(3) : 0,                       // cuánto de la referencia es fondo liso (0 = no lo tiene)
@@ -752,6 +757,9 @@
       ground: back ? (() => { const g = new Float32Array(3); toLab(back.rgb[0], back.rgb[1], back.rgb[2], g, 0); return g[0] <= 0.15 || g[0] >= 0.92 ? [+g[0].toFixed(4), +g[1].toFixed(4), +g[2].toFixed(4)] : null; })() : null,
       cdf, ramp: ramp.map(p => [+p[0].toFixed(4), +p[1].toFixed(4)]), rampMix: +rampMix.toFixed(3), mean: [+ma.toFixed(4), +mb.toFixed(4)], chroma: +chroma.toFixed(4),
       ot, byLight: +explained.toFixed(3),
+      // (para la tecla FIGURA: el color del fondo liso, los tonos de la figura sola y cuántas de las
+      //  muestras —las primeras— son de la figura)
+      backdrop: back ? (() => { const g = new Float32Array(3); toLab(back.rgb[0], back.rgb[1], back.rgb[2], g, 0); return [+g[0].toFixed(4), +g[1].toFixed(4), +g[2].toFixed(4)]; })() : null, cdfFig: back && cdfFig ? cdfFig : null, otOwn,
       pixel, screen, grain, edge, vignette, tone: 1, sat: 1, score: null,
     };
     look.name = nameOf(look);
@@ -781,6 +789,7 @@
     else if (look.screen.type === 'bayer') parts.push('tramado ordenado');
     else if (look.screen.type === 'noise') parts.push('tramado de ruido');
     if (look.grain.amount > 0.03 && look.screen.type !== 'noise') parts.push('grano');
+    if (look.figure && (look.ground || (look.limited && look.backdrop))) parts.push('figura recortada');
     if (look.soft) parts.push('suave');
     if (look.glow) parts.push('resplandor');
     if (look.edge) parts.push('línea de tinta');
@@ -809,6 +818,8 @@
     uniform vec4 uChroma;          // color medio de la escena (a, b) y de la referencia (a, b)
     uniform vec4 uGround;          // el fondo liso de la referencia: (luz, a, b, ¿lo tiene?)
     uniform sampler2D uLut;        // cuánto se mueve el color (a, b) de cada punto: 16 rebanadas de luz, cada una de 16 × 16
+    uniform sampler2D uMask;       // dónde hay una persona (0…1), sobre el mismo recorte que la fuente
+    uniform vec4 uBack;            // tecla FIGURA: el color del fondo de la referencia (luz, a, b) y ¿va puesta?
     uniform vec2 uOt;              // ¿el look trae su reparto de color? (los de antes, no: van con el color medio por nivel); y cuánto cuenta el color de la escena
     vec3 lab(vec3 c) {
       vec3 l = pow(clamp(c, 0., 1.), vec3(2.2));
@@ -873,6 +884,8 @@
       } else p.yz = mix(ab, ramped, uRampMix);
       // Con fondo liso: lo que cae en su tono toma su color (un negro absoluto no lleva el tinte de la figura).
       if (uGround.w > .5) p.yz = mix(uGround.yz, p.yz, smoothstep(.02, .2, abs(p.x - uGround.x)));
+      // FIGURA: lo que no es persona es fondo, y toma el color del fondo de la referencia.
+      if (uBack.w > .5) p = mix(uBack.xyz, p, smoothstep(.3, .7, texture2D(uMask, vec2(uMirror > .5 ? 1. - q.x : q.x, q.y)).r));
       // Viñeta y grano, antes de encajar en la paleta (así el grano también trama).
       vec2 c = uv - .5;
       p.x *= 1. - uVig * dot(c, c) * 2.2;
@@ -1008,10 +1021,10 @@
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       const tex = (unit, filter) => { const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, filter], [gl.TEXTURE_MAG_FILTER, filter], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
-      G.src = tex(0, gl.LINEAR); G.tone = tex(1, gl.LINEAR); G.ramp = tex(2, gl.LINEAR); G.lut = tex(3, gl.LINEAR); G.table = null;
+      G.src = tex(0, gl.LINEAR); G.tone = tex(1, gl.LINEAR); G.ramp = tex(2, gl.LINEAR); G.lut = tex(3, gl.LINEAR); G.table = null; G.mask = tex(7, gl.LINEAR); G.maskSeq = -1;
       const u = {};
-      for (const name of ['uSrc', 'uTone', 'uRamp', 'uCrop', 'uRes', 'uMirror', 'uCells', 'uScale', 'uSeed', 'uReveal', 'uAim', 'uLimited', 'uEdge', 'uVig', 'uSat', 'uRampMix', 'uGround', 'uLut', 'uOt', 'uPalN', 'uFlat', 'uPal', 'uPalRgb', 'uInk', 'uDither', 'uGrain', 'uChroma']) u[name] = gl.getUniformLocation(prog, name);
-      gl.uniform1i(u.uSrc, 0); gl.uniform1i(u.uTone, 1); gl.uniform1i(u.uRamp, 2); gl.uniform1i(u.uLut, 3);
+      for (const name of ['uSrc', 'uTone', 'uRamp', 'uCrop', 'uRes', 'uMirror', 'uCells', 'uScale', 'uSeed', 'uReveal', 'uAim', 'uLimited', 'uEdge', 'uVig', 'uSat', 'uRampMix', 'uGround', 'uLut', 'uOt', 'uMask', 'uBack', 'uPalN', 'uFlat', 'uPal', 'uPalRgb', 'uInk', 'uDither', 'uGrain', 'uChroma']) u[name] = gl.getUniformLocation(prog, name);
+      gl.uniform1i(u.uSrc, 0); gl.uniform1i(u.uTone, 1); gl.uniform1i(u.uRamp, 2); gl.uniform1i(u.uLut, 3); gl.uniform1i(u.uMask, 7);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       G.canvas = canvas; G.gl = gl; G.u = u; G.look = null; G.sceneAt = -1; G.prog = prog; G.post = post; G.v = v; G.fb = {};
       return true;
@@ -1202,6 +1215,18 @@
     gl.uniform1f(u.uReveal, extra.reveal == null ? 2 : extra.reveal);
     gl.uniform1f(u.uAim, extra.aim ? 1 : 0);
     gl.uniform4f(u.uChroma, scene.mean[0], scene.mean[1], look.mean[0], look.mean[1]);
+    const mask = !plain && extra.mask && extra.back ? extra.mask : null;
+    if (mask) {
+      if (mask.seq == null || mask.seq !== G.maskSeq) {
+        const count = mask.width * mask.height;
+        if (!G.maskBytes || G.maskBytes.length !== count) G.maskBytes = new Uint8Array(count);
+        for (let i = 0; i < count; i++) G.maskBytes[i] = mask.data[i] * 255;
+        gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, G.mask);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, mask.width, mask.height, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, G.maskBytes);
+        G.maskSeq = mask.seq == null ? -1 : mask.seq;
+      }
+      gl.uniform4f(u.uBack, extra.back[0], extra.back[1], extra.back[2], 1);
+    } else gl.uniform4f(u.uBack, 0, 0, 0, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     // El resplandor: lo que brilla en la imagen ya pintada, emborronado y sumado encima.
     if (glow) {
@@ -1679,6 +1704,43 @@
     }, 60));
   }
 
+  // ── FIGURA: la cámara sabe qué es persona y qué es fondo ─────────────────────
+  // Sin esto, «una figura clara sobre negro» se traduce por luz: lo claro de la escena brilla y lo
+  // oscuro se va a negro, sea persona o pared. Con la tecla FIGURA (en looks de fondo liso) se usa el
+  // detector de personas de FLIP —el mismo de STAGE y FLOW; corre en el teléfono—: lo que no es
+  // persona toma el color del fondo de la referencia, y la persona recibe los tonos y los colores de la
+  // FIGURA de la referencia (medidos sin su fondo), repartidos según la luz y el color de la persona
+  // sola. Si no hay nadie en cuadro, o el detector aún no carga, la cámara sigue como siempre.
+  // (solo con un fondo inconfundible: negro o blanco absolutos, o el fondo plano de un cartel. La pared
+  //  lisa de una foto también «ocupa un cuarto de la imagen», y no es un fondo de estudio)
+  const backOf = look => (look ? look.ground || (look.limited && look.backdrop) || null : null);
+  function figureLook(look) {
+    if (look._fig && look._fig.from === look.ot && look._fig.sat === look.sat) return look._fig.look;
+    const own = look.otOwn >= 60 && look.ot ? look.ot.slice(0, look.otOwn * 6) : look.ot;
+    const fig = { ...look, cdf: look.cdfFig || look.cdf, ot: own, back: 0, ground: null };
+    Object.defineProperty(look, '_fig', { value: { from: look.ot, sat: look.sat, look: fig }, enumerable: false, configurable: true, writable: true });
+    return fig;
+  }
+  // Los puntos de una imagen (RGBA) que caen sobre la persona; null si casi no hay persona.
+  function figurePixels(data, w, h, mask) {
+    const out = new Uint8ClampedArray(w * h * 4);
+    let count = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const m = mask.data[Math.min(mask.height - 1, Math.floor((y + 0.5) / h * mask.height)) * mask.width + Math.min(mask.width - 1, Math.floor((x + 0.5) / w * mask.width))];
+      if (m > 0.5) { const i = 4 * (y * w + x); out[count * 4] = data[i]; out[count * 4 + 1] = data[i + 1]; out[count * 4 + 2] = data[i + 2]; out[count * 4 + 3] = 255; count++; }
+    }
+    return count >= Math.max(12, w * h * 0.02) ? { data: out.subarray(0, count * 4), count, share: count / (w * h) } : null;
+  }
+  function figureKey() {
+    const look = current();
+    if (!look || !backOf(look) || S.busy) return;
+    look.figure = !look.figure;
+    S.figSaid = '';
+    if (look.figure && typeof flipSilhouette !== 'undefined') flipSilhouette.start();
+    save(); syncVariants(); paint();
+    say(look.figure ? 'FIGURA · la persona toma el look y lo demás se va al fondo' : 'FIGURA apagada · el look se reparte por luz', 3200);
+  }
+
   // ── La cámara ───────────────────────────────────────────────────────────────
   const probe = { canvas: null, ctx: null };
   function renderClon(source, srcW, srcH, ctx, mirror, variant, options) {
@@ -1693,11 +1755,23 @@
     const [sx, sy, sw, sh] = typeof cropCoordsForDims === 'function' ? cropCoordsForDims(srcW, srcH, w, h) : [0, 0, srcW, srcH];
     const crop = [sx / srcW, sy / srcH, sw / srcW, sh / srcH];
     S.last = { source, srcW, srcH, sx, sy, sw, sh };
+    // FIGURA: se le ofrece el cuadro al detector de personas y se toma su última máscara.
+    let mask = null;
+    if (look && look.figure && backOf(look) && !aim && typeof flipSilhouette !== 'undefined') {
+      flipSilhouette.start();
+      flipSilhouette.push(source, sx, sy, sw, sh, false);
+      mask = flipSilhouette.latest(1200);
+      const phase = mask ? 'ready' : flipSilhouette.status().phase;
+      if (phase !== S.figSaid && opts.path !== 'capture') { S.figSaid = phase; if (phase === 'failed') say('FIGURA necesita conexión la primera vez', 4200); else if (phase !== 'ready') say('Cargando el recorte de figura…', 2600); }
+    }
     // La escena se mide de vez en cuando (su luz y su color medio) y se sigue despacio.
-    if (started - S.sceneAt > 330) {
+    if (started - S.sceneAt > 330 || !!mask !== !!S.figMask) {
       surface(probe, 32, 24);
       probe.ctx.drawImage(source, sx, sy, sw, sh, 0, 0, 32, 24);
-      const fresh = sceneOf(probe.ctx.getImageData(0, 0, 32, 24).data, 32 * 24), cold = started - S.sceneAt > 1500 || S.scene.version == null;
+      // (con FIGURA, la escena que cuenta es la persona sola; si no hay nadie en cuadro, todo como siempre)
+      const all = probe.ctx.getImageData(0, 0, 32, 24).data, own = mask ? figurePixels(all, 32, 24, mask) : null, was = S.figOn;
+      S.figOn = !!own; S.figShare = own ? +own.share.toFixed(3) : 0; S.figMask = !!mask;
+      const fresh = own ? sceneOf(own.data, own.count) : sceneOf(all, 32 * 24), cold = started - S.sceneAt > 1500 || S.scene.version == null || was !== S.figOn;
       // Cuánto cambió la escena (0 nada, 1 todo). Por debajo de un 4 % es ruido de la cámara o pulso de
       // la mano: no se toca nada y la imagen no parpadea. Un cambio grande se sigue rápido; uno
       // normal, despacio.
@@ -1714,7 +1788,8 @@
       S.sceneAt = started;
     }
     const reveal = started - S.revealAt < REVEAL_MS && opts.path !== 'capture' ? (started - S.revealAt) / REVEAL_MS : 2;
-    draw(look || NEUTRAL, source, crop, w, h, S.scene, { mirror, aim, reveal, seed: (Math.floor(started / 66) % 97) / 97, follow: S.scene.follow });
+    const cut = mask && S.figOn;
+    draw(cut ? figureLook(look) : look || NEUTRAL, source, crop, w, h, S.scene, { mirror, aim, reveal, seed: (Math.floor(started / 66) % 97) / 97, follow: S.scene.follow, mask: cut ? mask : null, back: cut ? backOf(look) : null });
     ctx.save();
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
     ctx.imageSmoothingEnabled = !(look && (look.pixel || look.limited));
@@ -1991,12 +2066,17 @@
       shelf.querySelector('em').textContent = String(S.looks.length);
       shelf.classList.toggle('is-on', !!sheet && !sheet.hidden); shelf.classList.toggle('tiene', S.looks.length > 0);
       shelf.setAttribute('aria-label', 'Galería: ' + S.looks.length + ' looks guardados');
+      // FIGURA solo existe en los looks de fondo liso (una figura sobre negro, sobre blanco, sobre un color)
+      const cut = host.querySelector('[data-clon="figura"]'), cur = current();
+      cut.hidden = !(on && cur && backOf(cur) && !S.aim);
+      cut.classList.toggle('is-on', !!(cur && cur.figure)); cut.setAttribute('aria-pressed', cur && cur.figure ? 'true' : 'false');
+      cut.setAttribute('aria-label', 'Figura: la persona toma el look y lo demás se va al fondo');
     }
     if (sheet && !sheet.hidden) galleryPaint();
   }
   function mount() {
     if (!window.flipShell || band) return;
-    const keys = '<button class="hw KEY" type="button" data-clon="copiar"><span>COPIAR</span></button><button class="hw KEY" type="button" data-clon="abrir"><span>ABRIR</span></button><button class="hw KEY clon-abre-galeria" type="button" data-clon="galeria" data-feel="drawerOpen" aria-haspopup="dialog"><span>LOOKS</span><em>0</em></button>';
+    const keys = '<button class="hw KEY" type="button" data-clon="copiar"><span>COPIAR</span></button><button class="hw KEY" type="button" data-clon="abrir"><span>ABRIR</span></button><button class="hw KEY clon-abre-galeria" type="button" data-clon="galeria" data-feel="drawerOpen" aria-haspopup="dialog"><span>LOOKS</span><em>0</em></button><button class="hw KEY clon-figura" type="button" data-clon="figura" data-feel="switch" aria-pressed="false" hidden><span>FIGURA</span></button>';
     const head = document.querySelector('.si-banda-cabeza'), tray = document.querySelector('#camDeck .deck-groups') || document.querySelector('#camDeck .deck-looks');
     if (head) { band = flipShell.el('div', { class: 'si-rapidas clon-rapidas', role: 'group', 'aria-label': 'Clonar un look' }, keys.replace(/KEY/g, 'si-chip')); head.insertBefore(band, head.querySelector('.si-abrir')); }
     if (tray) { row = flipShell.el('div', { class: 'deck-variants reaccion-teclas clon-teclas', role: 'group', 'aria-label': 'Clonar un look' }, keys.replace(/KEY/g, 'hw-keycap')); tray.before(row); }
@@ -2006,6 +2086,7 @@
       host.querySelector('[data-clon="copiar"]').addEventListener('click', copyKey);
       host.querySelector('[data-clon="abrir"]').addEventListener('click', openKey);
       host.querySelector('[data-clon="galeria"]').addEventListener('click', () => gallery());
+      host.querySelector('[data-clon="figura"]').addEventListener('click', figureKey);
     }
     for (const id of ['deckLooks', 'deckVariants']) { const node = $(id); if (node) new MutationObserver(() => queueMicrotask(() => { if (mine() && !current() && S.looks.length) { camVariant = S.looks[S.looks.length - 1].id; apply(); } paint(); })).observe(node, { subtree: true, attributes: true, attributeFilter: ['class'] }); }
     // Al abrir FLIP los ajustes se leen antes de que este archivo cargue, cuando CLON aún no tiene sus
@@ -2024,12 +2105,14 @@
   window.flipClon = {
     analyze, describe, nameOf, release, _fit: fit, _transport: transport, _scene: sceneOf, _tone: (look, hist, amount) => Array.from(toneCurve(look, hist, amount == null ? 0.8 : amount, new Uint8Array(256))),
     // (pruebas) pone un look sobre una imagen suelta y lo deja en «out»
-    _render(look, source, out) {
+    // (con «mask» —{ data, width, height }, 1 donde hay persona— y un look de fondo liso, como con la tecla FIGURA)
+    _render(look, source, out, mask) {
       if (!ensureGl()) return false;
       surface(probe, 32, 24); probe.ctx.drawImage(source, 0, 0, 32, 24);
-      const scene = sceneOf(probe.ctx.getImageData(0, 0, 32, 24).data, 32 * 24); scene.version = Math.random();
+      const all = probe.ctx.getImageData(0, 0, 32, 24).data, own = mask && backOf(look) ? figurePixels(all, 32, 24, mask) : null;
+      const scene = own ? sceneOf(own.data, own.count) : sceneOf(all, 32 * 24); scene.version = Math.random();
       G.look = null;
-      draw(look, source, [0, 0, 1, 1], out.width, out.height, scene, { mirror: false, aim: false, reveal: 2, seed: 0.3 });
+      draw(own ? figureLook(look) : look, source, [0, 0, 1, 1], out.width, out.height, scene, { mirror: false, aim: false, reveal: 2, seed: 0.3, mask: own ? mask : null, back: own ? backOf(look) : null });
       out.getContext('2d').drawImage(G.canvas, 0, 0, out.width, out.height);
       return true;
     },
@@ -2038,6 +2121,6 @@
     keep, forget, restore, rename, fav, use, gallery, capture, MAX: MAX_LOOKS,
     looks: () => JSON.parse(JSON.stringify(S.looks)),
     aim(on) { if (on != null) { S.aim = !!on; paint(); } return S.aim; },
-    state: () => ({ looks: S.looks.length, aim: S.aim, busy: S.busy, frame: S.frame, ms: +S.ms.toFixed(2), gl: !!G.gl, failed: G.failed, lost: G.lost, current: current() ? current().id : null }),
+    state: () => ({ looks: S.looks.length, aim: S.aim, busy: S.busy, frame: S.frame, ms: +S.ms.toFixed(2), gl: !!G.gl, failed: G.failed, lost: G.lost, current: current() ? current().id : null, figure: current() && backOf(current()) ? { on: !!current().figure, cut: !!S.figOn, share: S.figShare || 0 } : null }),
   };
 })();

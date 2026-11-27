@@ -145,6 +145,33 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     assert.ok(/resplandor/.test(V.neon.dice) && /suave/.test(V.cian.dice), 'y lo dice: ' + V.neon.dice + ' / ' + V.cian.dice);
     step('contra la verdad: reconstruye estilos de receta conocida', Object.fromEntries(Object.entries(V).map(([k, v]) => [k, [v.lejos, v.cerca, v.otra]])));
 
+    // ── 1d · FIGURA: con la máscara de una persona, ella toma el look y lo demás se va al fondo ──
+    // (sin máscara el look se reparte por luz: la ventana, que es lo más claro del cuarto, se enciende
+    //  igual que la cara. La máscara aquí es conocida: la cabeza y el cuerpo de la escena «cuarto»)
+    const figura = await page.evaluate(() => {
+      const E = clonEstilos, n = 384, A = E.scenes.retrato(n), B = E.scenes.cuarto(n), look = flipClon.learn(E.styled(A, E.recipes.neon), n, n);
+      const m = 96, mc = document.createElement('canvas'); mc.width = mc.height = m; const mx = mc.getContext('2d', { willReadFrequently: true }), k = m / 384;
+      mx.fillStyle = '#000'; mx.fillRect(0, 0, m, m); mx.fillStyle = '#fff';
+      mx.beginPath(); mx.ellipse(200 * k, 170 * k, 34 * k, 42 * k, 0, 0, 7); mx.fill();
+      mx.beginPath(); mx.moveTo(140 * k, 330 * k); mx.quadraticCurveTo(200 * k, 180 * k, 262 * k, 330 * k); mx.fill();
+      const md = mx.getImageData(0, 0, m, m).data, mask = { data: Float32Array.from({ length: m * m }, (_, i) => md[i * 4] / 255), width: m, height: m };
+      const run = withMask => { const o = document.createElement('canvas'); o.width = o.height = n; flipClon._render(look, B, o, withMask ? mask : undefined); const d = o.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, n, n).data; return (x, y) => Math.max(d[4 * (y * n + x)], d[4 * (y * n + x) + 1], d[4 * (y * n + x) + 2]); };
+      const plain = run(false), cut = run(true);
+      const pts = { ventana: [90, 100], lampara: [300, 120], cara: [200, 170], piso: [60, 350], junto: [200, 121] }, out = {};
+      for (const key in pts) out[key] = [plain(...pts[key]), cut(...pts[key])];
+      // sin nadie en cuadro (máscara vacía) todo sigue como sin FIGURA
+      const none = { data: new Float32Array(m * m), width: m, height: m }, o = document.createElement('canvas'); o.width = o.height = n; flipClon._render(look, B, o, none);
+      const dn = o.getContext('2d', { willReadFrequently: true }).getImageData(90, 100, 1, 1).data;
+      return { ...out, vacia: Math.max(dn[0], dn[1], dn[2]), datos: [!!look.backdrop, !!look.cdfFig, look.otOwn], dice: flipClon.describe({ ...look, figure: true }) };
+    });
+    assert.ok(figura.datos[0] && figura.datos[1] && figura.datos[2] >= 60, 'el look de fondo liso guarda el color de su fondo y los tonos y muestras de la figura sola: ' + figura.datos);
+    assert.ok(figura.ventana[0] > 90 && figura.ventana[1] <= 3 && figura.lampara[1] <= 6 && figura.piso[1] <= 3, 'con FIGURA, lo que no es persona se va al negro del fondo (la ventana: ' + figura.ventana + ', la lámpara: ' + figura.lampara + ')');
+    assert.ok(figura.cara[1] > 140, 'y la persona se enciende con la luz de la figura: ' + figura.cara);
+    assert.ok(figura.junto[1] > 4 && figura.junto[1] < figura.cara[1], 'con su resplandor derramado sobre el fondo: ' + figura.junto);
+    assert.ok(Math.abs(figura.vacia - figura.ventana[0]) <= 2, 'sin nadie en cuadro, la cámara sigue como siempre: ' + figura.vacia + ' / ' + figura.ventana[0]);
+    assert.ok(/figura recortada/.test(figura.dice), 'y lo dice: ' + figura.dice);
+    step('FIGURA: la persona toma el look y lo demás se va al fondo', figura);
+
     // ── 2 · Ponerse a prueba ──
     const notas = Object.fromEntries(Object.entries(L).map(([k, l]) => [k, l.score]));
     for (const [k, nota] of Object.entries(notas)) assert.ok(nota >= 74, 'reconstruye su referencia (' + k + '): ' + nota + ' %');
@@ -215,7 +242,7 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     await pickCamera(page, 'CLON');
     await page.waitForFunction(() => camFamily === 'CLON');
     await page.waitForTimeout(700);
-    const inicio = await page.evaluate(() => ({ st: flipClon.state(), keys: [...document.querySelectorAll('.si-rapidas.clon-rapidas [data-clon]')].map(k => k.textContent.trim()), variante: camVariant, banda: document.body.classList.contains('con-rapidas-clon') }));
+    const inicio = await page.evaluate(() => ({ st: flipClon.state(), keys: [...document.querySelectorAll('.si-rapidas.clon-rapidas [data-clon]:not([hidden])')].map(k => k.textContent.trim()), variante: camVariant, banda: document.body.classList.contains('con-rapidas-clon') }));
     assert.deepEqual([inicio.st.looks, inicio.keys, inicio.variante, inicio.banda, inicio.st.gl], [0, ['CAPTURAR', 'ABRIR', 'LOOKS0'], 'NUEVO', true, true], 'sin looks, apunta y ofrece CAPTURAR y ABRIR (y la galería, vacía)');
     // apuntando se ve la cámara tal cual (con color), no un look
     const crudo = await page.evaluate(() => { const g = document.createElement('canvas'); g.width = 64; g.height = 48; const c = g.getContext('2d', { willReadFrequently: true }); c.drawImage(display, 0, 0, 64, 48); const d = c.getImageData(0, 0, 64, 48).data, set = new Set(); for (let i = 0; i < d.length; i += 4) set.add((d[i] >> 4) + ',' + (d[i + 1] >> 4) + ',' + (d[i + 2] >> 4)); return set.size; });
@@ -223,7 +250,7 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     await page.locator('.clon-rapidas [data-clon="copiar"]').click();
     await page.waitForFunction(() => flipClon.state().looks === 1 && !flipClon.state().busy, null, { timeout: 15000 });
     await page.waitForTimeout(1300);
-    const capturado = await page.evaluate(() => ({ st: flipClon.state(), look: flipClon.looks()[0], keys: [...document.querySelectorAll('.clon-rapidas [data-clon]')].map(k => k.textContent.trim()), variantes: [...document.querySelectorAll('#deckVariants [data-variant]')].map(k => k.textContent.trim()), lcd: document.getElementById('lcdLook').textContent, guardado: JSON.parse(localStorage.getItem('flip.clon')).length }));
+    const capturado = await page.evaluate(() => ({ st: flipClon.state(), look: flipClon.looks()[0], keys: [...document.querySelectorAll('.clon-rapidas [data-clon]:not([hidden])')].map(k => k.textContent.trim()), variantes: [...document.querySelectorAll('#deckVariants [data-variant]')].map(k => k.textContent.trim()), lcd: document.getElementById('lcdLook').textContent, guardado: JSON.parse(localStorage.getItem('flip.clon')).length }));
     assert.deepEqual([capturado.st.aim, capturado.st.current, capturado.keys, capturado.guardado], [false, 'C1', ['COPIAR', 'ABRIR', 'LOOKS1'], 1], 'tras capturar, el look queda puesto y guardado');
     assert.match(capturado.look.thumb || '', /^data:image\/jpeg;base64,/, 'con su miniatura para la galería');
     assert.ok(capturado.variantes.length === 1 && capturado.variantes[0] === capturado.look.name, 'y es una variante con su nombre: ' + capturado.look.name + ' / ' + JSON.stringify(capturado.variantes));
@@ -397,7 +424,7 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     await pickCamera(objeto.page, 'CLON');
     await objeto.page.waitForFunction(() => camFamily === 'CLON');
     await objeto.page.waitForTimeout(600);
-    const fila = await objeto.page.evaluate(() => { const row = document.querySelector('.clon-teclas'), r = row.getBoundingClientRect(); return { visible: !row.hidden && r.height > 20, teclas: [...row.querySelectorAll('button')].map(k => k.textContent.trim()), cabe: r.right <= innerWidth + 1, banda: getComputedStyle(document.querySelector('.clon-rapidas')).display }; });
+    const fila = await objeto.page.evaluate(() => { const row = document.querySelector('.clon-teclas'), r = row.getBoundingClientRect(); return { visible: !row.hidden && r.height > 20, teclas: [...row.querySelectorAll('button:not([hidden])')].map(k => k.textContent.trim()), cabe: r.right <= innerWidth + 1, banda: getComputedStyle(document.querySelector('.clon-rapidas')).display }; });
     assert.deepEqual(fila, { visible: true, teclas: ['CAPTURAR', 'ABRIR', 'LOOKS0'], cabe: true, banda: 'none' }, 'en OBJETO, tres teclas del aparato');
     await objeto.page.locator('.clon-teclas [data-clon="copiar"]').click();
     await objeto.page.waitForFunction(() => flipClon.state().looks === 1 && !flipClon.state().busy, null, { timeout: 15000 });
@@ -405,8 +432,33 @@ const INK = { rosa: [226, 62, 120], crema: [244, 236, 214] };
     await objeto.page.waitForTimeout(350);
     const charola = await objeto.page.evaluate(() => { const g = document.getElementById('clonGaleria'), r = g.getBoundingClientRect(); return { abierta: !g.hidden, cartas: g.querySelectorAll('.clon-carta').length, cabe: r.left >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1, redonda: parseFloat(getComputedStyle(g).borderTopLeftRadius) > 10 }; });
     assert.deepEqual(charola, { abierta: true, cartas: 1, cabe: true, redonda: true }, 'y la galería, con la piel del aparato');
+    // la tecla FIGURA: no existe en un look sin fondo liso; en uno con fondo aparece, cabe y recorta en vivo
+    await objeto.page.evaluate(() => flipClon.gallery(false));
+    await objeto.page.waitForTimeout(450);
+    await objeto.page.addScriptTag({ path: path.join(__dirname, 'lib', 'clon-estilos.js') });
+    const sinFondo = await objeto.page.evaluate(() => ({ oculta: document.querySelector('.clon-teclas [data-clon="figura"]').hidden, figura: flipClon.state().figure }));
+    assert.deepEqual(sinFondo, { oculta: true, figura: null }, 'en un look sin fondo liso no hay tecla FIGURA');
+    await objeto.page.evaluate(() => {
+      const E = clonEstilos, look = flipClon.keep(flipClon.learn(E.styled(E.scenes.retrato(384), E.recipes.neon), 384, 384));
+      flipClon.use(look.id);
+      // (un detector de mentira: «hay una persona» en el centro del cuadro)
+      flipSilhouette.use(input => { const w = 64, h = Math.max(8, Math.round(64 * input.height / input.width)), data = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (((x / w - 0.5) / 0.22) ** 2 + ((y / h - 0.5) / 0.34) ** 2 < 1) data[y * w + x] = 1; return { data, width: w, height: h }; });
+    });
+    await objeto.page.waitForTimeout(500);
+    const antes = await objeto.page.evaluate(() => { const row = document.querySelector('.clon-teclas'), key = row.querySelector('[data-clon="figura"]'), r = row.getBoundingClientRect(), kr = key.getBoundingClientRect(); return { visible: !key.hidden && kr.width > 20 && kr.height > 20, cabe: r.right <= innerWidth + 1 && kr.right <= innerWidth + 1, puesta: key.getAttribute('aria-pressed'), figura: flipClon.state().figure }; });
+    assert.deepEqual(antes, { visible: true, cabe: true, puesta: 'false', figura: { on: false, cut: false, share: 0 } }, 'en un look de fondo liso, la tecla FIGURA aparece (apagada) y cabe: ' + JSON.stringify(antes));
+    await objeto.page.locator('.clon-teclas [data-clon="figura"]').click();
+    await objeto.page.waitForFunction(() => { const f = flipClon.state().figure; return f && f.on && f.cut; }, null, { timeout: 8000 });
+    const puesta = await objeto.page.evaluate(() => {
+      const g = document.createElement('canvas'); g.width = 64; g.height = 48; const c = g.getContext('2d', { willReadFrequently: true }); c.drawImage(display, 0, 0, 64, 48);
+      const d = c.getImageData(0, 0, 64, 48).data, at = (x, y) => Math.max(d[4 * (y * 64 + x)], d[4 * (y * 64 + x) + 1], d[4 * (y * 64 + x) + 2]);
+      let centro = 0; for (let y = 16; y < 32; y++) for (let x = 26; x < 38; x++) centro = Math.max(centro, at(x, y));
+      return { figura: flipClon.state().figure, tecla: document.querySelector('.clon-teclas [data-clon="figura"]').getAttribute('aria-pressed'), esquinas: [at(2, 2), at(61, 2), at(2, 45), at(61, 45)], centro, guardada: JSON.parse(localStorage.getItem('flip.clon')).some(l => l.figure) };
+    });
+    assert.ok(puesta.tecla === 'true' && puesta.guardada && puesta.figura.share > 0.05, 'al tocarla queda puesta, guardada con el look, y hay persona en cuadro: ' + JSON.stringify(puesta.figura));
+    assert.ok(puesta.esquinas.every(v => v <= 6) && puesta.centro > 60, 'en el visor, fuera de la persona está el negro del fondo y dentro hay imagen: ' + JSON.stringify([puesta.esquinas, puesta.centro]));
     assert.deepEqual(objeto.errors, []);
-    step('piel OBJETO: captura con sus teclas y abre su galería', fila);
+    step('piel OBJETO: captura con sus teclas y abre su galería; FIGURA aparece solo con fondo liso y recorta en vivo', { ...fila, figura: puesta.figura });
 
     assert.deepEqual(errors, []);
     console.log('CLON PASS');

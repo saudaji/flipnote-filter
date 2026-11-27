@@ -408,6 +408,8 @@ body[data-piel="interfaz"] .clon-pildora i { border-radius: 0; }
 /* En la banda no cabe otra palabra: la tecla de la galería es una rejilla y la cuenta. */
 body[data-piel="interfaz"] .clon-abre-galeria em { margin-left: 0; padding: 2px 5px; border-radius: 0; background: var(--si-banda-raya); color: var(--si-banda); font-family: 'Doto', ui-monospace, monospace; }
 body[data-piel="interfaz"] .clon-abre-galeria.tiene em { background: var(--si-acento); color: var(--si-sobre-acento); }
+/* FIGURA solo existe en los looks de fondo liso: escondida, no ocupa sitio */
+.clon-figura[hidden] { display: none !important; }
 body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria { min-width: 48px; justify-content: center; }
 body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria span { display: none; }
 body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria::before { content: '' !important; display: block !important; flex: 0 0 11px; width: 11px; height: 11px; background: linear-gradient(currentColor, currentColor) 0 0 / 5px 5px no-repeat, linear-gradient(currentColor, currentColor) 100% 0 / 5px 5px no-repeat, linear-gradient(currentColor, currentColor) 0 100% / 5px 5px no-repeat, linear-gradient(currentColor, currentColor) 100% 100% / 5px 5px no-repeat; }

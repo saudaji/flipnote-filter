@@ -9,8 +9,12 @@
 //                              (en luz lineal y antes de las curvas: solo florecen las luces de verdad)
 //                        ─► C · revelado: curva característica por capa (suma de tres sub-emulsiones)
 //                              y acopladores DIR (cada capa frena a sus vecinas y a su alrededor)
-//                        ─► D · grano: estadística de los cristales revelados (depende de la densidad
-//                              y del formato; nadie le pone «cantidad»)
+//                        ─► C2 · el baño: el revelador se gasta donde hay mucho que revelar y eso alcanza
+//                              a lo de al lado (décimas de milímetro): el contraste local, el relieve
+//                        ─► D · grano: estadística de los cristales que forman la imagen (depende de la
+//                              densidad y del formato; nadie le pone «cantidad»). Los cristales gruesos
+//                              mandan en lo poco expuesto y los finos se suman después; en color, las
+//                              capas comparten casi todo su grano y cada una añade sus nubes de tinte
 //                        ─► E · copia: la ampliadora centra el negativo y el papel lo vuelve positivo
 //                              (una diapositiva se mira a contraluz; el blanco y negro va a su papel,
 //                              que se puede virar)
@@ -128,7 +132,7 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.58, 0.62, 0.66], gray: -0.62,
         dir: DIR0, dirRadius: 18,
         halation: { radius: 210, k: [0.035, 0.008, 0.001] },
-        grain: { rho: [0.9, 2.8, 5.2], sat: 0.5 },
+        grain: { rho: [0.9, 2.8, 5.2], sat: 0.5 }, edge: 0.22, contrast: 1.03,
       },
       CALIDO200: {
         name: 'CÁLIDO 200', kind: 'negative', balance: 5500,
@@ -136,7 +140,7 @@
         dmin: [0.24, 0.62, 0.94], dmax: [2.20, 2.75, 3.15], gamma: [0.66, 0.70, 0.74], gray: -0.55,
         dir: [[0.16, 0.21, 0], [0.72, 0.16, 0.45], [0, 0.57, 0.15]], dirRadius: 20,
         halation: { radius: 220, k: [0.045, 0.010, 0.002] },
-        grain: { rho: [0.75, 2.3, 4.4], sat: 0.48 },
+        grain: { rho: [1.3, 4.0, 7.6], sat: 0.48 }, edge: 0.20,
         warm: 0.035,                                                   // su copia tira a cálida: un punto más de luz azul en la ampliadora (más tinte amarillo en el papel)
       },
       CINE500T: {
@@ -145,7 +149,7 @@
         dmin: [0.20, 0.56, 0.86], dmax: [1.95, 2.40, 2.75], gamma: [0.62, 0.65, 0.68], gray: -0.66,
         dir: [[0.14, 0.20, 0], [0.72, 0.14, 0.43], [0, 0.37, 0.12]], dirRadius: 18,
         halation: { radius: 235, k: [0.28, 0.07, 0.01] },
-        grain: { rho: [0.7, 2.5, 6.4], sat: 0.52 },
+        grain: { rho: [0.41, 1.45, 3.7], sat: 0.52 }, edge: 0.22, contrast: 1.04,
       },
       // Negativo de calle con cuarta capa: tonos duros, verdes que tiran al cian, rojos hondos; las
       // sombras se enfrían y las luces se calientan (las capas no llevan el mismo contraste).
@@ -155,7 +159,7 @@
         dmin: [0.24, 0.60, 0.92], dmax: [2.15, 2.70, 3.05], gamma: [0.68, 0.70, 0.70], gray: -0.52,
         dir: dirOf(0.8), dirRadius: 20,
         halation: { radius: 215, k: [0.04, 0.009, 0.001] },
-        grain: { rho: [0.6, 1.9, 3.8], sat: 0.48 },
+        grain: { rho: [0.6, 1.9, 3.8], sat: 0.48 }, edge: 0.26,
         contrast: 1.07, cross: [1.09, 0.94, 1.0], paper: { toe: 1.75, shoulder: 1.8 },
       },
       // Negativo de álbum: la copia que se guardó treinta años. Luces ámbar, sombras con color.
@@ -165,7 +169,7 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.10, 2.60, 3.00], gamma: [0.60, 0.63, 0.64], gray: -0.60,
         dir: dirOf(1.2), dirRadius: 18,
         halation: { radius: 210, k: [0.04, 0.009, 0.001] },
-        grain: { rho: [1.1, 3.2, 6.0], sat: 0.5 },
+        grain: { rho: [1.1, 3.2, 6.0], sat: 0.5 }, edge: 0.16,
         cross: [1.05, 1.0, 0.76], cast: [-0.008, 0.004, 0.022], paper: { toe: 1.35, shoulder: 1.45 },
       },
       // Negativo de cine para luz de día: poco contraste, poco color, sombras largas, una gota de magenta.
@@ -175,8 +179,8 @@
         dmin: [0.20, 0.56, 0.86], dmax: [1.95, 2.40, 2.75], gamma: [0.54, 0.56, 0.58], gray: -0.68,
         dir: dirOf(0.62), dirRadius: 18,
         halation: { radius: 230, k: [0.11, 0.028, 0.004] },
-        grain: { rho: [0.9, 3.0, 6.8], sat: 0.52 },
-        contrast: 0.86, cast: [0, 0.012, -0.004], paper: { toe: 1.25, shoulder: 1.2 },
+        grain: { rho: [0.58, 1.9, 4.35], sat: 0.52 }, edge: 0.20,
+        contrast: 0.94, cast: [0, 0.010, -0.004], paper: { toe: 1.25, shoulder: 1.7 },
       },
       // ── diapositivas ──
       // Diapositiva de paisaje: color a tope, negros hondos, los azules con una gota de magenta.
@@ -186,7 +190,7 @@
         dmin: x3(0), dmax: x3(3.5), gamma: x3(1.5), gray: 0.30,
         dir: [[0.05, 0.036, 0], [0.237, 0.05, 0.094], [0.104, 0.027, 0.05]], dirRadius: 16,
         halation: { radius: 200, k: [0.02, 0.005, 0.001] },
-        grain: { rho: [3.0, 9.0, 16.0], sat: 0.5 },
+        grain: { rho: [1.0, 3.0, 5.3], sat: 0.5 }, edge: 0.08,
         sub: { share: [0.26, 0.44, 0.30], shift: [-0.32, 0, 0.34] },
       },
       // Diapositiva de reportero: color contenido, sombras duras, cielos hondos sin magenta.
@@ -196,7 +200,7 @@
         dmin: x3(0), dmax: x3(3.6), gamma: x3(1.36), gray: 0.24,
         dir: [[0.05, 0.028, -0.138], [0.016, 0.05, -0.046], [-0.037, 0.042, 0.05]], dirRadius: 16,
         halation: { radius: 200, k: [0.02, 0.005, 0.001] },
-        grain: { rho: [2.2, 6.5, 12.0], sat: 0.5 },
+        grain: { rho: [0.55, 1.6, 3.0], sat: 0.5 }, edge: 0.08,
         sub: { share: [0.34, 0.42, 0.24], shift: [-0.30, 0, 0.36] }, tint: [0.985, 1, 1.03],
       },
       // ── experimentales ──
@@ -207,7 +211,7 @@
         dmin: [0.18, 0.22, 0.30], dmax: [2.6, 2.8, 3.0], gamma: [0.80, 0.84, 0.80], gray: -0.46,
         dir: dirOf(1.25), dirRadius: 18,
         halation: { radius: 200, k: [0.03, 0.007, 0.001] },
-        grain: { rho: [1.0, 3.0, 5.6], sat: 0.5 },
+        grain: { rho: [1.0, 3.0, 5.6], sat: 0.5 }, edge: 0.26,
         cross: [0.95, 1.16, 0.60], cast: [0.006, -0.02, 0.012], paper: { toe: 1.8, shoulder: 1.8 },
       },
       // Negativo sin blanquear: la plata se queda en la película. Metálico, duro, casi sin color.
@@ -217,8 +221,8 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.60, 0.63, 0.66], gray: -0.60,
         dir: dirOf(1.0), dirRadius: 18,
         halation: { radius: 215, k: [0.05, 0.012, 0.002] },
-        grain: { rho: [0.42, 1.3, 2.6], sat: 0.45 },
-        silver: 0.95, contrast: 1.24, cast: [0.006, 0, -0.008], paper: { toe: 1.7, shoulder: 1.8 },
+        grain: { rho: [0.6, 1.85, 3.7], sat: 0.45 }, edge: 0.28,
+        silver: 0.95, contrast: 1.24, cast: [0.005, 0, -0.006], paper: { toe: 1.7, shoulder: 1.8 },
       },
       // El rollo cargado al revés: todo en rojos, naranjas y amarillos.
       REVES200: {
@@ -228,7 +232,7 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.62, 0.66, 0.70], gray: -0.62,
         dir: dirOf(0.7), dirRadius: 18,
         halation: { radius: 210, k: [0.03, 0.03, 0.02] },
-        grain: { rho: [0.6, 1.9, 3.6], sat: 0.5 },
+        grain: { rho: [0.6, 1.9, 3.6], sat: 0.5 }, edge: 0.20,
       },
       // Película de colores cambiados: la capa del verde forma el tinte de la del azul, y al revés.
       // El follaje sale púrpura; el cielo, verde agua; los amarillos, rosa. El rojo se queda.
@@ -238,7 +242,7 @@
         dmin: [0.22, 0.58, 0.88], dmax: [2.05, 2.55, 2.95], gamma: [0.62, 0.64, 0.64], gray: -0.60,
         dir: dirOf(0.9), dirRadius: 18,
         halation: { radius: 210, k: [0.04, 0.009, 0.001] },
-        grain: { rho: [0.7, 2.2, 4.2], sat: 0.5 },
+        grain: { rho: [0.7, 2.2, 4.2], sat: 0.5 }, edge: 0.20,
       },
       // ── blanco y negro ──
       // Grano finísimo; no ve del todo el rojo (los labios y la piel ganan cuerpo). Sombras suaves y con
@@ -283,12 +287,15 @@
         contrast: 1.1, paper: { toe: 1.6, shoulder: 1.9 },
       },
     };
-    // El papel de copia (color, contraste normal).
+    // El soporte de la copia de color (contraste normal). Es un material de mucha densidad —el negro
+    // de una copia de cine, no el de un papel mate—: con 2,25 de densidad máxima el negro de la escena
+    // se quedaba en gris oscuro (L* 15) y toda la imagen parecía tener un velo; con 2,85 baja a L* 7,
+    // donde lo dejan las de blanco y negro. El hombro corto hace que las sombras lleguen a ese negro.
     const PAPER = {
       sens: [sens(692, 26, 20, -0.2), sens(545, 24, 18, 0), sens(472, 22, 18, 0.25)],
       dyes: [dye(658, 44, [[540, 34, 0.11]]), dye(550, 30, [[435, 25, 0.12]]), dye(445, 36)],
-      dmin: 0.08, dmax: [2.25, 2.30, 2.20], gamma: [2.15, 2.25, 2.10],
-      toe: 1.5, shoulder: 1.4,                                         // qué tan cortos son el pie y el hombro de su curva (1 = logística pura)
+      dmin: 0.08, dmax: [2.85, 2.90, 2.80], gamma: [2.15, 2.25, 2.10],
+      toe: 1.5, shoulder: 2.0,                                         // qué tan cortos son el pie y el hombro de su curva (1 = logística pura)
     };
     // El papel de blanco y negro (plata sobre fibra).
     const BW_PAPER = { dmin: 0.05, dmax: 2.15, gamma: 2.2, toe: 1.5, shoulder: 1.4 };
@@ -474,27 +481,41 @@
 
     // ── Tablas de una dimensión para el sombreador ──
     // Para log10 H entre X0 y X1 (con el gris medio en 0): la densidad de cada capa (de 0 a 1 de su
-    // recorrido) y la desviación de su grano, por micra de lado del punto.
+    // recorrido) y la desviación de su grano, por micra de lado del punto: la de toda la capa
+    // («noise») y, aparte, la de sus cristales gruesos («coarse»: la sub-emulsión rápida) y la de los
+    // finos («fine»: la media y la lenta).
     const X0 = -4, X1 = 3.5, XN = 1024;
     function curveTable(film) {
-      const { stock, curves, push } = film, sub = stock.sub || SUB, out = new Float32Array(XN * 4), noise = new Float32Array(XN * 4);
+      const { stock, curves, push, reversal } = film, sub = stock.sub || SUB;
+      const out = new Float32Array(XN * 4), noise = new Float32Array(XN * 4), coarse = new Float32Array(XN * 4), fine = new Float32Array(XN * 4);
       for (let i = 0; i < XN; i++) {
         const x = X0 + (X1 - X0) * i / (XN - 1);
         for (let c = 0; c < 3; c++) {
           const cv = curves[c];
           out[i * 4 + c] = (cv.D(x) - cv.dmin) / cv.range;
-          // Grano: los cristales revelados de cada sub-emulsión siguen una ley de Poisson (su varianza
-          // es su media), frenada por el solape de las nubes de tinte. La capa azul lleva cristales
-          // más grandes y menos numerosos; la roja, algo más grandes. Empujar agranda el grano.
-          const p = cv.p(x), size = film.mono ? 1 : c === 2 ? 0.65 : c === 0 ? 0.92 : 1;
-          let v = 0;
-          for (let j = 0; j < 3; j++) v += Math.pow(cv.range * sub.share[j], 2) * p[j] * (1 - stock.grain.sat * p[j]) / (stock.grain.rho[j] * size);
-          noise[i * 4 + c] = Math.sqrt(v * (1 + 0.8 * Math.max(0, push))) / cv.range;                 // en unidades de «n» (0…1 del recorrido), por micra
+          // Grano: los cristales que forman la imagen siguen una ley de Poisson (su varianza es su
+          // media), frenada por el solape de las nubes de tinte. En un negativo la imagen la forman los
+          // cristales REVELADOS; en una diapositiva, los que el primer baño NO reveló (por eso donde
+          // queda limpia —los blancos— no hay grano: ahí no queda nada que forme tinte).
+          // La capa azul lleva cristales más grandes y menos numerosos; la roja, algo más grandes.
+          // Empujar agranda el grano.
+          const p = cv.p(x), size = film.mono ? 1 : c === 2 ? 0.65 : c === 0 ? 0.92 : 1, boost = 1 + 0.8 * Math.max(0, push);
+          const part = j => { const q = reversal ? 1 - p[j] : p[j]; return Math.pow(cv.range * sub.share[j], 2) * q * (1 - stock.grain.sat * q) / (stock.grain.rho[j] * size) * boost; };
+          const fast = part(0), rest = part(1) + part(2);
+          noise[i * 4 + c] = Math.sqrt(fast + rest) / cv.range;                                        // en unidades de «n» (0…1 del recorrido), por micra
+          coarse[i * 4 + c] = Math.sqrt(fast) / cv.range; fine[i * 4 + c] = Math.sqrt(rest) / cv.range;
         }
-        out[i * 4 + 3] = 1; noise[i * 4 + 3] = 1;
+        out[i * 4 + 3] = 1; noise[i * 4 + 3] = 1; coarse[i * 4 + 3] = 1; fine[i * 4 + 3] = 1;
       }
-      return { x0: X0, x1: X1, n: XN, density: out, noise };
+      return { x0: X0, x1: X1, n: XN, density: out, noise, coarse, fine };
     }
+    // Cuánto del grano comparten las tres capas de una película de color (de 0 a 1 de su varianza).
+    // En una película de verdad cada capa tiene sus cristales y su grano es independiente: de cerca,
+    // confeti de colores. A tamaño de pantalla eso se lee como ruido de sensor y como un velo claro,
+    // no como grano. Las nuestras atan casi todo el grano entre capas —grano de luminancia, como el de
+    // la plata— y dejan una parte propia de cada capa, en nubes más anchas: el color que respira dentro.
+    const TIE = 0.86;
+    const tieOf = stock => (stock.kind === 'mono' ? 1 : stock.grain.tie == null ? TIE : stock.grain.tie);
 
     // El revelado de UN punto, en JavaScript y sin atajos: la referencia contra la que se mide el
     // sombreador. rgb lineal con el gris medio en 0,18. Devuelve densidades y la imagen (RGB lineal).
@@ -513,7 +534,7 @@
       return { H, D, n, print: table ? table.print(n) : null };
     }
 
-    return { LAM, STOCKS, PAPER, PAPERS, FORMATS, FILTERS, TONERS, SUB, X0, X1, XN, prepare, printTable, curveTable, develop, upsample, planck, viewer, D65, clamp };
+    return { LAM, STOCKS, PAPER, PAPERS, FORMATS, FILTERS, TONERS, SUB, X0, X1, XN, TIE, tieOf, prepare, printTable, curveTable, develop, upsample, planck, viewer, D65, clamp };
   })();
 
   if (typeof module !== 'undefined' && module.exports) { module.exports = physics; return; }
@@ -529,12 +550,16 @@
   window.flipFilmPhysics = physics;
 
   // ══ EL REVELADO, EN LA GPU ═════════════════════════════════════════════════════════════════════
-  // Cinco pasos (WebGL 2, con destinos de media precisión flotante):
+  // Once pasadas por cuadro (WebGL 2, con destinos de media precisión flotante):
   //   1 · exponer: la cámara, a luz lineal, por la matriz de la película            (tamaño completo)
-  //   2 · halación: esa exposición, desenfocada al radio del rebote en la base      (reducida)
+  //   2 · halación: esa exposición, desenfocada al radio del rebote en la base      (reducida; 4 pasadas)
   //   3 · primer revelado: densidad de cada capa                                    (a la mitad)
-  //   4 · el inhibidor se difunde                                                   (a la mitad)
-  //   5 · revelado final (con el freno de las capas vecinas), grano, ampliadora y papel
+  //   4 · el inhibidor se difunde unas micras                                       (a la mitad; 2 pasadas)
+  //   4b · el baño: la misma densidad a décimas de milímetro (películas de color)   (reducida; 2 pasadas)
+  //   5 · revelado final (con el freno de las capas vecinas y el del baño), grano, ampliadora y soporte
+  // El último paso hace por cada punto: 5 lecturas en coma flotante, 21 de las tablas de la película,
+  // unos 80 sorteos para el grano (dos tamaños de cristal y las nubes de tinte de cada capa) y la tabla
+  // de copia en 3D. En el visor son 786 000 puntos, 24 granos distintos por segundo.
   // Si el teléfono no da destinos flotantes, queda el paso 5 solo, sin halación ni difusión.
   const $ = id => document.getElementById(id);
   const KEY = 'flip.film';
@@ -546,8 +571,8 @@
     in vec2 vUv; out vec4 o;
     uniform sampler2D uCurves; uniform vec2 uX;                    // tablas de la película; uX = (x0, 1/(x1 − x0))
     vec3 lookup(vec3 x, float row) { vec3 t = clamp((x - uX.x) * uX.y, 0., 1.) * (1023. / 1024.) + .5 / 1024.; return vec3(texture(uCurves, vec2(t.r, row)).r, texture(uCurves, vec2(t.g, row)).g, texture(uCurves, vec2(t.b, row)).b); }
-    vec3 curve(vec3 x) { return lookup(x, .25); }
-    vec3 curveAt(float x) { return texture(uCurves, vec2(clamp((x - uX.x) * uX.y, 0., 1.) * (1023. / 1024.) + .5 / 1024., .25)).rgb; }   // las tres capas con una misma exposición
+    vec3 curve(vec3 x) { return lookup(x, .125); }                 // (filas de la tabla: densidad, grano, grano grueso, grano fino)
+    vec3 curveAt(float x) { return texture(uCurves, vec2(clamp((x - uX.x) * uX.y, 0., 1.) * (1023. / 1024.) + .5 / 1024., .125)).rgb; }   // las tres capas con una misma exposición
     vec3 log10v(vec3 v) { return log(max(v, vec3(1e-6))) * .4342944819; }
     float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * vec3(.1031, .1030, .0973)); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }`;
   const EXPOSE = `
@@ -573,9 +598,9 @@
     first: HEAD + `
       uniform sampler2D uH, uHalo, uWide; uniform vec3 uK;
       void main() { o = vec4(curve(log10v(mix(textureLod(uH, vUv, 1.).rgb, mix(texture(uHalo, vUv).rgb, texture(uWide, vUv).rgb, .3), uK))), 1.); }`,
-    final: simple => HEAD + (simple ? EXPOSE : 'uniform sampler2D uH, uHalo, uWide, uSpread;') + `
+    final: simple => HEAD + (simple ? EXPOSE : 'uniform sampler2D uH, uHalo, uWide, uSpread, uBath; uniform float uEdge;') + `
       uniform sampler3D uPrint; uniform vec3 uK, uRange, uShift, uNoise;   // uNoise = (¿grano?, lado del grumo en puntos, 1/lado en micras)
-      uniform vec3 uDirR, uDirG, uDirB; uniform float uSeed, uMode, uMono; uniform vec2 uRes;
+      uniform vec3 uDirR, uDirG, uDirB; uniform float uSeed, uMode, uMono; uniform vec2 uRes, uTie;   // uTie = (raíz de lo que comparten las capas, raíz de lo propio)
       vec3 gauss(vec2 cell, float salt) {
         vec3 a = vec3(hash(cell + salt), hash(cell + salt + 17.3), hash(cell + salt + 41.9)), b = vec3(hash(cell.yx + salt + 5.1), hash(cell.yx + salt + 23.7), hash(cell.yx + salt + 67.2));
         return sqrt(-2. * log(max(a, vec3(1e-4)))) * cos(6.2831853 * b);
@@ -594,14 +619,26 @@
         // inhibidor se difunde unas micras, los bordes se marcan.
         vec3 spread = ${simple ? 'curve(x)' : 'texture(uSpread, vUv).rgb'} * uRange;
         vec3 xe = x - vec3(dot(uDirR, spread - curveAt(x.r) * uRange), dot(uDirG, spread - curveAt(x.g) * uRange), dot(uDirB, spread - curveAt(x.b) * uRange));
+        ${simple ? '' : `// C2 · el baño: donde se revela mucho, el revelador se gasta y suelta bromuro, y eso alcanza a lo que
+        // tiene al lado (décimas de milímetro). Junto a una zona densa se revela menos; junto a una clara, más.
+        // Es el contraste local de la película —el relieve—, y una zona lisa no cambia.
+        xe -= uEdge * dot(texture(uBath, vUv).rgb * uRange - spread, vec3(1. / 3.));`}
         vec3 n = curve(xe);
         if (uMode > 1.5) { o = vec4(clamp((x + 3.) / 6., 0., 1.), 1.); return; }       // (pruebas: la exposición)
         // D · el grano: dos tamaños de grumo; su fuerza sale de la tabla (cristales revelados) y del formato
         if (uNoise.x > .5) {
           vec2 p = gl_FragCoord.xy / uNoise.y;
-          vec3 g = uNoise.y > 1.2 ? .8 * grumos(p, uSeed) + .6 * grumos(p * .43, uSeed + 91.) : .8 * gauss(floor(p), uSeed) + .6 * grumos(p * .43, uSeed + 91.);
-          if (uMono > .5) g = g.rrr;                                                   // una sola emulsión: un solo grano
-          n += lookup(xe, .75) * uNoise.z * g;
+          float fino = (uNoise.y > 1.2 ? grumos(p, uSeed) : gauss(floor(p), uSeed)).r, grueso = grumos(p * .43, uSeed + 91.).r;
+          if (uMono > .5) n += lookup(xe, .375) * uNoise.z * (.8 * fino + .6 * grueso);   // una sola emulsión: un solo grano
+          else {
+            // Color: el grano es el de la plata —el mismo dibujo que en blanco y negro—, compartido por
+            // las tres capas, y cada tamaño lleva la fuerza de SUS cristales: los gruesos (la sub-emulsión
+            // rápida, la única que se revela con poca luz) mandan en lo poco expuesto, y los finos se suman
+            // al subir la exposición. Encima, lo propio de cada capa: nubes de tinte anchas, giradas para
+            // que no caigan sobre el dibujo de la plata; es el color que se mueve dentro del grano.
+            vec3 nubes = grumos(mat2(.8, .6, -.6, .8) * p * .31, uSeed + 173.);
+            n += uNoise.z * (uTie.x * (lookup(xe, .875) * fino + lookup(xe, .625) * grueso) + uTie.y * lookup(xe, .375) * nubes);
+          }
         }
         if (uMode > .5) { o = vec4(clamp(n, 0., 1.), 1.); return; }                    // (pruebas: el negativo)
         // E · la ampliadora centra el negativo (uShift) y el papel lo vuelve positivo
@@ -636,7 +673,7 @@
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       const tex = (target, filter) => { const t = gl.createTexture(); gl.bindTexture(target, t); gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); if (target === gl.TEXTURE_3D) gl.texParameteri(target, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE); return t; };
       G.tex = { src: tex(gl.TEXTURE_2D, gl.LINEAR), curves: tex(gl.TEXTURE_2D, gl.LINEAR), print: tex(gl.TEXTURE_3D, gl.LINEAR) };
-      for (const name of ['H', 'a', 'b', 'c', 'wide', 'first', 'd', 'spread']) { G.tex[name] = tex(gl.TEXTURE_2D, name === 'H' ? gl.LINEAR_MIPMAP_NEAREST : gl.LINEAR); G.fbo[name] = gl.createFramebuffer(); G.size[name] = [0, 0]; }
+      for (const name of ['H', 'a', 'b', 'c', 'wide', 'first', 'd', 'spread', 'e', 'bath']) { G.tex[name] = tex(gl.TEXTURE_2D, name === 'H' || name === 'first' ? gl.LINEAR_MIPMAP_NEAREST : gl.LINEAR); G.fbo[name] = gl.createFramebuffer(); G.size[name] = [0, 0]; }
       canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); G.gl = null; G.lost++; G.film = null; });
       G.canvas = canvas; G.gl = gl;
       return true;
@@ -719,11 +756,11 @@
       if (sync) put(id, null);
       else { ask(id, true); if (!made.has(id)) return G.film && made.get(G.film) || null; }
     }
-    const set = made.get(id), rows = new Float32Array(physics.XN * 4 * 2);
-    rows.set(set.curves.density, 0); rows.set(set.curves.noise, physics.XN * 4);
+    const set = made.get(id), rows = new Float32Array(physics.XN * 4 * 4);
+    [set.curves.density, set.curves.noise, set.curves.coarse, set.curves.fine].forEach((row, i) => rows.set(row, physics.XN * 4 * i));
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, G.tex.curves);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, physics.XN, 2, 0, gl.RGBA, gl.FLOAT, rows);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, physics.XN, 4, 0, gl.RGBA, gl.FLOAT, rows);
     gl.bindTexture(gl.TEXTURE_3D, G.tex.print);
     gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, set.print.size, set.print.size, set.print.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, set.print.data);
     G.film = id;
@@ -783,8 +820,16 @@
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       // 4 · el inhibidor se difunde unas micras (da el borde marcado de la película)
       const ds = stock.dirRadius / upp / 2;
+      gl.bindTexture(gl.TEXTURE_2D, G.tex.first); gl.generateMipmap(gl.TEXTURE_2D);
       blur('first', 'd', hw, hh, 1 / hw, 0, 0, ds);
       blur('d', 'spread', hw, hh, 0, 1 / hh, 0, ds);
+      // 4b · el baño: la misma densidad, promediada a la distancia a la que se gasta el revelador
+      if (stock.edge) {
+        const reach = (stock.edgeRadius || 260) / upp / 2, lod = clamp(Math.round(Math.log2(Math.max(1, reach / 2.4))), 0, 6), ef = 1 << lod;
+        const ew = Math.max(2, Math.ceil(hw / ef)), eh = Math.max(2, Math.ceil(hh / ef));
+        blur('first', 'e', ew, eh, 1 / ew, 0, lod, reach / ef);
+        blur('e', 'bath', ew, eh, 0, 1 / eh, 0, reach / ef);
+      }
     }
     // 5 · revelado final, grano, ampliadora y papel
     const P = G.prog.final;
@@ -795,6 +840,8 @@
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, G.tex.b); gl.uniform1i(P.u.uHalo, 2);
       gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, G.tex.wide); gl.uniform1i(P.u.uWide, 5);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, G.tex.spread); gl.uniform1i(P.u.uSpread, 3);
+      gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, stock.edge ? G.tex.bath : G.tex.spread); gl.uniform1i(P.u.uBath, 6);
+      gl.uniform1f(P.u.uEdge, stock.edge || 0);
     } else exposing(P);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_3D, G.tex.print); gl.uniform1i(P.u.uPrint, 4);
     gl.uniform3f(P.u.uK, k[0], k[1], k[2]);
@@ -807,6 +854,8 @@
     gl.uniform3f(P.u.uNoise, o.grain === false ? 0 : 1, cell, 1 / (cell * upp));
     gl.uniform1f(P.u.uSeed, o.seed || 0); gl.uniform1f(P.u.uMode, o.mode || 0); gl.uniform1f(P.u.uMono, film.mono ? 1 : 0);
     gl.uniform2f(P.u.uRes, w, h);
+    const tie = physics.tieOf(stock);
+    gl.uniform2f(P.u.uTie, Math.sqrt(tie), Math.sqrt(1 - tie));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     return G.canvas;
   }
@@ -822,8 +871,9 @@
     const started = performance.now(), opts = options || {};
     const outW = Math.max(1, Math.round(opts.outW || ctx.canvas.width)), outH = Math.max(1, Math.round(opts.outH || ctx.canvas.height));
     const capture = opts.path === 'capture';
-    // Resolución interna: la de la salida, con tope (la vista previa no necesita más; la foto, sí).
-    const cap = capture ? 2560 : 900, scale = Math.min(1, cap / Math.max(outW, outH));
+    // Resolución interna: la de la salida, con tope. La vista previa se revela a su tamaño de verdad
+    // (1024 puntos): revelada más pequeña y ampliada después, el grano llegaba emborronado, hecho velo.
+    const cap = capture ? 2560 : 1280, scale = Math.min(1, cap / Math.max(outW, outH));
     const w = Math.max(16, Math.round(outW * scale)), h = Math.max(16, Math.round(outH * scale));
     const [sx, sy, sw, sh] = typeof cropCoordsForDims === 'function' ? cropCoordsForDims(srcW, srcH, w, h) : [0, 0, srcW, srcH];
     const stock = physics.STOCKS[variant] ? variant : 'RETRATO400';
@@ -891,6 +941,6 @@
     // Avisa cuando las tablas de una película están listas (por omisión, con los ajustes puestos).
     ready: (stock, push = S.push, paper = S.paper, filter = S.filter, toner = S.toner) => ask(idOf(physics.STOCKS[stock] ? stock : 'RETRATO400', push, paper, filter, toner)).then(() => true),
     settings: () => ({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain }),
-    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film }),
+    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null }),
   };
 })();

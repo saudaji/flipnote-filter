@@ -162,6 +162,58 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     assert.ok(grain.pushed > grain.plain * 1.15, 'empujar agranda el grano: ' + [grain.plain, grain.pushed]);
     step('el grano: se ve, baja con el formato, cambia con el tono y sube al empujar', grain);
 
+    // ── 5b · Negro hondo y grano profundo (las de color, a la altura de las de blanco y negro) ──
+    const deep = await page.evaluate(() => {
+      const P = flipFilm.physics, lum = p => 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+      // el negro de la escena (ocho pasos bajo el gris medio), película por película
+      const black = Object.fromEntries(Object.keys(P.STOCKS).map(stock => [stock, +lum(filmKit.patches([filmKit.gray(-8), filmKit.gray(0)], { stock })[0]).toFixed(4)]));
+      // un gris liso con grano: cuánto se mueve la luminancia, cuánto el color, y cuánto van juntas las capas
+      const W = 1024, H = 256, flat = v => { const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); const s = Math.round(255 * Math.pow(v, 1 / 2.2)); x.fillStyle = `rgb(${s},${s},${s})`; x.fillRect(0, 0, W, H); return c; };
+      const stats = (stock, v, format = 0) => {
+        flipFilm.develop(flat(v), { stock, format, grain: true }); const r = flipFilm.read();
+        let n = 0; const m = [0, 0, 0], q = [0, 0, 0]; let rg = 0, d = 0, d2 = 0;
+        for (let y = 20; y < H - 20; y++) for (let x = 20; x < W - 20; x++) { const o = (y * W + x) * 4, R = r.data[o], G = r.data[o + 1], B = r.data[o + 2]; m[0] += R; m[1] += G; m[2] += B; q[0] += R * R; q[1] += G * G; q[2] += B * B; rg += R * G; d += R - G; d2 += (R - G) * (R - G); n++; }
+        const sd = k => Math.sqrt(Math.max(0, q[k] / n - (m[k] / n) ** 2));
+        return { luz: +sd(1).toFixed(2), color: +Math.sqrt(Math.max(0, d2 / n - (d / n) ** 2)).toFixed(2), juntas: +((rg / n - m[0] * m[1] / n / n) / Math.max(1e-6, sd(0) * sd(1))).toFixed(2), media: Math.round(m[1] / n) };
+      };
+      // el relieve del baño: un escalón de gris oscuro a gris claro
+      const stepOf = stock => {
+        const c = document.createElement('canvas'); c.width = 1024; c.height = 64; const x = c.getContext('2d'), s = v => { const k = Math.round(255 * Math.pow(v, 1 / 2.2)); return `rgb(${k},${k},${k})`; };
+        x.fillStyle = s(0.06); x.fillRect(0, 0, 512, 64); x.fillStyle = s(0.40); x.fillRect(512, 0, 512, 64);
+        flipFilm.develop(c, { stock, grain: false }); const r = flipFilm.read(), at = px => r.data[(32 * 1024 + px) * 4 + 1];
+        return { oscuroLejos: at(512 - 200), oscuroCerca: at(512 - 3), claroCerca: at(512 + 3), claroLejos: at(512 + 200) };
+      };
+      return {
+        black, retrato: stats('RETRATO400', 0.18), cine: stats('CINE500T', 0.18), mono: stats('BNORTO80', 0.18),
+        slide: { luces: stats('VIVA50', 0.9), medios: stats('VIVA50', 0.12) }, negative: { sombras: stats('RETRATO400', 0.012), medios: stats('RETRATO400', 0.18) },
+        edge: { retrato: stepOf('RETRATO400'), viva: stepOf('VIVA50'), orto: stepOf('BNORTO80') }, tie: [P.tieOf(P.STOCKS.RETRATO400), P.tieOf(P.STOCKS.BNORTO80)],
+      };
+    });
+    const COLOUR_NEGATIVES = ['RETRATO400', 'CALIDO200', 'CINE500T', 'CALLE400', 'AMBAR160', 'CINE250D', 'CRUZADO100', 'PLATA200', 'REVES200', 'PURPURA400'];
+    const deepestMono = Math.max(...['BNFINO100', 'BNCLASICO400', 'BNORTO80', 'BNNOCHE3200'].map(k => deep.black[k]));
+    for (const stock of COLOUR_NEGATIVES) {
+      // (antes: 0,019 de luminancia —un gris oscuro, L* 15—; el del blanco y negro anda por 0,011)
+      assert.ok(deep.black[stock] < (stock === 'CINE250D' ? 0.0135 : 0.0115), stock + ': el negro de la escena sale negro, no gris: ' + deep.black[stock]);
+      assert.ok(deep.black[stock] < deepestMono * 1.15, stock + ': tan hondo como el de las de blanco y negro: ' + [deep.black[stock], deepestMono]);
+    }
+    for (const [name, g] of [['RETRATO 400', deep.retrato], ['CINE 500T', deep.cine]]) {
+      assert.ok(g.juntas > 0.6, name + ': las capas llevan el grano juntas (grano de luminancia, no confeti): ' + JSON.stringify(g));
+      assert.ok(g.color < g.luz * 0.8, name + ': el grano mueve más la luz que el color: ' + JSON.stringify(g));
+      assert.ok(g.color > g.luz * 0.15, name + ': y aun así cada capa lleva algo propio (el color respira): ' + JSON.stringify(g));
+    }
+    assert.ok(deep.cine.luz > deep.retrato.luz * 1.15, 'la de cine rápida tiene más grano que la de retrato: ' + [deep.retrato.luz, deep.cine.luz]);
+    assert.ok(deep.retrato.luz > deep.mono.luz * 0.9, 'el grano de color llega al nivel del de blanco y negro: ' + [deep.retrato.luz, deep.mono.luz]);
+    assert.deepEqual(deep.tie, [0.86, 1], 'cuánto grano comparten las capas: casi todo en color, todo en blanco y negro');
+    assert.ok(deep.slide.luces.luz < deep.slide.medios.luz * 0.5, 'donde una diapositiva queda limpia (los blancos) no hay grano: ' + JSON.stringify(deep.slide));
+    assert.ok(deep.negative.sombras.luz < deep.negative.medios.luz * 0.5, 'en la copia de un negativo el negro queda limpio: ' + JSON.stringify(deep.negative));
+    for (const name of ['retrato', 'viva']) {
+      const e = deep.edge[name];
+      assert.ok(e.claroCerca >= e.claroLejos + 3 && e.oscuroCerca <= e.oscuroLejos, name + ': junto a un borde lo claro se aclara y lo oscuro no se levanta (el relieve del baño): ' + JSON.stringify(e));
+      assert.ok(e.claroCerca - e.claroLejos < 22, name + ': sin halo exagerado: ' + JSON.stringify(e));
+    }
+    assert.ok(Math.abs(deep.edge.orto.claroCerca - deep.edge.orto.claroLejos) <= 2 && Math.abs(deep.edge.orto.oscuroCerca - deep.edge.orto.oscuroLejos) <= 2, 'el blanco y negro se queda como estaba: ' + JSON.stringify(deep.edge.orto));
+    step('negro hondo y grano profundo: las de color, a la altura de las de blanco y negro', { negro: deep.black, retrato: deep.retrato, cine: deep.cine, orto: deep.mono, diapositiva: deep.slide, borde: deep.edge });
+
     // ── 6 · EMPUJE y PAPEL ──
     const contrast = await page.evaluate(() => {
       const ratio = options => { const p = filmKit.patches([filmKit.gray(-1), filmKit.gray(0), filmKit.gray(1)], { stock: 'RETRATO400', ...options }); return { gamma: +(Math.log(p[2][1] / p[0][1]) / Math.log(4)).toFixed(3), mid: p[1][1] }; };
@@ -271,6 +323,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     assert.equal(a.variante, 'RETRATO400');
     assert.equal(a.variantes, 0, 'las películas son diapositivas, no teclas de variante');
     assert.ok(a.s.gl && !a.s.failed, 'revela en la gráfica: ' + JSON.stringify(a.s));
+    assert.deepEqual(a.s.size, await page.evaluate(() => [display.width, display.height]), 'el visor se revela a su tamaño de verdad (sin ampliar: ampliado, el grano llega hecho velo)');
     // una película que aún no se había pedido: su tabla de copia se calcula en un hilo aparte
     const aside = await page.evaluate(async () => { const t0 = performance.now(); await flipFilm.ready('CALIDO200', -1, 0); return { ms: Math.round(performance.now() - t0), s: flipFilm.state() }; });
     assert.ok(aside.s.worker && aside.s.waiting === 0, 'las tablas se calculan sin detener la cámara: ' + JSON.stringify(aside));

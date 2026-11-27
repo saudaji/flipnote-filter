@@ -1790,7 +1790,7 @@
     const look = S.looks.find(l => l.id === variant) || null;
     const aim = (S.aim || !look) && opts.path !== 'capture';
     // Resolución interna: la de la salida, con tope (la vista previa no necesita más; la foto, sí).
-    const cap = opts.path === 'capture' ? 2048 : 900, k = Math.min(1, cap / Math.max(outW, outH));
+    const cap = opts.path === 'capture' ? 2560 : 900, k = Math.min(1, cap / Math.max(outW, outH));
     const w = Math.max(16, Math.round(outW * k)), h = Math.max(16, Math.round(outH * k));
     const [sx, sy, sw, sh] = typeof cropCoordsForDims === 'function' ? cropCoordsForDims(srcW, srcH, w, h) : [0, 0, srcW, srcH];
     const crop = [sx / srcW, sy / srcH, sw / srcW, sh / srcH];

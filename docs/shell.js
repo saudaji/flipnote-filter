@@ -369,7 +369,7 @@
     syncFormat();
   }
   function syncFormat() {
-    const res = { low: 'SD', medium: 'HD', high: 'HD+' }[flipAudioSettings?.resolution] || '';
+    const res = { low: 'SD', medium: 'HD', high: 'HD+', max: 'MÁX' }[flipAudioSettings?.resolution] || '';
     $('lcdFormat').textContent = _getCurrentAspectId() + (res ? ' ' + res : '');
   }
 

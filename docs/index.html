@@ -7963,7 +7963,7 @@ function _ensureAuto03Buffers(sampleW = DSI_W, sampleH = DSI_H) {
 }
 function _getAuto03CaptureSampleDims(options = {}) {
   const resolutionId = options.resolution || ((flipAudioSettings && flipAudioSettings.resolution) || 'medium');
-  const scale = resolutionId === 'high' ? 1.72 : (resolutionId === 'low' ? 1.06 : 1.36);
+  const scale = resolutionId === 'high' || resolutionId === 'max' ? 1.72 : (resolutionId === 'low' ? 1.06 : 1.36);
   const even = v => Math.max(32, Math.round(v / 2) * 2);
   return { sampleW: even(DSI_W * scale), sampleH: even(DSI_H * scale) };
 }
@@ -11862,7 +11862,15 @@ const FLIP_RESOLUTION_OPTIONS = [
   { id:'low', label:'BAJA', base:480 },
   { id:'medium', label:'MEDIA', base:768 },
   { id:'high', label:'ALTA', base:1080 },
+  // Solo para la FOTO de cámara: 1440 de lado corto (2560 de largo en 9:16 y 16:9). El vídeo y los
+  // demás módulos la tratan como ALTA (ver _flipResolutionId).
+  { id:'max', label:'MÁXIMA', base:1440 },
 ];
+// La resolución elegida, tal como vale para lo que se va a hacer: MÁXIMA es de la foto de cámara.
+function _flipResolutionId(options = {}) {
+  const id = options.resolution || ((flipAudioSettings && flipAudioSettings.resolution) || 'medium');
+  return id === 'max' && !options.photo ? 'high' : id;
+}
 const FLIP_AUDIO_MODE_OPTIONS = [
   { id:'off', label:'OFF' },
   { id:'on', label:'ON' },
@@ -12175,6 +12183,9 @@ function _injectFlipSettingsStyles() {
       color: var(--flip-text-secondary);
       font-size: 10px;
     }
+    /* la resolución tiene cuatro opciones: caben en un renglón, con la letra un pelo más junta */
+    #flipResolutionPills { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    #flipResolutionPills .flip-settings-pill { padding-left: 2px; padding-right: 2px; letter-spacing: .02em; }
     .flip-settings-pill.active {
       border-color: var(--flip-accent);
       color: var(--flip-text-primary);
@@ -12979,7 +12990,7 @@ function _getCanvasRecordAspect(sourceCanvas) {
   return { aw: Math.max(1, Math.round(srcW / g)), ah: Math.max(1, Math.round(srcH / g)), srcW, srcH };
 }
 function _getFlipVideoBitrate(baseBitsPerSecond, dims = null, fps = 30) {
-  const resolutionId = ((flipAudioSettings && flipAudioSettings.resolution) || 'medium');
+  const resolutionId = _flipResolutionId();
   const targetFloor = resolutionId === 'low' ? 6_000_000 : (resolutionId === 'high' ? 20_000_000 : 12_000_000);
   let bitrate = Math.max(baseBitsPerSecond || 0, targetFloor);
   if (dims && dims.width && dims.height) {
@@ -12991,7 +13002,7 @@ function _getFlipVideoBitrate(baseBitsPerSecond, dims = null, fps = 30) {
   return bitrate;
 }
 function _getFlipRecordDimensions(sourceCanvas = null, options = {}) {
-  const resolutionId = options.resolution || ((flipAudioSettings && flipAudioSettings.resolution) || 'medium');
+  const resolutionId = _flipResolutionId(options);
   const res = FLIP_RESOLUTION_OPTIONS.find(opt => opt.id === resolutionId) || FLIP_RESOLUTION_OPTIONS[1];
   let aspect = options.aspectRatio || '';
   let aw = 0, ah = 0;
@@ -13910,13 +13921,16 @@ function _getCamRecordingOptions() {
     options.onStop = () => {};
     return options;
   }
-  options.renderFrame = ({ ctx, width, height, now, dims }) => {
+  options.renderFrame = ({ ctx, width, height, now, dims, still }) => {
     // These effects accumulate history on the live canvas; sample the exact presented frame.
     if (camFamily === 'CASKIA' && camVariant !== 'STD') {
       ctx.drawImage(display, 0, 0, width, height);
       return;
     }
-    const cam = liveCamFrame();
+    // La FOTO no sale de la copia reducida con que se pinta el visor (en Android, 360 puntos de lado
+    // corto: bastaba para la vista y la foto la heredaba). Sale de la toma del sensor si la hay
+    // («still», ver sensorStill) y, si no, del cuadro de vídeo entero. El vídeo sigue con la copia rápida.
+    const cam = dims ? liveCamFrame() : still || { source: vid, srcW: vid.videoWidth, srcH: vid.videoHeight };
     // («motion»: es un cuadro de vídeo —la grabación manda sus medidas en «dims»—, no una foto)
     _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctx, camMirror(), {
       path:'capture', now, resolution:options.resolution, outW:width, outH:height, motion: !!dims,
@@ -13961,9 +13975,100 @@ async function cameraPhoto() {
     flashPhotoPending = false;
   }
 }
+// ── La toma del sensor ──────────────────────────────────────────────────────
+// El visor es un vídeo de 1280 × 720; una foto sacada de ahí no aguanta que se la amplíe. Al
+// disparar, a la cámara se le pide además una FOTO de verdad (ImageCapture.takePhoto: la toma
+// completa del sensor, unos 12 megapíxeles en un teléfono; hoy la da Chrome en Android), y es esa la
+// que se revela. Solo en las cámaras que buscan imagen fina (FILM, CLON): a las de píxel gordo no
+// les da nada y les costaría un segundo por foto.
+//   · La toma trae otro encuadre (4:3, y a veces más campo que el vídeo): se recorta a lo que enseña
+//     el visor, buscando el recorte centrado que mejor casa con el cuadro de vídeo de ese instante.
+//     Si ninguno casa (la escena cambió, la toma vino girada), no se arriesga: se usa el vídeo.
+//   · Si el navegador no la da, tarda de más o falla, la foto sale del cuadro de vídeo entero.
+// flipPhotoInfo() dice de dónde salió la última foto (pruebas y diagnóstico).
+const SENSOR_STILL_FAMILIES = new Set(['FILM', 'CLON']), SENSOR_STILL_SIDE = 4096;
+let _lastPhotoInfo = null, _sensorCapture = null, _photoBusy = false;
+function flipPhotoInfo() { return _lastPhotoInfo ? { ..._lastPhotoInfo } : null; }
+function _stillLuma(source, sx, sy, sw, sh, w, h, slot) {
+  if (!slot.canvas) { slot.canvas = document.createElement('canvas'); slot.ctx = slot.canvas.getContext('2d', { willReadFrequently: true }); }
+  if (slot.canvas.width !== w || slot.canvas.height !== h) { slot.canvas.width = w; slot.canvas.height = h; }
+  slot.ctx.drawImage(source, sx, sy, sw, sh, 0, 0, w, h);
+  const d = slot.ctx.getImageData(0, 0, w, h).data, out = new Float32Array(w * h);
+  let mean = 0;
+  for (let i = 0; i < out.length; i++) { out[i] = d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11; mean += out[i]; }
+  mean /= out.length;
+  let dev = 0;
+  for (let i = 0; i < out.length; i++) { out[i] -= mean; dev += out[i] * out[i]; }
+  return { data: out, dev: Math.sqrt(dev) };
+}
+const _stillSlots = [{}, {}];
+// El recorte de la toma que enseña lo mismo que el vídeo: centrado, con el alto y el ancho del vídeo,
+// probando cuánto campo de más trae la toma (de nada a un 40 %). Devuelve { sx, sy, sw, sh, score, wide }.
+function _matchStillFraming(bitmap, video) {
+  const vw = video.videoWidth, vh = video.videoHeight, bw = bitmap.width, bh = bitmap.height;
+  if (!vw || !vh || (bw > bh) !== (vw > vh)) return null;            // vino girada: no se adivina
+  const gw = vw >= vh ? 64 : 36, gh = vw >= vh ? 36 : 64, ref = _stillLuma(video, 0, 0, vw, vh, gw, gh, _stillSlots[0]);
+  const full = Math.min(bw, bh * vw / vh);                            // el mayor recorte con la forma del vídeo
+  let best = null;
+  for (let wide = 1; wide <= 1.4001; wide += 0.04) {
+    const sw = full / wide, sh = sw * vh / vw, sx = (bw - sw) / 2, sy = (bh - sh) / 2;
+    const got = _stillLuma(bitmap, sx, sy, sw, sh, gw, gh, _stillSlots[1]);
+    let dot = 0;
+    for (let i = 0; i < got.data.length; i++) dot += got.data[i] * ref.data[i];
+    const score = ref.dev > 1 && got.dev > 1 ? dot / (ref.dev * got.dev) : 0;
+    if (!best || score > best.score) best = { sx, sy, sw, sh, score, wide: +wide.toFixed(2) };
+  }
+  return best;
+}
+async function sensorStill() {
+  const started = performance.now(), track = stream && stream.getVideoTracks ? stream.getVideoTracks()[0] : null;
+  if (typeof ImageCapture !== 'function' || !track || track.readyState !== 'live' || !vid.videoWidth) return null;
+  try {
+    if (!_sensorCapture || _sensorCapture.track !== track) {
+      const capture = new ImageCapture(track);
+      // Lo que se le pide: su tamaño mayor y SIN destello (por su cuenta puede venir en automático, y
+      // una foto de FLIP no dispara el flash si nadie lo pidió). Si la cámara no dice qué admite, o
+      // rechaza lo pedido, se le pide la foto sin más.
+      let settings = null;
+      try {
+        const caps = typeof capture.getPhotoCapabilities === 'function' ? await capture.getPhotoCapabilities() : null;
+        if (caps) {
+          settings = {};
+          if (Array.isArray(caps.fillLightMode) && caps.fillLightMode.includes('off')) settings.fillLightMode = 'off';
+          if (caps.imageWidth && caps.imageWidth.max) settings.imageWidth = caps.imageWidth.max;
+          if (caps.imageHeight && caps.imageHeight.max) settings.imageHeight = caps.imageHeight.max;
+          if (!Object.keys(settings).length) settings = null;
+        }
+      } catch (_) { settings = null; }
+      _sensorCapture = { track, capture, settings };
+    }
+    const late = () => new Promise((_, no) => setTimeout(() => no(new Error('la toma tardó de más')), 3500));
+    let blob = null;
+    if (_sensorCapture.settings) {
+      try { blob = await Promise.race([_sensorCapture.capture.takePhoto(_sensorCapture.settings), late()]); }
+      catch (error) { if (/tardó/.test(String(error && error.message))) throw error; _sensorCapture.settings = null; }
+    }
+    if (!blob) blob = await Promise.race([_sensorCapture.capture.takePhoto(), late()]);
+    if (!blob || !blob.size || track.readyState !== 'live') return null;
+    const bitmap = await createImageBitmap(blob);
+    const fit = _matchStillFraming(bitmap, vid);
+    if (!fit || fit.score < 0.5) { _lastPhotoInfo = { from: 'video', why: fit ? 'la toma no casa con el visor (' + fit.score.toFixed(2) + ')' : 'la toma vino girada', ms: Math.round(performance.now() - started) }; bitmap.close(); return null; }
+    const k = Math.min(1, SENSOR_STILL_SIDE / Math.max(fit.sw, fit.sh)), w = Math.max(2, Math.round(fit.sw * k)), h = Math.max(2, Math.round(fit.sh * k));
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+    const cx = canvas.getContext('2d'); cx.imageSmoothingEnabled = true; try { cx.imageSmoothingQuality = 'high'; } catch (_) {}
+    cx.drawImage(bitmap, fit.sx, fit.sy, fit.sw, fit.sh, 0, 0, w, h);
+    _lastPhotoInfo = { from: 'sensor', sensor: [bitmap.width, bitmap.height], source: [w, h], score: +fit.score.toFixed(2), wide: fit.wide, ms: Math.round(performance.now() - started) };
+    bitmap.close();
+    return { source: canvas, srcW: w, srcH: h };
+  } catch (error) {
+    _lastPhotoInfo = { from: 'video', why: String(error && error.message || error).slice(0, 80), ms: Math.round(performance.now() - started) };
+    return null;
+  }
+}
 async function renderCameraPhoto() {
   const options = _getCamRecordingOptions();
   if (!options.renderFrame) return _canvasToJpeg(display);
+  options.photo = true;                                            // (MÁXIMA solo vale para la foto)
   const { width, height } = _getFlipRecordDimensions(display, options);
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -13991,9 +14096,17 @@ async function renderCameraPhoto() {
       });
       _renderCamStickerLayer(ctx,false);
     } else {
-      options.renderFrame({ ctx:canvas.getContext('2d'), width, height, now:performance.now() });
+      _lastPhotoInfo = { from: 'video' };
+      let still = null;
+      if (!options.portal && SENSOR_STILL_FAMILIES.has(camFamily) && vid.videoWidth && typeof ImageCapture === 'function') {
+        if (window.flipShell && flipShell.hint) flipShell.hint('Revelando la toma completa…', 1600);
+        still = await sensorStill();
+      }
+      options.renderFrame({ ctx:canvas.getContext('2d'), width, height, now:performance.now(), still });
+      _lastPhotoInfo = { ..._lastPhotoInfo, out: [width, height], video: [vid.videoWidth, vid.videoHeight] };
     }
-    return await _canvasToJpeg(canvas);
+    // (cuanto más grande la foto, menos se le perdona la compresión)
+    return await _canvasToJpeg(canvas, width * height > 2500000 ? 0.95 : undefined);
   } finally {
     options.onStop();
   }
@@ -14044,8 +14157,11 @@ btnCap.addEventListener('click', async () => {
   }
   if (camMode === 'foto') {
     // Take photo
+    if (_photoBusy) return;                                        // la toma anterior aún se está revelando
+    _photoBusy = true;
     flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 120);
-    const shot = await cameraPhoto();
+    let shot = null;
+    try { shot = await cameraPhoto(); } finally { _photoBusy = false; }
     if (!shot) return;
     await saveBlob(shot, _flipName('cam', 'jpg'));
   } else {

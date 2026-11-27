@@ -13,6 +13,8 @@
 //     y su grano mueve la luz más que el color (las capas lo comparten);
 //   · CINE CHICO (SÚPER 8 y SÚPER 16): el cuadro es tan pequeño que el grano se dibuja cristal a
 //     cristal (sueltos donde llegó poca luz), la emulsión quita nitidez, y el tono no se mueve;
+//   · EL OBTURADOR DE CINE (vídeo): lo que se mueve deja estela a lo largo de su camino, lo quieto no
+//     cambia y el ruido del sensor no se toma por movimiento;
 //   · EMPUJE y PAPEL mueven el contraste hacia donde dicen;
 //   · CADA PELÍCULA ES LO QUE DICE: el blanco y negro no tiene color y cambia con FILTRO y VIRADO; la
 //     ortocromática no ve el rojo; la diapositiva tiene más color y EXPOSICIÓN la aclara de verdad; la
@@ -259,6 +261,46 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     assert.equal(small.state.tier, 0, 'sin haber ido lenta, la vista previa dibuja todos sus cristales');
     step('cine chico: SÚPER 8 y SÚPER 16 dibujan el grano cristal a cristal', { grano: small.formats.map(f => f.sd), sueltos: small.thin, borde: small.edges });
 
+    // ── 5d · El obturador de cine (vídeo): lo que se mueve deja estela, y lo quieto no cambia ──
+    const shutter = await page.evaluate(() => {
+      const W = 1024, H = 768;
+      // fondo con textura, una barra clara y un punto de luz; «noise» le pone el ruido de un sensor
+      const scene = (bx, by, pan = 0, noise = 0) => {
+        const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d', { willReadFrequently: true });
+        x.fillStyle = '#3a4148'; x.fillRect(0, 0, W, H);
+        for (let i = 0; i < 60; i++) { const px = ((i * 197 + pan) % (W + 80)) - 40, py = (i * 113) % H; x.fillStyle = i % 3 ? '#4d565e' : '#2b3036'; x.fillRect(px, py, 46, 30); }
+        x.fillStyle = '#e9e6dc'; x.fillRect(400 + bx, 150 + by, 60, 380);
+        if (noise) { const im = x.getImageData(0, 0, W, H), d = im.data; let sd = noise * 7919 + 1; for (let i = 0; i < d.length; i += 4) { sd = (sd * 1664525 + 1013904223) >>> 0; const n = ((sd >>> 16) % 13) - 6; d[i] += n; d[i + 1] += n; d[i + 2] += n; } x.putImageData(im, 0, 0); }
+        return c;
+      };
+      const spanX = y => { const r = flipFilm.read(), at = px => r.data[(y * W + px) * 4 + 1]; let lo = 255, hi = 0; for (let px = 300; px < 600; px++) { lo = Math.min(lo, at(px)); hi = Math.max(hi, at(px)); } let a = 0, b = 0; for (let px = 300; px < 600; px++) { const v = (at(px) - lo) / (hi - lo); if (v > 0.1) a++; if (v > 0.9) b++; } return [a, b]; };
+      const spanY = x0 => { const r = flipFilm.read(), at = py => r.data[(py * W + x0) * 4 + 1]; let lo = 255, hi = 0; for (let py = 60; py < 620; py++) { lo = Math.min(lo, at(py)); hi = Math.max(hi, at(py)); } let a = 0, b = 0; for (let py = 60; py < 620; py++) { const v = (at(py) - lo) / (hi - lo); if (v > 0.1) a++; if (v > 0.9) b++; } return [a, b]; };
+      const run = (dx, dy, amount, pan = 0, noise = 0) => {
+        flipFilm.forgetMotion();
+        flipFilm.develop(scene(0, 0, 0, noise && 1), { stock: 'RETRATO400', grain: false, shutter: { fresh: true, amount } });
+        flipFilm.develop(scene(dx, dy, pan, noise && 2), { stock: 'RETRATO400', grain: false, shutter: { fresh: true, amount } });
+        return { ancho: spanX(300 + dy), alto: spanY(430 + dx) };
+      };
+      flipFilm.develop(scene(24, 0), { stock: 'RETRATO400', grain: false });
+      const plain = { ancho: spanX(300), alto: spanY(454) };
+      // un cuadro repetido (el visor repinta el mismo): la estela se queda como estaba
+      flipFilm.forgetMotion();
+      for (const dx of [0, 24]) flipFilm.develop(scene(dx, 0), { stock: 'RETRATO400', grain: false, shutter: { fresh: true, amount: 0.625 } });
+      flipFilm.develop(scene(24, 0), { stock: 'RETRATO400', grain: false, shutter: { fresh: false, amount: 0.625 } });
+      const repeated = { ancho: spanX(300), alto: spanY(454) };
+      return { plain, still: run(0, 0, 0.625), noisy: run(0, 0, 0.625, 0, 1), right: run(24, 0, 0.625), fast: run(48, 0, 0.625), left: run(-24, 0, 0.625), down: run(0, 24, 0.625), pan: run(24, 0, 0.625, 24), closed: run(24, 0, 0), repeated };
+    });
+    assert.deepEqual(shutter.still.ancho, shutter.plain.ancho, 'lo que no se mueve no cambia: ' + JSON.stringify([shutter.still, shutter.plain]));
+    assert.ok(Math.abs(shutter.noisy.ancho[0] - shutter.plain.ancho[0]) <= 2, 'el ruido del sensor no se toma por movimiento: ' + JSON.stringify(shutter.noisy));
+    assert.ok(shutter.right.ancho[0] >= shutter.plain.ancho[0] + 9 && shutter.right.ancho[0] <= shutter.plain.ancho[0] + 19 && shutter.right.ancho[1] < shutter.plain.ancho[1], 'una barra que se movió 24 puntos deja una estela de unos 15 (1/48 de segundo de cada 1/30): ' + JSON.stringify(shutter.right));
+    assert.ok(shutter.fast.ancho[0] > shutter.right.ancho[0] + 8, 'el doble de rápido, el doble de estela: ' + JSON.stringify([shutter.right.ancho, shutter.fast.ancho]));
+    assert.ok(Math.abs(shutter.left.ancho[0] - shutter.right.ancho[0]) <= 3, 'igual hacia la izquierda: ' + JSON.stringify(shutter.left));
+    assert.ok(Math.abs(shutter.down.ancho[0] - shutter.plain.ancho[0]) <= 2 && shutter.down.alto[0] >= shutter.plain.alto[0] + 7, 'si baja, la estela es vertical y a lo ancho no cambia: ' + JSON.stringify([shutter.down, shutter.plain]));
+    assert.ok(shutter.pan.ancho[0] >= shutter.plain.ancho[0] + 9, 'un paneo (se mueve todo) también deja estela: ' + JSON.stringify(shutter.pan));
+    assert.deepEqual(shutter.closed.ancho, shutter.plain.ancho, 'con el obturador en cero, nada: ' + JSON.stringify(shutter.closed));
+    assert.ok(Math.abs(shutter.repeated.ancho[0] - shutter.right.ancho[0]) <= 2, 'un cuadro repetido conserva su estela (no parpadea): ' + JSON.stringify(shutter.repeated));
+    step('el obturador de cine: lo que se mueve deja estela', { quieto: shutter.still.ancho, ruido: shutter.noisy.ancho, derecha24: shutter.right.ancho, derecha48: shutter.fast.ancho, abajo24: shutter.down.alto, repetido: shutter.repeated.ancho });
+
     // ── 6 · EMPUJE y PAPEL ──
     const contrast = await page.evaluate(() => {
       const ratio = options => { const p = filmKit.patches([filmKit.gray(-1), filmKit.gray(0), filmKit.gray(1)], { stock: 'RETRATO400', ...options }); return { gamma: +(Math.log(p[2][1] / p[0][1]) / Math.log(4)).toFixed(3), mid: p[1][1] }; };
@@ -401,6 +443,20 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     assert.deepEqual([filming.after.size, filming.after.reel, filming.after.filming], [filming.display, null, false], 'al acabar, el visor vuelve a su tamaño y suelta el rollo: ' + JSON.stringify(filming.after));
     assert.deepEqual([filming.after.tier, filming.after.scale], [0, 1], 'sin haber ido lenta, no se baja la calidad');
     step('grabando vídeo se revela una vez por cuadro', { durante: filming.during, alAcabar: filming.after.size });
+
+    // en modo vídeo el obturador de cine va puesto (el visor enseña lo que se va a grabar); en foto, no
+    const modes = { foto: await page.evaluate(() => ({ modo: camMode, s: flipFilm.state() })) };
+    await page.locator('#deckModeSwitch').click();
+    await page.waitForFunction(() => camMode === 'video' && flipFilm.state().shuttering && flipFilm.state().amount > 0, null, { timeout: 8000 });
+    await page.waitForTimeout(700);
+    modes.video = await page.evaluate(() => ({ modo: camMode, s: flipFilm.state() }));
+    const seenVideo = await view();
+    await page.locator('#deckModeSwitch').click();
+    await page.waitForFunction(() => camMode === 'foto' && !flipFilm.state().shuttering, null, { timeout: 8000 });
+    assert.equal(modes.foto.s.shuttering, false, 'en foto no hay obturador de cine');
+    assert.ok(modes.video.s.shuttering && modes.video.s.amount > 0.4 && modes.video.s.amount <= 1.25, 'en vídeo va puesto, con la parte del intervalo que le toca a 1/48 de segundo: ' + JSON.stringify(modes.video.s));
+    assert.ok(seenVideo.lit > 0.5 && seenVideo.colores > 40, 'y el visor sigue enseñando la imagen: ' + JSON.stringify(seenVideo));
+    step('en modo vídeo el obturador de cine va puesto', { parte: modes.video.s.amount });
 
     // otra película: cambia la imagen (la de diario es más cálida)
     await pickCamera(page, 'FILM', 'CALIDO200');

@@ -572,6 +572,9 @@
   //   4 · el inhibidor se difunde unas micras                                       (a la mitad; 2 pasadas)
   //   4b · el baño: la misma densidad a décimas de milímetro (películas de color)   (reducida; 2 pasadas)
   //   5 · revelado final (con el freno de las capas vecinas y el del baño), grano, ampliadora y soporte
+  // En modo vídeo, entre el 1 y el 2 va el obturador (1a): una pasada mide el brillo, tres estiman
+  // cuánto se movió cada zona desde el cuadro anterior, y otra reparte la exposición a lo largo de ese
+  // movimiento (once lecturas por punto).
   // En cine chico (SÚPER 8 y SÚPER 16) hay dos pasadas más (1b: la emulsión dispersa la luz) y el grano
   // del paso 5 deja de sortearse como estadística: se dibuja cristal a cristal (hasta 63 huecos por punto,
   // cada uno con su cuenta de Poisson).
@@ -614,6 +617,46 @@
         vec3 sum = vec3(0.), total = vec3(0.);
         for (int i = -7; i <= 7; i++) { vec3 w = exp(-float(i * i) / (2. * uSigma * uSigma)); sum += w * textureLod(uTex, vUv + float(i) * uStep, uLod).rgb; total += w; }
         o = vec4(sum / total, 1.);
+      }`,
+    // El obturador (vídeo). Una cámara de cine deja pasar la luz 1/48 de segundo por cuadro: lo que se
+    // mueve deja estela. El teléfono expone en milésimas y cada cuadro sale congelado. Aquí se mide
+    // cuánto se movió cada zona entre el cuadro anterior y este (tres pasadas, de lo grueso a lo fino)
+    // y la exposición se reparte a lo largo de ese camino, en luz lineal y antes de las curvas: una luz
+    // que se mueve deja su rastro, como en la película.
+    luma: HEAD + `
+      uniform sampler2D uTex; uniform vec2 uStep;
+      void main() {
+        vec3 s = texture(uTex, vUv - uStep).rgb + texture(uTex, vUv + vec2(uStep.x, -uStep.y)).rgb + texture(uTex, vUv + vec2(-uStep.x, uStep.y)).rgb + texture(uTex, vUv + uStep).rgb;
+        o = vec4(vec3(log(.02 + dot(s, vec3(1. / 12.)))), 1.);
+      }`,
+    // Cuánto se movió cada zona: en una ventana de 5 × 5 se busca el desplazamiento que mejor explica el
+    // cambio de brillo entre los dos cuadros (el anterior, ya corrido lo que dijo la pasada más gruesa).
+    // Donde no hay nada que seguir —una pared lisa— no inventa movimiento: se queda con lo que traía.
+    flow: HEAD + `
+      uniform sampler2D uNow, uPrev, uInit; uniform vec2 uTexel; uniform float uLod, uHasInit;
+      void main() {
+        vec2 f0 = uHasInit > .5 ? texture(uInit, vUv).xy : vec2(0.);
+        float a = 0., b = 0., c = 0., p = 0., q = 0.;
+        for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) {
+          vec2 at = vUv + vec2(float(i), float(j)) * uTexel;
+          float ix = .5 * (textureLod(uNow, at + vec2(uTexel.x, 0.), uLod).r - textureLod(uNow, at - vec2(uTexel.x, 0.), uLod).r);
+          float iy = .5 * (textureLod(uNow, at + vec2(0., uTexel.y), uLod).r - textureLod(uNow, at - vec2(0., uTexel.y), uLod).r);
+          float it = textureLod(uNow, at, uLod).r - textureLod(uPrev, at - f0, uLod).r;
+          a += ix * ix; b += ix * iy; c += iy * iy; p -= ix * it; q -= iy * it;
+        }
+        a += .02; c += .02;
+        vec2 d = clamp(vec2(c * p - b * q, a * q - b * p) / (a * c - b * b), -2., 2.);
+        o = vec4(f0 + d * uTexel, 0., 1.);
+      }`,
+    shutter: HEAD + `
+      uniform sampler2D uTex, uFlow; uniform float uAmount, uSeed;
+      void main() {
+        vec2 f = texture(uFlow, vUv).xy * uAmount; float len = length(f);
+        if (len > .08) f *= .08 / len;                                 // (una estela nunca cruza más del 8 % del cuadro)
+        float jitter = hash(gl_FragCoord.xy + uSeed);
+        vec3 sum = vec3(0.);
+        for (int i = 0; i < 11; i++) sum += texture(uTex, vUv + f * ((float(i) + jitter) / 11. - .5)).rgb;
+        o = vec4(sum / 11., 1.);
       }`,
     first: HEAD + `
       uniform sampler2D uH, uHalo, uWide; uniform vec3 uK;
@@ -710,7 +753,7 @@
       }`,
   };
 
-  const G = { canvas: null, gl: null, float: false, prog: {}, tex: {}, fbo: {}, size: {}, failed: false, lost: 0, film: null };
+  const G = { canvas: null, gl: null, float: false, prog: {}, tex: {}, fbo: {}, size: {}, failed: false, lost: 0, film: null, motion: { w: 0, h: 0, cur: 0, have: false, flow: false } };
   function program(gl, frag) {
     const make = (type, src) => { const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error('FILM: sombreador: ' + gl.getShaderInfoLog(sh)); return sh; };
     const p = gl.createProgram();
@@ -730,14 +773,14 @@
       const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
       if (!gl) throw new Error('FILM: sin WebGL 2');
       G.float = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
-      G.prog = G.float ? { expose: program(gl, FRAG.expose), blur: program(gl, FRAG.blur), first: program(gl, FRAG.first), final: program(gl, FRAG.final(false)) } : { final: program(gl, FRAG.final(true)) };
+      G.prog = G.float ? { expose: program(gl, FRAG.expose), blur: program(gl, FRAG.blur), luma: program(gl, FRAG.luma), flow: program(gl, FRAG.flow), shutter: program(gl, FRAG.shutter), first: program(gl, FRAG.first), final: program(gl, FRAG.final(false)) } : { final: program(gl, FRAG.final(true)) };
       const quad = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       const tex = (target, filter) => { const t = gl.createTexture(); gl.bindTexture(target, t); gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); if (target === gl.TEXTURE_3D) gl.texParameteri(target, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE); return t; };
       G.tex = { src: tex(gl.TEXTURE_2D, gl.LINEAR), curves: tex(gl.TEXTURE_2D, gl.LINEAR), print: tex(gl.TEXTURE_3D, gl.LINEAR) };
-      for (const name of ['H', 'H0', 's1', 'a', 'b', 'c', 'wide', 'first', 'd', 'spread', 'e', 'bath']) { G.tex[name] = tex(gl.TEXTURE_2D, name === 'H' || name === 'first' ? gl.LINEAR_MIPMAP_NEAREST : gl.LINEAR); G.fbo[name] = gl.createFramebuffer(); G.size[name] = [0, 0]; }
-      canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); G.gl = null; G.lost++; G.film = null; });
+      for (const name of ['H', 'H0', 'Hm', 's1', 'a', 'b', 'c', 'wide', 'first', 'd', 'spread', 'e', 'bath', 'Y0', 'Y1', 'f3', 'f2', 'f1']) { G.tex[name] = tex(gl.TEXTURE_2D, name === 'H' || name === 'first' || name === 'Y0' || name === 'Y1' ? gl.LINEAR_MIPMAP_NEAREST : gl.LINEAR); G.fbo[name] = gl.createFramebuffer(); G.size[name] = [0, 0]; }
+      canvas.addEventListener('webglcontextlost', event => { event.preventDefault(); G.gl = null; G.lost++; G.film = null; G.motion.have = G.motion.flow = false; G.motion.w = 0; });
       G.canvas = canvas; G.gl = gl;
       return true;
     } catch (error) { console.warn(String(error && error.message || error)); G.failed = true; G.gl = null; return false; }
@@ -745,7 +788,7 @@
   function release() {
     if (!G.gl) return;
     const lose = G.gl.getExtension('WEBGL_lose_context');
-    G.gl = null; G.film = null;
+    G.gl = null; G.film = null; G.motion.have = G.motion.flow = false; G.motion.w = 0;
     if (lose) lose.loseContext();
     if (G.canvas) { G.canvas.width = G.canvas.height = 1; G.canvas = null; }
     if (S.reel) { S.reel.width = S.reel.height = 1; S.reel = null; }
@@ -832,7 +875,7 @@
     return set;
   }
   // Revela «source» y lo deja en el lienzo del motor (w × h).
-  //   o: { stock, ev, push, format (0…5), live (vista previa: menos huecos por celda al dibujar cristales), paper (0…2), filter (0…4), toner (0…4), grain, mirror, crop [x, y, w, h] en 0…1, seed, mode (0 copia, 1 negativo, 2 exposición) }
+  //   o: { stock, ev, push, format (0…5), live (vista previa: menos huecos por celda al dibujar cristales), shutter ({ fresh, amount }: el obturador de cine, en vídeo), paper (0…2), filter (0…4), toner (0…4), grain, mirror, crop [x, y, w, h] en 0…1, seed, mode (0 copia, 1 negativo, 2 exposición) }
   function develop(source, w, h, o) {
     const gl = G.gl, set = loadFilm(o.stock, o.push, clamp(o.paper == null ? 1 : o.paper | 0, 0, 2), o.filter | 0, o.toner | 0, o.sync);
     if (!set) return null;
@@ -862,12 +905,43 @@
     if (G.float) {
       const blur = (from, to, tw, th, dx, dy, lod, sig) => { const sg = Array.isArray(sig) ? sig : [sig, sig, sig].map(v => Math.max(0.35, v)); target(to, tw, th); common(G.prog.blur); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, G.tex[from]); gl.uniform1i(G.prog.blur.u.uTex, 1); gl.uniform2f(G.prog.blur.u.uStep, dx, dy); gl.uniform1f(G.prog.blur.u.uLod, lod); gl.uniform3f(G.prog.blur.u.uSigma, sg[0], sg[1], sg[2]); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
       // 1 · exponer
-      target(format.small ? 'H0' : 'H', w, h); common(G.prog.expose); exposing(G.prog.expose);
+      const shut = o.shutter || null;                                  // { fresh: ¿cuadro nuevo de la cámara?, amount: parte del intervalo con el obturador abierto }
+      target(format.small || shut ? 'H0' : 'H', w, h); common(G.prog.expose); exposing(G.prog.expose);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      // 1a · el obturador (vídeo): medir el movimiento desde el cuadro anterior y repartir la exposición
+      let exposed = 'H0';
+      if (shut) {
+        const M = G.motion, qw = Math.max(16, w >> 2), qh = Math.max(16, h >> 2), bind = (unit, name, at) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, G.tex[name]); gl.uniform1i(at, unit); };
+        if (M.w !== w || M.h !== h) { M.w = w; M.h = h; M.have = false; M.flow = false; }
+        if (!M.flow) { target('f1', 2, 2); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }      // (sin medida todavía: nada se mueve)
+        if (shut.fresh || !M.have) {
+          const now = M.cur ? 'Y1' : 'Y0', prev = M.cur ? 'Y0' : 'Y1';
+          target(now, qw, qh); common(G.prog.luma); bind(1, 'H0', G.prog.luma.u.uTex); gl.uniform2f(G.prog.luma.u.uStep, 1 / w, 1 / h);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          gl.bindTexture(gl.TEXTURE_2D, G.tex[now]); gl.generateMipmap(gl.TEXTURE_2D);
+          if (M.have) {
+            let init = null;
+            for (const [lod, name] of [[3, 'f3'], [2, 'f2'], [1, 'f1']]) {
+              const tw = Math.max(2, qw >> lod), th = Math.max(2, qh >> lod), F = G.prog.flow;
+              target(name, tw, th); common(F); bind(1, now, F.u.uNow); bind(2, prev, F.u.uPrev); bind(3, init || now, F.u.uInit);
+              gl.uniform1f(F.u.uHasInit, init ? 1 : 0); gl.uniform2f(F.u.uTexel, 1 / tw, 1 / th); gl.uniform1f(F.u.uLod, lod);
+              gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+              init = name;
+            }
+            M.flow = true;
+          }
+          M.have = true; M.cur ^= 1;
+        }
+        exposed = format.small ? 'Hm' : 'H';
+        const U = G.prog.shutter;
+        target(exposed, w, h); common(U); bind(1, 'H0', U.u.uTex); bind(2, 'f1', U.u.uFlow);
+        gl.uniform1f(U.u.uAmount, M.flow ? shut.amount || 0 : 0); gl.uniform1f(U.u.uSeed, o.seed || 0);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
       // 1b · cine chico: la emulsión dispersa la luz unas micras, y aquí unas micras ya son puntos
       if (format.small) {
         const spread = physics.SCATTER[stock.kind] / upp, by = film.mono ? [1, 1, 1] : physics.SCATTER_LAYER, sig = by.map(f => Math.max(0.3, spread * f));
-        blur('H0', 's1', w, h, 1 / w, 0, 0, sig);
+        blur(exposed, 's1', w, h, 1 / w, 0, 0, sig);
         blur('s1', 'H', w, h, 0, 1 / h, 0, sig);
       }
       gl.bindTexture(gl.TEXTURE_2D, G.tex.H); gl.generateMipmap(gl.TEXTURE_2D);
@@ -946,7 +1020,7 @@
   }
 
   // ── La cámara FILM ──────────────────────────────────────────────────────────────────────────────
-  const S = { ev: 0, push: 0, format: physics.F35, paper: 1, filter: 0, toner: 0, grain: true, frame: 0, ms: 0, tier: 0, scale: 1, gap: 0, last: 0, slow: 0, probe: 0, video: null, reel: null, reelAt: 0 };
+  const S = { ev: 0, push: 0, format: physics.F35, paper: 1, filter: 0, toner: 0, grain: true, frame: 0, ms: 0, tier: 0, scale: 1, gap: 0, last: 0, slow: 0, probe: 0, video: null, reel: null, reelAt: 0, shutter: true, shut: null, clock: null, shotAt: 0, amount: 0 };
   const NF = physics.FILTERS.length - 1, NT = physics.TONERS.length - 1;
   // (lo guardado antes de los dos formatos de cine chico no lleva «v»: su lista empezaba en medio cuadro)
   try { const saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (saved && typeof saved === 'object') { S.ev = clamp(+saved.ev || 0, -2, 2); S.push = clamp(Math.round(+saved.push || 0), -1, 2); S.format = clamp(Math.round(saved.format == null ? physics.F35 : +saved.format + (saved.v >= 2 ? 0 : 2)), 0, NFMT); S.paper = clamp(Math.round(saved.paper == null ? 1 : +saved.paper), 0, 2); S.filter = clamp(Math.round(+saved.filter || 0), 0, NF); S.toner = clamp(Math.round(+saved.toner || 0), 0, NT); S.grain = saved.grain !== false; } } catch (_) {}
@@ -975,7 +1049,31 @@
     };
     S.probe = requestAnimationFrame(tick);
   }
-  const VIDEO_CAP = 1280;
+  const VIDEO_CAP = 1280, SHUTTER_MS = 1000 / 48;                     // el obturador de 180° a 24 cuadros: 1/48 de segundo abierto
+  // El reloj de la cámara: cuándo llega un cuadro NUEVO y cuánto después del anterior. (El visor puede
+  // repintar el mismo cuadro; medir movimiento entre un cuadro y él mismo daría «nada se mueve» y la
+  // estela parpadearía.)
+  function cameraClock(source) {
+    const el = typeof HTMLVideoElement !== 'undefined' && source instanceof HTMLVideoElement ? source : (typeof vid !== 'undefined' ? vid : null);
+    if (!el || typeof el.requestVideoFrameCallback !== 'function') return null;
+    if (S.clock && S.clock.el === el) return S.clock;
+    const clock = S.clock = { el, seq: 0, time: 0, used: 0, usedTime: 0 };
+    const tick = (now, meta) => {
+      clock.seq++; clock.time = meta && meta.mediaTime ? meta.mediaTime * 1000 : now;
+      if (S.clock === clock && performance.now() - S.last < 1500) el.requestVideoFrameCallback(tick); else if (S.clock === clock) S.clock = null;
+    };
+    el.requestVideoFrameCallback(tick);
+    return clock;
+  }
+  // Qué parte del intervalo entre dos cuadros estuvo «abierto» el obturador (solo en modo vídeo).
+  function shutterFor(source, started) {
+    if (!S.shutter || !G.float || typeof camMode === 'undefined' || camMode !== 'video') return null;
+    const clock = cameraClock(source);
+    let fresh = true, dt = started - S.shotAt;
+    if (clock && clock.seq > 0) { fresh = clock.seq !== clock.used; dt = clock.time - clock.usedTime; if (fresh) { clock.used = clock.seq; clock.usedTime = clock.time; } }
+    if (fresh) { S.shotAt = started; S.amount = dt > 8 && dt < 150 ? Math.min(1.25, SHUTTER_MS / dt) : 0; }
+    return { fresh, amount: S.amount };
+  }
   function renderFilm(source, srcW, srcH, ctx, mirror, variant, options) {
     if (!ensureGl()) return false;
     const started = performance.now(), opts = options || {};
@@ -1002,12 +1100,13 @@
     const w = filming ? Math.max(16, Math.round(S.video.w * S.scale)) : motion ? Math.max(16, Math.round(S.video.w * S.scale)) : Math.max(16, Math.round(outW * scale));
     const h = filming ? Math.max(16, Math.round(S.video.h * S.scale)) : motion ? Math.max(16, Math.round(S.video.h * S.scale)) : Math.max(16, Math.round(outH * scale));
     const [sx, sy, sw, sh] = typeof cropCoordsForDims === 'function' ? cropCoordsForDims(srcW, srcH, w, h) : [0, 0, srcW, srcH];
-    const stock = physics.STOCKS[variant] ? variant : 'RETRATO400';
+    const stock = physics.STOCKS[variant] ? variant : 'RETRATO400', shut = still ? null : shutterFor(source, started);
+    if (!still) S.shut = shut;
     let ready;
     try {
       // (la foto espera a su película; la vista previa sigue con la que hubiera mientras llega la nueva.
       //  El grano de la foto es fijo; el de la vista previa y el del vídeo cambia 24 veces por segundo)
-      ready = develop(source, w, h, { stock, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain, mirror, sync: still, live: !still, crop: [sx / srcW, sy / srcH, sw / srcW, sh / srcH], seed: still ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
+      ready = develop(source, w, h, { stock, ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain, mirror, sync: still, live: !still, shutter: shut, crop: [sx / srcW, sy / srcH, sw / srcW, sh / srcH], seed: still ? 7.31 : (Math.floor(started / 42) % 211) * 1.37 });
     } catch (error) { console.warn(String(error && error.message || error)); G.failed = true; return false; }
     ctx.save();
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.filter = 'none';
@@ -1067,14 +1166,16 @@
     develop(source, options = {}) {
       if (!ensureGl()) return null;
       const w = options.w || source.width || source.videoWidth, h = options.h || source.height || source.videoHeight;
-      return develop(source, w, h, { stock: options.stock || 'RETRATO400', ev: options.ev || 0, push: options.push || 0, format: options.format == null ? physics.F35 : options.format, live: !!options.live, paper: options.paper, filter: options.filter, toner: options.toner, grain: options.grain, mirror: false, sync: true, seed: options.seed == null ? 7.31 : options.seed, mode: options.mode || 0 });
+      return develop(source, w, h, { stock: options.stock || 'RETRATO400', ev: options.ev || 0, push: options.push || 0, format: options.format == null ? physics.F35 : options.format, live: !!options.live, shutter: options.shutter || null, paper: options.paper, filter: options.filter, toner: options.toner, grain: options.grain, mirror: false, sync: true, seed: options.seed == null ? 7.31 : options.seed, mode: options.mode || 0 });
     },
     // Lee el lienzo del motor (RGBA de 8 bits, de arriba abajo).
     read() { const gl = G.gl, w = G.canvas.width, h = G.canvas.height, raw = new Uint8Array(w * h * 4), out = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, raw); for (let y = 0; y < h; y++) out.set(raw.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4); return { data: out, w, h }; },
-    set(values) { if (values.ev != null) S.ev = clamp(+values.ev, -2, 2); if (values.push != null) S.push = clamp(Math.round(+values.push), -1, 2); if (values.format != null) S.format = clamp(Math.round(+values.format), 0, NFMT); if (values.paper != null) S.paper = clamp(Math.round(+values.paper), 0, 2); if (values.filter != null) S.filter = clamp(Math.round(+values.filter), 0, NF); if (values.toner != null) S.toner = clamp(Math.round(+values.toner), 0, NT); if (values.grain != null) S.grain = !!values.grain; save(); syncUI(); return this.settings(); },
+    set(values) { if (values.ev != null) S.ev = clamp(+values.ev, -2, 2); if (values.push != null) S.push = clamp(Math.round(+values.push), -1, 2); if (values.format != null) S.format = clamp(Math.round(+values.format), 0, NFMT); if (values.paper != null) S.paper = clamp(Math.round(+values.paper), 0, 2); if (values.filter != null) S.filter = clamp(Math.round(+values.filter), 0, NF); if (values.toner != null) S.toner = clamp(Math.round(+values.toner), 0, NT); if (values.grain != null) S.grain = !!values.grain; if (values.shutter != null) S.shutter = !!values.shutter; save(); syncUI(); return this.settings(); },
     // Avisa cuando las tablas de una película están listas (por omisión, con los ajustes puestos).
     ready: (stock, push = S.push, paper = S.paper, filter = S.filter, toner = S.toner) => ask(idOf(physics.STOCKS[stock] ? stock : 'RETRATO400', push, paper, filter, toner)).then(() => true),
+    // (pruebas) olvida el cuadro anterior del obturador
+    forgetMotion() { G.motion.have = G.motion.flow = false; },
     settings: () => ({ ev: S.ev, push: S.push, format: S.format, paper: S.paper, filter: S.filter, toner: S.toner, grain: S.grain }),
-    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null, tier: S.tier, scale: S.scale, gap: Math.round(S.gap), filming: !!(S.video && performance.now() < S.video.until), reel: S.reel ? [S.reel.width, S.reel.height] : null }),
+    state: () => ({ worker: !!worker, waiting: waiting.size, made: made.size, gl: !!G.gl, float: G.float, failed: G.failed, lost: G.lost, frame: S.frame, ms: +S.ms.toFixed(2), film: G.film, size: G.canvas ? [G.canvas.width, G.canvas.height] : null, tier: S.tier, scale: S.scale, shutter: S.shutter, shuttering: !!S.shut, amount: +S.amount.toFixed(3), gap: Math.round(S.gap), filming: !!(S.video && performance.now() < S.video.until), reel: S.reel ? [S.reel.width, S.reel.height] : null }),
   };
 })();

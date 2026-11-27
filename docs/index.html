@@ -10835,6 +10835,14 @@ let _camLoopAlive = false, _asciiLoopAlive = false, _fusionLoopAlive = false;
 // Fuente de la cámara para las vistas previas: el cuadro reducido del sensor rápido si está al
 // día (sensor.js); si no, el elemento de vídeo, que en Android cuesta ~30 ms por lectura.
 let _camSensorPrimed = false;
+// La cámara frontal se ve como un espejo, igual que en la cámara del teléfono (y que en STAGE y en
+// PORTAL, que ya lo hacían): sin espejo, al moverte a un lado la imagen se va al otro y marea. Vale
+// para la vista y para lo que se guarda —la foto y el vídeo salen como se vieron—. Solo la imagen de
+// la cámara: lo que cada cámara pinta encima (letras, marcos, fecha) sigue al derecho. La trasera,
+// una imagen abierta y el patrón de audio no se espejan.
+function camMirror() {
+  return !!stream && typeof facingMode === 'string' && facingMode === 'user';
+}
 function liveCamFrame(maxAge = 150) {
   const fast = flipSensor.current(vid, maxAge);
   return fast
@@ -10894,7 +10902,10 @@ function cameraLoop(t) {
         if (_pipeCamSrc.width !== vid.videoWidth || _pipeCamSrc.height !== vid.videoHeight) {
           _pipeCamSrc.width = vid.videoWidth; _pipeCamSrc.height = vid.videoHeight;
         }
-        _pipeCamSrc.getContext('2d').drawImage(vid, 0, 0, vid.videoWidth, vid.videoHeight);
+        const pctx = _pipeCamSrc.getContext('2d');
+        pctx.setTransform(camMirror() ? -1 : 1, 0, 0, 1, camMirror() ? vid.videoWidth : 0, 0);
+        pctx.drawImage(vid, 0, 0, vid.videoWidth, vid.videoHeight);
+        pctx.setTransform(1, 0, 0, 1, 0, 0);
         srcCanvas = _pipeCamSrc;
       } else if (extAudioMode && extAnalyser) {
         srcCanvas = _getExtAudioSourceFrame(640, 480);
@@ -10913,7 +10924,7 @@ function cameraLoop(t) {
       // PORTAL solo repinta cuando algo cambia; con pegatinas encima, cada vuelta necesita el cuadro
       // limpio (si no, se pintarían sobre sí mismas y la lupa ampliaría lo ya ampliado).
       if (portalOn) window.flipPortal.render(cam, ctxD, t, camStickers.length > 0);
-      else _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctxD, false, {
+      else _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctxD, camMirror(), {
         path:'preview',
         now:t,
       });
@@ -10997,7 +11008,7 @@ function asciiLoop(ts) {
     return;
   }
   if (!asciiStaticSrc && vid.videoWidth)
-    renderASCII(vid, vid.videoWidth, vid.videoHeight, false);
+    renderASCII(vid, vid.videoWidth, vid.videoHeight, camMirror());
   if (!asciiStaticSrc && !vid.videoWidth && (extAudioMode || extMicOnlyMode) && extAnalyser) {
     // F5 — paridad móvil: sin cámara, el mic (extMicOnlyMode) también pinta ASCII desde audio.
     const af = _getExtAudioSourceFrame(640, 480);
@@ -13907,7 +13918,7 @@ function _getCamRecordingOptions() {
     }
     const cam = liveCamFrame();
     // («motion»: es un cuadro de vídeo —la grabación manda sus medidas en «dims»—, no una foto)
-    _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctx, false, {
+    _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctx, camMirror(), {
       path:'capture', now, resolution:options.resolution, outW:width, outH:height, motion: !!dims,
     });
     _renderCamStickerLayer(ctx, false);
@@ -13974,7 +13985,7 @@ async function renderCameraPhoto() {
         mix.drawImage(vid,0,0,burst.width,burst.height);
       }
       const ctx = canvas.getContext('2d');
-      _renderCamEngineFrame(burst,burst.width,burst.height,ctx,false,{
+      _renderCamEngineFrame(burst,burst.width,burst.height,ctx,camMirror(),{
         family:'AUTO03', variant:'NIGHT', path:'capture', now:performance.now(),
         resolution:options.resolution, outW:width,outH:height, still,
       });
@@ -14776,7 +14787,7 @@ function _getAsciiCaptureSource() {
     return { source:asciiStaticSrc, srcW:asciiStaticW, srcH:asciiStaticH, mirror:false };
   }
   if (vid && vid.videoWidth) {
-    return { source:vid, srcW:vid.videoWidth, srcH:vid.videoHeight, mirror:false };
+    return { source:vid, srcW:vid.videoWidth, srcH:vid.videoHeight, mirror:camMirror() };
   }
   return null;
 }

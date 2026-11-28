@@ -5,7 +5,10 @@
 //   · con una cara delante se suma su propia malla de facetas (110 puntos, triangulada una vez);
 //   · 128 BITS y 32 BITS: cada una con su resolución interna (la de 32, más baja);
 //   · el marco de juego (mapa, vida, dinero, alerta) viene puesto, cuenta las tomas y se puede quitar;
-//   · toma la foto, y al cambiar de cámara suelta el rastreador de rostro.
+//   · toma la foto, y al cambiar de cámara suelta el rastreador de rostro;
+//   · VIRTUAL lleva once variantes: las tres de aquí y ocho escenarios en 3D que pinta cuarto.js (los
+//     que cuarto.js aún no trae caen a AUTO 03); en ellos la hoja trae los mandos de CUARTO y la tecla
+//     PASEO, que llega al motor y se guarda; un estado guardado con la cámara CUARTO se muda a VIRTUAL.
 //   FLIP_URL=http://127.0.0.1:8760 node tests/consola.cjs
 'use strict';
 const assert = require('node:assert/strict');
@@ -122,6 +125,77 @@ const fakeFace = () => {
     assert.ok(withHud > 40 && without < withHud / 4, 'con el marco se ve el aro del mapa; sin él, no: ' + JSON.stringify([withHud, without]));
     await page.evaluate(() => flipConsola.hud(true));
     step('el marco de juego cuenta las tomas y se quita con su tecla', { tomas: hud.tomas, dinero: hud.dinero, aro: [withHud, without] });
+
+    // ── VIRTUAL: once variantes; los escenarios en 3D, con el motor de cuarto ──
+    const ESCENARIOS = ['DORMITORIO', 'OFICINA', 'AZOTEA', 'TORRE', 'AUTOBUS', 'AUTOCINEMA', 'ESCAPARATE', 'TAQUERIA'];
+    const v = await page.evaluate(async escenarios => {
+      const ids = CAM_FAMILIES.CONSOLA.variants.map(x => x.id), labels = CAM_FAMILIES.CONSOLA.variants.map(x => x.label);
+      // quién pinta cada variante: se espían los dos motores
+      const calls = [], realC = window.renderCuarto, realV = window.renderConsola;
+      window.renderCuarto = function (s, w, h, c, m, variant, o) { calls.push(['cuarto', variant, o && o.paseo]); return realC.apply(this, arguments); };
+      window.renderConsola = function (s, w, h, c, m, variant) { calls.push(['consola', variant]); return realV.apply(this, arguments); };
+      const src = document.createElement('canvas'); src.width = 640; src.height = 360; FlipScenes.draw(src.getContext('2d'), 640, 360, 'roomLit', 0, {});
+      const out = document.createElement('canvas'); out.width = 320; out.height = 180;
+      const ctx = out.getContext('2d', { willReadFrequently: true }), res = {};
+      const engine = window.flipCuarto && flipCuarto.VARIANTES || [];
+      for (const id of ['B128', ...escenarios]) {
+        calls.length = 0; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 320, 180);
+        for (let i = 0; i < 2; i++) _renderCamEngineFrame(src, 640, 360, ctx, false, { family: 'CONSOLA', variant: id, path: 'preview', now: 9000 + i * 40 });
+        const d = ctx.getImageData(0, 0, 320, 180).data; let lit = 0; for (let i = 0; i < d.length; i += 16) if (d[i] + d[i + 1] + d[i + 2] > 30) lit++;
+        res[id] = { motor: calls.length ? calls[0][0] : 'auto03', trae: engine.includes(id), pinta: lit > 50, cadencia: _camCadence('CONSOLA', id) };
+      }
+      window.renderCuarto = realC; window.renderConsola = realV;
+      return { ids, labels, res, engine };
+    }, ESCENARIOS);
+    assert.deepEqual(v.ids, ['B128', 'B32', 'NOCHE', ...ESCENARIOS], 'VIRTUAL lleva once variantes, en su orden');
+    assert.ok(v.labels.includes('AUTOBÚS') && v.labels.includes('TAQUERÍA'), 'con sus rótulos: ' + v.labels);
+    assert.equal(v.res.B128.motor, 'consola', '128 BITS la pinta consola.js');
+    assert.equal(v.res.B128.cadencia, 24);
+    for (const id of ESCENARIOS) {
+      const r = v.res[id];
+      assert.equal(r.motor, r.trae ? 'cuarto' : 'auto03', id + ': la pinta cuarto.js si la trae; si no, AUTO 03: ' + JSON.stringify(r));
+      assert.ok(r.pinta, id + ': el visor no queda en negro: ' + JSON.stringify(r));
+      assert.equal(r.cadencia, 30, id + ' va a 30 cuadros por segundo');
+    }
+    assert.ok(['DORMITORIO', 'OFICINA', 'AZOTEA'].every(id => v.res[id].motor === 'cuarto'), 'las tres que ya existían las pinta cuarto.js');
+    step('once variantes; los escenarios en 3D con el motor de cuarto', { cuarto: v.engine, auto03: ESCENARIOS.filter(id => v.res[id].motor === 'auto03') });
+
+    // ── En un escenario: la hoja trae los mandos de CUARTO y la tecla PASEO llega al motor y se guarda ──
+    await pickVariant(page, 'AZOTEA');
+    await page.waitForFunction(() => camVariant === 'AZOTEA' && window.flipCuarto && flipCuarto.state().frames > 3, null, { timeout: 8000 });
+    const sheet = await page.evaluate(() => ({ mandos: [...document.querySelectorAll('#fxEditPanel .fx-ctrl-row:not([hidden])')].map(r => r.dataset.fxId), panel: document.getElementById('fxEditPanel').style.display,
+      marco: document.querySelector('.si-consola') ? document.querySelector('.si-consola').hidden : null, tecla: !document.querySelector('.consola-rapidas').hidden, cadencia: camFpsTarget }));
+    assert.deepEqual(sheet.mandos, ['giro', 'luz', 'trama', 'temblor', 'paseo'], 'los mandos de CUARTO y PASEO: ' + JSON.stringify(sheet));
+    assert.equal(sheet.panel, 'block');
+    assert.equal(sheet.marco, true, 'el marco de juego es de las variantes de consola.js: aquí no sale');
+    assert.equal(sheet.tecla, true, 'la tecla PASEO sale en la banda, junto a la variante');
+    const seen = () => page.evaluate(() => new Promise(ok => { const real = window.renderCuarto; window.renderCuarto = function (s, w, h, c, m, variant, o) { window.renderCuarto = real; ok({ variant, paseo: o && o.paseo }); return real.apply(this, arguments); }; }));
+    const before = await seen();
+    await page.locator('#consolaPaseo').click();
+    await page.waitForTimeout(300);
+    const after = await seen();
+    const saved = await page.evaluate(() => ({ valor: fxCamVals.CUARTO.paseo, guardado: JSON.parse(localStorage.getItem('flipSettings')).fxCamVals.CUARTO.paseo, tecla: document.getElementById('consolaPaseo').textContent, hoja: document.getElementById('fxCUARTOpaseo').value }));
+    assert.deepEqual([before.variant, before.paseo, after.paseo], ['AZOTEA', true, false], 'la tecla PASEO llega al motor: ' + JSON.stringify([before, after]));
+    assert.deepEqual([saved.valor, saved.guardado, saved.tecla, saved.hoja], [0, 0, 'QUIETA', '0'], 'y se guarda en ajustes (la hoja dice lo mismo): ' + JSON.stringify(saved));
+    await page.locator('#consolaPaseo').click();
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => fxCamVals.CUARTO.paseo), 1);
+    step('en un escenario: los mandos de CUARTO, y PASEO / QUIETA llega al motor y se guarda', { mandos: sheet.mandos, paseo: [before.paseo, after.paseo] });
+
+    // ── Un estado guardado con la cámara CUARTO (de antes) se muda a VIRTUAL, con sus mandos ──
+    await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('flipSettings'));
+      s.camFamily = 'CUARTO'; s.camVariant = 'OFICINA'; s.fxCamVals.CUARTO.giro = 80; s.fxCamVals.CUARTO.luz = 20;
+      s.editPipeline = { source: { type: 'cam' }, steps: [{ engine: 'cam', on: true, family: 'CUARTO', variant: 'AZOTEA' }] };
+      localStorage.setItem('flipSettings', JSON.stringify(s));
+    });
+    await page.reload();
+    await page.locator('#btnSplashOriginal').click();
+    await page.waitForFunction(() => vid.videoWidth > 0);
+    const moved = await page.evaluate(() => ({ cam: camFamily + ':' + camVariant, giro: fxCamVals.CUARTO.giro, luz: fxCamVals.CUARTO.luz, edit: window._editPipeline.steps.map(s => s.family + ':' + s.variant), lcd: document.getElementById('lcdLook').textContent }));
+    assert.deepEqual([moved.cam, moved.giro, moved.luz, moved.edit], ['CONSOLA:OFICINA', 80, 20, ['CONSOLA:AZOTEA']], 'CUARTO se muda a VIRTUAL con su variante y sus mandos: ' + JSON.stringify(moved));
+    assert.match(moved.lcd, /VIRTUAL/);
+    step('un estado guardado con CUARTO abre en VIRTUAL · OFICINA, con sus mandos', moved);
 
     // ── Al cambiar de cámara, el rastreador de rostro se apaga ──
     await page.evaluate(() => { flipConsola.injectFace(null); _setCamFamily('AUTO03'); });

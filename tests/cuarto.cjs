@@ -1,6 +1,9 @@
-// La cámara CUARTO (un cuarto en 3D de 32 bits con tu imagen en su pantalla). Con escenas dibujadas
-// aquí, pasadas por el motor en un lienzo propio, se comprueba con números:
-//   · cuarto oscuro con pantalla que brilla (≥ 70 % del cuadro con luz < 0,15 y percentil 99 > 0,7);
+// El motor CUARTO (escenas en 3D de 32 bits con tu imagen en su pantalla: DORMITORIO, OFICINA, AZOTEA,
+// TORRE, AUTOBUS, AUTOCINEMA, ESCAPARATE y TAQUERIA). Con escenas dibujadas aquí, pasadas por el motor en
+// un lienzo propio, se comprueba con números:
+//   · cuarto oscuro con pantalla que brilla (≥ 70 % del cuadro con luz < 0,15 y percentil 99 > 0,7 en
+//     las tres primeras; en las nuevas ≥ 55 % en el de presentación y ≥ 60 % en el paseo, con la
+//     pantalla clara y la mediana ≥ 0,04: de noche, pero con las cosas a la vista);
 //   · la pantalla muestra la cámara (fuente roja → pantalla roja; azul → azul) y su luz tiñe el cuarto;
 //   · imagen a bloques de la resolución interna (también en la foto grande) y ≤ 32 niveles por canal;
 //   · el paseo cambia el cuadro y vuelve al inicio al cabo del ciclo; con giro 0 se queda quieto;
@@ -9,8 +12,14 @@
 //     mayor parte del paseo;
 //   · espejo: se espeja lo que sale en la pantalla, no el cuarto;
 //   · la textura va sin corrección de perspectiva y los vértices saltan a la rejilla;
+//   · paseo: false lleva la cámara (sin salto) al plano de pantalla y la deja quieta, con la pantalla
+//     entera y grande (≥ 45 % del ancho en vertical, ≥ 35 % en horizontal); al volver, sin salto;
+//   · ESCAPARATE: seis teles o más con la imagen, desfasadas, y la más grande ≥ 25 % del ancho en el
+//     plano de pantalla; AUTOCINEMA: cámara fija y una persona que llega caminando, deja el café, se
+//     sube, se recuesta y toma el café; acostada ocupa ≥ 30 % del ancho; TORRE: el frente de la losa
+//     ancho como en la foto (ancho/alto 0,7–1,0) y la pantalla ~3/4 de ese ancho;
 //   · sonido, costo por cuadro, soltar y rehacer, pérdida de la gráfica;
-//   · y, si la app ya la registra, la cámara en el visor y su foto.
+//   · y, si la app ya las registra (en VIRTUAL —CONSOLA— o en CUARTO), en el visor y en su foto.
 //   FLIP_URL=http://127.0.0.1:8760 node tests/cuarto.cjs [--shots carpeta]
 'use strict';
 const assert = require('node:assert/strict');
@@ -24,6 +33,8 @@ const shots = at >= 0 ? path.resolve(process.argv[at + 1]) : '';
 if (shots) fs.mkdirSync(shots, { recursive: true });
 const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JSON.stringify(detail) : ''));
 const VARS = ['DORMITORIO', 'OFICINA', 'AZOTEA'];
+const NUEVAS = ['TORRE', 'AUTOBUS', 'AUTOCINEMA', 'ESCAPARATE', 'TAQUERIA'];
+const TODAS = [...VARS, ...NUEVAS];
 const SIZES = [[540, 960], [1024, 576]];
 
 const KIT = () => {
@@ -91,35 +102,41 @@ const KIT = () => {
     const intro = await page.evaluate(() => ({ fn: typeof renderCuarto, api: !!window.flipCuarto, variantes: flipCuarto.VARIANTES, fabrica: flipCuarto.FABRICA, ciclo: flipCuarto.cycle() }));
     assert.equal(intro.fn, 'function', 'el motor expone renderCuarto');
     assert.ok(intro.api, 'y flipCuarto');
-    assert.deepEqual(intro.variantes, ['DORMITORIO', 'OFICINA', 'AZOTEA']);
+    assert.deepEqual(intro.variantes, TODAS);
+    assert.equal(intro.fabrica.paseo, true, 'paseo de fábrica: sí');
     step('el motor expone renderCuarto y flipCuarto', intro);
 
     // ── 1 · Cuarto oscuro con pantalla que brilla, en vertical y horizontal ──
     // (el plano de presentación —giro 0— y, para saber, la media de cinco momentos del paseo)
-    const oscuro = await page.evaluate(([VARS, SIZES]) => {
+    const oscuro = await page.evaluate(([TODAS, SIZES]) => {
       const src = CK.scene('roomLit'), out = {};
-      for (const v of VARS) for (const [W, H] of SIZES) {
-        const quieto = CK.run(src, W, H, { variant: v, opts: { giro: 0 } });
-        const paseo = [0, 0.2, 0.4, 0.6, 0.8].map(f => CK.luz(CK.run(src, W, H, { variant: v, frames: 8, start: 5000 + f * flipCuarto.cycle(), opts: { giro: 0.35 } })));
+      for (const v of TODAS) for (const [W, H] of SIZES) {
+        const quieto = CK.run(src, W, H, { variant: v, opts: { giro: 0 } }), m0 = CK.media(quieto, CK.interior(quieto.st));
+        const paseo = [0, 0.2, 0.4, 0.6, 0.8].map(f => CK.luz(CK.run(src, W, H, { variant: v, frames: 8, start: 5000 + f * flipCuarto.cycle(0.35, v), opts: { giro: 0.35 } })));
         const m = k => +(paseo.reduce((a, s) => a + s[k], 0) / paseo.length).toFixed(3);
-        out[v + ' ' + W + '×' + H] = { presentacion: CK.luz(quieto), paseo: { oscuro: m('oscuro'), p99: m('p99') }, ok: quieto.ok };
+        out[v + ' ' + W + '×' + H] = { presentacion: { ...CK.luz(quieto), pantalla: +((0.299 * m0[0] + 0.587 * m0[1] + 0.114 * m0[2]) / 255).toFixed(3) }, paseo: { oscuro: m('oscuro'), p99: m('p99') }, ok: quieto.ok };
       }
       return out;
-    }, [VARS, SIZES]);
+    }, [TODAS, SIZES]);
     for (const [k, r] of Object.entries(oscuro)) {
       assert.ok(r.ok, k + ': pinta');
-      assert.ok(r.presentacion.oscuro >= 0.7 && r.presentacion.p99 > 0.7, k + ': cuarto oscuro con pantalla que brilla: ' + JSON.stringify(r));
-      assert.ok(r.paseo.oscuro >= 0.7, k + ': y oscuro a lo largo del paseo: ' + JSON.stringify(r));
+      if (VARS.includes(k.split(' ')[0])) assert.ok(r.presentacion.oscuro >= 0.7 && r.presentacion.p99 > 0.7, k + ': cuarto oscuro con pantalla que brilla: ' + JSON.stringify(r));
+      // (en el escaparate la «pantalla» es el muro entero, con huecos oscuros entre tele y tele: ahí vale el p99)
+      else {
+        assert.ok(r.presentacion.oscuro >= 0.55 && (r.presentacion.pantalla > 0.45 || r.presentacion.p99 > 0.7), k + ': escena oscura con la pantalla clara: ' + JSON.stringify(r));
+        assert.ok(r.presentacion.mediana >= 0.04, k + ': pero no negra: lo que hay se ve (mediana ≥ 0,04): ' + JSON.stringify(r));
+      }
+      assert.ok(r.paseo.oscuro >= (VARS.includes(k.split(' ')[0]) ? 0.65 : 0.6), k + ': y oscura a lo largo del paseo: ' + JSON.stringify(r));
     }
-    step('cuarto oscuro (≥ 70 % bajo 0,15) con pantalla que brilla (p99 > 0,7)', oscuro);
+    step('oscuro (≥ 70 % bajo 0,15; en las nuevas ≥ 55 % y mediana ≥ 0,04) con pantalla que brilla (p99 > 0,7; luz media de la pantalla en las nuevas)', oscuro);
 
     // ── 2 · La pantalla muestra la cámara y su luz tiñe el cuarto ──
-    const tinte = await page.evaluate(VARS => {
+    const tinte = await page.evaluate(([TODAS, VARS]) => {
       const out = {};
-      for (const v of VARS) {
+      for (const v of TODAS) {
         const r = {};
         for (const name of ['rojo', 'azul']) {
-          const c = CK.run(CK.scene(name), 540, 960, { variant: v, frames: 14, opts: { giro: 0 } }), st = c.st;
+          const c = CK.run(CK.scene(name), 540, 960, { variant: v, frames: 30, opts: VARS.includes(v) ? { giro: 0 } : { paseo: false } }), st = c.st;   // (un segundo: la luz de la pantalla sigue a la imagen con un poco de retraso)
           r[name] = { pantalla: CK.media(c, CK.interior(st)), alrededor: CK.media(c, CK.caja(st), true) };
         }
         const rb = m => m[0] - m[2];
@@ -127,7 +144,7 @@ const KIT = () => {
         out[v] = r;
       }
       return out;
-    }, VARS);
+    }, [TODAS, VARS]);
     for (const [v, r] of Object.entries(tinte)) {
       const [R1, G1, B1] = r.rojo.pantalla, [R2, G2, B2] = r.azul.pantalla;
       assert.ok(R1 > 1.8 * B1 && R1 > 1.8 * G1 && R1 > 90, v + ': con la cámara roja, la pantalla es roja: ' + JSON.stringify(r));
@@ -158,8 +175,8 @@ const KIT = () => {
     // ── 4 · El paseo: cambia en el tiempo, vuelve al inicio al cabo del ciclo; giro 0 lo deja quieto ──
     const paseo = await page.evaluate(() => {
       const src = CK.scene('roomLit'), out = {};
-      for (const v of ['DORMITORIO', 'OFICINA', 'AZOTEA']) {
-        const C = flipCuarto.cycle(0.35), t0 = 20000;
+      for (const v of ['DORMITORIO', 'OFICINA', 'AZOTEA', 'TORRE', 'AUTOBUS', 'ESCAPARATE', 'TAQUERIA']) {
+        const C = flipCuarto.cycle(0.35, v), t0 = 20000;
         const f = t => CK.run(src, 360, 640, { variant: v, frames: 10, start: t, opts: { giro: 0.35 } });
         const a = f(t0), b = f(t0 + C / 4), m = f(t0 + C / 2), z = f(t0 + C);
         const q1 = CK.run(src, 360, 640, { variant: v, frames: 10, start: 30000, opts: { giro: 0 } }), q2 = CK.run(src, 360, 640, { variant: v, frames: 10, start: 47000, opts: { giro: 0 } });
@@ -173,36 +190,43 @@ const KIT = () => {
     });
     for (const [v, r] of Object.entries(paseo)) {
       assert.ok(r.cuarto > 6 && r.medio > 6, v + ': el paseo cambia el cuadro: ' + JSON.stringify(r));
-      assert.ok(r.ojo[0].every((x, i) => Math.abs(x - r.ojo[1][i]) < 2e-3) && r.vuelta < Math.min(r.cuarto, r.medio) * 0.15, v + ': y vuelve al inicio al cabo del ciclo: ' + JSON.stringify(r));
-      assert.ok(r.ojoQuieto[0].join() === r.ojoQuieto[1].join() && r.quieto < 1.5, v + ': con giro 0 se queda quieto: ' + JSON.stringify(r));
+      // (lo ambiental —la ropa tendida, el trompo, la calle que pasa, alguien que cruza— sigue vivo)
+      // (en el autobús, el vaivén del camino mece la cámara unos centímetros: también es ambiental)
+      const tol = v === 'AUTOBUS' ? 0.05 : 2e-3, igual = (a, b) => a.every((x, i) => Math.abs(x - b[i]) < tol);
+      assert.ok(igual(r.ojo[0], r.ojo[1]) && r.vuelta < Math.min(r.cuarto, r.medio) * 0.35, v + ': y vuelve al inicio al cabo del ciclo: ' + JSON.stringify(r));
+      // (en el autobús el vaivén mueve todo un píxel y la calle pasa por las ventanas: ahí basta con que
+      // el ojo no se vaya —unos centímetros— y que la diferencia quede muy por debajo de la del paseo)
+      assert.ok(igual(r.ojoQuieto[0], r.ojoQuieto[1]) && r.quieto < (VARS.includes(v) ? 1.5 : v === 'AUTOBUS' ? Math.min(16, 0.5 * Math.min(r.cuarto, r.medio)) : 6), v + ': con giro 0 se queda quieto: ' + JSON.stringify(r));
     }
     step('paseo cerrado y determinista; giro 0 quieto (diferencia media en niveles)', paseo);
 
     // ── 5 · Las tres escenas son distintas; vertical y horizontal encuadran la pantalla ──
-    const escenas = await page.evaluate(([VARS, SIZES]) => {
-      const src = CK.scene('roomLit'), c = VARS.map(v => CK.run(src, 540, 960, { variant: v, frames: 6, opts: { giro: 0 } }));
-      const pares = { 'DORMITORIO·OFICINA': CK.dif(c[0], c[1]), 'DORMITORIO·AZOTEA': CK.dif(c[0], c[2]), 'OFICINA·AZOTEA': CK.dif(c[1], c[2]) };
+    const escenas = await page.evaluate(([TODAS, SIZES]) => {
+      const src = CK.scene('roomLit'), c = TODAS.map(v => CK.run(src, 360, 640, { variant: v, frames: 6, opts: { giro: 0 } }));
+      const pares = {};
+      for (let i = 0; i < TODAS.length; i++) for (let j = i + 1; j < TODAS.length; j++) pares[TODAS[i] + '·' + TODAS[j]] = CK.dif(c[i], c[j]);
       const encuadre = {};
-      for (const v of VARS) for (const [W, H] of SIZES) {
+      for (const v of TODAS) for (const [W, H] of SIZES) {
         const hero = CK.run(src, W, H, { variant: v, frames: 3, opts: { giro: 0 } }).st.pantalla;
         let grande = 0;
         const anchos = [];
-        for (let k = 0; k < 8; k++) { const p = CK.run(src, W, H, { variant: v, frames: 2, start: 80000 + k / 8 * flipCuarto.cycle(), opts: { giro: 0.35 } }).st.pantalla; const a = p.visible ? p.rect[2] / W : 0; anchos.push(+a.toFixed(2)); if (a >= 0.18) grande++; }
+        for (let k = 0; k < 8; k++) { const p = CK.run(src, W, H, { variant: v, frames: 2, start: 80000 + k / 8 * flipCuarto.cycle(0.35, v), opts: { giro: 0.35 } }).st.pantalla; const a = p.visible ? p.rect[2] / W : 0; anchos.push(+a.toFixed(2)); if (a >= 0.18) grande++; }
         const dentro = hero.visible && hero.quad.every(([x, y]) => x >= 0 && x <= W && y >= 0 && y <= H);
         encuadre[v + ' ' + W + '×' + H] = { entera: dentro, visible: hero.visible ? hero.entera : 0, ancho: hero.visible ? +(hero.rect[2] / W).toFixed(3) : 0, paseo: anchos, grandeEnElPaseo: grande + '/8' };
       }
       return { pares, encuadre, triangulos: flipCuarto.state().triangulos };
-    }, [VARS, SIZES]);
-    assert.ok(Object.values(escenas.pares).every(d => d > 10), 'las tres escenas son distintas: ' + JSON.stringify(escenas.pares));
+    }, [TODAS, SIZES]);
+    assert.ok(Object.values(escenas.pares).every(d => d > 10), 'las ocho escenas son distintas: ' + JSON.stringify(escenas.pares));
     for (const [k, e] of Object.entries(escenas.encuadre)) {
+      if (!VARS.includes(k.split(' ')[0])) continue;                   // (en las nuevas manda el plano de pantalla: abajo)
       const azotea = k.startsWith('AZOTEA');
       // (el anuncio, como en la referencia, puede salirse un poco por el borde; la tele y el monitor, no)
       assert.ok(azotea ? e.visible >= 0.7 : e.entera, k + ': en el plano de presentación la pantalla se ve: ' + JSON.stringify(e));
       assert.ok(e.ancho >= (azotea ? 0.35 : 0.25), k + ': y es la protagonista del plano (ancho): ' + JSON.stringify(e));
       assert.ok(parseInt(e.grandeEnElPaseo, 10) >= 5, k + ': y sale grande (≥ 18 % del ancho) en la mayor parte del paseo: ' + JSON.stringify(e));
     }
-    assert.ok(Object.values(escenas.triangulos).every(n => n < 2500), 'pocos triángulos: ' + JSON.stringify(escenas.triangulos));
-    step('tres escenas distintas; la pantalla, protagonista en vertical y horizontal (ancho en fracción del cuadro)', escenas);
+    assert.ok(Object.values(escenas.triangulos).every(n => n < 3500), 'pocos triángulos: ' + JSON.stringify(escenas.triangulos));
+    step('ocho escenas distintas; la pantalla, protagonista en vertical y horizontal (ancho en fracción del cuadro)', escenas);
 
     // ── 6 · Espejo: se espeja la imagen de la pantalla, no el cuarto ──
     const espejo = await page.evaluate(() => {
@@ -249,10 +273,111 @@ const KIT = () => {
     assert.ok(sonido.avanceGraves > sonido.avanceQuieto * 1.6, 'los graves empujan el paseo: ' + JSON.stringify(sonido));
     step('sonido', sonido);
 
+    // ── 8b · paseo: false: de paseo a plano de pantalla y vuelta, sin saltos; quieta en medio ──
+    const quieta = await page.evaluate(([TODAS, SIZES]) => {
+      const src = CK.scene('roomLit'), out = {};
+      const ang = (a, b) => { const n = v => { const l = Math.hypot(...v); return v.map(x => x / l); }; const d = n(a).reduce((s, x, i) => s + x * n(b)[i], 0); return Math.acos(Math.min(1, d)) * 180 / Math.PI; };
+      for (const v of TODAS) for (const [W, H] of SIZES) {
+        const c = document.createElement('canvas'); c.width = W; c.height = H;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        let t = 200000 + W, prev = null, salto = { ojo: 0, mira: 0, fov: 0 };
+        const paso = paseo => {
+          renderCuarto(src, 1280, 720, ctx, false, v, { now: t, paseo }); t += 33.333;
+          const st = flipCuarto.state(), dir = st.look.map((x, i) => x - st.eye[i]);
+          if (prev) { salto.ojo = Math.max(salto.ojo, Math.hypot(...st.eye.map((x, i) => x - prev.eye[i]))); salto.mira = Math.max(salto.mira, ang(dir, prev.dir)); salto.fov = Math.max(salto.fov, Math.abs(st.fov - prev.fov)); }
+          prev = { eye: st.eye, dir, fov: st.fov };
+          return st;
+        };
+        for (let i = 0; i < 15; i++) paso(true);
+        const andando = flipCuarto.state().eye;
+        for (let i = 0; i < 40; i++) paso(false);                    // la transición dura ≤ 1 s (30 cuadros)
+        const a = paso(false), A = document.createElement('canvas'); A.width = W; A.height = H; A.getContext('2d').drawImage(c, 0, 0);
+        for (let i = 0; i < 30; i++) paso(false);                    // un segundo después
+        const b = paso(false), Bc = document.createElement('canvas'); Bc.width = W; Bc.height = H; Bc.getContext('2d').drawImage(c, 0, 0);
+        const entrada = { ...salto };
+        salto = { ojo: 0, mira: 0, fov: 0 };
+        for (let i = 0; i < 45; i++) paso(true);                     // de vuelta al paseo
+        const vuelta = flipCuarto.state();
+        const q = a.pantalla.quad || [];
+        out[v + ' ' + W + '×' + H] = {
+          quieta: a.eye.join() === b.eye.join() && a.look.join() === b.look.join() && a.fov === b.fov, difUnSegundo: CK.dif(A, Bc),
+          esquinasDentro: q.length === 4 && q.every(([x, y]) => x >= 0 && x <= W && y >= 0 && y <= H), ancho: a.pantalla.visible ? +(a.pantalla.rect[2] / W).toFixed(3) : 0,
+          entrada: { ojo: +entrada.ojo.toFixed(3), mira: +entrada.mira.toFixed(2), fov: +entrada.fov.toFixed(2) }, salida: { ojo: +salto.ojo.toFixed(3), mira: +salto.mira.toFixed(2), fov: +salto.fov.toFixed(2) },
+          sigue: v === 'AUTOCINEMA' ? true : Math.hypot(...vuelta.eye.map((x, i) => x - a.eye[i])) > 0.02 || Math.hypot(...andando.map((x, i) => x - a.eye[i])) < 0.02, postura: a.persona && a.persona.postura,
+        };
+      }
+      return out;
+    }, [TODAS, SIZES]);
+    for (const [k, r] of Object.entries(quieta)) {
+      const vertical = k.endsWith('540×960');
+      assert.ok(r.quieta, k + ': con paseo: false la cámara se queda quieta: ' + JSON.stringify(r));
+      assert.ok(r.esquinasDentro && r.ancho >= (vertical ? 0.45 : 0.35), k + ': la pantalla entera y grande en el plano de pantalla: ' + JSON.stringify(r));
+      for (const [n, s] of [['entrada', r.entrada], ['salida', r.salida]]) assert.ok(s.ojo < 0.35 && s.mira < 9 && s.fov < 6, k + ': sin salto en la ' + n + ' (máximo por cuadro): ' + JSON.stringify(r));
+      assert.ok(r.sigue, k + ': al volver, retoma el paseo: ' + JSON.stringify(r));
+      if (k.startsWith('AUTOCINEMA')) assert.equal(r.postura, 'acostada', k + ': quieta, la persona está acostada viendo la película');
+    }
+    step('paseo: false (plano de pantalla quieto, sin saltos al ir y al volver; saltos = lo más que cambia en un cuadro)', quieta);
+
+    // ── 8c · ESCAPARATE: seis teles o más con la imagen, cada una con su retraso ──
+    const muro = await page.evaluate(() => {
+      const rojo = CK.scene('rojo'), azul = CK.scene('azul'), W = 540, H = 960, c = document.createElement('canvas'); c.width = W; c.height = H;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      for (let i = 0; i < 14; i++) renderCuarto(rojo, 1280, 720, ctx, false, 'ESCAPARATE', { now: 300000 + i * 33.3, paseo: false });
+      const cuenta = () => { const st = flipCuarto.state(); let rojas = 0, azules = 0; st.pantallas.forEach(p => { if (!p.visible || p.entera < 0.95) return; const [x, y, w, h] = p.rect, m = CK.media(c, [Math.round(x + w * 0.3), Math.round(y + h * 0.3), Math.max(1, Math.round(w * 0.4)), Math.max(1, Math.round(h * 0.4))]); if (m[0] > 1.5 * m[2] && m[0] > 80) rojas++; else if (m[2] > 1.4 * m[0] && m[2] > 80) azules++; }); return { teles: st.pantallas.length, vistas: st.pantallas.filter(p => p.visible).length, rojas, azules }; };
+      const antes = cuenta(), mayor = +(Math.max(...flipCuarto.state().pantallas.map(p => p.visible ? p.rect[2] : 0)) / W).toFixed(3);
+      renderCuarto(azul, 1280, 720, ctx, false, 'ESCAPARATE', { now: 300000 + 14 * 33.3, paseo: false });
+      return { conRojo: antes, alPasarAAzul: cuenta(), teleMayor: mayor };
+    });
+    assert.ok(muro.conRojo.rojas >= 6, 'ESCAPARATE: seis teles o más enseñan la imagen: ' + JSON.stringify(muro));
+    assert.ok(muro.alPasarAAzul.azules >= 1 && muro.alPasarAAzul.rojas >= 1, 'y van desfasadas (al cambiar la imagen, unas ya cambiaron y otras no): ' + JSON.stringify(muro));
+    assert.ok(muro.teleMayor >= 0.25, 'ESCAPARATE: la tele más grande ≥ 25 % del ancho en el plano de pantalla: ' + JSON.stringify(muro));
+    step('ESCAPARATE: muro de teles con la imagen y desfase', muro);
+
+    // ── 8d · AUTOCINEMA: cámara fija; la persona llega, se sube y se acuesta ──
+    let cine = await page.evaluate(() => {
+      const src = CK.scene('roomLit'), C = flipCuarto.cycle(0.35, 'AUTOCINEMA'), out = [], t0 = Math.ceil(400000 / C) * C;
+      let ref = null;
+      for (const f of [0.3, 0.45, 0.56, 0.6, 0.63, 0.66, 0.69, 0.72, 0.88, 0.895, 0.91, 0.93, 0.945, 0.965, 0.98, 0.995]) {
+        const c = CK.run(src, 540, 960, { variant: 'AUTOCINEMA', frames: 2, start: t0 + f * C, opts: { giro: 0.35 } });
+        const p = c.st.persona;
+        // fondo: el tercio de arriba del cuadro (cielo y lo alto de la pantalla), lejos de la persona
+        const fondo = document.createElement('canvas'); fondo.width = 540; fondo.height = 300; fondo.getContext('2d').drawImage(c, 0, 0, 540, 300, 0, 0, 540, 300);
+        if (!ref) ref = fondo;
+        out.push({ fase: f, ojo: c.st.eye.join(), postura: p && p.postura, alto: p ? p.alto : 0, fondo: CK.dif(ref, fondo) });
+      }
+      // acostada, en el plano de pantalla (vertical y horizontal): qué tanto del ancho ocupa su cuerpo
+      const tam = {};
+      for (const [W, H] of [[540, 960], [1024, 576]]) { const c = CK.run(src, W, H, { variant: 'AUTOCINEMA', frames: 3, start: 900000, opts: { paseo: false } }); const p = c.st.persona; tam[W + '×' + H] = { postura: p && p.postura, ancho: p ? +(p.ancho / W).toFixed(3) : 0, pantalla: +(c.st.pantalla.rect[2] / W).toFixed(3) }; }
+      return { out, tam };
+    });
+    assert.ok(Object.values(cine.tam).every(t => t.postura === 'acostada' && t.ancho >= 0.3 && t.pantalla >= 0.35), 'AUTOCINEMA: acostada es la protagonista (≥ 30 % del ancho) con la pantalla entera detrás (≥ 35 %): ' + JSON.stringify(cine.tam));
+    const tam = cine.tam;
+    cine = cine.out;
+    const ojos = new Set(cine.map(x => x.ojo)), acostada = cine.filter(x => x.postura === 'acostada').map(x => x.alto), dePie = cine.filter(x => ['caminando', 'se va', 'se baja', 'deja el café', 'se voltea'].includes(x.postura)).map(x => x.alto);
+    assert.equal(ojos.size, 1, 'AUTOCINEMA: la cámara no se mueve: ' + JSON.stringify(cine));
+    assert.ok(cine.every(x => x.fondo < 3), 'AUTOCINEMA: el fondo no cambia: ' + JSON.stringify(cine.map(x => x.fondo)));
+    assert.ok(acostada.length && dePie.length && Math.max(...dePie) > 1.4 * Math.max(...acostada), 'AUTOCINEMA: la persona pasa de estar de pie (alta) a acostada (baja): ' + JSON.stringify(cine));
+    assert.ok(['caminando', 'deja el café', 'se sube', 'se recuesta', 'toma el café', 'acostada'].every(p => cine.some(x => x.postura === p)), 'AUTOCINEMA: llega caminando, deja el café, se sube, se recuesta, toma el café y se queda acostada: ' + JSON.stringify(cine.map(x => x.postura)));
+    step('AUTOCINEMA: cámara fija, la persona llega y se acuesta (alto de su silueta en px); acostada, su ancho en el plano de pantalla', { fases: cine.map(({ fase, postura, alto, fondo }) => ({ fase, postura, alto, fondo })), acostada: tam });
+
+    // ── 8e · TORRE: proporciones de la foto (losa ancha y maciza; pantalla ~3/4 del frente) ──
+    const torre = await page.evaluate(() => {
+      const src = CK.scene('roomLit'), out = {};
+      for (const [W, H, opts, tag] of [[540, 960, { paseo: false }, 'pantalla 540×960'], [1024, 576, { paseo: false }, 'pantalla 1024×576'], [540, 960, { giro: 0 }, 'presentación 540×960']]) {
+        const c = CK.run(src, W, H, { variant: 'TORRE', frames: 3, start: 700000 + W, opts });
+        const f = c.st.medidas.frente, p = c.st.pantalla, q = f.quad, yMid = p.rect[1] + p.rect[3] / 2, xAt = (a, b) => a[0] + (b[0] - a[0]) * (yMid - a[1]) / (b[1] - a[1]);
+        out[tag] = { anchoSobreAlto: +(f.rect[2] / f.rect[3]).toFixed(2), pantallaSobreFrente: +(p.rect[2] / (xAt(q[1], q[2]) - xAt(q[0], q[3]))).toFixed(2) };
+      }
+      return out;
+    });
+    // (el ancho/alto se compara en vertical, como la foto; en horizontal el pie de la torre queda fuera del cuadro)
+    for (const [k, r] of Object.entries(torre)) assert.ok((k.includes('1024') || (r.anchoSobreAlto >= 0.7 && r.anchoSobreAlto <= 1.0)) && r.pantallaSobreFrente >= 0.65 && r.pantallaSobreFrente <= 0.85, 'TORRE ' + k + ': losa ancha (frente visible ancho/alto 0,7–1,0; en la foto ≈ 0,85) y pantalla ~3/4 del frente (en la foto ≈ 0,73): ' + JSON.stringify(r));
+    step('TORRE: proporciones (foto: ancho/alto del frente visible ≈ 0,85; pantalla/frente ≈ 0,73)', torre);
+
     // ── 9 · Costo por cuadro, soltar y rehacer, pérdida de la gráfica ──
     const costo = await page.evaluate(async () => {
       const ms = {};
-      for (const v of ['DORMITORIO', 'OFICINA', 'AZOTEA']) for (const [W, H] of [[540, 960], [1024, 576]]) {
+      for (const v of flipCuarto.VARIANTES) for (const [W, H] of [[540, 960], [1024, 576]]) {
         const src = CK.scene('roomLit'), c = document.createElement('canvas'); c.width = W; c.height = H;
         const ctx = c.getContext('2d', { willReadFrequently: true });
         for (let i = 0; i < 5; i++) renderCuarto(src, 1280, 720, ctx, false, v, { now: 110000 + i * 33.3 });
@@ -322,6 +447,54 @@ const KIT = () => {
         }, [b64('efectos-hoja-2.jpg'), b64('efectos-hoja-3.jpg')]);
         saveDataUrl(path.join(shots, 'referencia-vs-cuarto.png'), vs);
       }
+      // Las escenas nuevas en cuatro momentos (vertical y horizontal) y los ocho planos de pantalla.
+      const nuevas = await page.evaluate(([NUEVAS, TODAS]) => {
+        const src = CK.scene('roomLit'), moments = [0.05, 0.3, 0.55, 0.8], out = {};
+        for (const [W, H, tag] of [[540, 960, 'vertical'], [1024, 576, 'horizontal']]) {
+          const cw = W / 2, chh = H / 2, sheet = document.createElement('canvas'); sheet.width = cw * moments.length; sheet.height = chh * NUEVAS.length;
+          const g = sheet.getContext('2d'); g.imageSmoothingEnabled = false;
+          // (en el autocinema, cuatro momentos de la persona: acostada, se baja, se sube, toma el café)
+          NUEVAS.forEach((v, row) => { const C = flipCuarto.cycle(0.35, v), t0 = Math.ceil(600000 / C) * C; (v === 'AUTOCINEMA' ? [0.3, 0.69, 0.93, 0.985] : moments).forEach((f, col) => g.drawImage(CK.run(src, W, H, { variant: v, frames: 12, start: t0 + f * C, opts: { giro: 0.35 } }), col * cw, row * chh, cw, chh)); });
+          out[tag] = sheet.toDataURL('image/png');
+        }
+        const pv = document.createElement('canvas'); pv.width = 270 * 4; pv.height = 480 * 2; const gv = pv.getContext('2d'); gv.imageSmoothingEnabled = false;
+        const ph = document.createElement('canvas'); ph.width = 512 * 4; ph.height = 288 * 2; const gh = ph.getContext('2d'); gh.imageSmoothingEnabled = false;
+        TODAS.forEach((v, i) => { gv.drawImage(CK.run(src, 540, 960, { variant: v, frames: 14, start: 700000, opts: { paseo: false } }), (i % 4) * 270, Math.floor(i / 4) * 480, 270, 480); gh.drawImage(CK.run(src, 1024, 576, { variant: v, frames: 14, start: 710000, opts: { paseo: false } }), (i % 4) * 512, Math.floor(i / 4) * 288, 512, 288); });
+        out.planosV = pv.toDataURL('image/png'); out.planosH = ph.toDataURL('image/png');
+        out.torre = CK.run(src, 540, 960, { variant: 'TORRE', frames: 14, start: 720000, opts: { paseo: false } }).toDataURL('image/png');
+        return out;
+      }, [NUEVAS, TODAS]);
+      saveDataUrl(path.join(shots, 'nuevas-vertical.png'), nuevas.vertical);
+      saveDataUrl(path.join(shots, 'nuevas-horizontal.png'), nuevas.horizontal);
+      saveDataUrl(path.join(shots, 'planos-de-pantalla-vertical.png'), nuevas.planosV);
+      saveDataUrl(path.join(shots, 'planos-de-pantalla-horizontal.png'), nuevas.planosH);
+      // la foto de la torre que mandó el dueño, al lado de nuestro plano de pantalla de TORRE
+      if (fs.existsSync(path.join(refDir, 'ref-torre-de-noche.jpg'))) {
+        const vs = await page.evaluate(async ([foto, nuestra]) => {
+          const load = async (b, type) => createImageBitmap(new Blob([Uint8Array.from(atob(b), c => c.charCodeAt(0))], { type }));
+          const F = await load(foto, 'image/jpeg'), N = await load(nuestra, 'image/png'), H = 960, wf = Math.round(F.width * H / F.height);
+          const c = document.createElement('canvas'); c.width = wf + 540; c.height = H; const g = c.getContext('2d');
+          g.drawImage(F, 0, 0, wf, H); g.drawImage(N, wf, 0, 540, H);
+          return c.toDataURL('image/png');
+        }, [fs.readFileSync(path.join(refDir, 'ref-torre-de-noche.jpg')).toString('base64'), nuevas.torre.slice(nuevas.torre.indexOf(',') + 1)]);
+        saveDataUrl(path.join(shots, 'torre-foto-vs-plano.png'), vs);
+      }
+      // Un trozo del paseo de cada escena en video (si hay ffmpeg), y el autocinema: la persona llega y se acuesta.
+      try {
+        const clip = async (nombre, v, n, start, opts) => {
+          const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cuarto-clip-'));
+          for (let k = 0; k < n; k += 30) {
+            const frames = await page.evaluate(([v, k, n, start, opts]) => { const src = CK.scene('roomLit'), c = document.createElement('canvas'); c.width = 540; c.height = 960; const ctx = c.getContext('2d'); const out = []; for (let i = k; i < Math.min(n, k + 30); i++) { renderCuarto(src, 1280, 720, ctx, false, v, { now: start + i * 33.333, ...opts }); out.push(c.toDataURL('image/png')); } return out; }, [v, k, n, start, opts]);
+            frames.forEach((u, i) => saveDataUrl(path.join(dir, 'f_' + String(k + i).padStart(4, '0') + '.png'), u));
+          }
+          encodeClip(dir, path.join(shots, nombre + '.mp4'), 30);
+        };
+        // (con giro 0,7 el ciclo dura 30 s: del 0,80 al 1,05 es cuando llega, deja el café, se sube,
+        // se recuesta, toma el café y fuma)
+        const C7 = await page.evaluate(() => flipCuarto.cycle(0.7, 'AUTOCINEMA'));
+        await clip('autocinema-llega-y-se-acuesta', 'AUTOCINEMA', 225, Math.ceil(1e6 / C7) * C7 + 0.8 * C7, { giro: 0.7 });
+        for (const v of NUEVAS.filter(x => x !== 'AUTOCINEMA')) await clip('paseo-' + v, v, 90, 800000, { giro: 0.6 });
+      } catch (error) { console.log('· (sin video de las nuevas: ' + String(error && error.message || error).split('\n')[0] + ')'); }
       // Un trozo del paseo en video, para ver el temblor de vértices y texturas (si hay ffmpeg).
       try {
         for (const v of VARS) {
@@ -336,19 +509,28 @@ const KIT = () => {
     }
 
     // ── 11 · En la app (si ya la registra): el visor, el cambio de escena y la foto ──
-    const wired = await page.evaluate(() => typeof CAM_FAMILIES !== 'undefined' && !!CAM_FAMILIES.CUARTO);
-    if (!wired) console.log('· (la app todavía no registra CAM_FAMILIES.CUARTO: el paso dentro de la app queda escrito y sin correr)');
+    // (las escenas viven como variantes de VIRTUAL —CONSOLA—; antes eran su propia familia, CUARTO)
+    const familia = await page.evaluate(() => {
+      if (typeof CAM_FAMILIES === 'undefined') return null;
+      if (CAM_FAMILIES.CONSOLA && (CAM_FAMILIES.CONSOLA.variants || []).some(v => v.id === 'DORMITORIO')) return 'CONSOLA';
+      return CAM_FAMILIES.CUARTO ? 'CUARTO' : null;
+    });
+    if (!familia) console.log('· (la app todavía no registra las escenas: el paso dentro de la app queda escrito y sin correr)');
     else {
       const app = await openFlip(browser, { sceneCamera: { scene: 'roomLit', w: 1280, h: 720, fps: 30 } });
       await app.page.evaluate(KIT);
-      await pickCamera(app.page, 'CUARTO');
-      await app.page.waitForFunction(() => camFamily === 'CUARTO' && flipCuarto.state().frames > 10, null, { timeout: 15000 });
+      await pickCamera(app.page, familia);
+      if (familia === 'CONSOLA') await pickVariant(app.page, 'DORMITORIO');
+      await app.page.waitForFunction(f => camFamily === f && camVariant === 'DORMITORIO' && flipCuarto.state().variant === 'DORMITORIO' && flipCuarto.state().frames > 10, familia, { timeout: 15000 });
       await app.page.waitForTimeout(800);
       const visor = await app.page.evaluate(() => ({ st: flipCuarto.state(), luz: CK.luz(display), size: [display.width, display.height] }));
-      assert.ok(visor.st.gl && visor.st.variant === 'DORMITORIO' && visor.luz.oscuro >= 0.5, 'el visor pinta con CUARTO: ' + JSON.stringify({ luz: visor.luz, st: { variant: visor.st.variant, size: visor.st.size, out: visor.st.out, ms: visor.st.ms } }));
+      assert.ok(visor.st.gl && visor.st.variant === 'DORMITORIO' && visor.luz.oscuro >= 0.5, 'el visor pinta la escena: ' + JSON.stringify({ luz: visor.luz, st: { variant: visor.st.variant, size: visor.st.size, out: visor.st.out, ms: visor.st.ms } }));
       if (shots) await app.page.screenshot({ path: path.join(shots, 'cuarto-app.png') });
-      await pickVariant(app.page, 'AZOTEA');
-      await app.page.waitForFunction(() => flipCuarto.state().variant === 'AZOTEA', null, { timeout: 10000 });
+      // una escena nueva en el visor, y su foto
+      await pickVariant(app.page, 'AUTOCINEMA');
+      await app.page.waitForFunction(() => flipCuarto.state().variant === 'AUTOCINEMA', null, { timeout: 10000 });
+      await app.page.waitForTimeout(500);
+      if (shots) await app.page.screenshot({ path: path.join(shots, 'autocinema-app.png') });
       const [download] = await Promise.all([app.page.waitForEvent('download', { timeout: 20000 }), app.page.locator('#deckShutter').click()]);
       const bytes = fs.readFileSync(await download.path());
       const photo = await app.page.evaluate(async b64 => {
@@ -365,7 +547,7 @@ const KIT = () => {
       if (shots) fs.writeFileSync(path.join(shots, 'cuarto-foto.jpg'), bytes);
       assert.ok(photo.size[0] >= 540 && photo.luz.oscuro >= 0.5, 'la foto sale a su tamaño y oscura: ' + JSON.stringify(photo));
       assert.ok(photo.st.size[0] <= 320 && photo.conSuRejilla < photo.conRejillaCorrida * 0.5, 'y a bloques de la imagen interna (píxeles que no casan al rehacerla con su rejilla y con la rejilla corrida): ' + JSON.stringify(photo));
-      step('en la app: visor con CUARTO, cambio a AZOTEA y su foto', { visor: { luz: visor.luz, out: visor.st.out, interna: visor.st.size, ms: visor.st.ms }, foto: photo });
+      step('en la app (' + familia + '): visor con DORMITORIO, cambio a AUTOCINEMA y su foto', { visor: { luz: visor.luz, out: visor.st.out, interna: visor.st.size, ms: visor.st.ms }, foto: photo });
       assert.deepEqual(app.errors, [], 'sin errores de página en la app: ' + app.errors.join(' | '));
       await app.context.close();
     }

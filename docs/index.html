@@ -1416,6 +1416,15 @@
     .film-ctrl-row input[type="range"] { flex:1; height:2px; accent-color:var(--paper); cursor:pointer; }
     #pressRegRow, #pressPairRow { display:none; }
     #pressRegRow.visible, #pressPairRow.visible { display:flex; }
+    /* Una cámara con muchas variantes (VIRTUAL lleva once) en la piel OBJETO: la fila no aprieta las
+       teclas hasta dejarlas en «1..»; se desliza, como en la piel INTERFAZ, cada tecla a su ancho. */
+    body:not([data-piel="interfaz"]) .deck-variants:is([data-count="7"], [data-count="8"], [data-count="9"], [data-count="10"], [data-count="11"], [data-count="12"], [data-count="13"], [data-count="14"]) {
+      flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; justify-content: flex-start; scroll-snap-type: x proximity;
+    }
+    body:not([data-piel="interfaz"]) .deck-variants:is([data-count="7"], [data-count="8"], [data-count="9"], [data-count="10"], [data-count="11"], [data-count="12"], [data-count="13"], [data-count="14"])::-webkit-scrollbar { display: none; }
+    body:not([data-piel="interfaz"]) .deck-variants:is([data-count="7"], [data-count="8"], [data-count="9"], [data-count="10"], [data-count="11"], [data-count="12"], [data-count="13"], [data-count="14"]) .hw-keycap {
+      flex: 0 0 auto !important; min-width: 66px; padding: 0 10px 1px !important; font-size: 9.5px; letter-spacing: .02em; scroll-snap-align: center;
+    }
     #fxEditPanel { display:none; margin-bottom:3px; }
     .fx-ctrl-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
     .fx-ctrl-row[hidden] { display:none !important; }
@@ -3392,7 +3401,6 @@
     <button class="cam-fam-btn"        data-family="TESELA" title="TESELA — Baldosas de memoria rota"><strong>TESELA</strong><small>La figura hecha de baldosas de una memoria rota</small></button>
     <button class="cam-fam-btn"        data-family="CHISPA" title="CHISPA — Brillantina y destellos"><strong>CHISPA</strong><small>Brillantina y destellos que viajan con la imagen</small></button>
     <button class="cam-fam-btn"        data-family="BRASA" title="BRASA — Retrato que arde"><strong>BRASA</strong><small>Retrato que arde: oro, letra en los medios tonos y luces que se corren</small></button>
-    <button class="cam-fam-btn"        data-family="CUARTO" title="CUARTO — Un cuarto en polígonos"><strong>CUARTO</strong><small>Un cuarto en polígonos, de noche, con tu imagen en su pantalla</small></button>
     <button class="cam-fam-btn"        data-family="GUSANO" title="GUSANO — Bandas de puntos RGB"><strong>GUSANO</strong><small>Bandas de puntos rojos, verdes y azules que avanzan en curva</small></button>
     <button class="cam-fam-btn"        data-family="ESPECTRO" title="ESPECTRO — Arcoíris sobre negro"><strong>ESPECTRO</strong><small>La luz en anillos de arcoíris sobre negro, como un colorizador de video</small></button>
     <button class="cam-fam-btn"        data-family="FILM" title="FILM — Película revelada de verdad"><strong>FILM</strong><small>Película revelada de verdad: negativos, diapositivas, experimentales y blanco y negro</small></button>
@@ -5178,11 +5186,14 @@ const FX_CAM_CTRLS = {
     { id:'rejilla', label:'REJILLA', min:0, max:100, def:55, k:0.01 },
     { id:'marco', label:'MARCO', min:0, max:1, def:1, bool:true, text:['NO', 'SÍ'] },
   ],
+  // (los escenarios en 3D de VIRTUAL: la clave sigue siendo CUARTO para que sus ajustes guardados sigan valiendo)
   CUARTO: [
     { id:'giro', label:'GIRO', min:0, max:100, def:35, k:0.01 },
     { id:'luz', label:'LUZ', min:0, max:100, def:70, k:0.01 },
     { id:'trama', label:'TRAMA', min:0, max:100, def:60, k:0.01 },
     { id:'temblor', label:'TEMBLOR', min:0, max:100, def:50, k:0.01 },
+    // PASEO: la cámara 3D recorre el escenario; QUIETO, se queda fija frente a la pantalla (también tecla rápida, ver consola.js)
+    { id:'paseo', label:'CÁMARA', min:0, max:1, def:1, bool:true, text:['QUIETA', 'PASEO'] },
   ],
   GUSANO: [
     { id:'curva', label:'CURVA', min:0, max:100, def:50, k:0.01 },
@@ -5201,6 +5212,7 @@ const fxCamVals = {};
 for (const [key, list] of Object.entries(FX_CAM_CTRLS)) { fxCamVals[key] = {}; for (const c of list) fxCamVals[key][c.id] = c.def; }
 // La clave de la tabla para una cámara: la familia, o familia:variante si guarda un juego por variante.
 function _fxCamKey(fam, variant) {
+  if (_esCuarto(fam, variant)) return 'CUARTO';
   if (FX_CAM_CTRLS[fam]) return fam;
   const key = fam + ':' + variant;
   return FX_CAM_CTRLS[key] ? key : (Object.keys(FX_CAM_CTRLS).find(k => k.startsWith(fam + ':')) || null);
@@ -5224,7 +5236,8 @@ document.addEventListener('DOMContentLoaded', () => {
     TESELA: { dice: 'El bajo rompe más baldosas y la memoria salta con cada golpe', mandos: [knob('TESELA', 'rotura', 'bass', 35)] },
     CHISPA: { dice: 'El golpe enciende destellos y el sonido aviva la brillantina', mandos: [] },
     BRASA: { dice: 'El bajo corre las luces y el golpe las arrastra en ráfaga', mandos: [] },
-    CUARTO: { dice: 'El sonido mueve el cuarto y la pantalla alumbra al pulso', mandos: [] },
+    // VIRTUAL solo se mueve con el sonido en sus escenarios en 3D («solo» dice para qué variante vale: la puesta, si es uno de ellos)
+    CONSOLA: { dice: 'El sonido mueve el escenario y la pantalla alumbra al pulso', mandos: [], get solo() { return _esCuarto() ? camVariant : '·'; } },
     GUSANO: { dice: 'El bajo empuja el gusano y cada golpe le cambia el color', mandos: [] },
     ESPECTRO: { dice: 'El sonido hace correr los anillos de arcoíris', mandos: [] },
   });
@@ -5256,7 +5269,9 @@ function _fxCamOptions(frame) {
 function _renderFxCam(frame) {
   const name = FX_CAM_FN[frame.profile.renderer], fn = window[name];
   let ok = false;
-  if (typeof fn === 'function') {
+  // (un escenario de VIRTUAL que cuarto.js todavía no trae no se pinta con otro: cae a AUTO 03)
+  const unknown = frame.profile.renderer === 'cuarto' && window.flipCuarto && Array.isArray(flipCuarto.VARIANTES) && !flipCuarto.VARIANTES.includes(frame.profile.variant);
+  if (typeof fn === 'function' && !unknown) {
     try { ok = !!fn(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant, _fxCamOptions(frame)); }
     catch (error) {
       // (un motor que falla no se lleva la cámara por delante: se avisa una vez y pinta AUTO 03)
@@ -5359,7 +5374,9 @@ const CAM_FAMILIES = {
     editMode:'press',
     paletteContext:null,
   },
-  // VIRTUAL (consola.js; la clave interna sigue siendo CONSOLA): la escena en polígonos con textura pegada; la cara, con su propia malla.
+  // VIRTUAL (la clave interna sigue siendo CONSOLA). Las tres primeras (consola.js): la escena en
+  // polígonos con textura pegada; la cara, con su propia malla. Las demás (cuarto.js, ver CUARTO_VARIANTS):
+  // un escenario en 3D de otra generación, de noche, con tu imagen en su pantalla; esa pantalla lo alumbra.
   CONSOLA: {
     label:'VIRTUAL',
     displayLabel:'VIRTUAL',
@@ -5367,6 +5384,14 @@ const CAM_FAMILIES = {
       { id:'B128', label:'128 BITS', hint:'128 BITS · polígonos con textura suave, estelas, resplandor y un atardecer que no se acaba.' },
       { id:'B32', label:'32 BITS', hint:'32 BITS · píxel duro, pocos colores con tramado y polígonos que tiemblan.' },
       { id:'NOCHE', label:'NOCHE', hint:'NOCHE · el cuarto a oscuras alumbrado por la pantalla: sombras índigo, tramado a la vista, resplandor solo en las luces y alguna estrella.' },
+      { id:'DORMITORIO', label:'DORMITORIO', hint:'DORMITORIO · un cuarto de noche en polígonos; tu imagen, en la tele que lo alumbra.' },
+      { id:'OFICINA', label:'OFICINA', hint:'OFICINA · una oficina a oscuras en polígonos; tu imagen, en el monitor.' },
+      { id:'AZOTEA', label:'AZOTEA', hint:'AZOTEA · una azotea de noche en polígonos; tu imagen, en el anuncio que alumbra la ciudad.' },
+      { id:'TORRE', label:'TORRE', hint:'TORRE · tu imagen en la pantalla gigante de una torre, vista desde la azotea.' },
+      { id:'AUTOBUS', label:'AUTOBÚS', hint:'AUTOBÚS · tu imagen en la tele del autobús, vista desde tu asiento.' },
+      { id:'AUTOCINEMA', label:'AUTOCINEMA', hint:'AUTOCINEMA · tu imagen es la película del autocinema; tú, acostado en el cofre.' },
+      { id:'ESCAPARATE', label:'ESCAPARATE', hint:'ESCAPARATE · tu imagen en un muro de teles en la vitrina, de noche.' },
+      { id:'TAQUERIA', label:'TAQUERÍA', hint:'TAQUERÍA · tu imagen en la tele del puesto, entre el trompo y la plancha.' },
     ],
     editMode:'consola',
     paletteContext:null,
@@ -5414,19 +5439,6 @@ const CAM_FAMILIES = {
     displayLabel:'BRASA',
     variants:[
       { id:'STD', label:'RETRATO', hint:'RETRATO · de brasa a oro, renglones de letra diminuta en los medios tonos y luces que se corren en horizontal.' },
-    ],
-    editMode:'fx',
-    paletteContext:null,
-  },
-  // CUARTO (cuarto.js): un cuarto en polígonos de otra generación, de noche; la cámara va en su pantalla
-  // y alumbra el cuarto.
-  CUARTO: {
-    label:'CUARTO',
-    displayLabel:'CUARTO',
-    variants:[
-      { id:'DORMITORIO', label:'DORMITORIO', hint:'DORMITORIO · un cuarto de noche en polígonos; tu imagen, en la pantalla que lo alumbra.' },
-      { id:'OFICINA', label:'OFICINA', hint:'OFICINA · una oficina a oscuras en polígonos; tu imagen, en el monitor.' },
-      { id:'AZOTEA', label:'AZOTEA', hint:'AZOTEA · una azotea de noche en polígonos; tu imagen, en el anuncio que alumbra la ciudad.' },
     ],
     editMode:'fx',
     paletteContext:null,
@@ -5497,6 +5509,12 @@ const CAM_FAMILIES = {
 // Las variantes de PRINT que son el sello postal (las pinta stamp.js, con su propio panel de ajustes).
 const SELLO_VARIANTS = new Set(['ENGR', 'INK', 'ISSUE']);
 function _esSello(fam = camFamily, variant = camVariant) { return fam === 'PRENSA' && SELLO_VARIANTS.has(variant); }
+// Las variantes de VIRTUAL que son un escenario en 3D (las pinta cuarto.js, con sus mandos de la hoja «fx»
+// y la tecla PASEO). Antes eran su propia cámara, CUARTO: los ajustes guardados con ella se mudan aquí.
+const CUARTO_VARIANTS = new Set(['DORMITORIO', 'OFICINA', 'AZOTEA', 'TORRE', 'AUTOBUS', 'AUTOCINEMA', 'ESCAPARATE', 'TAQUERIA']);
+function _esCuarto(fam = camFamily, variant = camVariant) { return fam === 'CONSOLA' && CUARTO_VARIANTS.has(variant); }
+// Cuadros por segundo de cada cámara (el escenario en 3D va a 30 aunque VIRTUAL vaya a 24).
+function _camCadence(fam = camFamily, variant = camVariant) { return _esCuarto(fam, variant) ? 30 : (cameraCadence[fam] || 24); }
 
 function _getSafeActiveTab() {
   try { return activeTab; }
@@ -5518,7 +5536,6 @@ const CAMERA_ENGINE_RENDERERS = Object.freeze({
   TESELA: 'tesela',
   CHISPA: 'chispa',
   BRASA: 'brasa',
-  CUARTO: 'cuarto',
   GUSANO: 'gusano',
   ESPECTRO: 'espectro',
   FILM: 'film',
@@ -5546,7 +5563,7 @@ function _getCamEngineProfile(fam = camFamily, variant = camVariant) {
     familyLabel: familyCfg.displayLabel || familyCfg.label || fam,
     variant: variantCfg.id,
     variantLabel: variantCfg.label || variantCfg.id,
-    renderer: _esSello(fam, variantCfg.id) ? 'stamp' : CAMERA_ENGINE_RENDERERS[fam] || CAMERA_ENGINE_RENDERERS.DSI,
+    renderer: _esSello(fam, variantCfg.id) ? 'stamp' : _esCuarto(fam, variantCfg.id) ? 'cuarto' : CAMERA_ENGINE_RENDERERS[fam] || CAMERA_ENGINE_RENDERERS.DSI,
     internalId: variantCfg.internalId || familyCfg.internalId || null,
     subtitle: variantCfg.subtitle || familyCfg.subtitle || null,
   };
@@ -5812,6 +5829,7 @@ function _getCamEditMode() {
   if (camFamily === 'VFD' && camVariant !== 'STD') return null;
   if (camFamily === 'CASKIA' && camVariant !== 'SEIKO') return null;
   if (_esSello()) return 'stamp';
+  if (_esCuarto()) return 'fx';                 // (los escenarios en 3D de VIRTUAL: mandos de CUARTO y PASEO)
   return fam.editMode;
 }
 function _getCamPaletteContext() {
@@ -6181,7 +6199,7 @@ function _applyCamState() {
   const fam = _getCamFamilyConfig();
   if (!fam.variants.some(v => v.id === camVariant)) camVariant = fam.variants[0]?.id || 'STD';
   if (!customCameraFps) {
-    camFpsTarget = cameraCadence[camFamily] || 24;
+    camFpsTarget = _camCadence(camFamily, camVariant);
     syncCameraCadence();
   }
   const nextEngineKey = `${camFamily}:${camVariant}`;
@@ -6199,6 +6217,13 @@ function _applyCamState() {
     b.setAttribute('aria-pressed', String(b.dataset.family === camFamily));
   });
   _renderCamVariantPill();
+  // (en una fila de variantes que se desliza —VIRTUAL lleva once—, la puesta queda a la vista)
+  requestAnimationFrame(() => {
+    const row = document.getElementById('deckVariants'), on = row && row.querySelector('[data-variant].is-on');
+    if (!on || row.scrollWidth <= row.clientWidth + 1) return;
+    const r = row.getBoundingClientRect(), k = on.getBoundingClientRect();
+    if (k.left < r.left || k.right > r.right) row.scrollLeft += (k.left + k.width / 2) - (r.left + r.width / 2);
+  });
   document.getElementById('camFamilyBadge').textContent = fam.displayLabel || fam.label;
   document.getElementById('camEditTitle').textContent = 'AJUSTES · ' + (fam.displayLabel || fam.label);
   const editMode = _getCamEditMode();
@@ -10944,7 +10969,7 @@ let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 let customCameraFps = false;
-const cameraCadence = { DSI:8, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, PRENSA:24, CONSOLA:24, MATRIZ:30, TESELA:30, CHISPA:30, BRASA:30, CUARTO:30, GUSANO:30, ESPECTRO:30, FILM:30, CLON:30 };
+const cameraCadence = { DSI:8, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, PRENSA:24, CONSOLA:24, MATRIZ:30, TESELA:30, CHISPA:30, BRASA:30, GUSANO:30, ESPECTRO:30, FILM:30, CLON:30 };
 function syncCameraCadence() {
   document.getElementById('camFpsVal').textContent = camFpsTarget;
   document.getElementById('camFpsSlider').value = camFpsTarget;
@@ -18550,6 +18575,7 @@ function loadSettings() {
     if (s.vfdActivePal !== undefined) vfdActivePal = s.vfdActivePal;
     // CAM family/variant (new system — takes priority over legacy legacyMode flag)
     if (s.camFamily === 'STAMP') s.camFamily = 'PRENSA';               // la cámara STAMP ahora son tres variantes de PRINT (misma id de variante)
+    if (s.camFamily === 'CUARTO') s.camFamily = 'CONSOLA';             // CUARTO ahora son variantes de VIRTUAL (misma id; sus mandos siguen en fxCamVals.CUARTO)
     if (s.camFamily  && CAM_FAMILIES[s.camFamily])  camFamily  = s.camFamily;
     if (s.camVariant) {
       const variants = (CAM_FAMILIES[camFamily] && CAM_FAMILIES[camFamily].variants) || [];
@@ -18747,7 +18773,7 @@ function loadSettings() {
     customCameraFps = s.customCameraFps ?? Number.isFinite(s.camFpsTarget);
     camFpsTarget = customCameraFps && Number.isFinite(s.camFpsTarget)
       ? Math.max(1, Math.min(30, Math.round(s.camFpsTarget)))
-      : cameraCadence[camFamily] || 24;
+      : _camCadence(camFamily, camVariant);
     syncCameraCadence();
     if (s.camFpsEnabled !== undefined) { camFpsEnabled=s.camFpsEnabled; const e=document.getElementById('camFpsToggle'); if(e)e.checked=camFpsEnabled; }
     // GLITCH — AUDIO REACT master intensity
@@ -18796,7 +18822,7 @@ function loadSettings() {
                      // const's declaration point (~line 20390s), so referencing the const would TDZ-throw
         .map(st => {
           const out = { engine: st.engine, on: st.on !== false };
-          if (st.engine === 'cam') { out.family = (st.family && CAM_FAMILIES[st.family]) ? st.family : undefined; out.variant = _editCamVariant(out.family, st.variant); }
+          if (st.engine === 'cam') { const fam = st.family === 'CUARTO' ? 'CONSOLA' : st.family; out.family = (fam && CAM_FAMILIES[fam]) ? fam : undefined; out.variant = _editCamVariant(out.family, st.variant); }
           else if (st.engine === 'glitch') out.params = _editClampGlitchParams(st.params);
           else if (st.engine === 'ascii') out.params = _editClampAsciiParams(st.params);
           else if (st.engine === 'flowblob') out.params = _editClampFlowParams(st.params);

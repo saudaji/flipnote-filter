@@ -904,9 +904,10 @@ void main() {
   }
   function uploadLook(base, key, now) {
     const gl = eng.gl, w = base.width, h = base.height, family = lookFamily(key);
-    const cadence = family === 'ASCII' ? 20 : (typeof cameraCadence === 'object' && cameraCadence[family]) || 24;
     // (la variante entra en la firma: otra variante de la misma familia se pinta en el acto)
     const variant = family === 'ASCII' ? '' : lookVariant(key);
+    // (la cadencia puede depender de la variante: los escenarios de VIRTUAL van a 30 y sus consolas a 24)
+    const cadence = family === 'ASCII' ? 20 : typeof _camCadence === 'function' ? _camCadence(family, variant) : (typeof cameraCadence === 'object' && cameraCadence[family]) || 24;
     const signature = family + ':' + variant + ':' + w + 'x' + h;
     if (signature !== look.key || now - look.at >= 1000 / cadence - 4) {
       look.key = signature; look.at = now;

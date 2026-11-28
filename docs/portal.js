@@ -496,7 +496,8 @@ const flipPortal = (() => {
   }
   const currentStyle = () => (state.look ? { key: state.look, extra: state.look } : { key: camFamily + ':' + camVariant, family: camFamily, variant: camVariant });
   const styleName = style => (style.extra ? EXTRA[style.extra].label : ((CAM_FAMILIES[style.family].displayLabel || CAM_FAMILIES[style.family].label) + ''));
-  const cadenceOf = style => (style.extra ? (style.extra === 'ASCII' ? 20 : 30) : ((typeof cameraCadence === 'object' && cameraCadence[style.family]) || 24));
+  // (la cadencia puede ir por variante: los escenarios en 3D de VIRTUAL van a 30)
+  const cadenceOf = style => (style.extra ? (style.extra === 'ASCII' ? 20 : 30) : typeof _camCadence === 'function' ? _camCadence(style.family, style.variant) : ((typeof cameraCadence === 'object' && cameraCadence[style.family]) || 24));
   // Cada estilo en uso tiene su lienzo y su textura; se pintan por turnos, el que más toca primero.
   const pool = new Map();
   function styleEntry(style, w, h) {

@@ -271,7 +271,7 @@
     hud.watching = true;
     // cada toma guardada hace saltar la miniatura: ahí suma
     new MutationObserver(() => {
-      if (!gallery.classList.contains('pop') || typeof camFamily === 'undefined' || camFamily !== 'CONSOLA' || performance.now() - hud.banner < 600) return;
+      if (!gallery.classList.contains('pop') || !mineVariant() || performance.now() - hud.banner < 600) return;
       hud.shots++; hud.money += 500; hud.banner = performance.now();
       try { localStorage.setItem('flip.consola.dinero', String(hud.money)); } catch (_) {}
     }).observe(gallery, { attributes: true, attributeFilter: ['class'] });
@@ -451,22 +451,76 @@
     return true;
   }
 
-  // La tecla MARCO DE JUEGO vive en el cajón «cámaras y filtros» y solo aparece con CONSOLA elegida.
+  // VIRTUAL tiene dos motores: estas tres variantes son de aquí; los escenarios en 3D (DORMITORIO,
+  // AZOTEA…) los pinta cuarto.js. El marco de juego y su dinero son solo de las de aquí.
+  const mineVariant = () => typeof camFamily !== 'undefined' && camFamily === 'CONSOLA' && typeof camVariant !== 'undefined' && !!VARIANTS[camVariant];
+  const scenario = () => typeof _esCuarto === 'function' && _esCuarto();
+  // La tecla MARCO DE JUEGO vive en el cajón «cámaras y filtros» y solo aparece con una de esas tres.
   let hudRow = null;
   function hudPaint() {
     if (!hudRow) return;
-    hudRow.hidden = typeof camFamily === 'undefined' || camFamily !== 'CONSOLA';
+    hudRow.hidden = !mineVariant();
     const key = hudRow.querySelector('button');
     key.classList.toggle('is-on', hud.on); key.setAttribute('aria-pressed', String(hud.on));
   }
+  // ── PASEO: en los escenarios en 3D, la cámara recorre el escenario o se queda quieta frente a la
+  //    pantalla. Es el mando «paseo» de la hoja de ajustes (fxCamVals.CUARTO.paseo) y además una tecla
+  //    rápida: en la piel INTERFAZ, en la banda junto a la variante (como las de REACCIÓN y CLON); en
+  //    la piel OBJETO, una tecla del aparato bajo las variantes. Se guarda con los ajustes.
+  let walkBand = null, walkRow = null;
+  const walking = () => typeof fxCamVals === 'object' && fxCamVals.CUARTO ? fxCamVals.CUARTO.paseo >= 1 : true;
+  function walkSet(on) {
+    if (typeof fxCamVals !== 'object' || !fxCamVals.CUARTO) return;
+    fxCamVals.CUARTO.paseo = on ? 1 : 0;
+    if (typeof _syncFxCamUI === 'function') _syncFxCamUI();
+    if (typeof saveSettings === 'function') saveSettings();
+    walkPaint();
+    if (window.flipShell && flipShell.hint) flipShell.hint(on ? 'PASEO · la cámara recorre el escenario' : 'QUIETA · la cámara se queda frente a la pantalla', 1800);
+  }
+  function walkPaint() {
+    const on = scenario(), go = walking();
+    if (walkBand) {
+      walkBand.hidden = !on;
+      // (la clase que abre sitio en la banda la ponen también REACCIÓN y CLON al cambiar de cámara: se pone después de ellas)
+      setTimeout(() => { if (scenario()) document.body.classList.add('con-rapidas'); }, 0);
+      const key = walkBand.querySelector('button');
+      key.textContent = go ? 'PASEO' : 'QUIETA';
+      key.classList.toggle('is-on', !go); key.setAttribute('aria-pressed', String(!go));
+      key.setAttribute('aria-label', go ? 'La cámara pasea. Toca para dejarla quieta frente a la pantalla' : 'La cámara está quieta. Toca para que pasee');
+    }
+    if (walkRow) {
+      walkRow.hidden = !on;
+      const key = walkRow.querySelector('button');
+      key.textContent = go ? 'CÁMARA: PASEO' : 'CÁMARA: QUIETA';
+      key.classList.toggle('is-on', !go); key.setAttribute('aria-pressed', String(!go));
+    }
+  }
   function hudMount() {
-    const cajon = document.getElementById('siCajon'), looks = document.getElementById('deckLooks');
-    if (!cajon || !window.flipShell || hudRow) return;
-    hudRow = flipShell.el('div', { class: 'si-cajon-fila si-consola' }, '<small>VIRTUAL</small><div class="si-filtros"><button class="hw si-chip" type="button" id="consolaMarco" aria-pressed="true">MARCO DE JUEGO</button></div>');
-    cajon.insertBefore(hudRow, cajon.querySelector(':scope > .grano'));
-    hudRow.querySelector('button').addEventListener('click', () => window.flipConsola.hud(!hud.on));
-    if (looks) new MutationObserver(() => queueMicrotask(hudPaint)).observe(looks, { subtree: true, attributes: true, attributeFilter: ['class'] });
-    hudPaint();
+    const cajon = document.getElementById('siCajon'), looks = document.getElementById('deckLooks'), variants = document.getElementById('deckVariants');
+    if (!window.flipShell || hudRow) return;
+    if (cajon) {
+      hudRow = flipShell.el('div', { class: 'si-cajon-fila si-consola' }, '<small>VIRTUAL</small><div class="si-filtros"><button class="hw si-chip" type="button" id="consolaMarco" aria-pressed="true">MARCO DE JUEGO</button></div>');
+      cajon.insertBefore(hudRow, cajon.querySelector(':scope > .grano'));
+      hudRow.querySelector('button').addEventListener('click', () => window.flipConsola.hud(!hud.on));
+    }
+    const head = document.querySelector('.si-banda-cabeza');
+    if (head) {
+      walkBand = flipShell.el('div', { class: 'si-rapidas consola-rapidas', role: 'group', 'aria-label': 'Cámara del escenario' }, '<button class="hw si-chip" type="button" id="consolaPaseo" aria-pressed="false">PASEO</button>');
+      head.insertBefore(walkBand, head.querySelector('.si-abrir'));
+      walkBand.querySelector('button').addEventListener('click', () => walkSet(!walking()));
+    }
+    const tray = document.querySelector('#camDeck .deck-groups') || document.querySelector('#camDeck .deck-looks');
+    if (tray) {
+      walkRow = flipShell.el('div', { class: 'deck-variants reaccion-teclas consola-teclas', role: 'group', 'aria-label': 'Cámara del escenario' }, '<button class="hw hw-keycap" type="button" data-consola="paseo" aria-pressed="false">CÁMARA: PASEO</button>');
+      tray.before(walkRow);
+      walkRow.querySelector('button').addEventListener('click', () => walkSet(!walking()));
+    }
+    const paint = () => queueMicrotask(() => { hudPaint(); walkPaint(); });
+    for (const node of [looks, variants]) if (node) new MutationObserver(paint).observe(node, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    // (el mando de la hoja también la cambia)
+    const knob = document.getElementById('fxCUARTOpaseo');
+    if (knob) knob.addEventListener('input', () => queueMicrotask(walkPaint));
+    hudPaint(); walkPaint();
   }
   if (document.readyState === 'complete') hudMount(); else addEventListener('load', hudMount);
 
@@ -478,6 +532,8 @@
     // El marco de juego: encenderlo, apagarlo, y lo que marca.
     hud(on) { if (on != null) { hud.on = !!on; try { localStorage.setItem(HUD_KEY, hud.on ? 'si' : 'no'); } catch (_) {} hudPaint(); } return hud.on; },
     hudState: () => ({ on: hud.on, vida: +hud.battery.toFixed(2), dinero: hud.money, tomas: hud.shots, alerta: +hud.alert.toFixed(2) }),
+    // PASEO de los escenarios en 3D (la tecla rápida y el mando de la hoja son el mismo valor)
+    paseo(on) { if (on != null) walkSet(!!on); return walking(); },
     injectFace(points) { if (!points) { face.injected = false; face.tris = face.picks = null; return; } face.injected = true; face.tris = null; faceTake(Float32Array.from(points), performance.now()); },
   };
 })();

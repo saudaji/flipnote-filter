@@ -11,7 +11,7 @@
 //
 // Todo mando es un destino de modulación. Las fuentes (dos LFO, graves, medios, agudos, golpe,
 // el pad XY del monitor, las notas MIDI y la mano delante de la cámara) se parchean tocando su
-// toma y luego una perilla: aparece el cable. Ocho escenas con transición, MIDI con aprendizaje
+// toma y luego una perilla: aparece el cable. Diez escenas con transición, MIDI con aprendizaje
 // (CC a perillas, notas a escenas), reloj MIDI y tempo a golpes.
 //
 // El dibujo es WebGL 2 en dos pases (composición con realimentación + acabado). En Android la
@@ -57,6 +57,8 @@ const flipStage = (() => {
     'col.tint': ['TINTE', 0], 'col.post': ['POSTERIZ.', 0], 'col.solar': ['SOLARIZ.', 0],
     'sig.rgb': ['RGB', 0], 'sig.tear': ['RASGADO', 0], 'sig.vhold': ['V-HOLD', .5, true], 'sig.bleed': ['CROMA', 0],
     'sig.pix': ['PÍXEL', 0], 'sig.scan': ['LÍNEAS', 0], 'sig.noise': ['ESTÁTICA', 0], 'sig.strobe': ['ESTROBO', 0],
+    // Destellos sobre las crestas de luz, hebras horizontales de las luces altas y trama ordenada por canal.
+    'sig.spark': ['CHISPA', 0], 'sig.smear': ['ARRASTRE', 0], 'sig.dither': ['TRAMA RGB', 0],
     'lfo1.rate': ['VEL. LFO 1', .35], 'lfo2.rate': ['VEL. LFO 2', .6], 'aud.gain': ['GANANCIA', .5, true], 'aud.fall': ['CAÍDA', .4],
     'out.level': ['NIVEL', 1], 'mod.morph': ['TRANSICIÓN', .22],
   };
@@ -67,44 +69,74 @@ const flipStage = (() => {
     'geo.zoom': 'ZOOM', 'geo.rot': 'INCLINAR', 'geo.spin': 'ROTACIÓN', 'geo.kal': 'CALEIDOSCOPIO', 'geo.tile': 'MOSAICO', 'geo.warp': 'ONDULAR', 'geo.wfreq': 'DETALLE DE ONDA',
     'col.hue': 'COLOR', 'col.sat': 'VIVEZA', 'col.con': 'CONTRASTE', 'col.cycle': 'CAMBIO DE COLOR', 'col.tint': 'PALETA', 'col.post': 'PÓSTER', 'col.solar': 'METAL',
     'sig.rgb': 'SEPARAR RGB', 'sig.tear': 'GLITCH VHS', 'sig.vhold': 'RODAR TV', 'sig.bleed': 'BARRIDO VHS', 'sig.pix': 'PIXELADO', 'sig.scan': 'LÍNEAS DE TV', 'sig.noise': 'ESTÁTICA', 'sig.strobe': 'ESTROBO',
+    // (en FÁCIL «ARRASTRE ↔» ya es la deriva del eco: el arrastre de las luces se llama por lo que dibuja)
+    'sig.spark': 'DESTELLOS', 'sig.smear': 'HEBRAS DE LUZ', 'sig.dither': 'TRAMA RGB',
   };
   const FACIL_SRC = { lfo1: 'VAIVÉN 1', lfo2: 'VAIVÉN 2', mid: 'MEDIOS', high: 'AGUDOS', padx: 'DEDO ↔', pady: 'DEDO ↕', note: 'TECLA MIDI', hx: 'MANO ↔', hy: 'MANO ↕', pinch: 'PELLIZCO' };
-  const facil = id => FACIL[id] || P[id][0];
+  // (con la paleta ESPECTRO, SOLARIZ. no dobla la luz: da las vueltas de arcoíris; en plena transición vale el TINTE de destino)
+  const spectral = () => live.d['col.pal'] === PAL_ESPECTRO && (morph && morph.to['col.tint'] !== undefined ? morph.to['col.tint'] : live.p['col.tint']) > 0;
+  const facil = id => (id === 'col.solar' && spectral() ? 'VUELTAS DE COLOR' : FACIL[id] || P[id][0]);
   const srcFacil = key => FACIL_SRC[key] || SRC[key].label;
   const IDS = Object.keys(P);
   const GLOBAL_IDS = ['aud.gain', 'aud.fall', 'out.level', 'mod.morph'];      // no cambian al cambiar de escena
   const SCENE_IDS = IDS.filter(id => !GLOBAL_IDS.includes(id));
   const D0 = { 'src.look': 'RAW', 'src.gen': 2, 'mix.mode': 0, 'key.inv': 0, 'fb.mode': 0, 'geo.mirror': 0, 'col.pal': 0, 'col.inv': 0, 'lfo1.shape': 0, 'lfo2.shape': 1, 'lfo.sync': 0 };
-  const GENS = ['NEGRO', 'BARRAS', 'PLASMA', 'ANILLOS', 'REJILLA', 'NIEVE', 'ONDA', 'ESPECTRO', 'CARTA'];
+  const GENS = ['NEGRO', 'BARRAS', 'PLASMA', 'ANILLOS', 'REJILLA', 'NIEVE', 'ONDA', 'ESPECTRO', 'CARTA', 'PINCEL', 'SALPICADURA'];
+  const GEN_PINCEL = 9, GEN_SALPICADURA = 10;
+  let BRUSH_R = .13;
   const MIX_MODES = ['MEZCLA', 'SUMA', 'MULTIPLICA', 'DIFERENCIA', 'CLAVE DE LUZ', 'SILUETA'];
-  const FB_MODES = ['ECO', 'ESTELA', 'CLAVE'];
+  // SELLO: el lazo opaco en escalón. La imagen anterior vuelve copiada celda a celda, movida un número
+  // entero de celdas y sin suavizar; lo nuevo se estampa encima con borde duro. Así una trama de puntos
+  // viaja por el lazo sin volverse gris (con ECO, el remuestreo la emborrona en tres cuadros).
+  const FB_MODES = ['ECO', 'ESTELA', 'CLAVE', 'SELLO'];
+  const FB_SELLO = 3;
   const MIRRORS = ['NO', 'HORIZONTAL', 'VERTICAL', 'CUATRO'];
+  // ESPECTRO no es un degradado de tres tintas: es un colorizador cíclico (la luz recorre el arcoíris
+  // varias veces, con la clave a negro abajo). Sus tres colores solo sirven de muestra.
   const PALETTES = [['FÓSFORO', '#020a04', '#1fae4a', '#d8ffd0'], ['ÁMBAR', '#0c0500', '#d9770a', '#ffe9b0'], ['HIELO', '#02040e', '#2f78dc', '#e6f6ff'],
-    ['FUEGO', '#0a0002', '#e5392b', '#ffd24a'], ['NEÓN', '#0a0030', '#e6399b', '#3df0e0'], ['CREMA', '#3a3833', '#ec5b45', '#f3efe5'], ['ULTRA', '#12002a', '#8b79d6', '#f0ae2b']];
+    ['FUEGO', '#0a0002', '#e5392b', '#ffd24a'], ['NEÓN', '#0a0030', '#e6399b', '#3df0e0'], ['CREMA', '#3a3833', '#ec5b45', '#f3efe5'], ['ULTRA', '#12002a', '#8b79d6', '#f0ae2b'],
+    ['ESPECTRO', '#000000', '#e6399b', '#3df0e0']];
+  const PAL_ESPECTRO = 7;
   const LFO_SHAPES = ['SENO', 'TRIÁNGULO', 'SIERRA', 'CUADRADA', 'AZAR'];
   const ASPECTS = ['16:9', '4:3', '1:1', '9:16'], ASPECT_DIMS = [[16, 9], [4, 3], [1, 1], [9, 16]];
   const QUALITIES = ['AUTO', '540P', '720P', '1080P'], QUALITY_H = [0, 540, 720, 1080], LADDER = [360, 432, 540, 720];
   const DIVS = [[1 / 32, '8 COMPASES'], [1 / 16, '4 COMPASES'], [1 / 8, '2 COMPASES'], [1 / 4, '1 COMPÁS'], [1 / 2, '1/2'], [1, '1/4'], [2, '1/8'], [4, '1/16']];
-  const LOOKS = (() => {
+  // A · CÁMARA: la cámara directa, cada familia de cámaras de FLIP y ASCII. Se lee de CAM_FAMILIES cada vez
+  // que hace falta, sin lista fija: otras partes de FLIP registran familias y variantes (CLON las aprende en
+  // marcha). Una fuente es «FAMILIA» —la variante puesta en CAM si es esa familia; si no, la primera: así se
+  // guardaba antes— o «FAMILIA:VARIANTE». Si la familia o la variante pedida no existe (todavía), no se
+  // borra de la escena: se pinta la cámara directa o la variante de siempre hasta que llegue.
+  const families = () => (typeof CAM_FAMILIES === 'object' && CAM_FAMILIES) || {};
+  function looks() {
     const list = [{ key: 'RAW', label: 'DIRECTA' }];
-    if (typeof CAM_FAMILIES === 'object') for (const [key, cfg] of Object.entries(CAM_FAMILIES)) list.push({ key, label: (cfg.displayLabel || cfg.label || key).toUpperCase() });
+    for (const [key, cfg] of Object.entries(families())) if (cfg && typeof cfg === 'object') list.push({ key, label: String(cfg.displayLabel || cfg.label || key).toUpperCase() });
     list.push({ key: 'ASCII', label: 'ASCII' });
     return list;
-  })();
+  }
+  const lookFamily = look => String(look || 'RAW').split(':')[0];
+  const lookKnown = look => { const family = lookFamily(look); return family === 'RAW' || family === 'ASCII' || !!families()[family]; };
+  const allVariants = family => { const cfg = families()[family]; return cfg && Array.isArray(cfg.variants) ? cfg.variants.filter(v => v && v.id) : []; };
+  const variantsOf = family => allVariants(family).filter(v => !v.oculta);          // las que se ofrecen (CLON esconde las que no están a mano)
+  function lookVariant(look) {
+    const [family, asked] = String(look || '').split(':'), list = allVariants(family);
+    if (asked && list.some(v => v.id === asked)) return asked;
+    if (typeof camFamily !== 'undefined' && family === camFamily && typeof camVariant !== 'undefined') return camVariant;
+    return list[0] ? list[0].id : '';
+  }
   const OPTIONS = {
-    'src.look': LOOKS.map(l => l.label), 'src.gen': GENS, 'mix.mode': MIX_MODES, 'fb.mode': FB_MODES, 'geo.mirror': MIRRORS, 'col.pal': PALETTES.map(p => p[0]),
+    'src.gen': GENS, 'mix.mode': MIX_MODES, 'fb.mode': FB_MODES, 'geo.mirror': MIRRORS, 'col.pal': PALETTES.map(p => p[0]),
     'lfo1.shape': LFO_SHAPES, 'lfo2.shape': LFO_SHAPES, 'out.aspect': ASPECTS, 'out.quality': QUALITIES,
   };
   // FÁCIL es la vista de entrada: los cuatro mandos que más cuentan en la escena (easyKnobs) y pocas
   // fuentes a la vista. Las otras ocho son el TALLER: el sintetizador entero, módulo a módulo.
   const PAGES = [
     { id: 'easy', label: 'FÁCIL', title: '', knobs: [] },
-    { id: 'src', label: 'IMAGEN', title: 'IMAGEN · A CÁMARA · B FONDO', picks: [['src.look', 'A · CÁMARA'], ['src.gen', 'B · GENERADOR']], knobs: ['gen.freq', 'gen.speed', 'gen.shape', 'gen.hue'] },
+    { id: 'src', label: 'IMAGEN', title: 'IMAGEN · A CÁMARA · B FONDO', picks: [['src.look', 'A · CÁMARA'], ['src.var', 'A · VARIANTE'], ['src.gen', 'B · GENERADOR']], knobs: ['gen.freq', 'gen.speed', 'gen.shape', 'gen.hue'] },
     { id: 'mix', label: 'MEZCLA', title: 'MEZCLA Y RECORTE', picks: [['mix.mode', 'MODO']], fader: 'mix.fade', knobs: ['key.level', 'key.soft'], toggles: [['key.inv', 'INVERTIR']] },
     { id: 'fb', label: 'ECO', title: 'ECO · REALIMENTACIÓN', picks: [['fb.mode', 'MODO']], knobs: ['fb.amt', 'fb.zoom', 'fb.rot', 'fb.decay', 'fb.x', 'fb.y', 'fb.hue'] },
     { id: 'geo', label: 'FORMA', title: 'FORMA Y ESPEJOS', picks: [['geo.mirror', 'ESPEJO']], knobs: ['geo.zoom', 'geo.rot', 'geo.spin', 'geo.kal', 'geo.tile', 'geo.warp', 'geo.wfreq'] },
     { id: 'col', label: 'COLOR', title: 'COLOR Y PALETA', picks: [['col.pal', 'PALETA DE TINTA']], knobs: ['col.hue', 'col.sat', 'col.con', 'col.cycle', 'col.tint', 'col.post', 'col.solar'], toggles: [['col.inv', 'NEGATIVO']] },
-    { id: 'sig', label: 'EFECTOS', title: 'SEÑAL DE VIDEO · TV Y GLITCH', knobs: ['sig.rgb', 'sig.tear', 'sig.vhold', 'sig.bleed', 'sig.pix', 'sig.scan', 'sig.noise', 'sig.strobe'] },
+    { id: 'sig', label: 'EFECTOS', title: 'SEÑAL DE VIDEO · TV Y GLITCH', knobs: ['sig.rgb', 'sig.tear', 'sig.vhold', 'sig.bleed', 'sig.pix', 'sig.scan', 'sig.noise', 'sig.strobe', 'sig.spark', 'sig.smear', 'sig.dither'] },
     { id: 'mod', label: 'RITMO', title: 'RITMO Y CABLES', picks: [['lfo1.shape', 'LFO 1'], ['lfo2.shape', 'LFO 2'], ['aud.src', 'ENTRADA DE SONIDO']], knobs: ['lfo1.rate', 'lfo2.rate', 'aud.gain', 'aud.fall'] },
     { id: 'out', label: 'SALIDA', title: 'SALIDA Y PROYECTOR', picks: [['out.aspect', 'FORMATO'], ['out.quality', 'CALIDAD']], knobs: ['out.level', 'mod.morph'], toggles: [['out.flipX', 'VOLTEAR H'], ['out.flipY', 'VOLTEAR V']] },
   ];
@@ -112,6 +144,15 @@ const flipStage = (() => {
   // ── Escenas de fábrica ──────────────────────────────────────────────────────
   const basePatch = () => { const p = {}; for (const id of SCENE_IDS) p[id] = P[id][1]; return p; };
   const scene = (name, p = {}, d = {}, r = []) => ({ name, p: Object.assign(basePatch(), p), d: Object.assign({}, D0, d), r });
+  // Respaldo de la escena GUSANO cuando la cámara GUSANO no está: un PINCEL (óvalo generado, cantos menta
+  // en sus puntas y orla negra más allá) recorre una curva cerrada por la mitad de abajo y se estampa paso a
+  // paso en trama RGB sobre las copias anteriores, que derivan despacio hacia arriba a saltos de celda
+  // entera: cintas curvas apiladas, de puntos RGB con filo menta en escalera y negro entre pliegues. Los
+  // graves aceleran el pincel y abren su curva, el golpe cambia el color de la vértebra, los agudos espesan
+  // la trama y los medios tuercen el lienzo.
+  const gusanoRespaldo = () => scene('GUSANO', { 'mix.fade': 1, 'key.level': .1, 'key.soft': .04, 'gen.speed': .9, 'gen.freq': .8, 'gen.shape': 0, 'gen.hue': .17, 'fb.amt': 1, 'fb.decay': .92, 'fb.x': .54, 'fb.y': .545, 'fb.hue': .06, 'sig.dither': .85 },
+    { 'mix.mode': 0, 'src.gen': GEN_PINCEL, 'fb.mode': FB_SELLO }, [['bass', 'gen.speed', .1], ['beat', 'fb.hue', .33], ['bass', 'gen.freq', .2], ['high', 'sig.dither', .15], ['mid', 'fb.rot', .1]]);
+  const RESPALDO = { GUSANO: gusanoRespaldo };
   const FACTORY = () => [
     scene('VIVO', { 'sig.scan': .22, 'sig.rgb': .08, 'col.sat': .56, 'col.con': .55 }, {}, [['bass', 'sig.rgb', .55], ['beat', 'geo.zoom', .1], ['high', 'col.con', .12]]),
     scene('TÚNEL', { 'fb.amt': .88, 'fb.zoom': .62, 'fb.rot': .53, 'fb.hue': .1, 'fb.decay': .86, 'col.sat': .6 }, {}, [['lfo1', 'fb.rot', .1], ['bass', 'fb.zoom', .2], ['mid', 'fb.hue', .2], ['beat', 'col.con', .14]]),
@@ -121,18 +162,36 @@ const flipStage = (() => {
     scene('NEÓN', { 'col.solar': .72, 'col.tint': .82, 'col.post': .3, 'fb.amt': .5, 'fb.hue': .22, 'fb.decay': .86, 'fb.zoom': .52 }, { 'col.pal': 4, 'fb.mode': 1 }, [['lfo1', 'col.hue', .5], ['high', 'sig.rgb', .4], ['bass', 'fb.zoom', .16], ['beat', 'col.post', .25]]),
     scene('ONDAS', { 'mix.fade': .9, 'gen.freq': .5, 'gen.hue': .3, 'gen.shape': .2, 'fb.amt': .86, 'fb.zoom': .44, 'fb.hue': .07, 'fb.decay': .9, 'col.sat': .4 }, { 'mix.mode': 1, 'src.gen': 6, 'fb.mode': 1 }, [['bass', 'fb.zoom', -.14], ['mid', 'gen.hue', .3], ['beat', 'gen.freq', .35]]),
     scene('PRUEBA', { 'mix.fade': 1 }, { 'src.gen': 8 }, []),
+    // Salpicadura en colorizador analógico: un charco blanco generado (SALPICADURA) salpica sobre negro y
+    // ESPECTRO lo vuelve curvas de nivel gruesas con el arcoíris entero, en lóbulos de video y escalones. Con
+    // la cámara: MODO CLAVE DE LUZ y B · NEGRO (la figura sola sobre negro). Los graves corren las curvas y
+    // estiran las luces en hebras, los medios suman vueltas, los agudos corren el croma y el golpe hincha
+    // la salpicadura y enciende destellos.
+    scene('ESPECTRO', { 'mix.fade': 1, 'key.level': .58, 'key.soft': .05, 'gen.speed': .75, 'gen.freq': .6, 'gen.shape': 0, 'col.tint': 1, 'col.solar': .2, 'col.cycle': .6, 'sig.bleed': .55 }, { 'mix.mode': 0, 'src.gen': GEN_SALPICADURA, 'col.pal': PAL_ESPECTRO },
+      [['bass', 'col.cycle', .25], ['mid', 'col.solar', .3], ['high', 'sig.bleed', .35], ['beat', 'gen.freq', .2], ['beat', 'sig.spark', .6], ['bass', 'sig.smear', .4]]),
+    // El gusano: la cámara GUSANO de FLIP (gusano.js) como fuente A, tal cual, sin bucle ni trama encima:
+    // costillas de puntos que se abren en abanico por curvas amplias, remate menta en escalera y pliegues
+    // que se montan; se genera solo y reacciona al sonido de STAGE por su cuenta (los graves empujan el
+    // recorrido, cada golpe turna el color de los tramos). Si esa cámara no estuviera, la escena es su
+    // respaldo: el PINCEL de STAGE sellado en trama RGB (ver gusanoRespaldo).
+    scene('GUSANO', {}, { 'src.look': 'GUSANO' }, []),
   ];
+  const SCENE_COUNT = 10;
 
   // ── Estado guardado ─────────────────────────────────────────────────────────
   const STORE = 'flip.stage.v3';        // v3: escenas de fábrica con reacción al sonido más marcada
   function fresh() { return { v: 3, scene: 0, scenes: FACTORY(), live: null, global: { aspect: 0, quality: 0, flipX: 0, flipY: 0, bpm: 0, p: {}, live: { url: '', slots: [] } }, midi: { cc: {}, note: {} } }; }
   function tidyPatch(patch, fallback) {
+    // (una ranura que no estaba guardada —las escenas 9 y 10 en un estado de ocho— sale tal cual de fábrica, con sus cables)
+    if (!patch || typeof patch !== 'object') return { name: fallback.name, p: Object.assign({}, fallback.p), d: Object.assign({}, fallback.d), r: fallback.r.map(r => r.slice()) };
     // (tres escenas de fábrica cambiaron de nombre: quien las tenía guardadas con el viejo, las ve con el nuevo)
     const viejo = { DIRECTO: 'VIVO', OSCILOS: 'ONDAS', CARTA: 'PRUEBA' }, nombre = String(patch && patch.name || fallback.name).slice(0, 12);
     const out = { name: viejo[nombre] === fallback.name ? fallback.name : nombre, p: {}, d: {}, r: [] };
     for (const id of SCENE_IDS) out.p[id] = Number.isFinite(patch && patch.p && patch.p[id]) ? clamp(patch.p[id]) : fallback.p[id];
     for (const id of Object.keys(D0)) out.d[id] = patch && patch.d && id in patch.d ? patch.d[id] : fallback.d[id];
-    if (!LOOKS.some(l => l.key === out.d['src.look'])) out.d['src.look'] = 'RAW';
+    // (vale «FAMILIA» —como se guardaba antes— o «FAMILIA:VARIANTE»; una familia que aún no está
+    //  registrada se conserva: se pinta la cámara directa hasta que llegue)
+    if (typeof out.d['src.look'] !== 'string' || !/^[^:]{1,40}(:[^:]{1,60})?$/.test(out.d['src.look'])) out.d['src.look'] = 'RAW';
     for (const r of (patch && patch.r) || []) if (Array.isArray(r) && SRC[r[0]] && P[r[1]] && Number.isFinite(r[2]) && out.r.length < 24) out.r.push([r[0], r[1], clamp(r[2], -1, 1)]);
     return out;
   }
@@ -142,7 +201,8 @@ const flipStage = (() => {
       const raw = JSON.parse(localStorage.getItem(STORE) || 'null');
       if (!raw || raw.v !== 3 || !Array.isArray(raw.scenes)) return base;
       base.scenes = base.scenes.map((factory, i) => tidyPatch(raw.scenes[i], factory));
-      base.scene = clamp(raw.scene | 0, 0, 7);
+      // (lo guardado con ocho escenas carga igual: las dos nuevas salen de fábrica)
+      base.scene = clamp(raw.scene | 0, 0, SCENE_COUNT - 1);
       if (raw.live) base.live = tidyPatch(raw.live, base.scenes[base.scene]);
       const g = raw.global || {};
       Object.assign(base.global, { aspect: clamp(g.aspect | 0, 0, 3), quality: clamp(g.quality | 0, 0, 3), flipX: g.flipX ? 1 : 0, flipY: g.flipY ? 1 : 0, bpm: Number.isFinite(g.bpm) ? g.bpm : 0 });
@@ -197,6 +257,15 @@ vec3 hueTurn(vec3 c, float t) {
 vec3 pal(float t) { return .5 + .5 * cos(TAU * (t + vec3(0., .33, .67))); }
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 vec2 mirrorUv(vec2 uv) { vec2 m = mod(uv, 2.); return mix(m, 2. - m, step(1., m)); }
+// TRAMA RGB: Bayer 4×4 por canal, con G corrida una celda a la derecha y B una abajo. Los cuatro
+// umbrales más bajos de la matriz caen en celdas (par, par): hasta un cuarto de luz, cada bloque de 4×4
+// tiene cuatro puntos rojos, cuatro verdes, cuatro azules y cuatro negros, sin mezclas amarillas ni grises.
+const float BAYER[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
+float bayer4(vec2 p) { ivec2 a = ivec2(mod(p, 4.)); return (BAYER[a.y * 4 + a.x] + .5) / 16.; }
+vec3 rgbDither(vec3 c, vec2 cell, float amt) {
+  vec3 th = vec3(bayer4(cell), bayer4(cell + vec2(1., 0.)), bayer4(cell + vec2(0., 1.)));
+  return mix(c, step(th, c), amt);
+}
 `;
   // Pase 1 · fuentes, mezcla, geometría y bucle. Coordenadas de imagen: origen arriba a la izquierda.
   const COMPOSE = COMMON + `
@@ -209,10 +278,22 @@ uniform vec3 uYuvOff;
 uniform int uCamKind, uGen, uMixMode, uFbMode, uMirror;
 uniform float uMirrorA, uHasA, uHasMask, uKeyInv;
 uniform float uGenFreq, uGenPhase, uGenShape, uGenHue;
+uniform vec2 uBrush, uBrushDir, uBrushFrom, uBrushFromDir;  // PINCEL: dónde va y hacia dónde, y dónde iba el cuadro anterior (CPU)
+uniform float uBrushR;
+uniform vec2 uSplash;                                // SALPICADURA: tamaño y momento de la salpicadura (0…1)
+uniform vec4 uDrops[14];                             // SALPICADURA: las gotas (x, y, radio, luz), de la CPU
+float gBrushKey;                                     // PINCEL: la orla negra de los costados también se sella
+float gBrushMint;                                    // PINCEL: su canto menta va liso (sin trama) y no se turna de color
 uniform float uFade, uKeyLevel, uKeySoft;
 uniform float uFbAmt, uFbZoom, uFbRot, uFbHue, uFbGain;
 uniform vec2 uFbShift;
 uniform float uZoom, uRot, uKal, uTile, uWarp, uWarpFreq, uWarpPhase;
+uniform vec2 uCell;                                  // SELLO / TRAMA RGB: celda, en píxeles (ancho, alto)
+uniform vec2 uSelloShift;                            // SELLO: lo que se corre la copia este cuadro, en celdas enteras
+uniform int uSelloRot;                               // SELLO: vueltas de canal de la copia este cuadro (0, 1, 2)
+uniform float uDither;                               // TRAMA RGB del sello (dentro del lazo)
+uniform float uSelloRim;                             // SELLO: este cuadro el sello lleva canto (una vértebra)
+uniform float uSelloFade;                            // SELLO: lo que pierde una copia por cuadro (COLA)
 
 vec3 srcA(vec2 uv) {
   if (uHasA < .5) return vec3(0.);
@@ -224,11 +305,14 @@ vec3 srcA(vec2 uv) {
   vec2 chroma = uCamKind == 1 ? vec2(texture(uU, c).r, texture(uV, c).r) : texture(uU, c).rg;
   return clamp(uYuv * (vec3(texture(uA, c).r, chroma) - uYuvOff), 0., 1.);
 }
+float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(hash(i), hash(i + vec2(1., 0.)), f.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), f.x), f.y); }
+float fbm(vec2 p) { return .55 * vnoise(p) + .3 * vnoise(p * 2.1 + 3.7) + .15 * vnoise(p * 4.3 + 7.1); }
 float audioBin(float x) { return texture(uAudio, vec2(x, .25)).r; }
 float audioWave(float x) { return texture(uAudio, vec2(x, .75)).r * 2. - 1.; }
 
 vec3 gen(vec2 p, vec2 st) {
   float f = uGenFreq, ph = uGenPhase, sh = uGenShape;
+  gBrushKey = 0.; gBrushMint = 0.;
   if (uGen == 1) {                                   // BARRAS: oscilador de barras, giran con FORMA
     float a = sh * PI, x = p.x * cos(a) + p.y * sin(a);
     float s = .5 + .5 * sin(x * f * PI + ph * TAU);
@@ -275,11 +359,56 @@ vec3 gen(vec2 p, vec2 st) {
     c = mix(c, vec3(1.), (1. - smoothstep(0., .003, min(abs(p.x), abs(p.y)))) * step(length(p), .42));
     return c;
   }
+  if (uGen == 9) {                                   // PINCEL: un óvalo atravesado a su camino, que recorre una curva
+    // Se estampa en cuatro pasos entre donde iba y donde va (el más nuevo encima): en las curvas cerradas
+    // sus puntas corren más que su ancho y, de un solo golpe por cuadro, dejarían huecos en la cinta.
+    // (más allá de sus dos costados lleva una orla negra: con SELLO, la cinta pasa por encima de las viejas
+    //  separada por negro; y en sus dos puntas, un canto menta: barrido por el camino, es el filo en escalera)
+    for (int i = 3; i >= 0; i--) {
+      float w = float(i) / 3.;
+      vec2 at = mix(uBrushFrom, uBrush, w), dir = normalize(mix(uBrushFromDir, uBrushDir, w) + vec2(1e-5, 0.));
+      vec2 d = p - at, q = vec2(dot(d, dir), dot(d, vec2(-dir.y, dir.x)));
+      vec2 n = abs(q) / vec2(uBrushR * .42, uBrushR);
+      float r = pow(pow(n.x, 4.) + pow(n.y, 4.), .25);  // óvalo cuadrado: su costado barre una franja pareja
+      if (r <= 1. && r >= sh * .7) {                   // TRAZO: de óvalo lleno a anillo
+        if (n.y >= .82) { gBrushMint = 1.; return vec3(.2, .91, .59); }
+        return pal(uGenHue + q.y / uBrushR * .2) * (.7 + .3 * (1. - r));
+      }
+      if (i == 3) gBrushKey = (1. - step(r, 1.)) * step(n.x, 1.) * step(n.y, 1. + .035 / uBrushR);
+    }
+    return vec3(0.);
+  }
+  if (uGen == 10) {                                  // SALPICADURA: un charco blanco que salpica sobre negro
+    // Un disco visto de canto, de borde rasgado, que crece, se abre en corona con un hueco en medio y
+    // suelta gotas (las lleva la CPU); por dentro, ondas suaves de luz (lo que ESPECTRO vuelve curvas de
+    // nivel). ESCALA es su tamaño, TRAZO cuánto ondula y VELOCIDAD lo que tarda cada salpicadura.
+    float size = uSplash.x, cyc = uSplash.y, lum = 0.;
+    vec2 c0 = vec2(0., .08), d = (p - c0) / (vec2(.5, .21) * size * (.85 + .25 * smoothstep(0., .35, cyc)));
+    float rr = length(d);
+    if (rr < 1.5) {                                  // (el ruido, solo cerca del charco)
+      float ang = atan(d.y, d.x);
+      float edge = 1. + .3 * (vnoise(vec2(ang * 2.2, ph * .7)) - .5) + .12 * (vnoise(vec2(ang * 7., ph * 1.3)) - .5);
+      float body = 1. - smoothstep(edge - .03, edge, rr);
+      float hole = smoothstep(.05, .5, cyc) * .45 * (1. - smoothstep(.75, 1., cyc));
+      body *= smoothstep(hole - .04, hole + .04, rr * (1. + .2 * (vnoise(vec2(ang * 3., ph)) - .5)));
+      if (body > 0.) {
+        float ripple = .65 * vnoise(p * vec2(2., 3.5) * (1. + sh) + vec2(ph * .3, -ph * .2)) + .35 * vnoise(p * vec2(4., 7.) * (1. + sh) + vec2(-ph * .25, ph * .3) + 5.3);
+        lum = body * clamp(.3 + .5 * ripple + .2 * min(rr / edge, 1.), 0., 1.);
+      }
+    }
+    for (int i = 0; i < 14; i++) {                   // las gotas: posición y radio en uDrops (z: radio, w: luz)
+      vec4 g = uDrops[i];
+      if (g.z > 0.) lum = max(lum, smoothstep(g.z, g.z * .4, length((p - g.xy) * vec2(1., 1.4))) * g.w);
+    }
+    return vec3(lum);
+  }
   return vec3(0.);
 }
 
-void main() {
-  vec2 st = vec2(vUv.x, 1. - vUv.y);
+// Lo que entra al bucle: geometría, las dos fuentes y la mezcla. key: qué tanto es «lo de delante»
+// (la clave en CLAVE DE LUZ y SILUETA; en los demás modos, la luz contra el UMBRAL). Solo lo usa SELLO,
+// que pide además la clave dura (hard): un sello no tiene medias tintas en el borde.
+vec3 source(vec2 st, bool hard, out float key) {
   vec2 asp = vec2(uAspect, 1.);
   // GEOMETRÍA: actúa sobre las coordenadas con las que se leen las dos fuentes.
   vec2 p = rot(uRot) * ((st - .5) * asp) / uZoom;
@@ -302,11 +431,71 @@ void main() {
   else if (uMixMode == 2) c = a * mix(vec3(1.), b * 1.6, uFade);
   else if (uMixMode == 3) c = mix(a, abs(a - b), uFade);
   else {
-    float k = uMixMode == 4 ? luma(a) : (uHasMask > .5 ? texture(uMask, mirrorUv(uv)).r : 1.);
+    // (el sello sin recorte de silueta todavía, recorta por luz: estampar el cuadro entero no deja gusano)
+    float k = uMixMode == 4 ? luma(a) : (uHasMask > .5 ? texture(uMask, mirrorUv(uv)).r : hard ? luma(a) : 1.);
     k = smoothstep(uKeyLevel - uKeySoft, uKeyLevel + uKeySoft, k);
     k = mix(k, 1. - k, uKeyInv);
+    if (hard) k = step(.5, k);
     c = mix(a, mix(b, a, k), uFade);
+    key = mix(1., k, uFade);
+    return c;
   }
+  key = smoothstep(uKeyLevel - uKeySoft, uKeyLevel + uKeySoft, luma(c));
+  if (uGen == 9) key = max(key, gBrushKey * uFade);
+  return c;
+}
+
+// SELLO: todo va por celdas. Cada celda lee la fuente en su centro y la copia anterior en la celda de la
+// que viene (girada y escalada desde el centro, redondeada a celda entera, más un salto entero), con
+// texelFetch: sin filtro, la copia es exacta aunque la textura del bucle sea LINEAR para ECO, ESTELA y
+// CLAVE. Donde la clave dice «delante», se estampa la fuente (tramada por canal), opaca y con borde duro.
+vec4 sello(vec2 st) {
+  vec2 cell = floor(st * uRes / uCell);
+  vec2 cst = (cell + .5) * uCell / uRes;
+  float key;
+  vec3 c = source(cst, true, key);
+  float mint = uGen == 9 && uMixMode < 4 ? gBrushMint * step(.5, uFade) : 0.;
+  vec2 asp = vec2(uAspect, 1.);
+  vec2 q = rot(uFbRot) * ((cst - .5) * asp) / uFbZoom;
+  vec2 from = floor((q / asp + .5) * uRes / uCell) + uSelloShift;
+  // (el alfa del bucle marca las celdas de canto: viajan con su copia y no se turnan de color, el canto sigue menta)
+  vec4 f = vec4(0., 0., 0., 1.);
+  if (all(greaterThanEqual(from, vec2(0.))) && all(lessThan(from * uCell, uRes))) {
+    vec2 at = min((from + .5) * uCell, uRes - 1.);
+    f = texelFetch(uFb, ivec2(at.x, uRes.y - 1. - at.y), 0);
+  }
+  f.rgb = max(vec3(0.), f.rgb * min(uFbGain, 1.) - uSelloFade);  // (sin ganancia: una copia nunca crece hacia el blanco)
+  // COLOR ECO, a saltos: los canales se turnan (rojo → verde → azul), así un punto puro sigue puro.
+  if (f.a > .75) { if (uSelloRot == 1) f.rgb = f.brg; else if (uSelloRot == 2) f.rgb = f.gbr; }
+  // Cada ocho celdas de recorrido el sello lleva canto: su celda de borde se pinta menta y la de fuera,
+  // negra, ambas opacas. Al correrse las copias queda, de cada tramo, una franja de trama cerrada por el
+  // canto menta y una raya negra que la separa de la siguiente: las vértebras del gusano. (El canto pide
+  // las cuatro celdas vecinas: cuatro lecturas más de la fuente por píxel, solo en esos cuadros.)
+  if (uSelloRim > .5) {
+    vec2 dc = uCell / uRes;
+    float kr, kl, kd, ku;
+    vec3 cr = source(cst + vec2(dc.x, 0.), true, kr), cl = source(cst - vec2(dc.x, 0.), true, kl);
+    vec3 cd = source(cst + vec2(0., dc.y), true, kd), cu = source(cst - vec2(0., dc.y), true, ku);
+    float around = step(.5, kr) + step(.5, kl) + step(.5, kd) + step(.5, ku);
+    // (el canto va en el borde de lo que tiene color, no en el de la orla negra del PINCEL)
+    float tinted = step(.5, kr) * step(.02, luma(cr)) + step(.5, kl) * step(.02, luma(cl)) + step(.5, kd) * step(.02, luma(cd)) + step(.5, ku) * step(.02, luma(cu));
+    if (key <= .5 && around > .5) return vec4(0., 0., 0., 1.);
+    if (key > .5 && luma(c) > .02 && tinted < 3.5) return vec4(.2, .91, .59, .5);
+  }
+  // (el sello se trama a media tinta: con la luz entera de la cámara los tres canales se encienden juntos
+  //  y sale blanco y amarillo; a poco más de media, cada punto queda rojo, verde, azul o negro)
+  if (key > .5 && mint > .5) return vec4(.2, .91, .59, .5);
+  vec3 stamp = uDither > 0. ? rgbDither(clamp(c * mix(1., .55, uDither), 0., 1.), cell, uDither) : c;
+  // (fuera del sello, la copia entera: el lazo es opaco y lo que dura lo dice COLA)
+  return key > .5 ? vec4(stamp, 1.) : vec4(mix(c, f.rgb, min(1., uFbAmt / .985)), f.a);
+}
+
+void main() {
+  vec2 st = vec2(vUv.x, 1. - vUv.y);
+  if (uFbMode == 3 && uFbAmt > 0.) { outColor = clamp(sello(st), 0., 1.); return; }
+  vec2 asp = vec2(uAspect, 1.);
+  float key;
+  vec3 c = source(st, false, key);
   // BUCLE: el cuadro anterior vuelve transformado (el circuito cerrado).
   if (uFbAmt > 0.) {
     vec2 q = rot(uFbRot) * ((st - .5) * asp) / uFbZoom + uFbShift;
@@ -330,7 +519,121 @@ uniform float uTime;
 uniform float uRgb, uTear, uRoll, uRollOn, uPix, uScan, uNoise, uBleed, uGate;
 uniform float uHue, uSat, uCon, uPost, uSolar, uTint, uInv, uLevel, uFlipX, uFlipY;
 uniform vec3 uTintA, uTintB, uTintC;
+uniform int uPalMode;                                // 1: ESPECTRO (colorizador cíclico) en vez del degradado de tres tintas
+uniform float uSpark, uSparkCell, uSmear, uDither;
+uniform vec2 uCell;
 vec3 tex(vec2 st) { return texture(uSrc, vec2(st.x, 1. - st.y)).rgb; }
+
+// ARRASTRE: las luces altas se corren en hebras horizontales. En vez de ordenar píxeles por fila (en
+// la CPU, demasiado para 30 cuadros), cada píxel mira doce tomas hacia un lado y se queda con la luz
+// que supera el umbral de brasa, cada vez más débil con la distancia. Por ráfagas: cada par de líneas
+// decide cuánto se estira, y cada franja de la imagen hacia qué lado.
+vec3 smear(vec3 c, vec2 st) {
+  float row = hash(vec2(floor(st.y * uRes.y * .5), floor(uTime * 8.)));
+  float burst = smoothstep(1. - uSmear * .75, 1., row);
+  float dir = hash(vec2(floor(st.y * 24.), 7.1)) > .5 ? 1. : -1.;
+  float span = (.04 + .18 * burst) * uSmear, best = luma(c);
+  for (int i = 1; i <= 12; i++) {
+    float f = float(i) / 12.;
+    vec3 s = tex(vec2(st.x - dir * f * span, st.y));
+    float ls = luma(s), w = smoothstep(.52, .82, ls) * (1. - f * .78);
+    if (ls * w > best * .92) { c = mix(c, s, w * .85); best = max(best, ls * w); }
+  }
+  return c;
+}
+
+// ESPECTRO: un colorizador de video. Todo lo que pasa la clave se vuelve curvas de nivel gruesas con el
+// arcoíris entero, a saturación y luz plenas, sobre negro total (debajo de 0,1):
+//  · la luz de lo que pasa la clave se ecualiza con su propio histograma (medido en una rejilla de 64 × 36
+//    y suavizado en el tiempo): el ciclo usa todo el círculo de color, a partes iguales;
+//  · se le suma su sombra a escala media amplificada (la diferencia entre dos niveles de esa rejilla): una
+//    cara o una pared casi planas dan varias bandas;
+//  · el matiz va en escalera (12 escalones por vuelta, dos por cada sexto del círculo; POSTERIZ. los cambia)
+//    y da de 1,5 a 5 vueltas (SOLARIZ.);
+//    MATIZ y CICLO lo corren;
+//  · «video gordo»: el color cambia por líneas de barrido (1/56 del alto) y se corre en lóbulos horizontales
+//    más anchos que altos (CROMA los ensancha); CROMA también pinta las rayitas de la subportadora.
+uniform sampler2D uStats, uStatsOne;
+uniform int uNorm;
+vec3 rainbow(float h) { return clamp(abs(fract(h + vec3(0., 2. / 3., 1. / 3.)) * 6. - 3.) - 1., 0., 1.); }
+vec3 espectro(vec2 st, float l) {
+  float lines = 56., y = (floor(st.y * lines) + .5) / lines;
+  float lag = (.008 + .02 * uBleed) * uRes.y / uRes.x, lh = 0., ln = 0.;
+  vec4 g = texelFetch(uStatsOne, ivec2(0, 0), 0);
+  if (uNorm == 1 && g.z > .01) {
+    // la luz, de la franja de medida (media local de lo que pasa la clave): tres tomas de lado y una por
+    // línea, el lóbulo sale más ancho que alto y sin el grano del sensor
+    float mean = g.x / g.z, sd = max(.04, sqrt(max(0., g.y / g.z - mean * mean)));
+    float sx = clamp(st.x - lag, .5 / 64., 63.5 / 64.) / 3.;
+    vec2 su = vec2(sx, 1. - y), dx = vec2(1.4 / 192., 0.);
+    vec4 a = textureLod(uStats, su, 0.) + textureLod(uStats, vec2(max(sx - dx.x, .5 / 192.), su.y), 0.) + textureLod(uStats, vec2(min(sx + dx.x, 63.5 / 192.), su.y), 0.);
+    vec4 b = textureLod(uStats, su, 2.);
+    lh = a.z > .15 ? a.x / a.z : clamp((luma(tex(vec2(st.x - lag, y))) - .5) * uCon + .5, 0., 1.);
+    // (la sombra a escala media, solo tierra adentro: en el borde de la clave las medias mezclan negro)
+    float detail = a.z > .3 && b.z > .1 ? (a.x / a.z - b.x / b.z) * 1.6 * smoothstep(.75, 1., min(a.z / 3., b.z)) : 0.;
+    // la luz se reparte por igual en el círculo de color: su histograma (8 cajas sobre media ± 2 desviaciones)
+    // la ecualiza, así una figura casi pareja también recorre todo el arcoíris
+    vec4 h0 = texelFetch(uStatsOne, ivec2(1, 0), 0) / g.z, h1 = texelFetch(uStatsOne, ivec2(2, 0), 0) / g.z;
+    float p[8] = float[8](h0.x, h0.y, h0.z, h0.w, h1.x, h1.y, h1.z, h1.w), all = 0., below = 0.;
+    float u = clamp((lh + detail - mean + 2. * sd) / (4. * sd), 0., .999), k = floor(u * 8.);
+    for (int j = 0; j < 8; j++) { all += p[j]; if (float(j) < k) below += p[j]; else if (float(j) == k) below += p[j] * fract(u * 8.); }
+    ln = below / max(all, .01);
+  } else {
+    float span = .035 * uRes.y / uRes.x;
+    for (int i = 0; i < 4; i++) lh += luma(tex(vec2(st.x - span * (float(i) / 3. - .3), y)));
+    ln = clamp((lh * .25 - .5) * uCon + .5, 0., 1.);
+  }
+  float steps = uPost >= 2. ? uPost : 12.;
+  vec3 m = rainbow(floor((ln * (1.5 + uSolar * 3.5) + uHue) * steps) / steps) * smoothstep(.1, .16, l);
+  float e = fract(st.y * lines);
+  m *= .85 + .15 * smoothstep(0., .2, e) * smoothstep(1., .8, e);
+  if (uBleed > 0.) m *= 1. - uBleed * .12 * (.5 + .5 * sin(gl_FragCoord.x * .9 * 540. / uRes.y + floor(st.y * 270.) * 1.5708));
+  return m;
+}
+
+// CHISPA: destellos que titilan sobre las crestas de luz de cualquier señal. Dos poblaciones: granos
+// finos (uno por celda, en un punto al azar de la celda, que se encienden donde hay luz y más donde la
+// luz sobresale de su entorno) y estrellas en cruz, raras, en celdas cuatro veces mayores, solo sobre
+// luces altas: la cruz de una estrella llega a las celdas vecinas de su fila y su columna. Cada uno
+// late con su propio ritmo, (max(0, sen))^8: encendido poco tiempo, con un pico breve (no es nieve de TV).
+vec3 sparkTint(float h, vec3 src) {
+  return h < .4 ? vec3(.85, 1., 1.) : h < .62 ? vec3(.44, 1., .88) : h < .8 ? vec3(1., .75, .86) : clamp(src / max(.05, max(src.r, max(src.g, src.b))), 0., 1.);
+}
+vec3 sparks(vec2 st) {
+  vec2 px = st * uRes;
+  float S = uSparkCell, k = uRes.y / 540.;
+  vec3 add = vec3(0.);
+  // (primero el latido y el azar, que no cuestan lecturas: la luz solo se mira en los granos encendidos)
+  vec2 cell = floor(px / S);
+  float on = step(hash(cell + 5.31), .2 + .6 * uSpark);
+  float pulse = on * pow(max(0., sin(mix(5., 13., hash(cell + 2.7)) * uTime + TAU * hash(cell + 9.1))), 8.);
+  if (pulse > .02) {
+    vec2 cp = (cell + .5 + (vec2(hash(cell + 17.3), hash(cell + 41.9)) - .5) * .6) * S, cs = cp / uRes, d = vec2(S * 1.5) / uRes;
+    vec3 at = tex(cs);
+    float l0 = luma(at);
+    float around = .25 * (luma(tex(cs + vec2(d.x, 0.))) + luma(tex(cs - vec2(d.x, 0.))) + luma(tex(cs + vec2(0., d.y))) + luma(tex(cs - vec2(0., d.y))));
+    float crest = clamp((l0 - around) * 6., 0., 1.);
+    float r = length(px - cp) / (.7 * k + .08 * S);
+    add = sparkTint(hash(cell + 77.7), at) * exp(-r * r) * pulse * smoothstep(.42, .85, l0) * (.2 + .8 * crest) * (.7 + .8 * uSpark);
+  }
+  float B = S * 4.;
+  vec2 big = floor(px / B);
+  for (int i = 0; i < 5; i++) {
+    vec2 o = i == 0 ? vec2(0.) : i == 1 ? vec2(1., 0.) : i == 2 ? vec2(-1., 0.) : i == 3 ? vec2(0., 1.) : vec2(0., -1.);
+    vec2 bc = big + o;
+    float p = pow(max(0., sin(mix(3.5, 7.5, hash(bc + 1.1)) * uTime + TAU * hash(bc + 6.6))), 8.);
+    float fire = smoothstep(.86 - .14 * uSpark, 1., p) * step(hash(bc + 4.4), .3 + .55 * uSpark);
+    if (fire <= 0.) continue;
+    vec2 sp = (bc + .5 + (vec2(hash(bc + 3.3), hash(bc + 8.8)) - .5) * .6) * B;
+    vec3 sc = tex(sp / uRes);
+    fire *= step(.58, luma(sc));
+    vec2 dd = (px - sp) / k;
+    float arm = mix(6., 15., p), armH = exp(-abs(dd.x) / arm) * exp(-abs(dd.y) / .85), armV = exp(-abs(dd.y) / arm) * exp(-abs(dd.x) / .85);
+    add += (sparkTint(hash(bc + 5.5), sc) * (armH + armV) * .85 + exp(-dot(dd, dd) / 3.2)) * fire;
+  }
+  return add;
+}
+
 void main() {
   vec2 st = vec2(vUv.x, 1. - vUv.y);
   st = mix(st, 1. - st, vec2(uFlipX, uFlipY));
@@ -342,25 +645,64 @@ void main() {
     st.x += (hash(vec2(floor(st.y * uRes.y * .5), floor(uTime * 30.))) - .5) * .006 * uTear;
     st.x += uTear * .06 * pow(max(0., st.y - .92) / .08, 2.) * sin(uTime * 23.);
   }
-  if (uPix > 0.) { vec2 cells = vec2(uPix * uRes.x / uRes.y, uPix); st = (floor(st * cells) + .5) / cells; }
+  vec2 sti = st;                                     // (los destellos caen en su punto, no en el centro del bloque de PÍXEL)
+  vec2 cells = vec2(uPix * uRes.x / uRes.y, uPix);
+  if (uPix > 0.) st = (floor(st * cells) + .5) / cells;
   vec3 c = uRgb > 0. ? vec3(tex(st + vec2(uRgb, 0.)).r, tex(st).g, tex(st - vec2(uRgb, 0.)).b) : tex(st);
   if (uBleed > 0.) {
     vec3 s = (tex(st - vec2(.006, 0.)) + tex(st - vec2(.013, 0.)) + tex(st - vec2(.021, 0.))) / 3.;
     c = mix(c, vec3(luma(c)) + (s - luma(s)) * 1.2, uBleed);
   }
+  if (uSmear > 0.) c = smear(c, st);
+  bool spectral = uPalMode == 1 && uTint > 0.;      // (con ESPECTRO, SOLARIZ. da las vueltas en vez de doblar la luz)
   if (uHue != 0.) c = hueTurn(c, uHue);
   c = mix(vec3(luma(c)), c, uSat);
   c = (c - .5) * uCon + .5;
-  if (uSolar > 0.) c = mix(c, 1. - abs(2. * c - 1.), uSolar);
+  if (uSolar > 0. && !spectral) c = mix(c, 1. - abs(2. * c - 1.), uSolar);
   if (uPost >= 2.) c = floor(clamp(c, 0., 1.) * (uPost - 1.) + .5) / (uPost - 1.);
   if (uTint > 0.) {
     float l = clamp(luma(c), 0., 1.);
-    c = mix(c, l < .5 ? mix(uTintA, uTintB, l * 2.) : mix(uTintB, uTintC, l * 2. - 1.), uTint);
+    vec3 m = spectral ? espectro(st, l) : l < .5 ? mix(uTintA, uTintB, l * 2.) : mix(uTintB, uTintC, l * 2. - 1.);
+    c = mix(c, m, uTint);
   }
   c = mix(c, 1. - c, uInv);
+  if (uSpark > 0.) c += sparks(sti);
+  if (uDither > 0.) c = rgbDither(clamp(c, 0., 1.), uPix > 0. ? floor(st * cells) : floor(vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y) / uCell), uDither);
   if (uScan > 0.) c *= (1. - uScan * .5 * (.5 + .5 * cos(st.y * 240. * TAU))) * (1. + uScan * .18);
   if (uNoise > 0.) c = mix(c, vec3(hash(st * uRes + fract(uTime) * 311.7)), uNoise * .7);
   outColor = vec4(clamp(c * uGate * seam * uLevel, 0., 1.), 1.);
+}`;
+
+  // ESPECTRO · medida de la luz, en una textura de 192 × 36 con tres franjas de 64 × 36: la luz de lo que
+  // pasa la clave, su cuadrado y la clave; y su histograma en 8 cajas (4 + 4), contado sobre el rango del
+  // cuadro anterior. Sus mipmaps dan medias locales (franja 1) y, en el nivel 6 (3 × 1), el total de cada
+  // franja; un pase de 3 × 1 lo suaviza en el tiempo. Solo corre con la paleta ESPECTRO puesta.
+  const STATS = COMMON + `
+uniform sampler2D uSrc, uPrev;
+uniform int uStep;
+uniform float uCon, uKeep;
+void main() {
+  if (uStep == 1) {
+    float i = floor(gl_FragCoord.x);
+    outColor = mix(textureLod(uSrc, vec2((i + .5) / 3., .5), 6.), texelFetch(uPrev, ivec2(i, 0), 0), uKeep);
+    return;
+  }
+  float band = floor(gl_FragCoord.x / 64.);
+  vec2 uv = vec2(fract(gl_FragCoord.x / 64.), vUv.y);
+  vec4 g = texelFetch(uPrev, ivec2(0, 0), 0);
+  float mean = g.x / max(g.z, .002), sd = max(.04, sqrt(max(0., g.y / max(g.z, .002) - mean * mean)));
+  bool fresh = g.z < .002;
+  vec4 acc = vec4(0.);
+  for (int i = 0; i < 16; i++) {
+    vec2 at = uv + (vec2(float(i - (i / 4) * 4), float(i / 4)) - 1.5) * vec2(.25 / 64., .25 / 36.);
+    float l = clamp((luma(texture(uSrc, at).rgb) - .5) * uCon + .5, 0., 1.), m = step(.1, l);
+    if (band < .5) acc += vec4(l * m, l * l * m, m, 1.);
+    else {
+      float u = fresh ? l : clamp((l - mean + 2. * sd) / (4. * sd), 0., .999), b = floor(u * 8.) - (band - 1.) * 4.;
+      acc += m * vec4(equal(vec4(b), vec4(0., 1., 2., 3.)));
+    }
+  }
+  outColor = acc / 16.;
 }`;
 
   // ── Motor ───────────────────────────────────────────────────────────────────
@@ -368,6 +710,11 @@ void main() {
   const state = { active: false, raf: 0, clean: false, failed: 0 };
   const clock = { last: 0, t: 0, n: 0, fps: 60, slow: 0, fast: 0, autoH: COARSE ? 540 : 720, dtAvg: 16.7, beat: 0, painted: 0 };
   const ph = { gen: 0, spin: 0, cycle: 0, roll: 0, warp: 0, lfo: [0, 0], rnd: [{ cycle: -1, from: 0, to: 0 }, { cycle: -1, from: 0, to: 0 }] };
+  // SELLO: la copia salta celdas enteras. Lo que la DERIVA pide por cuadro (fracciones de celda) se acumula y
+  // sale en saltos enteros; el COLOR ECO, igual, en tercios de vuelta (un turno de canales cada tercio).
+  const lazo = { x: 0, y: 0, hue: 0, rim: 8, on: false };
+  const brush = { at: null, dir: [1, 0], from: [0, 0], fromDir: [1, 0] };
+  const drops = new Float32Array(56);                                     // SALPICADURA: las catorce gotas                               // PINCEL: dónde iba el cuadro anterior y hacia dónde
   const mods = Object.fromEntries(SOURCES.map(s => [s[0], 0]));
   const val = {};
   const hex = color => [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16) / 255);
@@ -385,7 +732,7 @@ void main() {
     if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error((gl.getProgramInfoLog(pr) || 'enlace').slice(0, 500));
     const where = {};
     const at = name => (name in where ? where[name] : (where[name] = gl.getUniformLocation(pr, name)));
-    return { pr, f: (n, x) => gl.uniform1f(at(n), x), i: (n, x) => gl.uniform1i(at(n), x), v2: (n, x, y) => gl.uniform2f(at(n), x, y),
+    return { pr, f: (n, x) => gl.uniform1f(at(n), x), i: (n, x) => gl.uniform1i(at(n), x), v2: (n, x, y) => gl.uniform2f(at(n), x, y), v4v: (n, a) => gl.uniform4fv(at(n), a),
       v3: (n, a) => gl.uniform3f(at(n), a[0], a[1], a[2]), v4: (n, a) => gl.uniform4f(at(n), a[0], a[1], a[2], a[3]), m3: (n, a) => gl.uniformMatrix3fv(at(n), false, a) };
   }
   function texture() {
@@ -395,6 +742,26 @@ void main() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
     return t;
+  }
+  // ESPECTRO: la textura de medida (192 × 36 con sus mipmaps) y dos de 3 × 1 que se turnan para suavizar
+  // los totales. Se crean la primera vez que hacen falta; si no se pueden, ESPECTRO sigue sin estirar la luz.
+  function statsReady() {
+    if (eng.stats) return eng.stats.ok;
+    const gl = eng.gl, s = eng.stats = { ok: false, fresh: true, flip: 0 };
+    try {
+      s.prog = program(STATS);
+      s.tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, s.tex);
+      gl.texStorage2D(gl.TEXTURE_2D, 8, gl.RGBA8, 192, 36);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const target = t => { const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE ? f : null; };
+      s.fb = target(s.tex);
+      s.one = [0, 1].map(() => { const t = texture(); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 3, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); return { t, f: target(t) }; });
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      s.ok = !!(s.fb && s.one[0].f && s.one[1].f);
+    } catch (_) { s.ok = false; gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+    return s.ok;
   }
   function initGl() {
     const gl = eng.canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
@@ -536,21 +903,24 @@ void main() {
     return look.base;
   }
   function uploadLook(base, key, now) {
-    const gl = eng.gl, w = base.width, h = base.height;
-    const cadence = key === 'ASCII' ? 20 : (typeof cameraCadence === 'object' && cameraCadence[key]) || 24;
-    const signature = key + ':' + w + 'x' + h;
+    const gl = eng.gl, w = base.width, h = base.height, family = lookFamily(key);
+    const cadence = family === 'ASCII' ? 20 : (typeof cameraCadence === 'object' && cameraCadence[family]) || 24;
+    // (la variante entra en la firma: otra variante de la misma familia se pinta en el acto)
+    const variant = family === 'ASCII' ? '' : lookVariant(key);
+    const signature = family + ':' + variant + ':' + w + 'x' + h;
     if (signature !== look.key || now - look.at >= 1000 / cadence - 4) {
       look.key = signature; look.at = now;
       try {
-        if (key === 'ASCII') FLIP_STEP_ENGINES.ascii.renderStep(base, look.ctx, { cols: 96 }, null, now);
+        if (family === 'ASCII') FLIP_STEP_ENGINES.ascii.renderStep(base, look.ctx, { cols: 96 }, null, now);
         else {
           // Del sello de PRINT entra la trama, no el marco.
           const frame = typeof stampFrameMode === 'string' ? stampFrameMode : null;
-          const variant = key === camFamily ? camVariant : (CAM_FAMILIES[key].variants && CAM_FAMILIES[key].variants[0] && CAM_FAMILIES[key].variants[0].id);
-          const sello = typeof _esSello === 'function' && _esSello(key, variant);
+          const sello = typeof _esSello === 'function' && _esSello(family, variant);
           if (frame !== null && sello) stampFrameMode = 'OFF';
           try {
-            _renderCamEngineFrame(base, w, h, look.ctx, false, { path: 'capture', now, outW: w, outH: h, resolution: 'medium', family: key, variant });
+            // (las cámaras que oyen —GUSANO, ESPECTRO…— oyen lo que oye STAGE: micrófono, entrada o Live)
+            const heard = audio.on || !!audio.inject || linkMaster() ? { bass: mods.bass, mid: mods.mid, treble: mods.high, beat: mods.beat } : undefined;
+            _renderCamEngineFrame(base, w, h, look.ctx, false, { path: 'capture', now, outW: w, outH: h, resolution: 'medium', family, variant, audio: heard });
           } finally { if (frame !== null && sello) stampFrameMode = frame; }
         }
         gl.bindTexture(gl.TEXTURE_2D, eng.texA);
@@ -563,7 +933,7 @@ void main() {
         return false;
       }
     }
-    eng.camKind = 0; eng.fit = [1, 1, 0, 0]; eng.path = 'emulador ' + key;
+    eng.camKind = 0; eng.fit = [1, 1, 0, 0]; eng.path = 'emulador ' + family + (variant ? ':' + variant : '');
     eng.hasA = true;
     return true;
   }
@@ -572,7 +942,8 @@ void main() {
     if (!camReady()) return;
     hookVideo();
     eng.mirror = typeof facingMode === 'string' && facingMode === 'user' ? 1 : 0;
-    const key = live.d['src.look'], keyed = live.d['mix.mode'] === 5;
+    // (una familia que todavía no está registrada se pinta como cámara directa, sin borrarla de la escena)
+    const key = lookKnown(live.d['src.look']) ? live.d['src.look'] : 'RAW', keyed = live.d['mix.mode'] === 5;
     let base = null;
     if (!camState.injected && (key !== 'RAW' || keyed || hands.on)) base = cpuFrame();
     if (key === 'RAW' || !base || !uploadLook(base, key, now)) uploadRaw();
@@ -834,7 +1205,7 @@ void main() {
   }
 
   // ── MIDI ────────────────────────────────────────────────────────────────────
-  // Sin configurar nada: las notas 36–43 y 60–67 llaman a las escenas y cualquier otra da un golpe;
+  // Sin configurar nada: las notas 36–45 y 60–69 llaman a las escenas y cualquier otra da un golpe;
   // los mandos del controlador gobiernan los de la página visible (por orden de número de CC); la
   // rueda de modulación y la de tono son el PAD; el volumen (CC 7), el nivel de salida; un cambio de
   // programa, la escena; y el reloj MIDI, el tempo. APRENDER fija un mando concreto a un control.
@@ -881,7 +1252,7 @@ void main() {
     if (status === 0xfa) { midi.ticks.length = 0; midi.tickBeat = 0; clock.beat = 0; ph.lfo[0] = ph.lfo[1] = 0; return; }
     if (status >= 0xf0) return;
     midi.seen = now;
-    if (type === 0xc0) { recall(data[1] % 8); return; }                 // cambio de programa → escena
+    if (type === 0xc0) { recall(data[1] % SCENE_COUNT); return; }       // cambio de programa → escena
     if (type === 0xe0) { pad.x = ((data[2] << 7) | data[1]) / 16383; midi.last = 'TONO'; return; }   // rueda de tono → PAD X
     if (type === 0xb0) {
       const x = data[2] / 127;
@@ -910,7 +1281,7 @@ void main() {
       midi.held.add(key); midi.gate = data[2] / 127;
       if (midi.learn && midi.target) { learnBind('note', key); return; }
       const note = data[1], free = Object.keys(store.midi.note).length === 0;
-      const dst = store.midi.note[key] || (free && note >= 36 && note <= 43 ? 's:' + (note - 36) : free && note >= 60 && note <= 67 ? 's:' + (note - 60) : '');
+      const dst = store.midi.note[key] || (free && note >= 36 && note < 36 + SCENE_COUNT ? 's:' + (note - 36) : free && note >= 60 && note < 60 + SCENE_COUNT ? 's:' + (note - 60) : '');
       midi.last = 'NOTA ' + note;
       if (dst && dst[0] !== 'p') trigger(dst);
       else { midi.hit = Math.max(midi.hit, data[2] / 127); readout('NOTA ' + note + ' > GOLPE', 600); }       // cualquier otra nota es un golpe
@@ -994,6 +1365,8 @@ void main() {
     [['snare', 'sig.tear', .55, 'beat'], ['bass', 'sig.rgb', .42, 'bass'], ['hats', 'sig.noise', .2, 'lfo2'], ['kick', 'sig.vhold', .12, '']],
     [['bass', 'fb.zoom', .18, 'bass'], ['kick', 'col.post', .26, 'beat'], ['hats', 'sig.rgb', .38, 'high'], ['vox', 'col.hue', .4, 'lfo1']],
     [['bass', 'fb.zoom', -.14, 'bass'], ['kick', 'gen.freq', .35, 'beat'], ['vox', 'gen.hue', .3, 'mid'], ['keys', 'gen.shape', .22, '']],
+    [],
+    [['bass', 'col.cycle', .25, 'bass'], ['vox', 'col.solar', .3, 'mid'], ['hats', 'sig.bleed', .35, 'high'], ['kick', 'gen.freq', .2, 'beat'], ['kick', 'sig.spark', .6, 'beat'], ['bass', 'sig.smear', .4, 'bass']],
     [],
   ];
   const sameRoutes = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -1253,6 +1626,15 @@ void main() {
     const spin = (key, speed, rate) => { if (speed) ph[key] += speed * dt; else ph[key] += (Math.round(ph[key]) - ph[key]) * Math.min(1, dt * rate); };
     ph.gen += bi(v['gen.speed']) * 2.2 * dt;
     ph.warp += 1.3 * dt;
+    // PINCEL: recorre una curva cerrada de tres frecuencias que no casan entre sí (tarda mucho en repetir
+    // el mismo trazo); ESCALA es el radio de la curva y VELOCIDAD, lo que corre. El óvalo va atravesado a su camino.
+    // (va por la mitad de abajo: con la DERIVA hacia arriba, cada pasada sube y la siguiente se apila debajo)
+    const brushAt = s => { const R = .1 + .3 * v['gen.freq']; return [R * (W / H) * (.95 * Math.sin(s) + .1 * Math.sin(2.618 * s + 1.3)), .2 + R * (.5 * Math.sin(1.414 * s + .7) + .12 * Math.sin(3.303 * s))]; };
+    const bp = brushAt(ph.gen * 1.1), ahead = brushAt(ph.gen * 1.1 + .01), behind = brushAt(ph.gen * 1.1 - .01), bl = Math.hypot(ahead[0] - behind[0], ahead[1] - behind[1]);
+    brush.from = brush.at || bp; brush.fromDir = brush.dir;
+    if (bl > 1e-6) brush.dir = [(ahead[0] - behind[0]) / bl, (ahead[1] - behind[1]) / bl];
+    const travel = brush.at ? Math.hypot(bp[0] - brush.at[0], bp[1] - brush.at[1]) * H : 0;
+    brush.at = bp;
     spin('spin', bi(v['geo.spin']) * .5, 5);
     spin('cycle', bi(v['col.cycle']) * .8, 5);
     spin('roll', bi(v['sig.vhold']) * 1.6, 7);
@@ -1279,19 +1661,82 @@ void main() {
     const camless = !!camMissSince && performance.now() - camMissSince > 1500 && (!(d['src.gen'] && v['mix.fade'] > .5) || d['mix.mode'] === 5);
     c.i('uGen', camless ? 2 : d['src.gen']); c.i('uMixMode', camless ? 0 : d['mix.mode']); c.i('uFbMode', d['fb.mode']); c.i('uMirror', d['geo.mirror']); c.f('uKeyInv', d['key.inv'] ? 1 : 0);
     c.f('uGenFreq', lerp(1.5, 42, v['gen.freq'] * v['gen.freq'])); c.f('uGenPhase', ph.gen); c.f('uGenShape', v['gen.shape']); c.f('uGenHue', v['gen.hue']);
+    c.v2('uBrush', bp[0], bp[1]); c.v2('uBrushDir', brush.dir[0], brush.dir[1]); c.f('uBrushR', BRUSH_R);
+    c.v2('uBrushFrom', brush.from[0], brush.from[1]); c.v2('uBrushFromDir', brush.fromDir[0], brush.fromDir[1]);
+    // SALPICADURA: cada gota sale de la corona, sube y cae (catorce, con su azar fijo); la CPU las pone.
+    if (d['src.gen'] === GEN_SALPICADURA) {
+      const size = .75 + .6 * v['gen.freq'], cyc = ((ph.gen * .16) % 1 + 1) % 1;
+      c.v2('uSplash', size, cyc);
+      for (let i = 0; i < 14; i++) {
+        const r = n => { const x = Math.sin(i * 12.9898 + n * 78.233) * 43758.5453; return x - Math.floor(x); };
+        const a = r(1) * TAU, tt = (cyc * 1.3 + r(2) * .3) % 1, kick = size * (.6 + .6 * r(3));
+        drops[i * 4] = Math.cos(a) * .5 * size + Math.cos(a) * .25 * tt * kick;
+        drops[i * 4 + 1] = .08 + Math.sin(a) * .21 * size + (.9 * tt * tt - .55 * tt - .02) * kick;
+        drops[i * 4 + 2] = (.012 + .016 * r(4)) * size * (1 - tt * .5);
+        drops[i * 4 + 3] = .6 + .4 * r(5);
+      }
+      c.v4v('uDrops', drops);
+    }
     c.f('uFade', camless ? 1 : v['mix.fade']); c.f('uKeyLevel', v['key.level']); c.f('uKeySoft', .01 + v['key.soft'] * .35);
     c.f('uFbAmt', v['fb.amt'] * .985); c.f('uFbZoom', Math.exp(bi(v['fb.zoom']) * .22 * k)); c.f('uFbRot', bi(v['fb.rot']) * .16 * k);
     c.v2('uFbShift', bi(v['fb.x']) * .045 * k, bi(v['fb.y']) * .045 * k); c.f('uFbHue', v['fb.hue'] * .12 * k); c.f('uFbGain', Math.pow(.55 + v['fb.decay'] * .5, k));
     c.f('uZoom', Math.exp(bi(v['geo.zoom']) * 1.6)); c.f('uRot', bi(v['geo.rot']) * Math.PI + ph.spin * TAU);
     c.f('uKal', v['geo.kal'] < .05 ? 0 : 2 + Math.floor((v['geo.kal'] - .05) / .95 * 10.999)); c.f('uTile', 1 + Math.floor(v['geo.tile'] * 7.999));
     c.f('uWarp', v['geo.warp'] * v['geo.warp'] * .28); c.f('uWarpFreq', 1.5 + v['geo.wfreq'] * 26); c.f('uWarpPhase', ph.warp);
+    // SELLO y TRAMA RGB comparten celda: ladrillo de 1,5 × 1 en píxeles enteros, a 1/120 del alto.
+    const cellH = Math.max(2, Math.round(H / 120)), cellW = Math.max(2, Math.round(cellH * 1.5));
+    const stamping = d['fb.mode'] === FB_SELLO && v['fb.amt'] > 0;
+    let jumpX = 0, jumpY = 0, turns = 0;
+    // (al entrar a SELLO el lienzo empieza en negro: lo que quedara en el bucle de la escena anterior se
+    //  quedaría segundos pegado, porque en SELLO las copias casi no se apagan)
+    if (stamping && !lazo.on) {
+      for (const b of eng.fb) { gl.bindFramebuffer(gl.FRAMEBUFFER, b.f); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, write.f);
+    }
+    lazo.on = stamping;
+    if (stamping) {
+      lazo.x += bi(v['fb.x']) * .045 * k * H / cellW; lazo.y += bi(v['fb.y']) * .045 * k * H / cellH;
+      jumpX = Math.round(lazo.x); jumpY = Math.round(lazo.y); lazo.x -= jumpX; lazo.y -= jumpY;
+      // una vértebra cada ocho celdas de recorrido (y, quieto, cada treinta y dos cuadros: el sello no se queda sin canto)
+      lazo.rim += Math.hypot(bi(v['fb.x']) * .045 * k * H / cellW, bi(v['fb.y']) * .045 * k * H / cellH) + .25 * k;
+      if (d['src.gen'] === GEN_PINCEL && v['mix.fade'] > .5) lazo.rim += travel / cellW;     // (con el PINCEL, cuenta lo que avanza el sello)
+      lazo.hue += v['fb.hue'] * .12 * k;
+      turns = Math.floor(lazo.hue * 3); lazo.hue -= turns / 3;
+    } else { lazo.x = lazo.y = lazo.hue = 0; lazo.rim = 8; }
+    // (con el PINCEL no hace falta: su canto menta va en el costado y lo barre el camino)
+    const rim = stamping && lazo.rim >= 8 && !(d['src.gen'] === GEN_PINCEL && v['mix.fade'] > .5 && d['mix.mode'] < 4);
+    if (rim) lazo.rim %= 8;
+    c.v2('uCell', cellW, cellH); c.v2('uSelloShift', jumpX, jumpY); c.i('uSelloRot', turns % 3); c.f('uDither', stamping ? v['sig.dither'] : 0); c.f('uSelloRim', rim ? 1 : 0);
+    // (COLA en SELLO: a tope la copia dura casi para siempre y solo la tapan el sello o la deriva; abajo, se apaga)
+    c.f('uSelloFade', (1 - v['fb.decay']) * .012 * k);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // ESPECTRO: se mide la luz de lo que pasa la clave (rejilla y mipmaps) y se suaviza la media del cuadro.
+    const conK = Math.exp(bi(v['col.con']) * 1.1);
+    const measured = d['col.pal'] === PAL_ESPECTRO && v['col.tint'] > 0 && statsReady();
+    let statsOne = null;
+    if (measured) {
+      const s = eng.stats, m = s.prog, from = s.one[s.flip], to = s.one[1 - s.flip];
+      gl.useProgram(m.pr);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, s.fb); gl.viewport(0, 0, 192, 36);
+      bind(0, write.t); bind(1, from.t);
+      m.i('uSrc', 0); m.i('uPrev', 1); m.i('uStep', 0); m.f('uCon', conK);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      bind(2, s.tex); gl.generateMipmap(gl.TEXTURE_2D);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, to.f); gl.viewport(0, 0, 3, 1);
+      bind(0, s.tex); bind(1, from.t);
+      m.i('uStep', 1); m.f('uKeep', s.fresh ? 0 : Math.pow(.88, k));
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      s.flip = 1 - s.flip; s.fresh = false; statsOne = to.t;
+    } else if (eng.stats) eng.stats.fresh = true;
 
     c = eng.post;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
     gl.useProgram(c.pr);
     bind(0, write.t);
+    if (statsOne) { bind(1, eng.stats.tex); bind(2, statsOne); }
+    c.i('uStats', 1); c.i('uStatsOne', 2); c.i('uNorm', statsOne ? 1 : 0);
     c.i('uSrc', 0); c.v2('uRes', W, H); c.f('uTime', t % 1000);
     c.f('uRgb', v['sig.rgb'] * v['sig.rgb'] * .035); c.f('uTear', v['sig.tear']); c.f('uRoll', ph.roll); c.f('uRollOn', Math.abs(ph.roll - Math.round(ph.roll)) > .002 ? 1 : 0);
     c.f('uPix', v['sig.pix'] < .04 ? 0 : lerp(200, 10, Math.sqrt(v['sig.pix']))); c.f('uScan', v['sig.scan']); c.f('uNoise', v['sig.noise'] * v['sig.noise']); c.f('uBleed', v['sig.bleed']);
@@ -1302,6 +1747,9 @@ void main() {
     c.f('uPost', v['col.post'] < .04 ? 0 : Math.round(lerp(14, 2, Math.sqrt(v['col.post'])))); c.f('uSolar', v['col.solar']); c.f('uTint', v['col.tint']);
     const tint = PALETTES[d['col.pal']] || PALETTES[0];
     c.v3('uTintA', hex(tint[1])); c.v3('uTintB', hex(tint[2])); c.v3('uTintC', hex(tint[3]));
+    c.i('uPalMode', d['col.pal'] === PAL_ESPECTRO ? 1 : 0);
+    // (con SELLO la trama ya va dentro del lazo: tramar otra vez a la salida la descuadraría)
+    c.f('uSpark', v['sig.spark']); c.f('uSparkCell', Math.max(4, Math.round(H / 80))); c.f('uSmear', v['sig.smear']); c.f('uDither', stamping ? 0 : v['sig.dither']); c.v2('uCell', cellW, cellH);
     c.f('uInv', d['col.inv'] ? 1 : 0); c.f('uFlipX', g.flipX ? 1 : 0); c.f('uFlipY', g.flipY ? 1 : 0);
     ui.blackAmt += ((ui.black ? 1 : 0) - ui.blackAmt) * Math.min(1, dt * 9);
     c.f('uLevel', v['out.level'] * (1 - ui.blackAmt));
@@ -1459,9 +1907,15 @@ void main() {
   }
 
   // ── Escenas ─────────────────────────────────────────────────────────────────
+  // Una escena de fábrica hecha sobre una cámara de FLIP que no está registrada (todavía) se llama con su
+  // respaldo, si lo tiene (GUSANO); lo guardado no se toca.
+  function playable(index) {
+    const target = store.scenes[index], factory = FACTORY()[index], spare = factory && RESPALDO[factory.name];
+    return spare && target.d['src.look'] === factory.d['src.look'] && !lookKnown(target.d['src.look']) ? spare() : target;
+  }
   function recall(index, instant) {
-    index = clamp(index | 0, 0, 7);
-    const target = store.scenes[index];
+    index = clamp(index | 0, 0, SCENE_COUNT - 1);
+    const target = playable(index);
     store.scene = index;
     const ms = instant ? 0 : Math.pow(live.p['mod.morph'], 2) * 4000;
     if (ms > 20) { morph = { from: Object.assign({}, live.p), to: Object.assign({}, target.p), t0: performance.now(), ms }; }
@@ -1524,15 +1978,26 @@ void main() {
     out: '<rect x="3" y="4.5" width="18" height="12" rx="1.6"/><path d="M8 20.5h8M12 16.5v4"/><path d="m10.4 8.4 3.6 2.1-3.6 2.1z" fill="currentColor" stroke="none"/>',
   };
   const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${SVG[name]}</svg>`;
-  const getD = id => (id.startsWith('out.') ? (id === 'out.black' ? (ui.black ? 1 : 0) : store.global[id.slice(4)]) : live.d[id]);
-  const optionsOf = id => (id === 'aud.src' ? audioOptions().map(option => option.label) : OPTIONS[id]);
-  const optionIndex = id => (id === 'src.look' ? Math.max(0, LOOKS.findIndex(l => l.key === live.d[id]))
+  const getD = id => (id.startsWith('out.') ? (id === 'out.black' ? (ui.black ? 1 : 0) : store.global[id.slice(4)]) : id === 'src.var' ? lookVariant(live.d['src.look']) : live.d[id]);
+  // A · VARIANTE no se guarda aparte: es la segunda mitad de «FAMILIA:VARIANTE» en A · CÁMARA.
+  const variantLabels = () => { const list = variantsOf(lookFamily(live.d['src.look'])); return list.length ? list.map(v => String(v.label || v.id).toUpperCase()) : ['—']; };
+  const optionsOf = id => (id === 'aud.src' ? audioOptions().map(option => option.label) : id === 'src.look' ? looks().map(l => l.label) : id === 'src.var' ? variantLabels() : OPTIONS[id]);
+  const optionIndex = id => (id === 'src.look' ? Math.max(0, looks().findIndex(l => l.key === lookFamily(live.d[id])))
+    : id === 'src.var' ? Math.max(0, variantsOf(lookFamily(live.d['src.look'])).findIndex(v => v.id === lookVariant(live.d['src.look'])))
     : id === 'aud.src' ? Math.max(0, audioOptions().findIndex(option => option.kind === audio.kind && option.id === audio.deviceId)) : getD(id));
   function setD(id, value) {
     if (id === 'out.black') { setBlack(!!value); return; }
     if (id === 'aud.src') { const option = audioOptions()[value]; if (option) { audio.kind = option.kind; audio.deviceId = option.id; audioOn(option.kind, option.id); } return; }
-    if (id.startsWith('out.')) { store.global[id.slice(4)] = value; if (id === 'out.aspect' || id === 'out.quality') { clock.autoH = COARSE ? 540 : 720; resize(); } }
-    else live.d[id] = id === 'src.look' ? LOOKS[value].key : value;
+    if (id === 'src.var') {
+      // (por número, la variante en la lista de su familia; o por su clave: «CRT»)
+      const family = lookFamily(live.d['src.look']), list = variantsOf(family);
+      const chosen = typeof value === 'string' ? allVariants(family).find(v => v.id === value) : list[value];
+      if (!chosen) return;
+      live.d['src.look'] = family + ':' + chosen.id;
+      id = 'src.look';
+    } else if (id.startsWith('out.')) { store.global[id.slice(4)] = value; if (id === 'out.aspect' || id === 'out.quality') { clock.autoH = COARSE ? 540 : 720; resize(); } }
+    // (A · CÁMARA por número elige la familia —con su variante de siempre—; por texto, «FAMILIA» o «FAMILIA:VARIANTE»)
+    else live.d[id] = id === 'src.look' ? (typeof value === 'string' ? value : (looks()[value] || looks()[0]).key) : value;
     if (id === 'src.look' && typeof _resetCamEngineState === 'function') { _resetCamEngineState('capture'); look.key = ''; }
     if (id === 'mix.mode' && value === 5) { flipSilhouette.start(); if (live.p['mix.fade'] < .05) setParam('mix.fade', 1); }
     if (id === 'src.gen' && (value === 6 || value === 7) && !audio.on) flipToast('Enciende MIC para que el generador siga el sonido.', 2600);
@@ -1548,6 +2013,7 @@ void main() {
     if (id === 'lfo1.rate' || id === 'lfo2.rate') { if (live.d['lfo.sync']) return DIVS[Math.min(7, Math.floor(v * 8))][1]; const hz = .03 * Math.pow(500, v); return hz < 1 ? (1 / hz).toFixed(1) + ' S' : hz.toFixed(1) + ' HZ'; }
     if (id === 'mod.morph') return (Math.pow(v, 2) * 4).toFixed(1) + ' S';
     if (id === 'geo.zoom') return 'X' + Math.exp(bi(v) * 1.6).toFixed(2);
+    if (id === 'col.solar' && spectral()) return (1.5 + v * 3.5).toFixed(1) + ' VUELTAS';
     return P[id][2] ? signed(bi(v)) : String(Math.round(v * 100));
   }
   function readout(text, ms = 1400) { ui.readout = { text, until: performance.now() + ms }; lcd(true); }
@@ -1583,7 +2049,7 @@ void main() {
         <div class="rig-side">
         <div class="rig-deck">
           <div class="rig-row rig-row-scenes"><span class="hw-print">ESCENAS</span><div class="rig-modos" id="rigModos" role="tablist" aria-label="Vista"><button class="hw hw-keycap rig-modo" data-color="gray" type="button" role="tab" data-page="easy"><span>FÁCIL</span></button><button class="hw hw-keycap rig-modo" data-color="gray" type="button" id="rigTaller" aria-label="Taller: el sintetizador completo"><span>TALLER</span></button></div>${window.flipRollo ? `<img class="rollo-badge" src="${flipRollo.url('marca/placa-vs-27-clara.svg')}" alt="STAGE VS-27 PRO">` : '<span class="hw-print rig-badge">VS-27 · PRO</span>'}</div>
-          <div class="rig-scenes" id="rigScenes" role="radiogroup" aria-label="Escenas">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<button class="hw hw-keycap" type="button" role="radio" data-scene="${i}" data-feel="key" aria-label="Escena ${i + 1}"><span>${i + 1}</span><em></em></button>`).join('')}</div>
+          <div class="rig-scenes" id="rigScenes" role="radiogroup" aria-label="Escenas">${Array.from({ length: SCENE_COUNT }, (_, i) => i).map(i => `<button class="hw hw-keycap" type="button" role="radio" data-scene="${i}" data-feel="key" aria-label="Escena ${i + 1}"><span>${i + 1}</span><em></em></button>`).join('')}</div>
           <div class="rig-tabs" id="rigTabs" role="tablist" aria-label="Módulos">${PAGES.filter(page => page.id !== 'easy').map(page => `<button class="hw hw-keycap rig-tab" data-color="gray" type="button" role="tab" data-page="${page.id}"><span>${page.label}</span></button>`).join('')}</div>
           <p class="rig-coach" id="rigCoach" role="status"></p>
           <div class="rig-panel" id="rigPanel" role="tabpanel"></div>
@@ -1625,7 +2091,9 @@ void main() {
     if (ui.easyIds && ui.easyFor === store.scene) return ui.easyIds;
     const picked = [];
     for (const r of live.r) if (!picked.includes(r[1]) && SCENE_IDS.includes(r[1]) && !/^lfo/.test(r[1])) picked.push(r[1]);
-    const moved = SCENE_IDS.filter(id => !picked.includes(id) && !/^lfo/.test(id)).map(id => [Math.abs(live.p[id] - P[id][1]), id]).sort((a, b) => b[0] - a[0]);
+    // (en plena transición cuentan los valores de destino, no los de la escena que se va)
+    const goal = morph ? Object.assign({}, live.p, morph.to) : live.p;
+    const moved = SCENE_IDS.filter(id => !picked.includes(id) && !/^lfo/.test(id)).map(id => [Math.abs(goal[id] - P[id][1]), id]).sort((a, b) => b[0] - a[0]);
     for (const [far, id] of moved) if (picked.length < 4 && far > .04) picked.push(id);
     for (const id of ['geo.zoom', 'col.hue', 'sig.rgb', 'fb.amt']) if (picked.length < 4 && !picked.includes(id)) picked.push(id);
     ui.easyFor = store.scene;
@@ -2037,7 +2505,7 @@ void main() {
       ui.screen.classList.remove('is-touched');
       if (pad.moved || event.type === 'pointercancel') return;
       const now = performance.now();
-      if (now - lastPadTap < 320) { recall((store.scene + 1) % 8); feel.tap('slide', 'down', event.clientX); lastPadTap = 0; } else lastPadTap = now;
+      if (now - lastPadTap < 320) { recall((store.scene + 1) % SCENE_COUNT); feel.tap('slide', 'down', event.clientX); lastPadTap = 0; } else lastPadTap = now;
     };
     ui.screen.addEventListener('pointerup', padUp);
     ui.screen.addEventListener('pointercancel', padUp);
@@ -2048,9 +2516,9 @@ void main() {
     rig.querySelector('.rig-deck').addEventListener('scroll', cables, { passive: true });
     document.addEventListener('keydown', event => { if (state.active && !/INPUT|TEXTAREA|SELECT/.test((event.target.tagName || ''))) key(event.key); });
   }
-  // Teclado del ordenador (también llega desde la ventana de salida): 1–8 escenas, espacio tempo, B negro.
+  // Teclado del ordenador (también llega desde la ventana de salida): 1–9 y 0 escenas, espacio tempo, B negro.
   function key(name) {
-    if (/^[1-8]$/.test(name)) recall(+name - 1);
+    if (/^[0-9]$/.test(name)) recall(name === '0' ? 9 : +name - 1);
     else if (name === ' ') tap();
     else if (name === 'b' || name === 'B') setBlack(!ui.black);
   }
@@ -2110,6 +2578,29 @@ void main() {
     page(id) { ui.page = id; renderPage(); },
     // Avanza cuadros a paso fijo (pruebas deterministas).
     step(count = 1, ms = 1000 / 60) { for (let i = 0; i < count; i++) frame(ms / 1000); },
+    // Vuelve el reloj, las fases y el bucle a cero (pruebas: el mismo cuadro sale igual dos veces).
+    rewind() {
+      clock.t = 0; clock.beat = 0; ph.gen = ph.spin = ph.cycle = ph.roll = ph.warp = 0; ph.lfo[0] = ph.lfo[1] = 0;
+      for (const memo of ph.rnd) Object.assign(memo, { cycle: -1, from: 0, to: 0 });
+      audio.beat = 0; midi.hit = 0; morph = null; lazo.x = lazo.y = lazo.hue = 0; lazo.rim = 8; brush.at = null; brush.dir = [1, 0];
+      if (eng.stats) eng.stats.fresh = true;
+      if (!eng.ok) return;
+      const gl = eng.gl;
+      for (const b of eng.fb) { gl.bindFramebuffer(gl.FRAMEBUFFER, b.f); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      eng.flip = 0;
+    },
+    // La salida entera, recién dibujada: { w, h, data } con los píxeles RGBA en base64 (fila de abajo primero).
+    pixels() {
+      if (!eng.ok) return null;
+      const gl = eng.gl;
+      draw(evaluate(), 0, clock.t);
+      const data = new Uint8Array(eng.w * eng.h * 4);
+      gl.readPixels(0, 0, eng.w, eng.h, gl.RGBA, gl.UNSIGNED_BYTE, data);
+      let bin = '';
+      for (let i = 0; i < data.length; i += 0x8000) bin += String.fromCharCode.apply(null, data.subarray(i, i + 0x8000));
+      return { w: eng.w, h: eng.h, data: btoa(bin) };
+    },
     // Color medio de un recuadro de la salida (fracciones, origen arriba a la izquierda), recién dibujada.
     probe(x, y, w, h) {
       if (!eng.ok) return null;
@@ -2134,7 +2625,9 @@ void main() {
     live: { connect: linkOpen, disconnect: () => linkClose(false), sheet: linkSheet, keys: LIVE_KEYS,
       inject(message) { if (message && message.set) linkSet(message.set); else linkTake(message); },
       assign(slot, name) { const slots = store.global.live.slots; for (let k = 0; k < 6; k++) if (slots[k] == null) slots[k] = ''; if (name) for (let k = 0; k < 6; k++) if (k !== slot && slots[k] === name) slots[k] = '-'; slots[slot] = name || '-'; linkAssign(); save(); } },
-    tables: { PARAMS: P, SOURCES: SOURCES.map(s => s[0]), PAGES: PAGES.map(p => p.id), GENS, MIX_MODES, LOOKS: LOOKS.map(l => l.key) },
+    // (LOOKS y VARIANTS se leen de CAM_FAMILIES en el momento: valen las familias que se registren después)
+    tables: { PARAMS: P, SOURCES: SOURCES.map(s => s[0]), PAGES: PAGES.map(p => p.id), GENS, MIX_MODES, FB_MODES, PALETTES: PALETTES.map(p => p[0]), FACTORY: FACTORY().map(s => s.name),
+      get LOOKS() { return looks().map(l => l.key); }, variants: family => variantsOf(family).map(v => v.id) },
   };
 })();
 // La ventana de salida llega a la consola por window.opener.

@@ -83,7 +83,8 @@ body.stage-mode #shellMic, body[data-piel="interfaz"].stage-mode #shellMic, body
 .rig-deck::-webkit-scrollbar { display: none; }
 .rig-row { display: flex; align-items: center; justify-content: space-between; padding: 0 3px; margin-bottom: -2px; }
 .rig-badge { color: var(--coral); letter-spacing: .16em; }
-.rig-scenes { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; flex: 0 0 auto; }
+/* Diez escenas: una fila de diez en el taller (el número basta) y dos de cinco en FÁCIL, con su nombre. */
+.rig-scenes { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; flex: 0 0 auto; }
 .rig-scenes .hw-keycap { min-width: 0; height: 34px; padding: 0 0 1px; font: 800 15px/1 var(--font-dot); letter-spacing: 0; }
 .rig-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; flex: 0 0 auto; }
 .rig-tabs .hw-keycap { min-width: 0; height: 30px; padding: 0 2px 1px; font-size: 9.5px; letter-spacing: .06em; }
@@ -310,9 +311,9 @@ body.stage-mode #shellMic, body[data-piel="interfaz"].stage-mode #shellMic, body
 .rig-solo-taller { font-style: normal; }
 /* Las escenas, con su nombre (en FÁCIL, dos filas de cuatro). */
 .rig-scenes em { display: none; font-style: normal; }
-.rig-easy .rig-scenes { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
-.rig-easy .rig-scenes .hw-keycap { height: 32px; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 0 4px 1px; font-size: 13px; }
-.rig-easy .rig-scenes em { display: block; min-width: 0; font: 800 9px/1.5 'Archivo', 'Chivo', system-ui, sans-serif !important; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rig-easy .rig-scenes { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.rig-easy .rig-scenes .hw-keycap { height: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 3px 1px; font-size: 12px; }
+.rig-easy .rig-scenes em { display: block; min-width: 0; font: 800 8.5px/1.5 'Archivo', 'Chivo', system-ui, sans-serif !important; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* El sonido apagado es un botón. */
 #rigTallyAudio { pointer-events: auto; cursor: pointer; }
 #rigTallyAudio.is-off { padding: 6px 9px 5px; background: #008048; color: #FFF3DF; font-weight: 800; box-shadow: 0 1px 6px rgba(0, 0, 0, .4); }

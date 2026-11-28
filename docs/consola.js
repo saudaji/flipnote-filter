@@ -18,13 +18,19 @@
   const VARIANTS = {
     B128: { long: 480, tex: .8, faceTex: .3, snap: 0, bits: 5, dither: .45, trail: 0, bloom: .2, grade: 1, smooth: true, cells: 16, shade: .5 },
     B32: { long: 240, tex: .9, faceTex: .45, snap: 96, bits: 4, dither: 1, trail: 0, bloom: 0, grade: .25, smooth: false, cells: 12, shade: .7 },
+    // NOCHE: el cuarto a oscuras alumbrado por la pantalla. Gradación nocturna (grade < 0: casi todo
+    // el cuadro en negro índigo —un interior normal queda con la mediana de luz por debajo de 0,15—,
+    // solo lo que emite luz se queda encendido), un resplandor muy ancho que tiñe lo de alrededor,
+    // tramado a la vista en la penumbra y alguna estrella en lo negro y liso.
+    NOCHE: { long: 300, tex: .88, faceTex: .38, snap: 112, bits: 5, dither: .78, trail: .18, bloom: .95, grade: -1, smooth: false, cells: 14, shade: .62, wide: true, stars: true },
   };
 
   // ── Gráfica ────────────────────────────────────────────────────────────────
   const VERT = `attribute vec2 aPos; attribute vec2 aUv; attribute vec2 aCuv; uniform float uSnap; varying vec2 vUv; varying vec2 vCuv;
     void main() { vec2 p = aPos; if (uSnap > 0.) p = floor(p * uSnap + .5) / uSnap; vUv = aUv; vCuv = aCuv; gl_Position = vec4(p * 2. - 1., 0., 1.); gl_Position.y = -gl_Position.y; }`;
-  const FRAG = `precision mediump float; uniform sampler2D uSrc; uniform float uTex, uBits, uDither, uGrade, uFace, uShade; varying vec2 vUv; varying vec2 vCuv;
+  const FRAG = `precision mediump float; uniform sampler2D uSrc; uniform float uTex, uBits, uDither, uGrade, uFace, uShade, uStars, uTime; varying vec2 vUv; varying vec2 vCuv;
     float bayer(vec2 p) { vec2 a = floor(mod(p, 4.)); float b = mod(a.x + a.y * 2., 4.) * 4. + mod(a.x * 3. + a.y, 4.); return (b + .5) / 16. - .5; }
+    float hash(vec2 p) { vec3 q = fract(vec3(p.xyx) * .1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
     void main() {
       vec3 plano = texture2D(uSrc, vCuv).rgb, tex = texture2D(uSrc, vUv).rgb;
       vec3 c = mix(plano, tex, uTex);
@@ -33,9 +39,23 @@
       c = mix(c, c * vec3(1.03, .98, .96) + .02, uFace);                   // la cara, un punto más clara y cálida
       // el atardecer: negros levantados hacia el malva, luces hacia el naranja, más color
       float g = dot(c, vec3(.3, .59, .11));
-      vec3 graded = mix(vec3(g), c, 1.28);
-      graded = graded * vec3(1.06, .95, .84) + (1. - g) * (1. - g) * vec3(.07, .02, .11) + g * g * vec3(.05, .0, -.05);
-      c = mix(c, graded, uGrade);
+      if (uGrade >= 0.) {
+        vec3 graded = mix(vec3(g), c, 1.28);
+        graded = graded * vec3(1.06, .95, .84) + (1. - g) * (1. - g) * vec3(.07, .02, .11) + g * g * vec3(.05, .0, -.05);
+        c = mix(c, graded, uGrade);
+      } else {
+        // la noche: la luz a la 2,35 (un medio tono queda en ~0,1), teñida de violeta con
+        // una pizca del color propio para que se lea; lo que emite luz, intacto
+        float emit = smoothstep(.72, .93, g);
+        float dark = pow(g, 2.35) * .75;
+        vec3 night = vec3(.40, .26, .66) * dark + c * dark * .28 + vec3(.010, .007, .022);
+        night = mix(night, c * vec3(1.06, 1.02, 1.12) + .03, emit);
+        c = mix(c, night, -uGrade);
+        // estrellas: puntos sueltos en lo casi negro y liso (donde el polígono y su textura casi no difieren: un cielo, una ventana de noche), que titilan despacio
+        float flat_ = 1. - smoothstep(.02, .06, abs(dot(tex - plano, vec3(.3, .59, .11))));
+        float star = step(.998, hash(floor(gl_FragCoord.xy))) * (1. - smoothstep(.05, .09, g)) * flat_;
+        c += star * uStars * vec3(.62, .66, .9) * (.55 + .45 * sin(uTime * 1.7 + hash(floor(gl_FragCoord.xy) + 7.) * 6.283));
+      }
       float q = pow(2., uBits) - 1.;
       c = floor(clamp(c, 0., 1.) * q + .5 + bayer(gl_FragCoord.xy) * uDither) / q;
       gl_FragColor = vec4(clamp(c, 0., 1.), 1.);
@@ -64,7 +84,7 @@
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       const at = name => gl.getAttribLocation(prog, name), un = name => gl.getUniformLocation(prog, name);
       for (const [name, offset] of [['aPos', 0], ['aUv', 8], ['aCuv', 16]]) { gl.enableVertexAttribArray(at(name)); gl.vertexAttribPointer(at(name), 2, gl.FLOAT, false, 24, offset); }
-      res = { prog, tex, buf, u: { snap: un('uSnap'), tex: un('uTex'), bits: un('uBits'), dither: un('uDither'), grade: un('uGrade'), face: un('uFace'), shade: un('uShade') } };
+      res = { prog, tex, buf, u: { snap: un('uSnap'), tex: un('uTex'), bits: un('uBits'), dither: un('uDither'), grade: un('uGrade'), face: un('uFace'), shade: un('uShade'), stars: un('uStars'), time: un('uTime') } };
       gl.uniform1i(un('uSrc'), 0);
       return true;
     } catch (error) { failed = true; gl = null; canvas = null; res = null; console.warn(String(error && error.message || error)); return false; }
@@ -72,14 +92,14 @@
   function release() {
     if (gl) { const ext = gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext(); }
     gl = null; canvas = null; res = null;
-    for (const c of [low.canvas, acc.canvas, glowA.canvas, glowB.canvas]) if (c) c.width = c.height = 0;
+    for (const c of [low.canvas, acc.canvas, glowA.canvas, glowB.canvas, glowC.canvas]) if (c) c.width = c.height = 0;
     Object.assign(mesh, { key: '', base: null });
     faceStop();
   }
 
   // ── La imagen reducida: de ella salen la textura y los bordes ───────────────
   const low = { canvas: null, ctx: null, w: 0, h: 0, lum: null };
-  const acc = { canvas: null, ctx: null }, glowA = { canvas: null, ctx: null }, glowB = { canvas: null, ctx: null };
+  const acc = { canvas: null, ctx: null }, glowA = { canvas: null, ctx: null }, glowB = { canvas: null, ctx: null }, glowC = { canvas: null, ctx: null };
   const surface = (slot, w, h, read) => {
     if (!slot.canvas) { slot.canvas = document.createElement('canvas'); slot.ctx = slot.canvas.getContext('2d', read ? { willReadFrequently: true } : undefined); }
     if (slot.canvas.width !== w || slot.canvas.height !== h) { slot.canvas.width = w; slot.canvas.height = h; return true; }
@@ -391,6 +411,7 @@
     gl.bufferData(gl.ARRAY_BUFFER, mesh.data.subarray(0, count * 6), gl.DYNAMIC_DRAW);
     gl.uniform1f(res.u.snap, cfg.snap); gl.uniform1f(res.u.bits, cfg.bits); gl.uniform1f(res.u.dither, cfg.dither); gl.uniform1f(res.u.grade, cfg.grade); gl.uniform1f(res.u.shade, cfg.shade);
     gl.uniform1f(res.u.tex, cfg.tex); gl.uniform1f(res.u.face, 0);
+    gl.uniform1f(res.u.stars, cfg.stars ? 1 : 0); gl.uniform1f(res.u.time, (now / 1000) % 1000);
     gl.drawArrays(gl.TRIANGLES, 0, mesh.tris.length);
     if (faceOn) { gl.uniform1f(res.u.tex, cfg.faceTex); gl.uniform1f(res.u.shade, 1); gl.uniform1f(res.u.face, 1); gl.drawArrays(gl.TRIANGLES, mesh.tris.length, face.tris.length); }
 
@@ -412,11 +433,16 @@
       glowA.ctx.globalCompositeOperation = 'copy'; glowA.ctx.drawImage(shown, 0, 0, glowA.canvas.width, glowA.canvas.height);
       glowA.ctx.globalCompositeOperation = 'multiply';                          // solo desbordan las luces: la imagen por sí misma, dos veces
       glowA.ctx.drawImage(glowA.canvas, 0, 0); glowA.ctx.drawImage(glowA.canvas, 0, 0);
+      // NOCHE: una vez más (la luz a la octava potencia): solo lo que pasa de ~0,72 derrama halo sobre el cuarto oscuro
+      if (cfg.glowPicky) glowA.ctx.drawImage(glowA.canvas, 0, 0);
       glowB.ctx.globalCompositeOperation = 'copy'; glowB.ctx.drawImage(glowA.canvas, 0, 0, glowB.canvas.width, glowB.canvas.height);
+      // NOCHE: un escalón más (1/64): la luz de la pantalla o la lámpara se derrama ancha por el cuarto
+      if (cfg.wide) { surface(glowC, Math.max(3, iw >> 6), Math.max(3, ih >> 6)); glowC.ctx.globalCompositeOperation = 'copy'; glowC.ctx.drawImage(glowB.canvas, 0, 0, glowC.canvas.width, glowC.canvas.height); }
       ctx.imageSmoothingEnabled = true;
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = cfg.bloom * .6; ctx.drawImage(glowA.canvas, 0, 0, outW, outH);
       ctx.globalAlpha = cfg.bloom; ctx.drawImage(glowB.canvas, 0, 0, outW, outH);
+      if (cfg.wide) { ctx.globalAlpha = cfg.bloom * .9; ctx.drawImage(glowC.canvas, 0, 0, outW, outH); }
     }
     ctx.restore();
     if (hud.on) { hudWatch(); if (preview) hudMotion(); drawHud(ctx, outW, outH, Date.now(), !preview); }

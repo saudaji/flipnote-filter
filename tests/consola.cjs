@@ -63,6 +63,41 @@ const fakeFace = () => {
     await page.waitForFunction(() => document.getElementById('deckGallery').classList.contains('has-shot'), null, { timeout: 8000 });
     step('32 BITS, y toma la foto', { poligonos: b.tris, interno: b.size.join('×') });
 
+    // ── NOCHE: el cuarto a oscuras alumbrado por la pantalla ──
+    await pickVariant(page, 'NOCHE');
+    await page.waitForFunction(() => camVariant === 'NOCHE' && flipConsola.state().variant === 'NOCHE', null, { timeout: 5000 });
+    const n = await page.evaluate(() => {
+      const hudWas = flipConsola.hud(); flipConsola.hud(false);
+      const stats = (scene, variant) => {
+        const src = document.createElement('canvas'); src.width = 1280; src.height = 720;
+        const sx = src.getContext('2d'); FlipScenes.draw(sx, 1280, 720, scene === 'oscuro' ? 'roomLit' : scene, 0, {});
+        // «oscuro»: la misma habitación con la luz casi apagada y la lámpara encendida (un emisivo)
+        if (scene === 'oscuro') { sx.fillStyle = 'rgba(0,0,0,.86)'; sx.fillRect(0, 0, 1280, 720); sx.fillStyle = '#fffbe8'; sx.beginPath(); sx.arc(200, 280, 26, 0, 6.283); sx.fill(); }
+        const out = document.createElement('canvas'); out.width = 640; out.height = 360;
+        const ctx = out.getContext('2d', { willReadFrequently: true });
+        for (let i = 0; i < 4; i++) renderConsola(src, 1280, 720, ctx, false, variant, { now: 5000 + i * 40, path: 'capture', outW: 640, outH: 360 });
+        const d = ctx.getImageData(0, 0, 640, 360).data;
+        let sum = 0, dark = 0, indigo = 0, max = 0, stars = 0;
+        const L = i => d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114, all = [];
+        for (let i = 0; i < d.length; i += 4) { const l = L(i); all.push(l); sum += l; if (l > max) max = l; if (l < 70) { dark++; if (d[i + 2] > d[i] + 6) indigo++; } }
+        all.sort((a, b) => a - b);
+        // estrellas: puntos claros aislados sobre sombra
+        for (let y = 4; y < 356; y += 1) for (let x = 4; x < 636; x += 1) { const i = 4 * (y * 640 + x); if (L(i) > 60 && L(4 * ((y - 4) * 640 + x)) < 25 && L(4 * ((y + 4) * 640 + x)) < 25 && L(4 * (y * 640 + x - 4)) < 25 && L(4 * (y * 640 + x + 4)) < 25) stars++; }
+        return { media: Math.round(sum / (d.length / 4)), mediana: +(all[all.length >> 1] / 255).toFixed(3), p95: +(all[Math.floor(all.length * 0.95)] / 255).toFixed(3), bajo012: +(all.filter(v => v < 0.12 * 255).length / all.length).toFixed(2), indigo: dark ? +(indigo / dark).toFixed(2) : 0, max: Math.round(max), estrellas: stars };
+      };
+      const r = { B128: stats('roomLit', 'B128'), NOCHE: stats('roomLit', 'NOCHE'), oscuroB128: stats('oscuro', 'B128'), oscuroNOCHE: stats('oscuro', 'NOCHE'), size: flipConsola.state().size };
+      flipConsola.hud(hudWas);
+      return r;
+    });
+    assert.equal(Math.max(...n.size), 300, 'NOCHE: 300 de lado largo');
+    assert.ok(n.NOCHE.mediana < 0.15, 'NOCHE es de noche: un interior normal queda con la mediana de luz por debajo de 0,15: ' + JSON.stringify(n.NOCHE));
+    assert.ok(n.NOCHE.bajo012 >= 0.7, 'y al menos el 70 % del cuadro casi negro (luz < 0,12): ' + JSON.stringify(n.NOCHE));
+    assert.ok(n.NOCHE.p95 > n.NOCHE.mediana * 2, 'lo que emite luz se separa del cuarto (percentil 95 frente a la mediana): ' + JSON.stringify(n.NOCHE));
+    assert.ok(n.NOCHE.indigo > 0.6 && n.NOCHE.indigo > n.B128.indigo + 0.3, 'sus sombras van al índigo: ' + JSON.stringify(n.NOCHE));
+    assert.ok(n.NOCHE.max > 220, 'lo que emite luz sigue encendido: ' + n.NOCHE.max);
+    assert.ok(n.oscuroNOCHE.estrellas >= 3 && n.oscuroB128.estrellas === 0, 'en las sombras lisas salen estrellas (y en 128 BITS no): ' + JSON.stringify([n.oscuroB128.estrellas, n.oscuroNOCHE.estrellas]));
+    step('NOCHE: el cuarto a oscuras, sombras índigo, luces encendidas y estrellas', n);
+
     // ── El marco de juego: suma al guardar una toma, y se puede quitar ──
     const hud = await page.evaluate(() => flipConsola.hudState());
     assert.equal(hud.on, true, 'el marco viene puesto');

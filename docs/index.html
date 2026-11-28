@@ -1416,6 +1416,12 @@
     .film-ctrl-row input[type="range"] { flex:1; height:2px; accent-color:var(--paper); cursor:pointer; }
     #pressRegRow, #pressPairRow { display:none; }
     #pressRegRow.visible, #pressPairRow.visible { display:flex; }
+    #fxEditPanel { display:none; margin-bottom:3px; }
+    .fx-ctrl-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+    .fx-ctrl-row[hidden] { display:none !important; }
+    .fx-lbl { color:var(--mid); font-family:monospace; font-size:7px; letter-spacing:.7px; min-width:64px; flex-shrink:0; }
+    .fx-val { color:var(--paper); font-family:monospace; font-size:7px; min-width:40px; text-align:right; flex-shrink:0; }
+    .fx-ctrl-row input[type="range"] { flex:1; height:2px; accent-color:var(--paper); cursor:pointer; }
 
     /* UPLOAD palette context badge */
     #palettes::before {
@@ -3382,6 +3388,13 @@
     <button class="cam-fam-btn"        data-family="OSCAM"  title="OSCAM — Oscilloscope camera"><strong>OSCAM</strong><small>Osciloscopio</small></button>
     <button class="cam-fam-btn"        data-family="PRENSA" title="PRINT — Imprenta y sello postal"><strong>PRINT</strong><small>Imprenta: semitono, periódico, riso y sello postal</small></button>
     <button class="cam-fam-btn"        data-family="CONSOLA" title="VIRTUAL — Todo en polígonos"><strong>VIRTUAL</strong><small>Todo en polígonos, como un juego de otra generación</small></button>
+    <button class="cam-fam-btn"        data-family="MATRIZ" title="MATRIZ — Trazos de fósforo"><strong>MATRIZ</strong><small>Pantalla de puntos: cada trazo sigue el contorno y las diagonales hacen cordón</small></button>
+    <button class="cam-fam-btn"        data-family="TESELA" title="TESELA — Baldosas de memoria rota"><strong>TESELA</strong><small>La figura hecha de baldosas de una memoria rota</small></button>
+    <button class="cam-fam-btn"        data-family="CHISPA" title="CHISPA — Brillantina y destellos"><strong>CHISPA</strong><small>Brillantina y destellos que viajan con la imagen</small></button>
+    <button class="cam-fam-btn"        data-family="BRASA" title="BRASA — Retrato que arde"><strong>BRASA</strong><small>Retrato que arde: oro, letra en los medios tonos y luces que se corren</small></button>
+    <button class="cam-fam-btn"        data-family="CUARTO" title="CUARTO — Un cuarto en polígonos"><strong>CUARTO</strong><small>Un cuarto en polígonos, de noche, con tu imagen en su pantalla</small></button>
+    <button class="cam-fam-btn"        data-family="GUSANO" title="GUSANO — Bandas de puntos RGB"><strong>GUSANO</strong><small>Bandas de puntos rojos, verdes y azules que avanzan en curva</small></button>
+    <button class="cam-fam-btn"        data-family="ESPECTRO" title="ESPECTRO — Arcoíris sobre negro"><strong>ESPECTRO</strong><small>La luz en anillos de arcoíris sobre negro, como un colorizador de video</small></button>
     <button class="cam-fam-btn"        data-family="FILM" title="FILM — Película revelada de verdad"><strong>FILM</strong><small>Película revelada de verdad: negativos, diapositivas, experimentales y blanco y negro</small></button>
     <button class="cam-fam-btn"        data-family="CLON" title="CLON — Copia el look de una imagen"><strong>CLON</strong><small>Enséñale una imagen y arma una cámara con su look</small></button>
   </div>
@@ -3547,6 +3560,8 @@
       <input type="range" id="pressPair" min="0" max="3" step="1" value="0">
     </div>
   </div>
+  <!-- MATRIZ, TESELA, CHISPA y BRASA: sus filas las arma _buildFxCamPanel() desde FX_CAM_CTRLS. -->
+  <div id="fxEditPanel" style="display:none;"></div>
   <div id="filmEditPanel" style="display:none;">
     <div class="film-ctrl-row">
       <span class="film-lbl">EXPOSICIÓN</span>
@@ -3854,6 +3869,9 @@
       <div class="sc-row scrash-pane" data-scrash-pane="color"><span class="sc-lbl">HUE</span><span class="sc-val" id="vScrHue">0</span><input type="range" id="scrHue" min="0" max="360" value="0"></div>
       <div class="sc-row scrash-pane" data-scrash-pane="texture"><span class="sc-lbl">GRAIN</span><span class="sc-val" id="vScrGrain">0</span><input type="range" id="scrGrain" min="0" max="100" value="0"></div>
       <div class="sc-row scrash-pane" data-scrash-pane="texture"><span class="sc-lbl">CHAOS</span><span class="sc-val" id="vScrChaos">0</span><input type="range" id="scrChaos" min="0" max="100" value="0"></div>
+      <div class="sc-row scrash-pane" data-scrash-pane="motion"><span class="sc-lbl">ARRASTRE</span><span class="sc-val" id="vScrSmear">0</span><input type="range" id="scrSmear" min="0" max="100" value="0"></div>
+      <div class="sc-row scrash-pane" data-scrash-pane="texture"><span class="sc-lbl">CHISPA</span><span class="sc-val" id="vScrSpark">0</span><input type="range" id="scrSpark" min="0" max="100" value="0"></div>
+      <div class="sc-row scrash-pane" data-scrash-pane="color"><span class="sc-lbl">TRAMA RGB</span><span class="sc-val" id="vScrRgb">0</span><input type="range" id="scrRgb" min="0" max="100" value="0"></div>
     </div>
     <div class="sc-row scrash-pane" data-scrash-pane="motion" style="gap:8px;margin-top:2px;">
       <button id="btnScrashAnimate">ANIMATE</button>
@@ -4301,6 +4319,14 @@
 <script src="./optical-scope.js"></script>
 <script src="./press.js"></script>
 <script src="./consola.js"></script>
+<!-- Cámaras nuevas en la gráfica (WebGL 1). Si una falta, su cámara cae a AUTO 03. -->
+<script src="./matriz.js"></script>
+<script src="./tesela.js"></script>
+<script src="./chispa.js"></script>
+<script src="./brasa.js"></script>
+<script src="./cuarto.js"></script>
+<script src="./gusano.js"></script>
+<script src="./espectro.js"></script>
 <script src="./reaccion.js"></script>
 <script src="./qr.js"></script>
 <script src="./clon.js"></script>
@@ -5111,6 +5137,135 @@ let oscamDefinitionVal = 46;
 let oscamColorMode = 'GREEN';
 // PRENSA: tamaño del punto (1–10), tinta, papel, descuadre de planchas y par de tintas de RISO.
 let pressDotVal = 3, pressInkVal = 50, pressPaperVal = 35, pressRegVal = 15, pressPairVal = 0;
+// ── Mandos de las cámaras nuevas (MATRIZ, TESELA, CHISPA, BRASA) ─────────────────────────────
+// Una tabla en vez de cuatro juegos de variables: cada mando es un deslizador de la hoja «fx» (ver
+// _buildFxCamPanel), se guarda en ajustes (fxCamVals) y llega al motor con el nombre del contrato.
+// En el deslizador van enteros; «k» lo convierte al valor del motor (k: 0.01 → de 0 a 1), «bool»
+// lo pasa como verdadero o falso y «options» como el nombre de la opción (PERSONA de CHISPA: 'TODO'…). CHISPA guarda un juego por variante: sus valores de fábrica son
+// otros en LENTEJA y en MAREA.
+const FX_CAM_CTRLS = {
+  MATRIZ: [
+    { id:'celdas', label:'CELDAS', min:24, max:64, def:36 },
+    { id:'flujo', label:'FLUJO', min:10, max:60, def:22, k:0.01 },
+    { id:'halo', label:'HALO', min:0, max:100, def:55, k:0.01 },
+    { id:'sujeto', label:'PERSONA', min:0, max:1, def:0, bool:true, text:['TODO', 'CORDÓN'] },
+    { id:'datos', label:'DATOS', min:0, max:1, def:0, bool:true, text:['NO', 'SÍ'] },
+  ],
+  TESELA: [
+    { id:'baldosa', label:'BALDOSA', min:24, max:96, def:64 },
+    { id:'rotura', label:'ROTURA', min:0, max:100, def:55, k:0.01 },
+    { id:'saltos', label:'SALTOS', min:0, max:15, def:6, unit:' Hz' },
+  ],
+  'CHISPA:LENTEJA': [
+    { id:'persona', label:'PERSONA', min:0, max:2, def:0, options:['TODO', 'PERSONA', 'FONDO'] },
+    { id:'densidad', label:'DENSIDAD', min:0, max:100, def:78, k:0.01 },
+    { id:'umbral', label:'UMBRAL', min:5, max:65, def:18, k:0.01 },
+    { id:'cruces', label:'CRUCES', min:0, max:100, def:65, k:0.01 },
+    { id:'anclaje', label:'ANCLAJE', min:0, max:100, def:85, k:0.01 },
+    { id:'ritmo', label:'RITMO', min:4, max:18, def:9, unit:' Hz' },
+  ],
+  'CHISPA:MAREA': [
+    { id:'densidad', label:'DENSIDAD', min:0, max:100, def:55, k:0.01 },
+    { id:'umbral', label:'UMBRAL', min:5, max:65, def:32, k:0.01 },
+    { id:'cruces', label:'CUADROS', min:0, max:100, def:50, k:0.01 },
+    { id:'anclaje', label:'ANCLAJE', min:0, max:100, def:75, k:0.01 },
+    { id:'ritmo', label:'RITMO', min:4, max:18, def:9, unit:' Hz' },
+  ],
+  BRASA: [
+    { id:'arrastre', label:'ARRASTRE', min:0, max:100, def:45, k:0.01 },
+    { id:'texto', label:'TEXTO', min:0, max:100, def:70, k:0.01 },
+    { id:'ardor', label:'ARDOR', min:0, max:100, def:65, k:0.01 },
+    { id:'rejilla', label:'REJILLA', min:0, max:100, def:55, k:0.01 },
+    { id:'marco', label:'MARCO', min:0, max:1, def:1, bool:true, text:['NO', 'SÍ'] },
+  ],
+  CUARTO: [
+    { id:'giro', label:'GIRO', min:0, max:100, def:35, k:0.01 },
+    { id:'luz', label:'LUZ', min:0, max:100, def:70, k:0.01 },
+    { id:'trama', label:'TRAMA', min:0, max:100, def:60, k:0.01 },
+    { id:'temblor', label:'TEMBLOR', min:0, max:100, def:50, k:0.01 },
+  ],
+  GUSANO: [
+    { id:'curva', label:'CURVA', min:0, max:100, def:50, k:0.01 },
+    { id:'paso', label:'PASO', min:0, max:100, def:50, k:0.01 },
+    { id:'trama', label:'TRAMA', min:0, max:100, def:70, k:0.01 },
+    { id:'figura', label:'SELLO', min:0, max:1, def:0, text:['GENERADO', 'CÁMARA'] },
+  ],
+  ESPECTRO: [
+    { id:'vueltas', label:'VUELTAS', min:0, max:100, def:50, k:0.01 },
+    { id:'clave', label:'CLAVE', min:0, max:100, def:70, k:0.01 },
+    { id:'croma', label:'CROMA', min:0, max:100, def:60, k:0.01 },
+    { id:'ciclo', label:'CICLO', min:0, max:100, def:30, k:0.01 },
+  ],
+};
+const fxCamVals = {};
+for (const [key, list] of Object.entries(FX_CAM_CTRLS)) { fxCamVals[key] = {}; for (const c of list) fxCamVals[key][c.id] = c.def; }
+// La clave de la tabla para una cámara: la familia, o familia:variante si guarda un juego por variante.
+function _fxCamKey(fam, variant) {
+  if (FX_CAM_CTRLS[fam]) return fam;
+  const key = fam + ':' + variant;
+  return FX_CAM_CTRLS[key] ? key : (Object.keys(FX_CAM_CTRLS).find(k => k.startsWith(fam + ':')) || null);
+}
+// Lo que llega al motor: { celdas: 36, flujo: 0.28, … }.
+function _fxCamValues(fam, variant) {
+  const key = _fxCamKey(fam, variant), out = {};
+  if (!key) return out;
+  for (const c of FX_CAM_CTRLS[key]) { const v = fxCamVals[key][c.id]; out[c.id] = c.options ? c.options[v] || c.options[0] : c.bool ? v >= 1 : c.k ? +(v * c.k).toFixed(4) : v; }
+  return out;
+}
+// ESCUCHA (escucha.js) mueve mandos de la cámara mientras pinta el cuadro y los devuelve: aquí se le
+// dice cuáles en las cámaras nuevas. El golpe y los medios los lee cada motor (opciones.audio): no
+// tienen deslizador. En CHISPA y BRASA el motor lo hace todo; aquí va solo lo que dice la fila.
+document.addEventListener('DOMContentLoaded', () => {
+  const ear = window.flipEscucha;
+  if (!ear || !ear.mapa) return;
+  const knob = (key, id, band, span) => { const c = FX_CAM_CTRLS[key].find(x => x.id === id); return { get: () => fxCamVals[key][id], set: v => { fxCamVals[key][id] = v; }, band, span, min: c.min, max: c.max, step: true }; };
+  Object.assign(ear.mapa, {
+    MATRIZ: { dice: 'El bajo trenza diagonales, los agudos encienden el fósforo y el golpe invierte los cordones', mandos: [knob('MATRIZ', 'flujo', 'bass', -14), knob('MATRIZ', 'halo', 'high', 35)] },
+    TESELA: { dice: 'El bajo rompe más baldosas y la memoria salta con cada golpe', mandos: [knob('TESELA', 'rotura', 'bass', 35)] },
+    CHISPA: { dice: 'El golpe enciende destellos y el sonido aviva la brillantina', mandos: [] },
+    BRASA: { dice: 'El bajo corre las luces y el golpe las arrastra en ráfaga', mandos: [] },
+    CUARTO: { dice: 'El sonido mueve el cuarto y la pantalla alumbra al pulso', mandos: [] },
+    GUSANO: { dice: 'El bajo empuja el gusano y cada golpe le cambia el color', mandos: [] },
+    ESPECTRO: { dice: 'El sonido hace correr los anillos de arcoíris', mandos: [] },
+  });
+});
+// El sonido, si ESCUCHA está encendida: bandas de 0 a 1 y el golpe (que cae en 160 ms; «beats» los cuenta).
+function _fxCamAudio() {
+  const ear = window.flipEscucha;
+  if (!ear || !ear.on) return null;
+  const lv = ear.levels();
+  return { bass: lv.bass, mid: lv.mid, treble: lv.high, beat: lv.beat, beats: lv.beats };
+}
+// Las cámaras nuevas comparten firma:
+//   renderX(fuente, anchoFuente, altoFuente, ctx2d, espejo, variante, opciones) → true si pintó.
+// Opciones comunes { now, path, outW, outH, audio? } y los mandos de su tabla. El marco de BRASA solo
+// cuando pinta la cámara propia (visor, foto y video de CÁMARA: «own»); en STAGE, PORTAL, FUSION y
+// EDIT va apagado. Sin su archivo, sin gráfica, si falla o si devuelve falso, queda AUTO 03.
+const FX_CAM_FN = { matriz: 'renderMatriz', tesela: 'renderTesela', chispa: 'renderChispa', brasa: 'renderBrasa', cuarto: 'renderCuarto', gusano: 'renderGusano', espectro: 'renderEspectro' };
+const _fxCamFailed = {};
+function _fxCamOptions(frame) {
+  const o = frame.options || {}, fam = frame.profile.family;
+  const opts = { now: o.now, path: frame.path, outW: o.outW, outH: o.outH, ..._fxCamValues(fam, frame.profile.variant) };
+  if (o.motion) opts.motion = true;
+  if (o.own) opts.own = true;           // (pinta la cámara propia: el motor puede avisar en el cristal y compartir memoria visor–foto)
+  const audio = o.audio || _fxCamAudio();
+  if (audio) opts.audio = audio;
+  if ('marco' in opts) opts.marco = !!(opts.marco && o.own);
+  return opts;
+}
+function _renderFxCam(frame) {
+  const name = FX_CAM_FN[frame.profile.renderer], fn = window[name];
+  let ok = false;
+  if (typeof fn === 'function') {
+    try { ok = !!fn(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant, _fxCamOptions(frame)); }
+    catch (error) {
+      // (un motor que falla no se lleva la cámara por delante: se avisa una vez y pinta AUTO 03)
+      if (!_fxCamFailed[name]) { _fxCamFailed[name] = String(error && error.message || error); console.error(name + ': ' + _fxCamFailed[name]); }
+    }
+  }
+  if (!ok) { try { drawCameraFrame({ ...frame, profile: { ...frame.profile, renderer: 'auto03' } }); } catch (_) {} }
+  return frame;
+}
 let caskiaSeikoGhostVal = 28;
 let caskiaSeikoDitherVal = 18;
 let caskiaSeikoContrastVal = 42;
@@ -5211,8 +5366,89 @@ const CAM_FAMILIES = {
     variants:[
       { id:'B128', label:'128 BITS', hint:'128 BITS · polígonos con textura suave, estelas, resplandor y un atardecer que no se acaba.' },
       { id:'B32', label:'32 BITS', hint:'32 BITS · píxel duro, pocos colores con tramado y polígonos que tiemblan.' },
+      { id:'NOCHE', label:'NOCHE', hint:'NOCHE · el cuarto a oscuras alumbrado por la pantalla: sombras índigo, tramado a la vista, resplandor solo en las luces y alguna estrella.' },
     ],
     editMode:'consola',
+    paletteContext:null,
+  },
+  // Las cuatro cámaras nuevas en la gráfica. Sus mandos viven en FX_CAM_CTRLS (hoja de ajustes «fx»).
+  // MATRIZ (matriz.js): rejilla de puntos de fósforo; cada nodo tiende un puente hacia el vecino en la
+  // dirección del contorno (| — / \) y los parches que comparten diagonal se sueldan en cordones.
+  MATRIZ: {
+    label:'MATRIZ',
+    displayLabel:'MATRIZ',
+    variants:[
+      { id:'FOSFORO', label:'FÓSFORO', hint:'FÓSFORO · pantalla de puntos verde: cada trazo sigue el contorno y las diagonales hacen cordón.' },
+      { id:'AMBAR', label:'ÁMBAR', hint:'ÁMBAR · los mismos trazos en fósforo ámbar, de terminal vieja.' },
+      { id:'HIELO', label:'HIELO', hint:'HIELO · los mismos trazos en fósforo azul hielo.' },
+    ],
+    editMode:'fx',
+    paletteContext:null,
+  },
+  // TESELA (tesela.js): la figura en baldosas de 8 × 8 a cuatro tonos, de un banco propio dibujado
+  // por código, con sus sub-paletas y ráfagas de corrupción a saltos, recortada a baldosa.
+  TESELA: {
+    label:'TESELA',
+    displayLabel:'TESELA',
+    variants:[
+      { id:'SILUETA', label:'SILUETA', hint:'SILUETA · la persona hecha de baldosas de memoria rota, sobre negro. Si no hay nadie, va el cuadro entero, atenuado.' },
+      { id:'TOTAL', label:'TOTAL', hint:'TOTAL · todo el cuadro en baldosas: para paisajes y objetos.' },
+    ],
+    editMode:'fx',
+    paletteContext:null,
+  },
+  // CHISPA (chispa.js): destellos que se encienden en la luz y viajan con la imagen.
+  CHISPA: {
+    label:'CHISPA',
+    displayLabel:'CHISPA',
+    variants:[
+      { id:'LENTEJA', label:'LENTEJA', hint:'LENTEJA · brillantina: arcoíris en lo blanco, el color propio en lo vivo y cruces de destello. Lo oscuro queda liso.' },
+      { id:'MAREA', label:'MAREA', hint:'MAREA · destellos finos sobre las crestas de luz, como agua de noche, y cuadros de luz sueltos.' },
+    ],
+    editMode:'fx',
+    paletteContext:null,
+  },
+  // BRASA (brasa.js): retrato en rampa de brasa a oro, letra diminuta en los medios tonos y arrastre.
+  BRASA: {
+    label:'BRASA',
+    displayLabel:'BRASA',
+    variants:[
+      { id:'STD', label:'RETRATO', hint:'RETRATO · de brasa a oro, renglones de letra diminuta en los medios tonos y luces que se corren en horizontal.' },
+    ],
+    editMode:'fx',
+    paletteContext:null,
+  },
+  // CUARTO (cuarto.js): un cuarto en polígonos de otra generación, de noche; la cámara va en su pantalla
+  // y alumbra el cuarto.
+  CUARTO: {
+    label:'CUARTO',
+    displayLabel:'CUARTO',
+    variants:[
+      { id:'DORMITORIO', label:'DORMITORIO', hint:'DORMITORIO · un cuarto de noche en polígonos; tu imagen, en la pantalla que lo alumbra.' },
+      { id:'OFICINA', label:'OFICINA', hint:'OFICINA · una oficina a oscuras en polígonos; tu imagen, en el monitor.' },
+      { id:'AZOTEA', label:'AZOTEA', hint:'AZOTEA · una azotea de noche en polígonos; tu imagen, en el anuncio que alumbra la ciudad.' },
+    ],
+    editMode:'fx',
+    paletteContext:null,
+  },
+  // GUSANO (gusano.js): un sello que se estampa paso a paso a lo largo de una curva, tramado por canal.
+  GUSANO: {
+    label:'GUSANO',
+    displayLabel:'GUSANO',
+    variants:[
+      { id:'STD', label:'GUSANO', hint:'GUSANO · bandas de puntos rojos, verdes y azules que avanzan en curva, con negro entre una y otra.' },
+    ],
+    editMode:'fx',
+    paletteContext:null,
+  },
+  // ESPECTRO (espectro.js): colorizador de video: la luz recorre varias vueltas de arcoíris sobre negro.
+  ESPECTRO: {
+    label:'ESPECTRO',
+    displayLabel:'ESPECTRO',
+    variants:[
+      { id:'STD', label:'ESPECTRO', hint:'ESPECTRO · la luz en anillos de arcoíris que la recorren, sobre negro total, con el corrimiento del video de antes.' },
+    ],
+    editMode:'fx',
     paletteContext:null,
   },
   // FILM (film.js): película revelada paso a paso (exposición por capas, halación, freno entre capas,
@@ -5278,6 +5514,13 @@ const CAMERA_ENGINE_RENDERERS = Object.freeze({
   OSCAM: 'oscam',
   PRENSA: 'press',
   CONSOLA: 'consola',
+  MATRIZ: 'matriz',
+  TESELA: 'tesela',
+  CHISPA: 'chispa',
+  BRASA: 'brasa',
+  CUARTO: 'cuarto',
+  GUSANO: 'gusano',
+  ESPECTRO: 'espectro',
   FILM: 'film',
   CLON: 'clon',
 });
@@ -5520,6 +5763,14 @@ function drawCameraFrame(frame) {
         try { drawCameraFrame({ ...frame, profile: { ...frame.profile, renderer: 'auto03' } }); } catch (_) {}
       }
       return frame;
+    case 'matriz':
+    case 'tesela':
+    case 'chispa':
+    case 'brasa':
+    case 'cuarto':
+    case 'gusano':
+    case 'espectro':
+      return _renderFxCam(frame);
     case 'press':
       if (!(window.renderPress && renderPress(frame.source, frame.srcW, frame.srcH, frame.targetCtx, frame.mirror, frame.profile.variant,
         { dot: pressDotVal, ink: pressInkVal, paper: pressPaperVal, register: pressRegVal, pair: pressPairVal }))) {
@@ -5969,6 +6220,8 @@ function _applyCamState() {
   document.getElementById('pressEditPanel').style.display = editMode === 'press' ? 'block' : 'none';
   document.getElementById('filmEditPanel').style.display = editMode === 'film' ? 'block' : 'none';
   if (window.flipFilm) flipFilm.syncUI();
+  document.getElementById('fxEditPanel').style.display = editMode === 'fx' ? 'block' : 'none';
+  _syncFxCamUI();
   document.getElementById('pressRegRow').classList.toggle('visible', editMode === 'press' && camVariant !== 'DIARIO');
   document.getElementById('pressPairRow').classList.toggle('visible', editMode === 'press' && camVariant === 'RISO');
   _syncPressUI();
@@ -6152,6 +6405,47 @@ for (const [id, set] of [['pressDot', v => { pressDotVal = Math.max(1, Math.min(
   ['pressPair', v => { pressPairVal = Math.max(0, Math.min(3, v)); }]]) {
   document.getElementById(id).addEventListener('input', event => { set(+event.target.value | 0); _syncPressUI(); saveSettings(); });
 }
+// La hoja de ajustes de las cámaras nuevas: una fila por mando de FX_CAM_CTRLS (todas a la vez en la
+// página; se ven solo las de la cámara puesta). Se arma aquí, antes de que la consola de perillas
+// (console.js) busque los deslizadores de cada hoja.
+const _fxCamText = (c, v) => c.options ? c.options[v] || c.options[0] : c.text ? c.text[v >= 1 ? 1 : 0] : String(v) + (c.unit || '');
+function _buildFxCamPanel() {
+  const panel = document.getElementById('fxEditPanel');
+  if (!panel || panel.childElementCount) return;
+  for (const [key, list] of Object.entries(FX_CAM_CTRLS)) {
+    for (const c of list) {
+      const row = document.createElement('div');
+      row.className = 'fx-ctrl-row';
+      row.dataset.fx = key; row.dataset.fxId = c.id;
+      row.hidden = true;
+      const id = 'fx' + key.replace(/[^A-Z]/g, '') + c.id;
+      row.innerHTML = `<span class="fx-lbl">${c.label}</span><span class="fx-val" id="v${id}">${_fxCamText(c, c.def)}</span>` +
+        `<input type="range" id="${id}" min="${c.min}" max="${c.max}" step="1" value="${c.def}">`;
+      const input = row.querySelector('input');
+      input.addEventListener('input', () => {
+        const v = Math.max(c.min, Math.min(c.max, Math.round(+input.value)));
+        fxCamVals[key][c.id] = v;
+        row.querySelector('.fx-val').textContent = _fxCamText(c, v);
+        saveSettings();
+      });
+      panel.appendChild(row);
+    }
+  }
+}
+function _syncFxCamUI() {
+  const panel = document.getElementById('fxEditPanel');
+  if (!panel) return;
+  const key = _fxCamKey(camFamily, camVariant);
+  panel.querySelectorAll('.fx-ctrl-row').forEach(row => {
+    const on = row.dataset.fx === key;
+    row.hidden = !on;
+    if (!on) return;
+    const c = FX_CAM_CTRLS[key].find(x => x.id === row.dataset.fxId), v = fxCamVals[key][c.id];
+    row.querySelector('input').value = v;
+    row.querySelector('.fx-val').textContent = _fxCamText(c, v);
+  });
+}
+_buildFxCamPanel();
 function _syncDsiTramaUI() {
   const trama = document.getElementById('dsiTrama'), celda = document.getElementById('dsiCelda');
   if (!trama || !celda) return;
@@ -7346,6 +7640,10 @@ _camLayerSets.press = { used: 0, parked: false, canvases: () => [], build: () =>
 _camLayerSets.film = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipFilm) flipFilm.release(); } };
 _camLayerSets.clon = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipClon) flipClon.release(); } };
 _camLayerSets.consola = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (window.flipConsola) flipConsola.release(); } };
+// Las cámaras nuevas, igual: cada una suelta su gráfica (window.flipMatriz.release(), etc.) a los seis segundos sin uso.
+for (const [renderer, api] of [['matriz', 'flipMatriz'], ['tesela', 'flipTesela'], ['chispa', 'flipChispa'], ['brasa', 'flipBrasa'], ['cuarto', 'flipCuarto'], ['gusano', 'flipGusano'], ['espectro', 'flipEspectro']]) {
+  _camLayerSets[renderer] = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { const m = window[api]; if (m && typeof m.release === 'function') m.release(); } };
+}
 _camLayerSets.stamp = { used: 0, parked: false, canvases: () => [], build: () => {}, drop: () => { if (typeof _stampRelease === 'function') _stampRelease(); } };
 _camLayerSets.oscam = { used: 0, parked: false, canvases: () => [], build: () => {},
   drop: () => { if (typeof releaseOpticalScopes === 'function') releaseOpticalScopes(); } };
@@ -10646,7 +10944,7 @@ let asciiVideoEl = null;
 let asciiUploading = false;
 let camFpsEnabled = true, camFpsTarget = 8, camLastFrameMs = 0;
 let customCameraFps = false;
-const cameraCadence = { DSI:8, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, PRENSA:24, CONSOLA:24, FILM:30, CLON:30 };
+const cameraCadence = { DSI:8, AUTO03:30, DLPHN:24, CASKIA:15, VFD:30, OSCAM:30, PRENSA:24, CONSOLA:24, MATRIZ:30, TESELA:30, CHISPA:30, BRASA:30, CUARTO:30, GUSANO:30, ESPECTRO:30, FILM:30, CLON:30 };
 function syncCameraCadence() {
   document.getElementById('camFpsVal').textContent = camFpsTarget;
   document.getElementById('camFpsSlider').value = camFpsTarget;
@@ -10928,12 +11226,13 @@ function cameraLoop(t) {
       else _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctxD, camMirror(), {
         path:'preview',
         now:t,
+        own:true,                       // (la cámara propia: el marco de BRASA solo sale aquí y en su foto y video)
       });
     } else if ((extAudioMode || extMicOnlyMode) && extAnalyser) {
       // F5 — paridad móvil: sin cámara, el mic (extMicOnlyMode) también pinta el patrón
       // de audio en CAM, igual que EXT AUDIO clásico de desktop (extAudioMode).
       const af = _getExtAudioSourceFrame(640, 480);
-      _renderCamEngineFrame(af, 640, 480, ctxD, false, { path: 'preview', now: t });
+      _renderCamEngineFrame(af, 640, 480, ctxD, false, { path: 'preview', now: t, own: true });
     }
     _renderCamStickerLayer(ctxD);
     camLastFrameMs = minInterval ? t - ((t - camLastFrameMs) % minInterval) : t;
@@ -11163,7 +11462,11 @@ const FLIP_STEP_ENGINES = {
     label: 'CAM',
     renderStep(srcCanvas, targetCtx, params, audio, t) {
       const family = (params && params.family && CAM_FAMILIES[params.family]) ? params.family : undefined;
-      _renderCamEngineFrame(srcCanvas, srcCanvas.width, srcCanvas.height, targetCtx, false, { path: 'preview', now: t, family });
+      // La variante de la capa, si es de esa familia (las capas de antes no la traen: la de fábrica).
+      const variant = family && params.variant && CAM_FAMILIES[family].variants.some(v => v.id === params.variant) ? params.variant : undefined;
+      // (las cámaras nuevas leen el sonido de la capa: el mismo que mueve GLITCH)
+      const sound = audio ? { bass: audio.bass || 0, mid: audio.mid || 0, treble: audio.treble || 0, beat: audio.beat || 0 } : undefined;
+      _renderCamEngineFrame(srcCanvas, srcCanvas.width, srcCanvas.height, targetCtx, false, { path: 'preview', now: t, family, variant, audio: sound });
     },
   },
   glitch: {
@@ -13949,7 +14252,7 @@ function _getCamRecordingOptions() {
     const cam = dims ? liveCamFrame() : still || { source: vid, srcW: vid.videoWidth, srcH: vid.videoHeight };
     // («motion»: es un cuadro de vídeo —la grabación manda sus medidas en «dims»—, no una foto)
     _renderCamEngineFrame(cam.source, cam.srcW, cam.srcH, ctx, camMirror(), {
-      path:'capture', now, resolution:options.resolution, outW:width, outH:height, motion: !!dims,
+      path:'capture', now, resolution:options.resolution, outW:width, outH:height, motion: !!dims, own: true,
     });
     _renderCamStickerLayer(ctx, false);
   };
@@ -17571,6 +17874,15 @@ function _stopMicLevelFeedback() {
 // ════════════════════════════════════════════════════════════════════
 let scrChromaVal = 0, scrDripVal = 0, scrNeonVal = 0, scrWaveVal = 0, scrCrushVal = 0;
 let scrHueVal = 0, scrGrainVal = 0, scrChaosVal = 0;
+// ARRASTRE (las luces se corren en hebras horizontales), CHISPA (destellos en lo claro) y TRAMA RGB
+// (tramado ordenado por canal, cada canal con su desfase): 0–100, a cero no tocan nada.
+let scrSmearVal = 0, scrSparkVal = 0, scrRgbVal = 0;
+let _scrTick = 0;
+// Bayer 4 × 4 de siempre: sus cuatro umbrales más bajos caen en (par, par). Desplazando el verde una
+// celda en x y el azul una en y, a tono medio quedan puntos rojos, verdes y azules puros y negro
+// entre ellos, sin el barro amarillo o cian de tramar los tres canales igual.
+const SCR_BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) * 16);
+const SCR_SPARK_TINTS = [[230, 230, 230], [150, 235, 235], [235, 160, 205]];
 // EXT AUDIO: master intensity (0-300%) for the audio-reactive bindings in _applyScrash, plus the
 // transient "burst" envelope (0..1, decays ~200ms) that spikes DRIP/CHAOS on hits.
 let scrAudioReactVal = 100;
@@ -17680,6 +17992,9 @@ let _ctxScrAudioBuf;
   _scrSlider('scrHue',    'vScrHue',    v => { scrHueVal = v; });
   _scrSlider('scrGrain',  'vScrGrain',  v => { scrGrainVal = v; });
   _scrSlider('scrChaos',  'vScrChaos',  v => { scrChaosVal = v; });
+  _scrSlider('scrSmear',  'vScrSmear',  v => { scrSmearVal = v; });
+  _scrSlider('scrSpark',  'vScrSpark',  v => { scrSparkVal = v; });
+  _scrSlider('scrRgb',    'vScrRgb',    v => { scrRgbVal = v; });
   _scrSlider('scrSpeed',  'vScrSpeed',  v => { scrSpeedVal = v; });
 
   // AUDIO REACT — master intensity (0-300%) for GLITCH's audio bindings. Shows a "%" suffix
@@ -17791,10 +18106,11 @@ let _ctxScrAudioBuf;
   document.getElementById('btnScrashReset').addEventListener('click', () => {
     scrChromaVal = 0; scrDripVal = 0; scrNeonVal = 0; scrWaveVal = 0; scrCrushVal = 0;
     scrHueVal = 0; scrGrainVal = 0; scrChaosVal = 0; scrPyPal = 'none';
-    ['scrChroma','scrDrip','scrNeon','scrWave','scrCrush','scrHue','scrGrain','scrChaos'].forEach(id => {
+    scrSmearVal = 0; scrSparkVal = 0; scrRgbVal = 0;
+    ['scrChroma','scrDrip','scrNeon','scrWave','scrCrush','scrHue','scrGrain','scrChaos','scrSmear','scrSpark','scrRgb'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = 0;
     });
-    ['vScrChroma','vScrDrip','vScrNeon','vScrWave','vScrCrush','vScrHue','vScrGrain','vScrChaos'].forEach(id => {
+    ['vScrChroma','vScrDrip','vScrNeon','vScrWave','vScrCrush','vScrHue','vScrGrain','vScrChaos','vScrSmear','vScrSpark','vScrRgb'].forEach(id => {
       const el = document.getElementById(id); if (el) el.textContent = '0';
     });
     document.querySelectorAll('.sc-py-btn').forEach((b,i) => b.classList.toggle('active', i===0));
@@ -17815,8 +18131,15 @@ function _applyScrash(srcCtx, dstCtx, w, h, t, audioMod, p) {
   const P = p || {
     chroma: scrChromaVal, drip: scrDripVal, neon: scrNeonVal, wave: scrWaveVal,
     crush: scrCrushVal, hue: scrHueVal, grain: scrGrainVal, chaos: scrChaosVal,
+    smear: scrSmearVal, spark: scrSparkVal, rgb: scrRgbVal,
     audioReact: scrAudioReactVal, animate: scrAnimateOn, speed: scrSpeedVal
   };
+  // Los tres procesos nuevos (las capas de EDIT de antes no los traen: cero). Su azar sale de un
+  // contador de cuadros y no de Math.random: cada uno cuesta lo mismo por punto, pase lo que pase.
+  const smearT = Math.max(0, Math.min(100, +P.smear || 0)) / 100;
+  const sparkT = Math.max(0, Math.min(100, +P.spark || 0)) / 100;
+  const rgbT = Math.max(0, Math.min(100, +P.rgb || 0)) / 100;
+  const procTick = (smearT || sparkT) ? (_scrTick++ / 3) | 0 : 0;     // ~10 saltos por segundo a 30 cuadros
 
   // EXT AUDIO: additive modulation of a few params on top of the base values —
   // base is never overwritten, only nudged so the music is visibly felt. AUDIO REACT
@@ -17850,7 +18173,7 @@ function _applyScrash(srcCtx, dstCtx, w, h, t, audioMod, p) {
   // waves on top of the primary one (hard cap 3 layers total) — "more waves", not just bigger.
   const extraWaves = !!(A && A.bass > 0.6);
   const hueEff = P.hue + hueSpeedExtra * t;
-  if (!(cOff || waveAmp || crushT || neonT || dripT || hueEff || grainEff || chaosEff) && scrPyPal === 'none') {
+  if (!(cOff || waveAmp || crushT || neonT || dripT || hueEff || grainEff || chaosEff || smearT || sparkT || rgbT) && scrPyPal === 'none') {
     if (srcCtx !== dstCtx) {
       dstCtx.clearRect(0, 0, w, h);
       dstCtx.drawImage(srcCtx.canvas, 0, 0, w, h, 0, 0, w, h);
@@ -17935,9 +18258,52 @@ function _applyScrash(srcCtx, dstCtx, w, h, t, audioMod, p) {
       else if (chaosEff > 0 && Math.random() < chaosEff * 0.003) {
         r=Math.random()*255|0; g=Math.random()*255|0; b=Math.random()*255|0;
       }
+      // TRAMA RGB: cada canal, a un bit, contra su Bayer desplazado; celdas de 3 × 2 (un poco apaisadas).
+      if (rgbT > 0) {
+        const cx = (x / 3) | 0, cy = (y >> 1);
+        const tr = SCR_BAYER4[((cy & 3) << 2) | (cx & 3)], tg = SCR_BAYER4[((cy & 3) << 2) | ((cx + 1) & 3)], tb = SCR_BAYER4[(((cy + 1) & 3) << 2) | (cx & 3)];
+        r = (r + ((r > tr ? 255 : 0) - r) * rgbT) | 0;
+        g = (g + ((g > tg ? 255 : 0) - g) * rgbT) | 0;
+        b = (b + ((b > tb ? 255 : 0) - b) * rgbT) | 0;
+      }
+      // CHISPA: en lo claro, algunos bloques de 3 × 3 sueltan una crucecita de luz que dura un salto.
+      if (sparkT > 0) {
+        const bx = (x / 3) | 0, by = (y / 3) | 0;
+        let hk = Math.imul(bx * 73856093 ^ by * 19349663 ^ procTick * 83492791, 0x27d4eb2d);
+        hk = ((hk ^ (hk >>> 15)) >>> 0) / 4294967296;
+        const lum = (r * 77 + g * 150 + b * 29) >> 8;
+        if (lum > 110 && hk < sparkT * 0.07 * (lum - 110) / 145) {
+          const mx = x - bx * 3, my = y - by * 3;
+          if (mx === 1 || my === 1) {                                                 // la cruz: centro y brazos
+            const k = mx === 1 && my === 1 ? 1 : 0.6, tint = SCR_SPARK_TINTS[((hk * 1e4) | 0) % 3];   // blanco, cian o rosa
+            r = Math.min(255, r + tint[0] * k) | 0;
+            g = Math.min(255, g + tint[1] * k) | 0;
+            b = Math.min(255, b + tint[2] * k) | 0;
+          }
+        }
+      }
 
       const oi = (y * w + x) * 4;
       out[oi] = r; out[oi+1] = g; out[oi+2] = b; out[oi+3] = a;
+    }
+    // ARRASTRE: en ráfagas de filas, lo que pasa del umbral de luz se arrastra en hebra horizontal.
+    // Un barrido por fila con acarreo (carry = máx(carry · caída, luz)): nada que ordenar.
+    if (smearT > 0) {
+      const band = (y / Math.max(2, (h / 120) | 0)) | 0;
+      let hb = Math.imul(band * 2654435761 ^ procTick * 40503, 0x2c1b3c6d);
+      hb = ((hb ^ (hb >>> 13)) >>> 0) / 4294967296;
+      if (hb < smearT * 0.55) {
+        const decay = 0.86 + 0.12 * smearT * (0.5 + hb / (smearT * 0.55) * 0.5);
+        const left = (band & 1) === 0, row = y * w * 4;
+        let cr = 0, cg = 0, cb = 0;
+        for (let i = 0; i < w; i++) {
+          const oi = row + (left ? i : w - 1 - i) * 4;
+          const r = out[oi], g = out[oi + 1], b = out[oi + 2];
+          cr *= decay; cg *= decay; cb *= decay;
+          if (((r * 77 + g * 150 + b * 29) >> 8) > 133) { if (r > cr) cr = r; if (g > cg) cg = g; if (b > cb) cb = b; }
+          if (cr > r) out[oi] = cr; if (cg > g) out[oi + 1] = cg; if (cb > b) out[oi + 2] = cb;
+        }
+      }
     }
   }
   dstCtx.putImageData(glitchOutput, 0, 0);
@@ -18151,6 +18517,7 @@ function saveSettings() {
       stampEngraveVal, stampInkVal, stampDetailVal, stampPaperVal, stampPaletteMode, stampFrameMode,
       dsiTramaVal, dsiCeldaVal,
       pressDotVal, pressInkVal, pressPaperVal, pressRegVal, pressPairVal,
+      fxCamVals,
       dlpColorMode, dlpResonanceVal, dlpContrastVal, oscamIntensityVal, oscamDetailVal, oscamPresenceVal, oscamTraceVal, oscamDefinitionVal, oscamStabilityVal, oscamColorMode,
       sonoPreset, sonoMixVal, sonoChaosVal,
       wmpPreset: wmpPreset, wmpSensVal, wmpTrailsVal,
@@ -18240,6 +18607,15 @@ function loadSettings() {
     if (Number.isFinite(s.pressRegVal)) pressRegVal = Math.max(0, Math.min(100, Math.round(s.pressRegVal)));
     if (Number.isFinite(s.pressPairVal)) pressPairVal = Math.max(0, Math.min(3, Math.round(s.pressPairVal)));
     _syncPressUI();
+    // Las cámaras nuevas: solo lo que conoce la tabla, dentro de su rango.
+    if (s.fxCamVals && typeof s.fxCamVals === 'object') {
+      for (const [key, list] of Object.entries(FX_CAM_CTRLS)) {
+        const saved = s.fxCamVals[key];
+        if (!saved || typeof saved !== 'object') continue;
+        for (const c of list) if (Number.isFinite(saved[c.id])) fxCamVals[key][c.id] = Math.max(c.min, Math.min(c.max, Math.round(saved[c.id])));
+      }
+    }
+    _syncFxCamUI();
     if (s.stampEngraveVal !== undefined) {
       stampEngraveVal = Math.max(0, Math.min(100, Math.round(s.stampEngraveVal)));
       const e = document.getElementById('stampEngrave');
@@ -18420,7 +18796,7 @@ function loadSettings() {
                      // const's declaration point (~line 20390s), so referencing the const would TDZ-throw
         .map(st => {
           const out = { engine: st.engine, on: st.on !== false };
-          if (st.engine === 'cam') out.family = (st.family && CAM_FAMILIES[st.family]) ? st.family : undefined;
+          if (st.engine === 'cam') { out.family = (st.family && CAM_FAMILIES[st.family]) ? st.family : undefined; out.variant = _editCamVariant(out.family, st.variant); }
           else if (st.engine === 'glitch') out.params = _editClampGlitchParams(st.params);
           else if (st.engine === 'ascii') out.params = _editClampAsciiParams(st.params);
           else if (st.engine === 'flowblob') out.params = _editClampFlowParams(st.params);
@@ -19798,10 +20174,17 @@ let _editExpandedPanel = null; // { i, kind: 'fam'|'glitch'|'ascii'|'flow' } | n
 const EDIT_MAX_LAYERS = 4;
 const layerCameraFamilies = Object.entries(CAM_FAMILIES)
   .map(([id, config]) => [id, config.displayLabel || config.label]);
+// La variante de una capa CAM («family:variant»): la guardada si es de esa familia; si no (proyectos
+// de antes, que solo guardaban la familia), ninguna, y la capa pinta la de fábrica de la familia.
+// Va como declaración de función: loadSettings la usa antes de llegar aquí.
+function _editCamVariant(family, variant) {
+  const cfg = family && CAM_FAMILIES[family];
+  return cfg && variant && cfg.variants.some(v => v.id === variant && !v.oculta) ? variant : undefined;
+}
 // Defaults mirror the GLITCH tab's own slider defaults (see `let scrChromaVal = 0, ...`
 // near _applyScrash) but are a fresh object per layer — never shared.
 function _editDefaultGlitchParams() {
-  return { chroma: 0, drip: 0, neon: 0, wave: 0, crush: 0, hue: 0, grain: 0, chaos: 0, audioReact: 100, animate: false, speed: 5 };
+  return { chroma: 0, drip: 0, neon: 0, wave: 0, crush: 0, hue: 0, grain: 0, chaos: 0, smear: 0, spark: 0, rgb: 0, audioReact: 100, animate: false, speed: 5 };
 }
 function _editDefaultAsciiParams() {
   return { cols: 80, ink: 'auto', paper: 'auto', gradient: 'normal' };
@@ -19818,6 +20201,7 @@ function _editClampGlitchParams(p) {
     neon: num(p.neon, 0, 100, d.neon), wave: num(p.wave, 0, 40, d.wave),
     crush: num(p.crush, 0, 100, d.crush), hue: num(p.hue, 0, 360, d.hue),
     grain: num(p.grain, 0, 100, d.grain), chaos: num(p.chaos, 0, 100, d.chaos),
+    smear: num(p.smear, 0, 100, d.smear), spark: num(p.spark, 0, 100, d.spark), rgb: num(p.rgb, 0, 100, d.rgb),
     audioReact: num(p.audioReact, 0, 300, d.audioReact),
     animate: !!p.animate, speed: num(p.speed, 1, 20, d.speed),
   };
@@ -19963,7 +20347,7 @@ function _editRenderWmpSource(ctx, w, h, t) {
 }
 
 function _editStepParams(step) {
-  if (step.engine === 'cam') return { family: step.family };
+  if (step.engine === 'cam') return { family: step.family, variant: step.variant };
   if (step.engine === 'glitch') return { glitch: step.params || _editDefaultGlitchParams() };
   if (step.engine === 'ascii') return step.params || _editDefaultAsciiParams();
   if (step.engine === 'flowblob') return step.params || _editDefaultFlowParams();
@@ -20001,7 +20385,7 @@ _editLoop.maxFps = 24;
       .slice(0, EDIT_MAX_LAYERS)
       .map(s => {
         const step = { engine: s.engine, on: s.on !== false };
-        if (s.engine === 'cam') step.family = (s.family && CAM_FAMILIES[s.family]) ? s.family : camFamily;
+        if (s.engine === 'cam') { step.family = (s.family && CAM_FAMILIES[s.family]) ? s.family : camFamily; step.variant = _editCamVariant(step.family, s.variant); }
         else if (s.engine === 'glitch') step.params = _editClampGlitchParams(s.params);
         else if (s.engine === 'ascii') step.params = _editClampAsciiParams(s.params);
         else if (s.engine === 'flowblob') step.params = _editClampFlowParams(s.params);
@@ -20025,7 +20409,7 @@ _editLoop.maxFps = 24;
       source: { type: editSource.type },
       steps: editSteps.map(s => {
         const out = { engine: s.engine, on: s.on };
-        if (s.engine === 'cam') out.family = s.family;
+        if (s.engine === 'cam') { out.family = s.family; if (s.variant) out.variant = s.variant; }
         else if (s.engine === 'glitch') out.params = s.params;
         else if (s.engine === 'ascii') out.params = s.params;
         else if (s.engine === 'flowblob') out.params = s.params;
@@ -20040,19 +20424,30 @@ _editLoop.maxFps = 24;
 
   // ── Layer list UI ────────────────────────────────────────────────────
   function _editLayerLabel(step) {
-    if (step.engine === 'cam') { const fam = step.family || camFamily; return 'CAM · ' + ((CAM_FAMILIES[fam] && CAM_FAMILIES[fam].displayLabel) || fam); }
+    if (step.engine === 'cam') {
+      const fam = step.family || camFamily, cfg = CAM_FAMILIES[fam];
+      // (con más de una variante, también cuál: «CAM · MATRIZ · ÁMBAR»)
+      const variant = cfg && cfg.variants.length > 1 ? cfg.variants.find(v => v.id === (step.variant || cfg.variants[0].id)) : null;
+      return 'CAM · ' + ((cfg && cfg.displayLabel) || fam) + (variant ? ' · ' + variant.label : '');
+    }
     if (step.engine === 'glitch') return 'GLITCH';
     if (step.engine === 'ascii') return 'ASCII';
     if (step.engine === 'flowblob') return 'FLOW';
     return step.engine;
   }
   function _editFamPanelHtml(i, step) {
-    const active = step.family || camFamily;
+    const active = step.family || camFamily, cfg = CAM_FAMILIES[active];
+    // Debajo de las familias, las variantes de la elegida (si tiene más de una).
+    const variants = cfg ? cfg.variants.filter(v => !v.oculta) : [];
+    const current = step.variant || (variants[0] && variants[0].id);
     return `<div class="edit-fam-panel" data-i="${i}">` +
       layerCameraFamilies.map(([id, label]) =>
         `<button class="edit-fam-pill${id === active ? ' active' : ''}" data-i="${i}" data-act="setfam" data-fam="${id}">${label}</button>`
       ).join('') +
-      `</div>`;
+      `</div>` +
+      (variants.length > 1 ? `<div class="edit-fam-panel edit-var-panel" data-i="${i}">` +
+        variants.map(v => `<button class="edit-fam-pill${v.id === current ? ' active' : ''}" data-i="${i}" data-act="setvar" data-var="${v.id}">${v.label}</button>`).join('') +
+        `</div>` : '');
   }
   function _editGlitchPanelHtml(i, step) {
     const p = step.params || _editDefaultGlitchParams();
@@ -20069,6 +20464,9 @@ _editLoop.maxFps = 24;
       row('HUE', 'hue', 0, 360, 1, p.hue) +
       row('GRAIN', 'grain', 0, 100, 1, p.grain) +
       row('CHAOS', 'chaos', 0, 100, 1, p.chaos) +
+      row('ARRASTRE', 'smear', 0, 100, 1, p.smear || 0) +
+      row('CHISPA', 'spark', 0, 100, 1, p.spark || 0) +
+      row('TRAMA RGB', 'rgb', 0, 100, 1, p.rgb || 0) +
       `<div class="edit-mini-row full"><span class="emr-lbl">AUDIO REACT</span>` +
       `<input type="range" data-glitch-param="audioReact" min="0" max="300" step="10" value="${p.audioReact}">` +
       `<span class="emr-val" data-glitch-val="audioReact">${p.audioReact}%</span></div>` +
@@ -20186,7 +20584,11 @@ _editLoop.maxFps = 24;
     } else if (act === 'flowtoggle') {
       _editExpandedPanel = (_editExpandedPanel && _editExpandedPanel.kind === 'flow' && _editExpandedPanel.i === i) ? null : { i, kind: 'flow' };
     } else if (act === 'setfam') {
+      if (editSteps[i].family !== btn.dataset.fam) editSteps[i].variant = undefined;
       editSteps[i].family = btn.dataset.fam;
+    } else if (act === 'setvar') {
+      editSteps[i].variant = _editCamVariant(editSteps[i].family || camFamily, btn.dataset.var);
+      if (!editSteps[i].family) editSteps[i].family = camFamily;
     } else if (act === 'setink') {
       if (!editSteps[i].params) editSteps[i].params = _editDefaultAsciiParams();
       editSteps[i].params.ink = btn.dataset.val;
@@ -20212,7 +20614,7 @@ _editLoop.maxFps = 24;
 
   document.getElementById('btnEditAddCam').addEventListener('click', () => {
     if (editSteps.length >= EDIT_MAX_LAYERS) return;
-    editSteps.push({ engine: 'cam', on: true, family: camFamily });
+    editSteps.push({ engine: 'cam', on: true, family: camFamily, variant: _editCamVariant(camFamily, camVariant) });
     _editRenderLayers(); _editSyncPersisted();
   });
   document.getElementById('btnEditAddGlitch').addEventListener('click', () => {

@@ -386,7 +386,7 @@ const step = (name, detail) => console.log('✓ ' + name + (detail ? ' · ' + JS
     const d0 = await drawers();
     assert.deepEqual(d0.tabs, ['FILM', 'DIGITAL', 'CUSTOM']);
     assert.deepEqual(d0.on, ['digital']);
-    assert.deepEqual(d0.tiles, ['DSI', 'AUTO03', 'DLPHN', 'CASKIA', 'VFD', 'OSCAM', 'PRENSA', 'CONSOLA'], 'DIGITAL: las cámaras de siempre, con VIRTUAL');
+    assert.deepEqual(d0.tiles, ['DSI', 'AUTO03', 'DLPHN', 'CASKIA', 'VFD', 'OSCAM', 'PRENSA', 'CONSOLA', 'MATRIZ', 'TESELA', 'CHISPA', 'BRASA', 'CUARTO', 'GUSANO', 'ESPECTRO'], 'DIGITAL: las cámaras de siempre, con VIRTUAL y las siete nuevas');
     await page.locator('#deckGroups [data-group="film"]').click();
     await page.waitForFunction(() => camFamily === 'FILM', null, { timeout: 5000 });
     const d1 = await drawers();

@@ -24,6 +24,7 @@ const { launch, openFlip } = require('./lib/harness.cjs');
       const side = () => { const d = ctx.getImageData(0, 0, 640, 480).data; let l = 0, r = 0; for (let y = 40; y < 440; y += 8) for (let x = 20; x < 620; x += 8) { const i = 4 * (y * 640 + x), v = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; if (x < 320) l += v; else r += v; } return l - r; };
       const wait = ms => new Promise(ok => setTimeout(ok, ms)), rows = {};
       for (const family of Object.keys(CAM_FAMILIES)) {
+        if (family === 'GUSANO') continue;      // de fábrica dibuja su propio gusano, sin la cámara: no hay imagen que espejar
         const list = CAM_FAMILIES[family].variants || [], variant = list.length ? list[0].id : undefined, shot = [];
         for (const mirror of [false, true]) {
           let v = 0;

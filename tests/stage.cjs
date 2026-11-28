@@ -103,9 +103,10 @@ async function phone(browser) {
   assert.ok(trail.soon > 120, 'el bucle retiene la imagen: ' + trail.soon);
   assert.ok(trail.late < trail.soon * .35, 'y la estela se apaga: ' + JSON.stringify(trail));
 
-  // 7 · Las ocho escenas de fábrica dibujan sin errores; SILUETA carga su recorte.
-  for (let i = 0; i < 8; i++) {
-    await page.evaluate(n => { flipStage.recall(n, true); flipStage.step(8); }, i);
+  // 7 · Las diez escenas de fábrica dibujan sin errores; SILUETA carga su recorte.
+  // (GUSANO es la cámara GUSANO, que se pinta con su propio reloj: se le dan dos segundos)
+  for (let i = 0; i < 10; i++) {
+    await page.evaluate(n => { flipStage.recall(n, true); flipStage.step(n === 9 ? 120 : 8); }, i);
     const px = await probe(.1, .1, .8, .8);
     assert.ok(px.r + px.g + px.b > 20, 'la escena ' + (i + 1) + ' no sale en negro');
   }
@@ -341,7 +342,7 @@ async function phone(browser) {
   let f = await facil();
   assert.deepEqual(f.tiras, ['SEPARAR RGB ← BAJO', 'ZOOM ← GOLPE', 'CONTRASTE ← AGUDOS', 'LÍNEAS DE TV ← + CONECTAR'], 'los cuatro efectos de la escena, cada uno con lo que lo mueve');
   assert.deepEqual([f.tomas, f.cables, f.perillas], [0, 0, 0], 'en FÁCIL no hay tomas, cables ni perillas: ' + JSON.stringify(f));
-  assert.deepEqual(f.escenas, ['1VIVO', '2TÚNEL', '3MANDALA', '4SILUETA', '5VHS', '6NEÓN', '7ONDAS', '8PRUEBA'], 'las escenas llevan su nombre');
+  assert.deepEqual(f.escenas, ['1VIVO', '2TÚNEL', '3MANDALA', '4SILUETA', '5VHS', '6NEÓN', '7ONDAS', '8PRUEBA', '9ESPECTRO', '10GUSANO'], 'las escenas llevan su nombre');
   assert.ok(f.sobra <= 1, 'todo cabe sin desplazar (sobran ' + f.sobra + ' px)');
   assert.equal(f.micArriba, 'none', 'en STAGE hay un solo micrófono: el de arriba no se ve');
   assert.equal(f.chip, 'ESCUCHAR MÚSICA');

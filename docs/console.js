@@ -18,7 +18,7 @@
   const $ = id => document.getElementById(id);
   const feel = () => window.flipFeel || null;
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  const FAMILY_PANES = ['dsiEditPanel', 'dlpEditPanel', 'oscamEditPanel', 'caskiaEditPanel', 'auto03EditPanel', 'stampEditPanel', 'pressEditPanel', 'filmEditPanel'];
+  const FAMILY_PANES = ['dsiEditPanel', 'dlpEditPanel', 'oscamEditPanel', 'caskiaEditPanel', 'auto03EditPanel', 'stampEditPanel', 'pressEditPanel', 'filmEditPanel', 'fxEditPanel'];
   const PANES = FAMILY_PANES.concat(['camMobileUtilityDock', 'camStickerPanel', 'palColorTabs']);
   const SECTIONS = [['cam', 'CÁMARA'], ['color', 'COLOR'], ['frame', 'CUADRO'], ['stickers', 'PEGATINAS']];
   const SWEEP = 270;                           // recorrido de una perilla, en grados
@@ -360,6 +360,7 @@
     scrashControls: { pages: [
       { name: 'MODO', rows: [Y('.flip-presets-row', 'PREAJUSTES'), Y('.scrash-quick-card:nth-child(1) .sc-top-row', 'PALETA'), Y('.scrash-quick-card:nth-child(2) .sc-top-row', 'FORMATO')] },
       { name: 'DETALLE', rows: [K('#scrChroma', '#scrNeon', '#scrHue', '#scrAudioReact', '#scrSpeed'), K('#scrDrip', '#scrWave', '#scrCrush', '#scrGrain', '#scrChaos')] },
+      { name: 'PROCESOS', rows: [K('#scrSmear', '#scrSpark', '#scrRgb')] },
     ], tail: ['#btnScrashAnimateQuick', '#btnScrashResetQuick'] },
   };
   const racks = [];

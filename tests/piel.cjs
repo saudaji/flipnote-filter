@@ -71,7 +71,8 @@ const caja = (page, sel) => page.evaluate(sel => { const e = document.querySelec
         for (const p of [null, '::before', '::after']) { const s = cs(e, p); if (s.clipPath !== 'none') out.cortadas.push((e.id || e.className) + (p || '')); }
         const s = cs(e);
         if (s.boxShadow !== 'none' || parseFloat(s.borderTopWidth) > 0) out.conContorno.push(e.id || e.className);
-        const transparente = ['shellMic', 'shellAudio', 'shellSettings'].includes(e.id) || cs(e, '::before').content === 'none' || cs(e, '::before').display === 'none';
+        // (la mascota lleva su canto en una máscara: se mide aparte)
+        const transparente = ['shellMic', 'shellAudio', 'shellSettings', 'deckShutter'].includes(e.id) || cs(e, '::before').content === 'none' || cs(e, '::before').display === 'none';
         if (!transparente && !/blob:/.test(cs(e, '::before').borderImageSource)) out.sinCanto.push(e.id || e.className);
       }
       const r = (sel, p) => { const e = document.querySelector(sel); return e ? cs(e, p).borderTopLeftRadius : null; };
@@ -86,7 +87,7 @@ const caja = (page, sel) => page.evaluate(sel => { const e = document.querySelec
     });
     assert.deepEqual(forma.cortadas, [], 'ninguna esquina cortada');
     assert.deepEqual(forma.conContorno, [], 'ningún contorno de línea');
-    assert.deepEqual(forma.sinCanto, [], 'cada mancha lleva su canto comido');
+    assert.deepEqual(forma.sinCanto, [], 'cada mancha lleva su canto comido: ' + forma.sinCanto.join(', '));
     assert.deepEqual(forma.radios, { tecla: '999px', modo: '999px', ficha: '999px', hoja: '26px', miniatura: '12px', toma: '12px' }, 'los radios: ' + JSON.stringify(forma.radios));
     const hex = c => '#' + c.match(/\d+/g).slice(0, 3).map(n => (+n).toString(16).padStart(2, '0')).join('').toUpperCase();
     assert.equal(hex(forma.mancha[0]), forma.mancha[1].toUpperCase(), 'la tecla apagada es una mancha del color de la tecla de la banda');
@@ -156,6 +157,20 @@ const caja = (page, sel) => page.evaluate(sel => { const e = document.querySelec
       return { rugosidad: +Math.sqrt(filas.reduce((a, b) => a + (b - m) ** 2, 0) / W).toFixed(2), saltos: filas.filter((v, i) => i && v !== filas[i - 1]).length, ancho: W };
     }, (await page.screenshot({ clip: borde })).toString('base64'));
     assert.ok(comido.rugosidad >= 0.6 && comido.saltos > comido.ancho * 0.3, 'el canto está comido por el grano (no es un filo limpio): ' + JSON.stringify(comido));
+    // …y el del disparador (la mascota), con el mismo material: su línea, diluida en el grano. Se mide en
+    // la parte plana de arriba del cuerpo (el saliente del visor de la cámara), igual que en la tecla.
+    const mascota = await page.evaluate(() => { const b = document.getElementById('deckShutter').getBoundingClientRect(); return { horno: !!getComputedStyle(document.documentElement).getPropertyValue('--si-f-mascota'), mascara: /blob:/.test(getComputedStyle(document.querySelector('#deckShutter .silueta')).webkitMaskImage || getComputedStyle(document.querySelector('#deckShutter .silueta')).maskImage), clip: { x: b.x + 37, y: b.y, width: 12, height: 11 } }; });
+    const lineaMascota = await page.evaluate(async data => {
+      const img = new Image(); img.src = 'data:image/png;base64,' + data; await img.decode();
+      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height).data, W = c.width, H = c.height, L = (x, y) => { const i = (y * W + x) * 4; return 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; };
+      const mitad = (L(0, 0) + L(0, H - 1)) / 2, filas = [];
+      for (let x = 0; x < W; x++) { let y = 0; while (y < H - 1 && L(x, y) > mitad) y++; filas.push(y); }
+      const m = filas.reduce((a, b) => a + b, 0) / W;
+      return { rugosidad: +Math.sqrt(filas.reduce((a, b) => a + (b - m) ** 2, 0) / W).toFixed(2), saltos: filas.filter((v, i) => i && v !== filas[i - 1]).length, ancho: W };
+    }, (await page.screenshot({ clip: mascota.clip })).toString('base64'));
+    assert.ok(mascota.horno && mascota.mascara, 'el disparador lleva su máscara horneada');
+    assert.ok(lineaMascota.rugosidad >= 0.5 && lineaMascota.saltos > lineaMascota.ancho * 0.3 && lineaMascota.rugosidad <= comido.rugosidad * 2.5, 'la línea de la mascota, comida por el mismo grano que las teclas: ' + JSON.stringify({ mascota: lineaMascota, tecla: comido }));
     const dye = await page.addStyleTag({ content: DYE });
     await page.waitForTimeout(200);
     const cajon = await caja(page, '#siCajon'), visor = await caja(page, '#display');
@@ -168,7 +183,7 @@ const caja = (page, sel) => page.evaluate(sel => { const e = document.querySelec
     assert.ok(enHoja > 0.98, 'y la hoja sí lleva grano: ' + enHoja);
     await dye.evaluate(node => node.remove());
     await page.locator('.si-abrir').click();
-    step('grano fino, canto comido y nunca sobre el visor', { cristal, canto: comido, visor: enVisor, esquinas, hoja: enHoja });
+    step('grano fino, canto comido (teclas y mascota) y nunca sobre el visor', { cristal, canto: comido, mascota: lineaMascota, visor: enVisor, esquinas, hoja: enHoja });
 
     // ── 5 · Sin rayas entre cortes (densidad de la pantalla: ' + dpr + ') ──
     const limpio = await page.addStyleTag({ content: 'body .grano { display: none !important; } body * { -webkit-text-fill-color: transparent !important; } body svg { visibility: hidden !important; }' });
@@ -217,14 +232,48 @@ const caja = (page, sel) => page.evaluate(sel => { const e = document.querySelec
     assert.ok(/^rgb\(/.test(tinte1) && /^rgb\(/.test(tinte2.tinte) && tinte1 !== tinte2.tinte && /radial-gradient/.test(tinte2.halo), 'el halo de la tira toma el color de la cámara puesta: ' + JSON.stringify([tinte1, tinte2.tinte]));
     step('el halo toma el color de la cámara puesta', { antes: tinte1, despues: tinte2.tinte });
 
+    // ── 7b · Tema claro: claro entero alrededor de la imagen (la imagen, el único rectángulo oscuro) ──
+    const luz = async () => {
+      const zonas = await page.evaluate(() => {
+        const r = sel => document.querySelector(sel).getBoundingClientRect(), osd = r('#osd'), img = r('#display'), cab = r('.si-banda-cabeza'), tira = r('.deck-looks');
+        const out = { cabeza: { x: cab.x + cab.width * 0.38, y: cab.y + 6, width: cab.width * 0.2, height: cab.height - 12 }, tira: { x: tira.x + 4, y: tira.bottom - 9, width: tira.width - 8, height: 5 } };   // (la franja de abajo de la tira, bajo las miniaturas)
+        if (img.top - osd.top > 6) out.visor = { x: osd.x + 4, y: osd.y + 2, width: osd.width - 8, height: img.top - osd.top - 4 };
+        else if (osd.bottom - img.bottom > 6) out.visor = { x: osd.x + 4, y: img.bottom + 2, width: osd.width - 8, height: osd.bottom - img.bottom - 4 };
+        out.fondo = getComputedStyle(document.getElementById('camBody')).backgroundColor;
+        return out;
+      });
+      const res = { fondoVisor: zonas.fondo };
+      for (const [k, clip] of Object.entries(zonas)) {
+        if (k === 'fondo') continue;
+        res[k] = await page.evaluate(async data => { const img = new Image(); img.src = 'data:image/png;base64,' + data; await img.decode(); const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d'); g.drawImage(img, 0, 0); const d = g.getImageData(0, 0, c.width, c.height).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]; return +(s / (d.length / 4) / 255).toFixed(3); }, (await page.screenshot({ clip })).toString('base64'));
+      }
+      return res;
+    };
+    const limpio2 = await page.addStyleTag({ content: 'body * { -webkit-text-fill-color: transparent !important; } body svg { visibility: hidden !important; }' });
+    const luzClaro = await luz();
+    await page.locator('.si-abrir').click(); await page.waitForTimeout(400);
+    const cajonClaro = await page.evaluate(async () => getComputedStyle(document.querySelector('#siCajon'), '::before').backgroundColor);
+    await page.locator('.si-abrir').click(); await page.waitForTimeout(250);
+    await page.evaluate(() => document.getElementById('rolloTema').click());
+    await page.waitForTimeout(600);
+    const luzOscuro = await luz();
+    await page.evaluate(() => document.getElementById('rolloTema').click());
+    await page.waitForTimeout(400);
+    await limpio2.evaluate(node => node.remove());
+    const lum255 = c => { const [r, g, b] = c.match(/\d+/g).map(Number); return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255; };
+    assert.ok(Object.entries(luzClaro).filter(([k]) => k !== 'fondoVisor').every(([, v]) => v > 0.7) && lum255(luzClaro.fondoVisor) > 0.7 && lum255(cajonClaro) > 0.7, 'en tema claro, alrededor de la imagen (fondo del visor, banda, tira, cajón) todo es claro: ' + JSON.stringify({ luzClaro, cajonClaro }));
+    assert.ok(Object.entries(luzOscuro).filter(([k]) => k !== 'fondoVisor').every(([, v]) => v < 0.2), 'y en tema oscuro sigue oscuro: ' + JSON.stringify(luzOscuro));
+    step('tema claro: claro entero alrededor de la imagen; el oscuro, como estaba', { claro: luzClaro, oscuro: luzOscuro });
+
     // ── 8 · Contrastes (AA) en claro y en oscuro ──
     const contrastes = async () => page.evaluate(() => {
       const cs = getComputedStyle(document.body), v = k => cs.getPropertyValue(k).trim();
       const lum = hexa => { const n = hexa.replace('#', ''); const c = [0, 2, 4].map(i => parseInt(n.slice(i, i + 2), 16) / 255).map(x => x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
       const ratio = (a, b) => { const [x, y] = [lum(v(a)), lum(v(b))].sort((p, q) => q - p); return +((x + 0.05) / (y + 0.05)).toFixed(2); };
-      return { 'tinta/fondo': ratio('--si-tinta', '--si-fondo'), 'tinta/tecla': ratio('--si-tinta', '--si-tecla'), 'suave/fondo': ratio('--si-suave', '--si-fondo'), 'sobre-tinta/tinta': ratio('--si-sobre-tinta', '--si-tinta'),
-        'marfil/banda-tecla': ratio('--si-marfil', '--si-banda-tecla'), 'marfil/banda': ratio('--si-marfil', '--si-banda'), 'banda-suave/banda': ratio('--si-banda-suave', '--si-banda'), 'banda-suave/banda-tecla': ratio('--si-banda-suave', '--si-banda-tecla'),
-        'sobre-acento/acento': ratio('--si-sobre-acento', '--si-acento'), 'banda/marfil': ratio('--si-banda', '--si-marfil'), 'tinta/carta': ratio('--si-tinta', '--si-carta') };
+      return { 'tinta/fondo': ratio('--si-tinta', '--si-fondo'), 'tinta/tecla': ratio('--si-tinta', '--si-tecla'), 'suave/fondo': ratio('--si-suave', '--si-fondo'), 'suave/tecla': ratio('--si-suave', '--si-tecla'), 'sobre-tinta/tinta': ratio('--si-sobre-tinta', '--si-tinta'),
+        'banda-tinta/banda': ratio('--si-banda-tinta', '--si-banda'), 'banda-tinta/banda-tecla': ratio('--si-banda-tinta', '--si-banda-tecla'), 'banda-tinta/banda-carta': ratio('--si-banda-tinta', '--si-banda-carta'),
+        'banda-suave/banda': ratio('--si-banda-suave', '--si-banda'), 'banda-suave/banda-tecla': ratio('--si-banda-suave', '--si-banda-tecla'), 'banda-ficha-tinta/banda-ficha': ratio('--si-banda-ficha-tinta', '--si-banda-ficha'),
+        'sobre-acento/acento': ratio('--si-sobre-acento', '--si-acento'), 'marfil/pantalla': ratio('--si-marfil', '--si-pantalla'), 'pantalla-suave/pantalla': ratio('--si-pantalla-suave', '--si-pantalla'), 'marfil/pildora': ratio('--si-marfil', '--si-visor-pildora'), 'tinta/carta': ratio('--si-tinta', '--si-carta') };
     });
     const claro = await contrastes();
     await page.evaluate(() => document.getElementById('rolloTema').click());
@@ -361,6 +410,30 @@ const caja = (page, sel) => page.evaluate(sel => { const e = document.querySelec
     assert.ok(claves.length > 150, 'se miden muchas piezas: ' + claves.length);
     assert.deepEqual(distintas.slice(0, 8), [], 'las reglas de INTERFAZ no tocan nada de OBJETO (' + distintas.length + ' piezas distintas)');
     step('la piel OBJETO no cambia nada', { piezas: claves.length, distintas: distintas.length });
+    // ── 12 · El ícono de la app: la mascota con el mismo canto comido; sus medidas y la zona segura ──
+    const ip = await browser.newPage();
+    await ip.goto(require('./lib/harness.cjs').URL + '/manifest.json');
+    const iconos = await ip.evaluate(async () => {
+      const carga = async src => { const img = new Image(); img.src = src; await img.decode(); const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d'); g.drawImage(img, 0, 0); return { W: img.width, H: img.height, d: g.getImageData(0, 0, img.width, img.height).data }; };
+      const base = 'brand/rollo-en-anil/app/', out = {};
+      for (const f of ['any-192.png', 'any-512.png', 'maskable-192.png', 'maskable-512.png']) { const { W, H } = await carga(base + f); out[f] = W + '×' + H; }
+      // zona segura del maskable: todo lo que no es el fondo cae dentro del círculo del 80 % central
+      const m = await carga(base + 'maskable-512.png'); let lejos = 0;
+      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { const i = (y * m.W + x) * 4, r = m.d[i], g = m.d[i + 1], b = m.d[i + 2]; if (Math.max(r, g, b) - Math.min(r, g, b) > 60 || g > 140) lejos = Math.max(lejos, Math.hypot(x + 0.5 - m.W / 2, y + 0.5 - m.H / 2) / m.W); }
+      out.zonaSegura = +lejos.toFixed(3);
+      // el canto: el borde de arriba de la capa verde (parte plana del saliente), en el de 192
+      const a = await carga(base + 'any-192.png'), filas = [];
+      const verde = (x, y) => { const i = (y * a.W + x) * 4; return a.d[i + 1] > 150 && a.d[i] < 190 && a.d[i + 2] < 190; };
+      for (let x = 82; x < 104; x++) { let y = 20; while (y < 90 && !verde(x, y)) y++; filas.push(y); }
+      const med = filas.reduce((p, q) => p + q, 0) / filas.length;
+      out.canto = { rugosidad: +Math.sqrt(filas.reduce((p, q) => p + (q - med) ** 2, 0) / filas.length).toFixed(2), filas };
+      return out;
+    });
+    await ip.close();
+    assert.deepEqual([iconos['any-192.png'], iconos['any-512.png'], iconos['maskable-192.png'], iconos['maskable-512.png']], ['192×192', '512×512', '192×192', '512×512'], 'los íconos, con sus medidas de siempre');
+    assert.ok(iconos.zonaSegura <= 0.4, 'en el maskable la mascota cabe en la zona segura (radio ≤ 40 % del lado): ' + iconos.zonaSegura);
+    assert.ok(iconos.canto.rugosidad >= 0.5, 'el canto de la mascota del ícono está comido por el grano: ' + JSON.stringify(iconos.canto));
+    step('el ícono: mascota con el canto comido, medidas y zona segura', { zonaSegura: iconos.zonaSegura, canto: iconos.canto.rugosidad });
     console.log('PIEL PASS');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

@@ -2,6 +2,12 @@
 // sobre negro, como una tirada con el registro corrido. El ojo abierto es una lente: aro claro y
 // cristal oscuro. Escribe los SVG y sus PNG en
 // docs/brand/rollo-en-anil/app/ (y el avatar para redes, en comunicacion/).
+// Los PNG de la mascota (maestro, any, maskable, avatar) llevan el canto de cada capa comido por el
+// grano, como las piezas y el disparador de la piel INTERFAZ (docs/silueta.js: misma fórmula de
+// pluma, temblor y mordida). Aquí el grano no mide un punto de la pantalla sino un punto del icono
+// a 192: escala con el icono, así a 512 o a 1024 se ve el mismo material que a 192, y a los 48–60 px
+// de la pantalla de inicio el canto se lee sin ensuciar la forma. Los ojos quedan nítidos. Los SVG
+// son el dibujo vectorial (sin el canto); 16 y 32 se quedan como estaban (ahí no cabe).
 //   node design/app-icon/icono.cjs [carpeta de salida]
 'use strict';
 const fs = require('node:fs');
@@ -45,6 +51,74 @@ const files = {
 };
 const pngs = [['maestro.svg', 'maestro.png', 1024], ['maestro.svg', 'any-512.png', 512], ['maestro.svg', 'any-192.png', 192], ['maskable.svg', 'maskable.png', 1024],
   ['maskable.svg', 'maskable-512.png', 512], ['maskable.svg', 'maskable-192.png', 192], ['../comunicacion/avatar.svg', '../comunicacion/avatar.png', 1080], ['16.svg', '16.png', 16], ['32.svg', '32.png', 32]];
+// El canto comido: en una página, cada capa se pinta como máscara, se mide la distancia de cada punto a
+// su contorno (dos pasadas) y su opacidad sale de la misma fórmula que en la piel; el ruido es blanco
+// en una rejilla de 192 por lado del icono (interpolado al pintar más grande).
+const CANTO = { pluma: 1.25, temblor: 0.55, mordida: 0.5 };   // en puntos del icono a 192
+async function pintarMascota(page, { size, canvas, span, rx, tile }) {
+  return page.evaluate(async ({ size, canvas, span, rx, tile, CUERPO, GUINO, PASO, colores, CANTO }) => {
+    const c = size / 192, k = size / canvas;
+    const cv = document.createElement('canvas'); cv.width = cv.height = size;
+    const g = cv.getContext('2d');
+    // fondo (con su esquina, si la lleva)
+    const caja = () => { g.beginPath(); if (g.roundRect) g.roundRect(0, 0, size, size, rx * k); else g.rect(0, 0, size, size); };
+    caja(); g.fillStyle = colores.FONDO; g.fill();
+    // el símbolo apilado, como pila() en el SVG
+    const w = 58 + PASO[0] * 2, h = 52 + PASO[1] * 2, kk = canvas * span / w;
+    const tx = (canvas - w * kk) / 2 - 3 * kk, ty = (canvas - h * kk) / 2 - 8 * kk;
+    const enSimbolo = ctx => { ctx.setTransform(k, 0, 0, k, 0, 0); ctx.translate(tx, ty); ctx.scale(kk, kk); };
+    // ruido blanco en la rejilla de 192
+    const N = 192, ruido = new Float32Array(N * N);
+    let seed = 27019;
+    const rand = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < ruido.length; i++) ruido[i] = Math.sqrt(-2 * Math.log(Math.max(1e-7, rand()))) * Math.cos(6.2831853 * rand());
+    const n = (x, y) => {           // bilineal, envuelto
+      const fx = x / c - 0.5, fy = y / c - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), ax = fx - x0, ay = fy - y0;
+      const at = (i, j) => ruido[(((j % N) + N) % N) * N + (((i % N) + N) % N)];
+      return (at(x0, y0) * (1 - ax) + at(x0 + 1, y0) * ax) * (1 - ay) + (at(x0, y0 + 1) * (1 - ax) + at(x0 + 1, y0 + 1) * ax) * ay;
+    };
+    const cuerpo = new Path2D(CUERPO), R2 = Math.SQRT2;
+    const capa = (i, color) => {
+      const m = document.createElement('canvas'); m.width = m.height = size;
+      const mg = m.getContext('2d'); enSimbolo(mg); mg.translate(PASO[0] * i, PASO[1] * i); mg.fillStyle = '#000'; mg.fill(cuerpo);
+      const img = mg.getImageData(0, 0, size, size), d = img.data, dentro = new Uint8Array(size * size);
+      for (let p = 0; p < size * size; p++) dentro[p] = d[p * 4 + 3] >= 128 ? 1 : 0;
+      const dist = clase => {
+        const t = new Float32Array(size * size);
+        for (let p = 0; p < t.length; p++) t[p] = dentro[p] === clase ? 0 : 1e9;
+        for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) { const p = y * size + x; let v = t[p]; if (!v) continue; if (x) v = Math.min(v, t[p - 1] + 1); if (y) { v = Math.min(v, t[p - size] + 1); if (x) v = Math.min(v, t[p - size - 1] + R2); if (x < size - 1) v = Math.min(v, t[p - size + 1] + R2); } t[p] = v; }
+        for (let y = size - 1; y >= 0; y--) for (let x = size - 1; x >= 0; x--) { const p = y * size + x; let v = t[p]; if (!v) continue; if (x < size - 1) v = Math.min(v, t[p + 1] + 1); if (y < size - 1) { v = Math.min(v, t[p + size] + 1); if (x < size - 1) v = Math.min(v, t[p + size + 1] + R2); if (x) v = Math.min(v, t[p + size - 1] + R2); } t[p] = v; }
+        return t;
+      };
+      const aDentro = dist(1), aFuera = dist(0);
+      const pluma = CANTO.pluma * c, temblor = CANTO.temblor * c, mordida = CANTO.mordida, lejos = pluma + 3.2 * temblor;
+      const [r, gg, b] = [1, 3, 5].map(o => parseInt(color.slice(o, o + 2), 16));
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const p = y * size + x, sdf = dentro[p] ? -(aFuera[p] - 0.5) : aDentro[p] - 0.5;
+        let a;
+        if (sdf < -lejos) a = 1; else if (sdf > lejos) a = 0;
+        else { const v = n(x + 0.5, y + 0.5); const t = Math.min(1, Math.max(0, (-sdf + v * temblor + pluma) / (2 * pluma))); const sm = t * t * (3 - 2 * t); a = Math.min(1, Math.max(0, sm + v * mordida * 4 * sm * (1 - sm))); }
+        d[p * 4] = r; d[p * 4 + 1] = gg; d[p * 4 + 2] = b; d[p * 4 + 3] = Math.round(255 * a);
+      }
+      mg.setTransform(1, 0, 0, 1, 0, 0); mg.putImageData(img, 0, 0);
+      g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(m, 0, 0);
+    };
+    capa(2, colores.AZUL); capa(1, colores.MANDARINA); capa(0, colores.VERDE);
+    // los ojos, nítidos
+    enSimbolo(g);
+    g.fillStyle = colores.OJO; g.fill(new Path2D(GUINO));
+    g.beginPath(); g.arc(43, 34, 8, 0, Math.PI * 2); g.fill();
+    g.fillStyle = colores.PUPILA; g.beginPath(); g.arc(43, 34, 4.3, 0, Math.PI * 2); g.fill();
+    // el grano mate encima de todo, con su mota a la escala del icono (un punto del icono a 192)
+    const t = new Image(); t.src = tile; await t.decode();
+    const pat = g.createPattern(t, 'repeat'); pat.setTransform(new DOMMatrix([c, 0, 0, c, 0, 0]));
+    g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = true; caja(); g.fillStyle = pat; g.fill();
+    // fuera de la esquina, transparente
+    g.globalCompositeOperation = 'destination-in'; caja(); g.fillStyle = '#000'; g.fill(); g.globalCompositeOperation = 'source-over';
+    return cv.toDataURL('image/png');
+  }, { size, canvas, span, rx, tile, CUERPO, GUINO, PASO, colores: { FONDO, VERDE, MANDARINA, AZUL, OJO, PUPILA }, CANTO });
+}
+const MASCOTA = { 'maestro.svg': { span: 0.70, rx: 188 }, 'maskable.svg': { span: 0.54, rx: 0 }, '../comunicacion/avatar.svg': { span: 0.56, rx: 0 } };
 (async () => {
   fs.mkdirSync(out, { recursive: true });
   const tile = 'data:image/webp;base64,' + fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'body', 'grano.webp')).toString('base64');
@@ -53,8 +127,13 @@ const pngs = [['maestro.svg', 'maestro.png', 1024], ['maestro.svg', 'any-512.png
   for (const [source, target, size] of pngs) {
     const page = await browser.newPage({ viewport: { width: size, height: size }, deviceScaleFactor: 1 });
     const canvas = Number(files[source].match(/viewBox="0 0 (\d+)/)[1]);
-    await page.setContent(`<style>html,body{margin:0;background:transparent}svg{display:block;width:${size}px;height:${size}px}</style>` + conGrano(files[source], tile, 256 * canvas / size));
-    fs.writeFileSync(path.join(out, target), await page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } }));
+    if (MASCOTA[source]) {
+      const url = await pintarMascota(page, { size, canvas, tile, ...MASCOTA[source] });
+      fs.writeFileSync(path.join(out, target), Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));
+    } else {
+      await page.setContent(`<style>html,body{margin:0;background:transparent}svg{display:block;width:${size}px;height:${size}px}</style>` + conGrano(files[source], tile, 256 * canvas / size));
+      fs.writeFileSync(path.join(out, target), await page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } }));
+    }
     await page.close();
   }
   await browser.close();

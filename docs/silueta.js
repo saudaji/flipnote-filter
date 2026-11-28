@@ -274,9 +274,10 @@
     const PIEZAS = [
       ['tecla', '--si-tecla', 22, 'r'], ['tinta', '--si-tinta', 22, 'r'], ['acento', '--si-acento', 22, 'r'], ['acento-osc', '--si-acento-pulsado', 22, 'r'],
       ['marfil', '--si-marfil', 22, 'r'], ['peligro', '--si-peligro', 22, 'r'], ['pildora', '--si-visor-pildora', 22, 'r'],
-      ['banda-tecla', '--si-banda-tecla', 22, 'r'], ['banda', '--si-banda', 22, 'r'], ['carta', '--si-carta', 22, 'r'], ['banda-carta-22', '--si-banda-carta', 22, 'r'],
+      ['banda-tecla', '--si-banda-tecla', 22, 'r'], ['banda-ficha', '--si-banda-ficha', 22, 'r'], ['banda', '--si-banda', 22, 'r'], ['carta', '--si-carta', 22, 'r'], ['banda-carta-22', '--si-banda-carta', 22, 'r'],
       ['banda-carta', '--si-banda-carta', 16, 'r'], ['acento-16', '--si-acento', 16, 'r'], ['tecla-12', '--si-tecla', 12, 'r'],
       ['hoja', '--si-banda', 26, 'h'], ['hoja-clara', '--si-fondo', 26, 'h'], ['marco-mini', '--si-banda', 12, 'm'],
+      ['mascota', null, 0, 'mascota'],                              // la máscara del disparador: su silueta, con el mismo canto
     ];
     // El canto mide en px CSS: el corte de cada radio (R + 2 de margen para el calado que sale de la pieza).
     const CORTES = { 22: 24, 16: 18, 12: 14, h26: 28 };
@@ -329,6 +330,60 @@
       g.putImageData(img, 0, 0);
       return cv;
     }
+    // La mascota (el disparador) no es un rectángulo: su canto se hace con una máscara de su silueta,
+    // horneada igual que las texturas (mismo ruido, misma pluma, mismo temblor, misma mordida). La
+    // silueta son las tres capas del cuerpo con un trazo fino (MASCARA_TRAZO): la línea de tinta que la
+    // rodea es más ancha (silueta.css), así que el canto comido cae sobre la línea y la deja «diluida en
+    // grano» sin borrarla. Se mide la distancia de cada punto al contorno (transformada de distancia en
+    // dos pasadas) y se aplica la misma fórmula de hornear(). El ruido es fijo: la máscara no hierve.
+    const MASCARA_TRAZO = 0.96;                                     // en unidades del dibujo (× 1,2464 = 1,2 px CSS)
+    function hornearMascota(s, E) {
+      const W = Math.round(88 * s), H = Math.round(84 * s), n = ruido(E);
+      const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      const g = cv.getContext('2d');
+      g.setTransform(s, 0, 0, s, 0, 0);
+      g.translate(-2.0139528, -5.7885711); g.scale(1.2463874, 1.2463874);
+      const cuerpo = new Path2D(CUERPO);
+      g.lineJoin = 'round'; g.lineWidth = MASCARA_TRAZO; g.fillStyle = g.strokeStyle = '#000';
+      for (const [x, y] of [[8.8, 9.6], [4.4, 4.8], [0, 0]]) { g.save(); g.translate(x, y); g.fill(cuerpo); g.stroke(cuerpo); g.restore(); }
+      const img = g.getImageData(0, 0, W, H), d = img.data, dentro = new Uint8Array(W * H);
+      for (let i = 0; i < W * H; i++) dentro[i] = d[i * 4 + 3] >= 128 ? 1 : 0;
+      const R2 = Math.SQRT2, distancia = clase => {
+        const t = new Float32Array(W * H);
+        for (let i = 0; i < t.length; i++) t[i] = dentro[i] === clase ? 0 : 1e9;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const i = y * W + x; let v = t[i]; if (!v) continue;
+          if (x) v = Math.min(v, t[i - 1] + 1);
+          if (y) { v = Math.min(v, t[i - W] + 1); if (x) v = Math.min(v, t[i - W - 1] + R2); if (x < W - 1) v = Math.min(v, t[i - W + 1] + R2); }
+          t[i] = v;
+        }
+        for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
+          const i = y * W + x; let v = t[i]; if (!v) continue;
+          if (x < W - 1) v = Math.min(v, t[i + 1] + 1);
+          if (y < H - 1) { v = Math.min(v, t[i + W] + 1); if (x < W - 1) v = Math.min(v, t[i + W + 1] + R2); if (x) v = Math.min(v, t[i + W - 1] + R2); }
+          t[i] = v;
+        }
+        return t;
+      };
+      const aDentro = distancia(1), aFuera = distancia(0);
+      const pluma = 0.95 * s, temblor = 0.42 * s, mordida = 0.5, lejos = pluma + 3.2 * temblor;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x, sdf = dentro[i] ? -(aFuera[i] - 0.5) : aDentro[i] - 0.5;
+        let a;
+        if (sdf < -lejos) a = 1;
+        else if (sdf > lejos) a = 0;
+        else {
+          const v = n[(y % E) * E + (x % E)];
+          const t = Math.min(1, Math.max(0, (-sdf + v * temblor + pluma) / (2 * pluma)));
+          const sm = t * t * (3 - 2 * t);
+          a = Math.min(1, Math.max(0, sm + v * mordida * 4 * sm * (1 - sm)));
+        }
+        d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255; d[i * 4 + 3] = Math.round(255 * a);
+      }
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.putImageData(img, 0, 0);
+      return cv;
+    }
     // Se espera a un rato libre del hilo principal (o, como mucho, 150 ms); si en ese rato queda tiempo, se
     // hornea más de una textura seguida.
     let libre = null;
@@ -345,7 +400,7 @@
         await pausa();                                                // en ratos libres: ningún cuadro espera
         if (mia !== vuelta || body.dataset.piel !== 'interfaz') { suelta(); return; }
         const t = performance.now();
-        const cv = hornear(rgba(getComputedStyle(body).getPropertyValue(variable).trim() || '#000'), r, forma, cortes[forma === 'h' ? 'h26' : r], E);
+        const cv = forma === 'mascota' ? hornearMascota(s, E) : hornear(rgba(getComputedStyle(body).getPropertyValue(variable).trim() || '#000'), r, forma, cortes[forma === 'h' ? 'h26' : r], E);
         trabajo += performance.now() - t;
         const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
         if (mia !== vuelta) { suelta(); return; }

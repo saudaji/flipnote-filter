@@ -12,12 +12,22 @@
 body[data-piel="interfaz"] {
   /* superficies y tintas (tema claro) */
   --si-fondo: #EDE5D8;
-  --si-fondo-grad: radial-gradient(125% 160% at 50% 0%, #F4EEE2 0%, #EDE5D8 58%, #E1D7C6 100%);
+  --si-fondo-grad: radial-gradient(130% 170% at 50% 0%, #FBF6EC 0%, #EFE7DA 52%, #DED2BE 100%);
   --si-carta: #F6F0E4;
   --si-tecla: #D5CBB8; --si-tecla-off: #E5DDD0;
-  --si-tinta: #242646; --si-sobre-tinta: #F6F0E4; --si-suave: #57556B; --si-marfil: #FFF3DF;
-  /* la banda oscura: carrete, cajón, galería, consola */
-  --si-banda: #141522; --si-banda-carta: #202235; --si-banda-tecla: #292C42; --si-banda-tecla-act: #353954; --si-banda-off: #1B1D2C; --si-banda-suave: #ACA59B;
+  --si-tinta: #22235C; --si-sobre-tinta: #F6F0E4; --si-suave: #55536E; --si-marfil: #FFF3DF;
+  /* La banda: alrededor de la imagen, la tira de cámaras, el cajón, la galería y la consola. En tema
+     claro es clara entera (un crema un paso más hondo que las barras, que «brillan» sobre ella): la
+     imagen es el único rectángulo oscuro. En tema oscuro es la banda oscura de siempre.
+     tinta: la letra sobre la banda; ficha: la cápsula elegida (y su letra); pulsa: hacia dónde cede. */
+  --si-banda: #E4D9C6; --si-banda-carta: #F3ECE0; --si-banda-tecla: #D3C7B2; --si-banda-tecla-act: #C6B9A2; --si-banda-off: #DBD0BE; --si-banda-suave: #4E4C62;
+  --si-banda-tinta: #22235C; --si-banda-ficha: #22235C; --si-banda-ficha-tinta: #F6F0E4; --si-pulsa-banda: .92;
+  /* la luz: un aerógrafo suave dentro de las hojas y las tarjetas (nunca llega al canto), un halo tenue
+     alrededor de lo encendido y un poco más de tinte de la cámara puesta detrás de la tira */
+  --si-luz-hoja: rgba(255, 252, 244, .62); --si-brillo-acento: 0 0 16px rgba(0, 150, 84, .38); --si-ambiente-mezcla: 26%;
+  --si-visor-fondo: var(--si-banda);
+  /* la pantalla: lo que ocupa el sitio de la imagen (sin cámara, eligiendo fuente, en reposo) va oscuro siempre */
+  --si-pantalla: #141522; --si-pantalla-suave: #ACA59B;
   --si-ambiente: #008048;
   /* acento y estados */
   --si-acento: #008048; --si-acento-pulsado: #00693B; --si-sobre-acento: #FFF5E4;
@@ -38,13 +48,16 @@ body[data-piel="interfaz"] {
 }
 body[data-piel="interfaz"][data-tema="oscuro"] {
   --si-fondo: #171929;
-  --si-fondo-grad: radial-gradient(125% 160% at 50% 0%, #1F2238 0%, #171929 60%, #111320 100%);
+  --si-fondo-grad: radial-gradient(130% 170% at 50% 0%, #272B48 0%, #181A2B 56%, #0F111C 100%);
+  --si-luz-hoja: rgba(150, 160, 255, .08); --si-brillo-acento: 0 0 18px rgba(0, 170, 96, .42);
   --si-carta: #202338;
   --si-tecla: #2A2E47; --si-tecla-off: #1D2033;
   --si-tinta: #F6EFE2; --si-sobre-tinta: #171929; --si-suave: #B0AAB0;
   --si-banda: #10111C; --si-banda-carta: #1C1E30; --si-banda-tecla: #26293E; --si-banda-tecla-act: #323652; --si-banda-off: #171826; --si-banda-suave: #A8A199;
+  --si-banda-tinta: #FFF3DF; --si-banda-ficha: #FFF3DF; --si-banda-ficha-tinta: #10111C; --si-pulsa-banda: 1.14;
 }
 html:has(body[data-piel="interfaz"]) { background: #141522 !important; }
+html:has(body[data-piel="interfaz"]:not([data-tema="oscuro"])) { background: #E4D9C6 !important; }
 @media (orientation: landscape) and (max-height: 540px) {
   body[data-piel="interfaz"] { --glass-top: 0px; --glass-bottom: env(safe-area-inset-bottom, 0px); }
 }
@@ -52,7 +65,7 @@ html:has(body[data-piel="interfaz"]) { background: #141522 !important; }
 /* ── Superficies ── */
 body[data-piel="interfaz"] :is(#shellLauncher, #shellViewer, #splash) { background: var(--si-fondo-grad), var(--si-fondo) !important; }
 body[data-piel="interfaz"] :is(#camBody, #shellLauncher, #shellViewer, #splash)::before { display: none !important; }
-body[data-piel="interfaz"] #camBody { background: var(--si-banda) !important; }   /* lo que asoma alrededor de la imagen */
+body[data-piel="interfaz"] #camBody { background: var(--si-visor-fondo) !important; }   /* lo que asoma alrededor de la imagen */
 /* STAGE pone sus mandos directamente sobre el fondo: ahí el fondo es el claro (o el del tema), para que se lean. */
 body[data-piel="interfaz"].stage-mode #camBody { background: var(--si-fondo) !important; }
 body[data-piel="interfaz"] #lcd { display: none !important; }
@@ -74,7 +87,7 @@ body[data-piel="interfaz"] :is(.hw-keycap, .hw-candy, .si-chip, .launcher-sub, .
 /* Lo que cada pieza puede cambiar (sin peso: cualquier regla de una pieza lo pisa). */
 body[data-piel="interfaz"] :where(.hw-keycap, .hw-candy, .si-chip, .launcher-sub, .launcher-card, .splash-door, .viewer-actions button, .flip-settings-panel button, .clon-tecla, .clon-recibe, .deck-group, #cameraGate button, #sonoPerm.fuente-sonido :is(button, label), #wmpPerm.fuente-sonido :is(button, label), .clon-deshacer, .rest-note, .hw-switch, .clon-carta, .clon-pildora) {
   --si-m: var(--si-tecla); --si-f: var(--si-f-tecla); --si-sl: var(--si-sl-22); --si-bw: 24px; --si-r: 999px; --si-iy: 0px; --si-ix: 0px;
-  --si-canto: ''; --si-nucleo: '';
+  --si-canto: ''; --si-nucleo: ''; --si-brillo: none;
 }
 /* Lo que se quita del aparato (con peso: le gana a las reglas de shell.css). */
 body[data-piel="interfaz"] :is(.hw-keycap, .hw-candy, .si-chip, .launcher-sub, .launcher-card, .splash-door, .viewer-actions button, .flip-settings-panel button, .clon-tecla, .clon-recibe, .deck-group, #cameraGate button, #sonoPerm.fuente-sonido :is(button, label), #wmpPerm.fuente-sonido :is(button, label), .clon-deshacer, .rest-note, .hw-switch, .clon-carta, .clon-pildora) {
@@ -86,13 +99,13 @@ body[data-piel="interfaz"] :is(.hw-keycap, .hw-candy, .si-chip, .launcher-sub, .
   top: var(--si-iy) !important; bottom: var(--si-iy) !important; left: var(--si-ix) !important; right: var(--si-ix) !important;
   width: auto !important; height: auto !important; margin: 0 !important; padding: 0 !important;
   border: 0 !important; border-image: none !important; border-radius: var(--si-r) !important; background: var(--si-m) !important;
-  box-shadow: none !important; filter: none; transform: none !important; opacity: 1 !important; clip-path: none !important; -webkit-mask: none !important; mask: none !important;
+  box-shadow: var(--si-brillo) !important; filter: none; transform: none !important; opacity: 1 !important; clip-path: none !important; -webkit-mask: none !important; mask: none !important;
 }
 body[data-piel="interfaz"] :is(.hw-keycap, .hw-candy, .si-chip, .launcher-sub, .launcher-card, .splash-door, .viewer-actions button, .flip-settings-panel button, .clon-tecla, .clon-recibe, .deck-group, #cameraGate button, #sonoPerm.fuente-sonido :is(button, label), #wmpPerm.fuente-sonido :is(button, label), .clon-deshacer, .rest-note, .hw-switch, .clon-carta, .clon-pildora)::before { content: none !important; }
 body[data-piel="interfaz"].si-bordes-listos :is(.hw-keycap, .hw-candy, .si-chip, .launcher-sub, .launcher-card, .splash-door, .viewer-actions button, .flip-settings-panel button, .clon-tecla, .clon-recibe, .deck-group, #cameraGate button, #sonoPerm.fuente-sonido :is(button, label), #wmpPerm.fuente-sonido :is(button, label), .clon-deshacer, .rest-note, .hw-switch, .clon-carta, .clon-pildora)::before {
   content: var(--si-canto) !important; display: block !important; position: absolute !important; z-index: -1 !important; pointer-events: none;
   width: auto !important; height: auto !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
-  box-shadow: none !important; filter: none; transform: none !important; opacity: 1 !important; clip-path: none !important; -webkit-mask: none !important; mask: none !important;
+  box-shadow: var(--si-brillo) !important; filter: none; transform: none !important; opacity: 1 !important; clip-path: none !important; -webkit-mask: none !important; mask: none !important;
   border: 1.6px solid transparent !important; border-radius: var(--si-r) !important; background: var(--si-m) padding-box !important;
   border-image: var(--si-f) var(--si-sl) fill / var(--si-bw) / var(--si-borde-outset) repeat !important;
 }
@@ -121,7 +134,8 @@ body[data-piel="interfaz"] :is(.hw, .clon-tecla, .clon-recibe, .clon-carta, .vie
 
 /* En la banda oscura (y en las hojas que suben sobre el visor) la mancha apagada es la tecla de la
    banda, el rótulo marfil, y al pulsar se aclara. */
-body[data-piel="interfaz"] :is(.si-cajon, .si-banda-cabeza, .clon-galeria, #palettes, .rest-note, #cameraGate, #sonoPerm, #wmpPerm) { --si-pulsa: 1.14; }
+body[data-piel="interfaz"] :is(.si-cajon, .si-banda-cabeza, .clon-galeria, #palettes) { --si-pulsa: var(--si-pulsa-banda); }
+body[data-piel="interfaz"] :is(.rest-note, #cameraGate, #sonoPerm, #wmpPerm) { --si-pulsa: 1.14; }
 
 /* ── Tecla de 44 px y fichas: letra ── */
 body[data-piel="interfaz"] :is(.hw-keycap, .hw-candy, .launcher-sub, .si-chip) { color: var(--si-tinta) !important; font: 800 12.5px/1 var(--si-fuente) !important; letter-spacing: -.02em !important; font-variant-numeric: tabular-nums; }
@@ -130,6 +144,8 @@ body[data-piel="interfaz"] :is(.hw-keycap, .hw-candy, .launcher-sub, .si-chip) {
    el texto no (las pruebas leen textContent). */
 body[data-piel="interfaz"] :is(.hw-keycap, .hw-candy) { text-transform: none !important; }
 body[data-piel="interfaz"] :is(#flipPiel, #rolloTema, #rolloGrano, .launcher-sub:not([data-module="ascii"]), .si-chip:not([data-filtro="ascii"])) { text-transform: lowercase !important; }
+/* Lo encendido (en acento) lleva un halo tenue: la luz de la pieza, no una sombra. */
+body[data-piel="interfaz"] :is(.hw-keycap.is-on, .si-chip.is-on, .si-chip[aria-pressed="true"], .launcher-card.is-on, .splash-door.principal, .viewer-actions button.primary, .flip-settings-panel button.active, .clon-tecla.is-acento, .clon-estrella.is-on, .clon-carta.is-on, #cameraGate button:not(.quiet), .fuente-sonido :is(button, label):not(.quiet)) { --si-brillo: var(--si-brillo-acento); }
 /* La tecla elegida (en cualquier módulo: también las escenas y pestañas de STAGE), mancha de acento. */
 body[data-piel="interfaz"] :is(.hw-keycap.is-on, .hw-candy.is-on, .hw-candy[aria-pressed="true"]) { --si-m: var(--si-acento); --si-f: var(--si-f-acento); color: var(--si-sobre-acento) !important; }
 body[data-piel="interfaz"] .hw-candy { width: 44px !important; height: 34px !important; display: grid; place-items: center; }
@@ -180,7 +196,7 @@ body[data-piel="interfaz"] #camDeck { padding: 0 !important; gap: 0 !important; 
 .si-banda-cabeza { display: none; }
 body[data-piel="interfaz"] .si-banda-cabeza {
   display: grid; grid-template-columns: auto 1px 1fr auto; align-items: center; column-gap: 12px; height: 50px; padding: 0 9px 0 14px;
-  background: var(--si-banda); color: var(--si-marfil);
+  background: var(--si-banda); color: var(--si-banda-tinta);
   /* (una sombra del mismo color tapa la junta con lo de arriba y lo de abajo: en densidad no entera,
      entre dos piezas de la banda asomaba una raya del crema del pupitre) */
   box-shadow: 0 -1px 0 var(--si-banda), 0 1px 0 var(--si-banda);
@@ -190,7 +206,7 @@ body[data-piel="interfaz"] .si-variante small { font: 600 10.5px/1 var(--si-fuen
 body[data-piel="interfaz"] .si-variante b { font: 800 18px/1 var(--si-fuente); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 /* (sin filete entre la variante y el resto: la separación es el aire) */
 body[data-piel="interfaz"] .si-banda-cabeza > i { width: 1px; height: 27px; background: transparent; }
-body[data-piel="interfaz"] .si-abrir { justify-self: end; grid-column: 4; display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 6px; color: var(--si-marfil); background: none; border: 0; cursor: pointer; font: 800 12.5px/1 var(--si-fuente); letter-spacing: -.015em; text-transform: lowercase; }
+body[data-piel="interfaz"] .si-abrir { justify-self: end; grid-column: 4; display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 6px; color: var(--si-banda-tinta); background: none; border: 0; cursor: pointer; font: 800 12.5px/1 var(--si-fuente); letter-spacing: -.015em; text-transform: lowercase; }
 body[data-piel="interfaz"] .si-abrir svg { width: 12px; height: 12px; transition: transform .16s ease; }
 body[data-piel="interfaz"].banda-abierta .si-abrir svg { transform: rotate(180deg); }
 /* El cajón (variantes y filtros) es una hoja que sube sobre el visor; cerrado no existe. */
@@ -203,7 +219,7 @@ body[data-piel="interfaz"].banda-abierta .si-cajon { display: grid; gap: 12px; p
 body[data-piel="interfaz"].si-bordes-listos.banda-abierta .si-cajon { background: none; isolation: isolate; }
 body[data-piel="interfaz"].si-bordes-listos :is(.si-cajon, .clon-galeria:not(.escribiendo))::before {
   content: ''; position: absolute; z-index: -2; top: 0; bottom: 0; left: 0; right: 0; pointer-events: none; box-sizing: border-box;
-  border: 0 solid transparent; border-top-width: 1.6px; border-radius: var(--si-r-hoja) var(--si-r-hoja) 0 0; background: var(--si-banda) padding-box;
+  border: 0 solid transparent; border-top-width: 1.6px; border-radius: var(--si-r-hoja) var(--si-r-hoja) 0 0; background: radial-gradient(closest-side at 50% 42%, var(--si-luz-hoja), transparent) padding-box, var(--si-banda) padding-box;
   border-image: var(--si-f-hoja) var(--si-sl-h26) var(--si-sl-h26) 0 fill / 28px 28px 0 28px / 2px 3px 0 3px repeat;
 }
 /* La miniatura de cada cámara en la tira: un marco del color de la banda, comido, que entra 2 px hacia
@@ -221,7 +237,7 @@ body[data-piel="interfaz"] .si-filtros { display: flex; gap: 8px; overflow-x: au
 body[data-piel="interfaz"] .si-filtros::-webkit-scrollbar { display: none; }
 /* (las filas que se deslizan dejan 3 px de aire arriba y abajo: el canto calado sale 2 px de la pieza y no se puede recortar) */
 body[data-piel="interfaz"] :is(.si-filtros, .deck-variants) { padding: 3px 3px !important; margin: -3px -3px !important; }
-body[data-piel="interfaz"] :is(.deck-variants .hw-keycap, .si-chip) { --si-m: var(--si-banda-tecla); --si-f: var(--si-f-banda-tecla); color: var(--si-marfil) !important; height: 44px !important; min-height: 44px !important; flex: 1 1 0; min-width: 58px; max-width: 132px; padding: 0 14px !important; margin: 0 !important; display: grid; place-items: center; border: 0; cursor: pointer; }
+body[data-piel="interfaz"] :is(.deck-variants .hw-keycap, .si-chip) { --si-m: var(--si-banda-tecla); --si-f: var(--si-f-banda-tecla); color: var(--si-banda-tinta) !important; height: 44px !important; min-height: 44px !important; flex: 1 1 0; min-width: 58px; max-width: 132px; padding: 0 14px !important; margin: 0 !important; display: grid; place-items: center; border: 0; cursor: pointer; }
 body[data-piel="interfaz"] :is(.deck-variants .hw-keycap, .si-chip):is(.is-on, [aria-pressed="true"]) { --si-m: var(--si-acento); --si-f: var(--si-f-acento); color: var(--si-sobre-acento) !important; }
 /* Con muchas variantes (VFD tiene seis) la fila se desliza: ninguna tecla se corta. */
 body[data-piel="interfaz"] .deck-variants { overflow-x: auto; scrollbar-width: none; }
@@ -251,7 +267,7 @@ body[data-piel="interfaz"] #deckShutter.mirando:not(.guino, :active) .silueta .o
    para el dedo (sobresale 5 px por arriba y por abajo) y su mancha, 26. */
 body[data-piel="interfaz"] .deck-groups { display: flex; gap: 4px; height: 34px; margin: 0 !important; padding: 0 9px !important; align-items: center; background: var(--si-banda) !important; border-radius: 0 !important; box-shadow: 0 1px 0 var(--si-banda) !important; position: relative; }
 body[data-piel="interfaz"] .deck-group { --si-m: transparent; --si-canto: none; --si-iy: 9px; height: 44px; margin: -5px 0 !important; padding: 0 12px !important; font: 800 11.5px/1 var(--si-fuente) !important; font-stretch: normal; letter-spacing: -.01em !important; text-transform: lowercase; font-variant-numeric: tabular-nums; color: var(--si-banda-suave) !important; display: flex; align-items: center; }
-body[data-piel="interfaz"] .deck-group.is-on { --si-m: var(--si-marfil); --si-f: var(--si-f-marfil); --si-canto: ''; color: var(--si-banda) !important; }
+body[data-piel="interfaz"] .deck-group.is-on { --si-m: var(--si-banda-ficha); --si-f: var(--si-f-banda-ficha); --si-canto: ''; color: var(--si-banda-ficha-tinta) !important; }
 body[data-piel="interfaz"] .deck-group:active { transform: scale(.94); opacity: 1; }
 body[data-piel="interfaz"] .deck-group:focus-visible { outline: 2.5px solid var(--si-acento); outline-offset: -3px; }
 body[data-piel="interfaz"] .deck-looks { position: relative; background: var(--si-banda); margin: 0 !important; padding: 2px 0 8px !important; height: auto !important; border: 0 !important; border-image: none !important; border-radius: 0 !important; }
@@ -261,13 +277,13 @@ body[data-piel="interfaz"] .look { counter-increment: camara; }
 body[data-piel="interfaz"] .look.is-on span::after { content: ' ' counter(camara, decimal-leading-zero); font: 600 12px/1 var(--si-fuente); letter-spacing: 0; font-variant-numeric: tabular-nums; color: var(--si-banda-suave); }
 body[data-piel="interfaz"] .deck-looks::before { display: none !important; }
 body[data-piel="interfaz"] .deck-looks-track { position: static !important; inset: auto !important; display: flex; gap: 11px !important; padding: 0 calc(50% - 91px) !important; height: 98px !important; border-radius: 0 !important; -webkit-mask-image: none !important; mask-image: none !important; overflow-x: auto; scroll-snap-type: x proximity; align-items: flex-start; }
-body[data-piel="interfaz"] .look { flex: 0 0 82px !important; width: 82px !important; height: 98px !important; padding: 0 !important; display: grid; grid-template-rows: 54px 1fr; background: none !important; box-shadow: none !important; border-radius: 0 !important; scroll-snap-align: center; transition: flex-basis .18s ease, width .18s ease; color: var(--si-marfil) !important; }
+body[data-piel="interfaz"] .look { flex: 0 0 82px !important; width: 82px !important; height: 98px !important; padding: 0 !important; display: grid; grid-template-rows: 54px 1fr; background: none !important; box-shadow: none !important; border-radius: 0 !important; scroll-snap-align: center; transition: flex-basis .18s ease, width .18s ease; color: var(--si-banda-tinta) !important; }
 /* Las cámaras que no tocan (las propias de PORTAL fuera de PORTAL, las ocultas) siguen sin verse. */
 body[data-piel="interfaz"] .look[hidden], body[data-piel="interfaz"]:not(.portal-mode) .portal-look { display: none; }
 /* Sin triángulo, escuadra ni cuña: la puesta se dice con su tamaño, su brillo y su punto. */
 body[data-piel="interfaz"] .look::before, body[data-piel="interfaz"] .look.is-on::before { content: none !important; }
 /* Una marca bajo cada cámara; la elegida, un punto de acento más grande. */
-body[data-piel="interfaz"] .look::after { content: '' !important; position: absolute !important; top: auto !important; right: auto !important; bottom: 2px !important; left: 50% !important; width: 3px !important; height: 3px !important; margin-left: -1.5px; border: 0 !important; border-image: none !important; border-radius: 50% !important; background: #BBB2A6 !important; opacity: .45; z-index: 0 !important; }
+body[data-piel="interfaz"] .look::after { content: '' !important; position: absolute !important; top: auto !important; right: auto !important; bottom: 2px !important; left: 50% !important; width: 3px !important; height: 3px !important; margin-left: -1.5px; border: 0 !important; border-image: none !important; border-radius: 50% !important; background: var(--si-banda-suave) !important; opacity: .45; z-index: 0 !important; }
 body[data-piel="interfaz"] .look.is-on::after { background: var(--si-acento) !important; opacity: 1; width: 6px !important; height: 6px !important; margin-left: -3px; bottom: 1px !important; }
 /* La miniatura: rectángulo de esquina de 12 px. Las demás, algo apagadas. (Su canto comido es un
    marco del color de la banda que entra hacia la foto: nunca grano sobre la foto.) */
@@ -277,7 +293,7 @@ body[data-piel="interfaz"] .look i::after { display: none !important; }
 body[data-piel="interfaz"] .look span { display: block !important; padding-top: 12px; text-align: left; font: 800 11px/1 var(--si-fuente) !important; letter-spacing: -.015em !important; color: var(--si-banda-suave) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body[data-piel="interfaz"] .look.is-on { flex-basis: 182px !important; width: 182px !important; }
 body[data-piel="interfaz"] .look.is-on i { filter: none; box-shadow: none !important; }
-body[data-piel="interfaz"] .look.is-on span { font-size: 15.5px !important; font-weight: 800 !important; letter-spacing: -.03em !important; padding-top: 12px; color: var(--si-marfil) !important; }
+body[data-piel="interfaz"] .look.is-on span { font-size: 15.5px !important; font-weight: 800 !important; letter-spacing: -.03em !important; padding-top: 12px; color: var(--si-banda-tinta) !important; }
 
 /* ── Botonera: última toma, FOTO/VIDEO, disparador, AJUSTES y GIRAR ──
    La mascota es lo único verde de la botonera: el interruptor, AJUSTES y la toma van en tinta. */
@@ -328,10 +344,19 @@ body[data-piel="interfaz"] .hw-switch[aria-checked="true"] i { transform: transl
 body[data-piel="interfaz"] #deckAdjust[aria-pressed="true"] { --si-m: var(--si-tinta); --si-f: var(--si-f-tinta); color: var(--si-sobre-tinta) !important; filter: none; }
 
 /* ── El disparador: la cámara que guiña ──
-   Conserva su filo limpio (contorno de tinta): entre teclas de canto comido, salta al frente. */
+   Es del mismo material que las teclas: su línea de tinta va diluida en el grano. silueta.js hornea
+   una máscara de su silueta con el canto comido por el mismo ruido fino (misma franja, mismo temblor,
+   misma mordida) y aquí la línea se ensancha para que ese canto caiga sobre ella sin borrarla: la
+   silueta de cámara y los ojos se siguen leyendo de un vistazo. El ruido de la máscara es fijo (no
+   hierve) y la máscara va con la pieza: el guiño, la pupila y el latido de la escucha se mueven dentro. */
+/* …y su luz: un halo verde muy tenue detrás, quieto (la única pieza verde de la botonera brilla un poco). */
+body[data-piel="interfaz"] #deckShutter .silueta { position: relative; }
+body[data-piel="interfaz"] #deckShutter::before { content: '' !important; display: block !important; position: absolute; top: -8px; bottom: -10px; left: -10px; right: -12px; pointer-events: none; background: radial-gradient(closest-side at 52% 56%, rgba(0, 150, 84, .26), rgba(0, 150, 84, 0)); }
+body[data-piel="interfaz"].si-bordes-listos #deckShutter .silueta { -webkit-mask: var(--si-f-mascota) 0 0 / 88px 84px no-repeat; mask: var(--si-f-mascota) 0 0 / 88px 84px no-repeat; }
+body[data-piel="interfaz"].si-bordes-listos #deckShutter .silueta > g > g:first-child { stroke-width: 2.4; }
 #deckShutter .silueta { display: none; }
 body[data-piel="interfaz"] #deckShutter { width: 88px !important; height: 84px !important; background: none !important; box-shadow: none !important; border-radius: 0 !important; transform: none !important; justify-self: center; align-self: center; transition: transform .09s ease-out; }
-body[data-piel="interfaz"] #deckShutter::before, body[data-piel="interfaz"] #deckShutter::after, body[data-piel="interfaz"] #deckShutter > i { display: none !important; }
+body[data-piel="interfaz"] #deckShutter::after, body[data-piel="interfaz"] #deckShutter > i { display: none !important; }
 body[data-piel="interfaz"] #deckShutter .silueta { display: block; width: 88px; height: 84px; overflow: visible; }
 body[data-piel="interfaz"] #deckShutter:active, body[data-piel="interfaz"] #deckShutter.guino { transform: scale(.955) !important; }
 body[data-piel="interfaz"] #modeDeck #deckShutter { transform: none !important; }
@@ -415,9 +440,9 @@ body[data-piel="interfaz"] .si-personal > button { min-height: 44px; font-size: 
 body[data-piel="interfaz"] .si-personal > small { font: 600 10.5px/1 var(--si-fuente); letter-spacing: 0; text-transform: lowercase; color: var(--si-suave); }
 
 /* ── Avisos sobre la pantalla (cámara, fuente de sonido) ── */
-body[data-piel="interfaz"] :is(#cameraGate, .fuente-sonido) { background: var(--si-banda) !important; }
+body[data-piel="interfaz"] :is(#cameraGate, .fuente-sonido) { background: var(--si-pantalla) !important; }
 body[data-piel="interfaz"] :is(#cameraGate, .fuente-sonido) strong { font: 800 16px/1.2 var(--si-fuente) !important; letter-spacing: -.025em !important; text-transform: lowercase !important; color: var(--si-marfil) !important; }
-body[data-piel="interfaz"] :is(#cameraGate, .fuente-sonido) p { font: 500 12.5px/1.4 var(--si-fuente) !important; letter-spacing: -.005em !important; color: var(--si-banda-suave) !important; }
+body[data-piel="interfaz"] :is(#cameraGate, .fuente-sonido) p { font: 500 12.5px/1.4 var(--si-fuente) !important; letter-spacing: -.005em !important; color: var(--si-pantalla-suave) !important; }
 body[data-piel="interfaz"] :is(#cameraGate, :is(#sonoPerm, #wmpPerm).fuente-sonido) :is(button, label) { --si-m: var(--si-acento); --si-f: var(--si-f-acento); min-height: 46px; padding: 0 24px !important; color: var(--si-sobre-acento) !important; font: 800 12.5px/1 var(--si-fuente) !important; letter-spacing: -.015em !important; text-transform: lowercase !important; }
 body[data-piel="interfaz"] :is(#cameraGate, :is(#sonoPerm, #wmpPerm).fuente-sonido) :is(button, label).quiet { --si-m: var(--si-marfil); --si-f: var(--si-f-marfil); color: #242646 !important; }
 /* (estas teclas llevan además su color de respaldo en el propio fondo, recortado al contenido: queda
@@ -435,8 +460,8 @@ body[data-piel="interfaz"].si-bordes-listos #osdHint::after {
 }
 body[data-piel="interfaz"] .flip-toast { background: var(--si-visor-pildora) !important; color: var(--si-marfil) !important; border-radius: 22px !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; box-shadow: none !important; border: 0 !important; font: 600 12.5px/1.35 var(--si-fuente) !important; letter-spacing: -.01em !important; padding: 9px 16px !important; }
 /* El reposo: tarjeta de la banda de esquina 22; EN REPOSO es la única licencia para la letra de puntos (a 20 px sí se lee). */
-body[data-piel="interfaz"] .rest-note { --si-m: var(--si-banda); --si-f: var(--si-f-banda); --si-r: var(--si-r-puerta); color: var(--si-marfil); }
-body[data-piel="interfaz"] .rest-note span { font: 500 12px/1.3 var(--si-fuente); letter-spacing: -.005em; text-transform: none; color: var(--si-banda-suave); }
+body[data-piel="interfaz"] .rest-note { --si-m: var(--si-visor-pildora); --si-f: var(--si-f-pildora); --si-r: var(--si-r-puerta); color: var(--si-marfil); }
+body[data-piel="interfaz"] .rest-note span { font: 500 12px/1.3 var(--si-fuente); letter-spacing: -.005em; text-transform: none; color: var(--si-pantalla-suave); }
 body[data-piel="interfaz"] .rest-note i { box-shadow: none; animation: none; background: var(--si-aviso); }
 
 /* ── El grano: fino, quieto y ENCIMA de todo menos de la imagen ──
@@ -550,14 +575,14 @@ body[data-haptic="vis"][data-piel="interfaz"] :is(.si-chip, .deck-variants .hw-k
 }
 
 /* ── CLON · la galería de looks: una hoja de la banda que sube, con cartas de esquina 16 ── */
-body[data-piel="interfaz"] .clon-galeria { background: var(--si-banda); color: var(--si-marfil); border-radius: var(--si-r-hoja) var(--si-r-hoja) 0 0; border-top: 0; box-shadow: 0 -10px 28px rgba(10, 11, 20, .32); font-family: var(--si-fuente); --si-pulsa: 1.14; }
+body[data-piel="interfaz"] .clon-galeria { background: var(--si-banda); color: var(--si-banda-tinta); border-radius: var(--si-r-hoja) var(--si-r-hoja) 0 0; border-top: 0; box-shadow: 0 -10px 28px rgba(10, 11, 20, .32); font-family: var(--si-fuente); --si-pulsa: var(--si-pulsa-banda); }
 body[data-piel="interfaz"].si-bordes-listos .clon-galeria:not(.escribiendo) { background: none; }
 body[data-piel="interfaz"] .clon-asa { width: 36px; height: 4px; margin-left: -18px; border-radius: 999px; opacity: .3; }
-body[data-piel="interfaz"] .clon-cabeza small { font: 800 15px/1 var(--si-fuente); letter-spacing: -.025em; text-transform: lowercase; color: var(--si-marfil); opacity: 1; }
+body[data-piel="interfaz"] .clon-cabeza small { font: 800 15px/1 var(--si-fuente); letter-spacing: -.025em; text-transform: lowercase; color: var(--si-banda-tinta); opacity: 1; }
 body[data-piel="interfaz"] .clon-cabeza b { font: 600 12px/1 var(--si-fuente); letter-spacing: 0; font-variant-numeric: tabular-nums; color: var(--si-banda-suave); }
 body[data-piel="interfaz"] .clon-cabeza b.is-casi { color: var(--si-aviso); }
 /* Las teclas de la galería: píldoras de la banda de 34 px en cajas de 44. */
-body[data-piel="interfaz"] .clon-tecla { --si-m: var(--si-banda-tecla); --si-f: var(--si-f-banda-tecla); --si-iy: 5px; height: 44px; padding: 0 14px; color: var(--si-marfil); font: 800 12.5px/1 var(--si-fuente); letter-spacing: -.015em; text-transform: lowercase; }
+body[data-piel="interfaz"] .clon-tecla { --si-m: var(--si-banda-tecla); --si-f: var(--si-f-banda-tecla); --si-iy: 5px; height: 44px; padding: 0 14px; color: var(--si-banda-tinta); font: 800 12.5px/1 var(--si-fuente); letter-spacing: -.015em; text-transform: lowercase; }
 body[data-piel="interfaz"] .clon-tecla:active { transform: scale(.955); }
 /* (A – Z se queda como está: es una sigla; los otros órdenes, en minúsculas) */
 body[data-piel="interfaz"] .clon-orden { height: 44px; padding: 0 12px; font-size: 11.5px; --si-iy: 8px; }
@@ -570,16 +595,16 @@ body[data-piel="interfaz"] :is(.clon-borra, .clon-pasa) { height: 44px; padding:
 body[data-piel="interfaz"] .clon-elegido { grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 4px 6px; border-bottom: 0; padding-bottom: 6px; }
 /* El nombre del look: el usuario lo escribió, se queda en mayúsculas (como lo guarda CLON). Un campo
    no tiene ::before: su forma es lisa, una píldora hundida del color de la carta. */
-body[data-piel="interfaz"] #clonNombre { height: 36px; border-radius: 999px; background: var(--si-banda-carta); color: var(--si-marfil); font: 800 14px/1 var(--si-fuente); letter-spacing: -.01em; box-shadow: none; padding: 0 14px; }
+body[data-piel="interfaz"] #clonNombre { height: 36px; border-radius: 999px; background: var(--si-banda-carta); color: var(--si-banda-tinta); font: 800 14px/1 var(--si-fuente); letter-spacing: -.01em; box-shadow: none; padding: 0 14px; }
 body[data-piel="interfaz"] #clonNombre:focus, body[data-piel="interfaz"] .clon-galeria.nombrado #clonNombre { box-shadow: inset 0 0 0 2px var(--si-acento); }
 body[data-piel="interfaz"] .clon-elegido p { color: var(--si-banda-suave); opacity: 1; font: 500 12px/1.3 var(--si-fuente); letter-spacing: -.005em; }
-body[data-piel="interfaz"] .clon-recibe { --si-m: var(--si-banda-carta); --si-f: var(--si-f-banda-carta-22); height: 44px; color: var(--si-marfil); font: 800 12.5px/1 var(--si-fuente); letter-spacing: -.015em; text-transform: lowercase; opacity: 1; }
+body[data-piel="interfaz"] .clon-recibe { --si-m: var(--si-banda-carta); --si-f: var(--si-f-banda-carta-22); height: 44px; color: var(--si-banda-tinta); font: 800 12.5px/1 var(--si-fuente); letter-spacing: -.015em; text-transform: lowercase; opacity: 1; }
 body[data-piel="interfaz"] .clon-recibe:active { transform: scale(.97); }
 body[data-piel="interfaz"] .clon-pase p b, body[data-piel="interfaz"] .clon-llega b { font-family: var(--si-fuente); letter-spacing: -.01em; }
 body[data-piel="interfaz"] .clon-llega b { font: 800 15px/1 var(--si-fuente); letter-spacing: -.025em; text-transform: lowercase; }
 body[data-piel="interfaz"] .clon-pase p span, body[data-piel="interfaz"] .clon-llega p { color: var(--si-banda-suave); opacity: 1; font: 500 12px/1.35 var(--si-fuente); }
 body[data-piel="interfaz"] .clon-pase .clon-tecla { height: 44px; padding: 0 18px; --si-iy: 2px; }
-body[data-piel="interfaz"] #clonEnlace { border-radius: 999px; background: var(--si-banda-carta); color: var(--si-marfil); font: 600 12.5px/1 var(--si-fuente); letter-spacing: 0; box-shadow: none; height: 44px; padding: 0 16px; }
+body[data-piel="interfaz"] #clonEnlace { border-radius: 999px; background: var(--si-banda-carta); color: var(--si-banda-tinta); font: 600 12.5px/1 var(--si-fuente); letter-spacing: 0; box-shadow: none; height: 44px; padding: 0 16px; }
 body[data-piel="interfaz"] #clonEnlace::placeholder { color: var(--si-banda-suave); text-transform: lowercase; }
 body[data-piel="interfaz"] #clonEnlace:focus { box-shadow: inset 0 0 0 2px var(--si-acento); }
 /* La capa de PASAR y RECIBIR tapa la rejilla: su propio fondo de la banda (no el de la hoja, que con
@@ -589,7 +614,7 @@ body[data-piel="interfaz"] .clon-capa { background: var(--si-banda); }
 body[data-piel="interfaz"] #clonQr { border-radius: 0 !important; filter: none !important; image-rendering: pixelated; }
 /* Las cartas: esquina 16, mancha de la carta de la banda, miniatura de esquina 11 y la firma de color en
    una píldora de 4. La puesta, en acento. Sin aislamiento: la miniatura tiene que subir por encima del grano. */
-body[data-piel="interfaz"] .clon-carta { --si-m: var(--si-banda-carta); --si-f: var(--si-f-banda-carta); --si-sl: var(--si-sl-16); --si-bw: 18px; --si-r: var(--si-r-carta); position: relative; isolation: auto !important; padding: 5px 5px 0; color: var(--si-marfil); }
+body[data-piel="interfaz"] .clon-carta { --si-m: var(--si-banda-carta); --si-f: var(--si-f-banda-carta); --si-sl: var(--si-sl-16); --si-bw: 18px; --si-r: var(--si-r-carta); position: relative; isolation: auto !important; padding: 5px 5px 0; color: var(--si-banda-tinta); }
 body[data-piel="interfaz"] .clon-carta:active { transform: none; }
 body[data-piel="interfaz"] .clon-carta:active .clon-mini { transform: scale(.96); transition: transform .08s; }
 body[data-piel="interfaz"] .clon-mini { aspect-ratio: 118 / 84; border-radius: 11px; box-shadow: none; }
@@ -600,7 +625,8 @@ body[data-piel="interfaz"] .clon-firma { height: 7px; margin: 5px 0 0; border-ra
 body[data-piel="interfaz"] .clon-carta b { margin: 0 -5px; padding: 7px 9px 9px; border-radius: 0; background: none; font: 800 11.5px/1.15 var(--si-fuente); letter-spacing: -.015em; }
 body[data-piel="interfaz"] .clon-carta.is-on { --si-m: var(--si-acento); --si-f: var(--si-f-acento-16); color: var(--si-sobre-acento); }
 body[data-piel="interfaz"] .clon-carta.is-on b { background: none; color: var(--si-sobre-acento); }
-body[data-piel="interfaz"] .clon-deshacer { --si-m: var(--si-banda-carta); --si-f: var(--si-f-banda-carta-22); --si-r: 22px; overflow: visible; }
+body[data-piel="interfaz"] .clon-deshacer { --si-m: var(--si-banda-carta); --si-f: var(--si-f-banda-carta-22); --si-r: 22px; overflow: visible; color: var(--si-banda-tinta); }
+body[data-piel="interfaz"]:not([data-tema="oscuro"]) .clon-deshacer .clon-cara { filter: none; }
 body[data-piel="interfaz"] .clon-deshacer span { font: 800 11.5px/1.2 var(--si-fuente); letter-spacing: .01em; }
 body[data-piel="interfaz"] .clon-tiempo { background: var(--si-acento); left: 16px; right: 16px; width: auto; bottom: 3px; height: 3px; border-radius: 999px; }
 /* Al escribir el nombre la hoja sube arriba: ahí es una hoja que baja (esquinas de abajo, sin canto horneado). */
@@ -613,13 +639,13 @@ body[data-piel="interfaz"] .clon-pildora i { border-radius: 8px; }
 body[data-piel="interfaz"] .clon-vacio b { font: 800 16px/1 var(--si-fuente); letter-spacing: -.025em; text-transform: lowercase; }
 body[data-piel="interfaz"] .clon-vacio p { font: 500 12.5px/1.4 var(--si-fuente); letter-spacing: -.005em; color: var(--si-banda-suave); opacity: 1; }
 /* En la banda no cabe otra palabra: la tecla de la galería es una rejilla y la cuenta, en una ficha. */
-body[data-piel="interfaz"] .clon-abre-galeria em { margin-left: 0; padding: 3px 7px; border-radius: 999px; background: var(--si-banda-off); color: var(--si-marfil); font: 700 11px/1 var(--si-fuente); font-variant-numeric: tabular-nums; }
+body[data-piel="interfaz"] .clon-abre-galeria em { margin-left: 0; padding: 3px 7px; border-radius: 999px; background: var(--si-banda-off); color: var(--si-banda-tinta); font: 700 11px/1 var(--si-fuente); font-variant-numeric: tabular-nums; }
 body[data-piel="interfaz"] .clon-abre-galeria.tiene em { background: var(--si-acento); color: var(--si-sobre-acento); }
 /* FIGURA solo existe en los looks de fondo liso: escondida, no ocupa sitio */
 .clon-figura[hidden] { display: none !important; }
 body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria { min-width: 52px; justify-content: center; }
 /* (la rejilla se dibuja en el rótulo, que se queda sin letra pero sigue ahí para el lector de pantalla) */
-body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria span { display: block; flex: 0 0 11px; width: 11px; height: 11px; overflow: hidden; color: transparent; font-size: 0; background: linear-gradient(var(--si-marfil), var(--si-marfil)) 0 0 / 5px 5px no-repeat, linear-gradient(var(--si-marfil), var(--si-marfil)) 100% 0 / 5px 5px no-repeat, linear-gradient(var(--si-marfil), var(--si-marfil)) 0 100% / 5px 5px no-repeat, linear-gradient(var(--si-marfil), var(--si-marfil)) 100% 100% / 5px 5px no-repeat; border-radius: 1px; }
+body[data-piel="interfaz"] .clon-rapidas .clon-abre-galeria span { display: block; flex: 0 0 11px; width: 11px; height: 11px; overflow: hidden; color: transparent; font-size: 0; background: linear-gradient(var(--si-banda-tinta), var(--si-banda-tinta)) 0 0 / 5px 5px no-repeat, linear-gradient(var(--si-banda-tinta), var(--si-banda-tinta)) 100% 0 / 5px 5px no-repeat, linear-gradient(var(--si-banda-tinta), var(--si-banda-tinta)) 0 100% / 5px 5px no-repeat, linear-gradient(var(--si-banda-tinta), var(--si-banda-tinta)) 100% 100% / 5px 5px no-repeat; border-radius: 1px; }
 /* La mascota: mira hacia arriba mientras la galería está abierta, respinga al borrar, abre la pupila al llenarse. */
 body[data-piel="interfaz"] #deckShutter.hojea { --mira-y: -1.8px; }
 body[data-piel="interfaz"] #deckShutter .silueta .pupila { transform: translate(calc(var(--mira, 0) * 1px), var(--mira-y, 0px)) scale(var(--pup, 1)); }
@@ -633,14 +659,14 @@ body[data-piel="interfaz"] #deckShutter.llena { --pup: 1.16; }
    perilla, un disco de tecla con una aguja en cápsula y el arco de su recorrido (270°) detrás; las
    teclas, píldoras. Mismas medidas y mismo sitio (console.css): solo cambia el material. Sin brillos
    metálicos y sin girar con la inclinación del teléfono (eso es del aluminio de OBJETO). */
-body[data-piel="interfaz"][data-tab="cam"] #palettes, body[data-piel="interfaz"] .cs-host { --cs-ink: var(--si-marfil); --si-pulsa: 1.14; }
+body[data-piel="interfaz"][data-tab="cam"] #palettes, body[data-piel="interfaz"] .cs-host { --cs-ink: var(--si-banda-tinta); --si-pulsa: var(--si-pulsa-banda); }
 body[data-piel="interfaz"][data-tab="cam"] #palettes::before {
   content: '' !important; display: block !important; position: absolute; z-index: -1; top: 0; bottom: 0; left: 0; right: 0; pointer-events: none; box-sizing: border-box;
   border: 1.6px solid transparent; border-radius: var(--si-r-puerta); background: var(--si-banda) padding-box;
 }
 body[data-piel="interfaz"].si-bordes-listos[data-tab="cam"] #palettes::before {
   content: '' !important; display: block !important; position: absolute; z-index: -1; pointer-events: none; box-sizing: border-box;
-  border: 1.6px solid transparent; border-radius: var(--si-r-puerta); background: var(--si-banda) padding-box;
+  border: 1.6px solid transparent; border-radius: var(--si-r-puerta); background: radial-gradient(closest-side at 50% 40%, var(--si-luz-hoja), transparent) padding-box, var(--si-banda) padding-box;
   border-image: var(--si-f-banda) var(--si-sl-22) fill / 24px / var(--si-borde-outset) repeat;
 }
 
@@ -655,7 +681,7 @@ body[data-piel="interfaz"] :is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrash
 }
 body[data-piel="interfaz"][data-tab="cam"] #palettes :is(.cs-slot > [class$="-val"], .cs-slot > .cs-val, .cs-slot .fps-val, .cs-slot .zoom-val),
 body[data-piel="interfaz"] :is(#sonoHUD, #wmpHUD, #fusionHUD, #sflowHUD, #scrashControls) .cr-val {
-  font: 700 11.5px/1 var(--si-fuente) !important; letter-spacing: 0 !important; font-variant-numeric: tabular-nums; color: var(--si-marfil) !important; text-shadow: none !important; text-transform: none !important;
+  font: 700 11.5px/1 var(--si-fuente) !important; letter-spacing: 0 !important; font-variant-numeric: tabular-nums; color: var(--si-banda-tinta) !important; text-shadow: none !important; text-transform: none !important;
 }
 body[data-piel="interfaz"][data-tab="cam"] #palettes .cs-pane[data-cs-n="6"] .cs-slot > [class$="-lbl"], body[data-piel="interfaz"][data-tab="cam"] #palettes .cs-pane[data-cs-rows="2"] .cs-slot > [class$="-lbl"] { font-size: 9px !important; }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-slot:has(.cs-knob.is-held) > [class$="-val"] { color: var(--si-aviso) !important; }
@@ -670,24 +696,24 @@ body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-knob::before {
   border-radius: 50%; background: var(--si-banda-tecla-act) !important; box-shadow: 0 0 0 3px var(--si-banda) !important;
 }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-knob > i { background: none !important; }
-body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-knob > i::before { content: ''; position: absolute; left: 50%; top: 17%; width: 5px; height: 12px; margin-left: -2.5px; border-radius: 999px; background: var(--si-marfil); }
+body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-knob > i::before { content: ''; position: absolute; left: 50%; top: 17%; width: 5px; height: 12px; margin-left: -2.5px; border-radius: 999px; background: var(--si-banda-tinta); }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-knob.is-held > i::before { background: var(--si-aviso); }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-knob:focus-visible { filter: none; outline: 2.5px solid var(--si-acento); outline-offset: 2px; }
 body[data-piel="interfaz"] #palettes #camFpsCtrl.is-off .cs-knob { opacity: .34; filter: none; }
 /* El interruptor: pista de la banda y botón marfil (encendido, de acento). */
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-toggle { background: var(--si-banda-tecla) !important; border-radius: 999px; }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-toggle > i { background: none !important; }
-body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-toggle > i::before { content: ''; position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--si-marfil); transition: background-color .13s; }
+body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-toggle > i::before { content: ''; position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--si-banda-ficha); transition: background-color .13s; }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-toggle[aria-checked="true"] > i::before { background: var(--si-acento); }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) .cs-toggle:focus-visible { filter: none; outline: 2.5px solid var(--si-acento); outline-offset: 2px; }
 /* Las teclas de la consola: píldoras de la banda; la elegida, de acento. Sin piloto ni filetes. */
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) :is(.cs-key, .cs-keys button):not(#si-z) {
   --si-m: var(--si-banda-tecla); --si-f: var(--si-f-banda-tecla); --si-sl: var(--si-sl-22); --si-bw: 24px; --si-r: 999px; --si-iy: 0px; --si-ix: 0px; --si-canto: ''; --si-nucleo: '';
   isolation: isolate; border: 0 !important; border-image: none !important; background: none !important;
-  color: var(--si-marfil) !important; font: 800 11px/1 var(--si-fuente) !important; font-stretch: normal !important; letter-spacing: -.01em !important; text-transform: lowercase !important;
+  color: var(--si-banda-tinta) !important; font: 800 11px/1 var(--si-fuente) !important; font-stretch: normal !important; letter-spacing: -.01em !important; text-transform: lowercase !important;
 }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) :is(.cs-key, .cs-keys button):not(#si-z):is(.is-on, .active, [aria-pressed="true"]) { --si-m: var(--si-acento); --si-f: var(--si-f-acento); color: var(--si-sobre-acento) !important; }
-body[data-piel="interfaz"] #palettes #btnCamEditClose:not(#si-z) { --si-m: var(--si-marfil); --si-f: var(--si-f-marfil); color: #242646 !important; letter-spacing: -.01em !important; border-image: none !important; }
+body[data-piel="interfaz"] #palettes #btnCamEditClose:not(#si-z) { --si-m: var(--si-banda-ficha); --si-f: var(--si-f-banda-ficha); color: var(--si-banda-ficha-tinta) !important; letter-spacing: -.01em !important; border-image: none !important; }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack) :is(.cs-key, .cs-keys button):not(#si-z)::after {
   content: var(--si-nucleo) !important; display: block !important; position: absolute !important; z-index: -1 !important; pointer-events: none; top: 0 !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
   width: auto !important; height: auto !important; border-radius: 999px !important; background: var(--si-m) !important; filter: none;
@@ -720,7 +746,7 @@ body[data-piel="interfaz"] .flip-settings-panel::before { content: none !importa
 body[data-piel="interfaz"].si-bordes-listos .flip-settings-panel { background: none !important; }
 body[data-piel="interfaz"].si-bordes-listos .flip-settings-panel::before {
   content: '' !important; display: block !important; position: absolute; z-index: -1; top: 0; bottom: 0; left: 0; right: 0; pointer-events: none; opacity: 1 !important; box-sizing: border-box;
-  border: 0 solid transparent; border-top-width: 1.6px; border-radius: var(--si-r-hoja) var(--si-r-hoja) 0 0; background: var(--si-fondo) padding-box;
+  border: 0 solid transparent; border-top-width: 1.6px; border-radius: var(--si-r-hoja) var(--si-r-hoja) 0 0; background: radial-gradient(closest-side at 50% 38%, var(--si-luz-hoja), transparent) padding-box, var(--si-fondo) padding-box;
   border-image: var(--si-f-hoja-clara) var(--si-sl-h26) var(--si-sl-h26) 0 fill / 28px 28px 0 28px / 2px 3px 0 3px repeat;
 }
 body[data-piel="interfaz"] #flipSettingsPanel > .grano { border-radius: var(--si-r-hoja) var(--si-r-hoja) 0 0 !important; }
@@ -757,30 +783,30 @@ body[data-piel="interfaz"] input[type="range"]::-webkit-slider-thumb { width: 22
 body[data-piel="interfaz"] input[type="range"]::-moz-range-track { height: 10px; border-radius: 999px; background: var(--si-tecla); }
 body[data-piel="interfaz"] input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; border: 0; background: var(--si-tinta); }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack, #sflowHUD, .clon-galeria, .si-cajon) input[type="range"]::-webkit-slider-runnable-track { background: var(--si-banda-tecla) !important; }
-body[data-piel="interfaz"] :is(#palettes, .cs-rack, #sflowHUD, .clon-galeria, .si-cajon) input[type="range"]::-webkit-slider-thumb { background: var(--si-marfil) !important; box-shadow: 0 0 0 3px var(--si-banda) !important; }
+body[data-piel="interfaz"] :is(#palettes, .cs-rack, #sflowHUD, .clon-galeria, .si-cajon) input[type="range"]::-webkit-slider-thumb { background: var(--si-banda-tinta) !important; box-shadow: 0 0 0 3px var(--si-banda) !important; }
 body[data-piel="interfaz"] :is(#palettes, .cs-rack, #sflowHUD, .clon-galeria, .si-cajon) input[type="range"]::-moz-range-track { background: var(--si-banda-tecla); }
-body[data-piel="interfaz"] :is(#palettes, .cs-rack, #sflowHUD, .clon-galeria, .si-cajon) input[type="range"]::-moz-range-thumb { background: var(--si-marfil); }
+body[data-piel="interfaz"] :is(#palettes, .cs-rack, #sflowHUD, .clon-galeria, .si-cajon) input[type="range"]::-moz-range-thumb { background: var(--si-banda-tinta); }
 
 /* ── Campos de aerógrafo: solo donde no hay visor con el que pelearse ──
    Degradados radiales con la paleta propia de FLIP (tinta, violeta, mandarina, verde, crema). La
    portada pinta su pantalla grande con un campo violeta; el lanzador, su papel con dos manchas de
    color muy bajas; la galería vacía, una luz verde detrás de la mascota dormida. Ninguno se mueve. */
 body[data-piel="interfaz"] {
-  --si-campo-portada: radial-gradient(120% 95% at 18% 12%, #594A8C 0%, #242646 56%, #141522 100%);
-  --si-campo-lanzador: radial-gradient(115% 85% at 85% 6%, rgba(247, 127, 80, .20) 0%, transparent 55%), radial-gradient(110% 90% at 12% 92%, rgba(0, 128, 72, .16) 0%, transparent 58%);
+  --si-campo-portada: radial-gradient(120% 95% at 18% 12%, #6E53BE 0%, #2C2A72 52%, #141522 100%);
+  --si-campo-lanzador: radial-gradient(115% 85% at 85% 6%, rgba(247, 127, 80, .30) 0%, transparent 55%), radial-gradient(110% 90% at 12% 92%, rgba(0, 150, 84, .24) 0%, transparent 58%);
 }
 body[data-piel="interfaz"][data-tema="oscuro"] {
-  --si-campo-lanzador: radial-gradient(115% 85% at 85% 6%, rgba(89, 74, 140, .42) 0%, transparent 58%), radial-gradient(110% 90% at 12% 92%, rgba(0, 128, 72, .22) 0%, transparent 58%);
+  --si-campo-lanzador: radial-gradient(115% 85% at 85% 6%, rgba(110, 83, 190, .5) 0%, transparent 58%), radial-gradient(110% 90% at 12% 92%, rgba(0, 150, 84, .3) 0%, transparent 58%);
 }
 body[data-piel="interfaz"] .splash-hero::before { background: var(--si-campo-portada) !important; }
 body[data-piel="interfaz"] #shellLauncher { background: var(--si-campo-lanzador), var(--si-fondo) !important; }
-body[data-piel="interfaz"] .clon-galeria.is-vacia .clon-vacio { background: radial-gradient(60% 55% at 50% 38%, rgba(0, 128, 72, .22), transparent 70%), radial-gradient(70% 60% at 80% 90%, rgba(89, 74, 140, .3), transparent 70%); border-radius: var(--si-r-puerta); }
+body[data-piel="interfaz"] .clon-galeria.is-vacia .clon-vacio { background: radial-gradient(60% 55% at 50% 38%, rgba(0, 150, 84, .3), transparent 70%), radial-gradient(70% 60% at 80% 90%, rgba(110, 83, 190, .36), transparent 70%); border-radius: var(--si-r-puerta); }
 
 /* ── El tinte de la cámara puesta (--si-ambiente, silueta.js) ──
    Un halo muy bajo detrás de la tira, del color medio de la miniatura de la cámara puesta. Se pone solo
    al cambiar de cámara (nunca mirando el visor en vivo: eso costaría cuadros y haría parpadear todo). */
 body[data-piel="interfaz"] .deck-looks { background: var(--si-banda) !important; }
-body[data-piel="interfaz"] .deck-looks { background: radial-gradient(ellipse 62% 90% at 50% 38%, color-mix(in srgb, var(--si-ambiente) 15%, var(--si-banda)), var(--si-banda) 74%) !important; }
+body[data-piel="interfaz"] .deck-looks { background: radial-gradient(ellipse 72% 100% at 50% 40%, color-mix(in srgb, var(--si-ambiente) var(--si-ambiente-mezcla, 26%), var(--si-banda)), var(--si-banda) 78%) !important; }
 
 /* ── CLON: el grano de la galería y lo que va por encima de él ──
    La galería lleva su propia capa de grano (silueta.js), debajo de las miniaturas de los looks (son

@@ -147,7 +147,9 @@ const box = (page, selector) => page.evaluate(sel => { const r = document.queryS
     const objeto = await page.evaluate(() => ({ piel: document.body.dataset.piel, marco: getComputedStyle(document.getElementById('lcd')).display !== 'none', silueta: getComputedStyle(document.querySelector('#deckShutter .silueta')).display,
       variantes: document.getElementById('deckVariants').parentElement.id, antes: document.getElementById('deckVariants').nextElementSibling.className, key: document.getElementById('flipPiel').textContent.trim(),
       banda: getComputedStyle(document.querySelector('.si-banda-cabeza')).display }));
-    assert.deepEqual(objeto, { piel: 'objeto', marco: true, silueta: 'none', variantes: 'camDeck', antes: 'deck-variants reaccion-teclas', key: 'PIEL INTERFAZ', banda: 'none' }, 'la piel OBJETO vuelve entera');
+    // (la fila que sigue a las variantes es la de teclas de REACCIÓN; las cámaras nuevas le añaden otras clases, p. ej. consola-teclas)
+    assert.ok(/^deck-variants reaccion-teclas\b/.test(objeto.antes), 'las variantes vuelven a su sitio en OBJETO: ' + objeto.antes);
+    assert.deepEqual({ ...objeto, antes: undefined }, { piel: 'objeto', marco: true, silueta: 'none', variantes: 'camDeck', antes: undefined, key: 'PIEL INTERFAZ', banda: 'none' }, 'la piel OBJETO vuelve entera');
     await page.reload();
     await page.waitForTimeout(700);
     assert.equal(await page.evaluate(() => document.body.dataset.piel), 'objeto', 'la piel elegida se recuerda');

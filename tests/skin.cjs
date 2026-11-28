@@ -131,7 +131,7 @@ const box = (page, selector) => page.evaluate(sel => { const r = document.queryS
       }, shot);
     };
     const cover = { barra: await magenta('#shellTop'), disparador: await magenta('#deckShutter', 14), teclas: await magenta('#deckAdjust'), banda: await magenta('.si-banda-cabeza'), placa: await magenta('.si-placa'),
-      imagen: await magenta('#display'), miniatura: await magenta('.look.is-on i'), toma: await magenta('#deckGallery b') };
+      imagen: await magenta('#display'), miniatura: await magenta('.look.is-on i', 5), toma: await magenta('#deckGallery b', 5) };   // (5 px hacia dentro: la miniatura y la toma tienen esquina de 12 y lo de fuera de la esquina es la barra)
     for (const name of ['barra', 'disparador', 'teclas', 'banda', 'placa']) assert.ok(cover[name] > 0.98, 'el grano cubre ' + name + ': ' + JSON.stringify(cover));
     for (const name of ['imagen', 'miniatura', 'toma']) assert.equal(cover[name], 0, 'ni una mota sobre ' + name + ': ' + JSON.stringify(cover));
     await page.evaluate(() => flipGrano.set(false));

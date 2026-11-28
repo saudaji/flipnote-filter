@@ -42,9 +42,13 @@
 // Qué parte de la escena es «la figura» solo lo sabe con la tecla FIGURA (looks de fondo liso), que
 // usa el detector de personas de FLIP; sin ella, o si no hay una persona, el look se reparte por luz.
 // Se prueba contra la verdad en tests/clon.cjs: estilos de receta conocida (tests/lib/clon-estilos.js).
+//
+// Los looks se guardan en este aparato (hasta 50, en una galería por orden alfabético) y se PASAN a
+// otra persona sin servidor: el look viaja dentro de un enlace (~1 KB) o de su QR (docs/qr.js), y
+// quien lo abre lo recibe en su galería. Ver «Pasar un look a otra persona» (se prueba en tests/pase.cjs).
 (function () {
   'use strict';
-  const KEY = 'flip.clon', MAX_LOOKS = 30, A_MANO = 4, REVEAL_MS = 760, FFT_N = 256, FIT_N = 128, COLOR_FAR = 0.1;
+  const KEY = 'flip.clon', MAX_LOOKS = 50, A_MANO = 4, REVEAL_MS = 760, FFT_N = 256, FIT_N = 128, COLOR_FAR = 0.1;
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   const $ = id => document.getElementById(id);
 
@@ -1468,7 +1472,7 @@
   // ── Los looks guardados ─────────────────────────────────────────────────────
   const S = { looks: [], aim: false, revealAt: 0, frame: 0, ms: 0, scene: { hist: new Float32Array(64).fill(1), mean: [0, 0], samples: null, follow: 1 }, sceneAt: -1e9, last: null, busy: false };
   try { const saved = JSON.parse(localStorage.getItem(KEY) || '[]'); if (Array.isArray(saved)) S.looks = saved.filter(l => l && l.v === 1 && l.id && Array.isArray(l.palette)); } catch (_) {}
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S.looks)); } catch (_) {} };
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S.looks)); } catch (_) { say('Este navegador ya no tiene sitio para guardar looks · borra alguno', 5200); } };
   const family = () => (typeof CAM_FAMILIES !== 'undefined' ? CAM_FAMILIES.CLON : null);
   // Caben MAX_LOOKS looks; a la mano, en la fila de variantes, van A_MANO: el que está puesto, luego
   // los favoritos y luego los últimos. Los demás siguen siendo variantes válidas (se eligen en la
@@ -1698,7 +1702,7 @@
       try {
         look = keep(learn(source, sw, sh, region));
         if (look) { S.aim = false; S.revealAt = performance.now(); entered(look); }
-        else if (S.full) { say('30 favoritos · quita una estrella o borra uno para guardar otro look', 6500); gallery(true); }
+        else if (S.full) { say(MAX_LOOKS + ' favoritos · quita una estrella o borra uno para guardar otro look', 6500); gallery(true); }
       }
       catch (error) { console.warn('CLON:', error); say('No pude leer esa imagen', 2600); }
       S.busy = false;
@@ -1855,8 +1859,17 @@
     const f = S.last;
     if (!f) { say('Todavía no hay imagen de la cámara', 2200); return Promise.resolve(null); }
     // Solo lo de dentro del encuadre (el 76 % central): lo de alrededor no es la referencia.
-    const rw = f.sw * 0.76, rh = f.sh * 0.76;
-    return adopt(f.source, f.srcW, f.srcH, [f.sx + (f.sw - rw) / 2, f.sy + (f.sh - rh) / 2, rw, rh]);
+    const rw = f.sw * 0.76, rh = f.sh * 0.76, learnIt = () => adopt(f.source, f.srcW, f.srcH, [f.sx + (f.sw - rw) / 2, f.sy + (f.sh - rh) / 2, rw, rh]);
+    // (si en el encuadre hay un QR de FLIP, es un look que alguien enseña en su pantalla: se recibe tal cual)
+    return scanPass(f.source).then(text => (text && arrive(text)) || learnIt());
+  }
+  // Un QR con un look dentro, en una imagen (donde el navegador sabe leer códigos: Chrome en Android y en Mac).
+  function scanPass(source) {
+    if (typeof BarcodeDetector === 'undefined' || S.busy || S.scanning) return Promise.resolve(null);
+    S.scanning = true;
+    return Promise.resolve().then(() => { S.codes = S.codes || new BarcodeDetector({ formats: ['qr_code'] }); return S.codes.detect(source); })
+      .then(found => { for (const code of found) if (readPass(code.rawValue)) return code.rawValue; return null; })
+      .catch(() => null).then(text => { S.scanning = false; return text; });
   }
   function copyKey() {
     if (S.busy) return;
@@ -1879,7 +1892,7 @@
           const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)), c = surface({ canvas: null, ctx: null }, Math.max(16, Math.round(img.naturalWidth * k)), Math.max(16, Math.round(img.naturalHeight * k)));
           c.ctx.drawImage(img, 0, 0, c.canvas.width, c.canvas.height);
           URL.revokeObjectURL(url);
-          adopt(c.canvas, c.canvas.width, c.canvas.height);
+          scanPass(c.canvas).then(text => (text && arrive(text)) || adopt(c.canvas, c.canvas.width, c.canvas.height));   // (una captura del QR de un look: se recibe tal cual)
         };
         img.onerror = () => { URL.revokeObjectURL(url); say('No pude abrir esa imagen', 2400); };
         img.src = url;
@@ -1918,13 +1931,17 @@
     // color continuo: del más oscuro al más claro, con el color que la referencia le pone a cada nivel de luz
     return 'linear-gradient(90deg,' + [2, 6, 10, 14].map(k => { const r = (l.ramp && l.ramp[Math.floor(k * l.ramp.length / 16)]) || [0, 0], m = l.rampMix == null ? 1 : l.rampMix, mean = l.mean || [0, 0]; return ink([(k + 0.5) / 16, mean[0] + (r[0] - mean[0]) * Math.max(0.35, m), mean[1] + (r[1] - mean[1]) * Math.max(0.35, m)]); }).join(',') + ')';
   }
-  const ORDERS = ['recientes', 'tipo', 'parecido'];
-  let order = 'recientes';
-  try { const o = localStorage.getItem(KEY + '.orden'); if (ORDERS.includes(o)) order = o; } catch (_) {}
+  // De fábrica, por nombre (con 50 looks, es como se encuentra uno); el chip pasa a los otros órdenes.
+  // (la preferencia guardada antes de que existiera el orden por nombre no cuenta: era «recientes» por omisión)
+  const ORDERS = ['a-z', 'recientes', 'tipo', 'parecido'], ORDER_LABEL = { 'a-z': 'A – Z' };
+  let order = 'a-z';
+  try { const o = localStorage.getItem(KEY + '.orden'); if (ORDERS.includes(o) && localStorage.getItem(KEY + '.ordenV') === '2') order = o; } catch (_) {}
+  const byName = (a, b) => String(a.name).localeCompare(String(b.name), 'es', { numeric: true, sensitivity: 'base' }) || (a.at || 0) - (b.at || 0);
   function sorted() {
     const recent = (a, b) => (!!b.fav) - (!!a.fav) || (b.at || 0) - (a.at || 0);
     const list = S.looks.slice();
-    if (order === 'tipo') list.sort((a, b) => KIND_ORDER.indexOf(kindOf(a)) - KIND_ORDER.indexOf(kindOf(b)) || recent(a, b));
+    if (order === 'a-z') list.sort(byName);
+    else if (order === 'tipo') list.sort((a, b) => KIND_ORDER.indexOf(kindOf(a)) - KIND_ORDER.indexOf(kindOf(b)) || recent(a, b));
     else if (order === 'parecido') list.sort((a, b) => (b.score || 0) - (a.score || 0) || recent(a, b));
     else list.sort(recent);
     return list.map(l => l.id);
@@ -1935,7 +1952,9 @@
     const ids = S.looks.map(l => l.id);
     if (fresh || !S.shown) S.shown = sorted();
     S.shown = S.shown.filter(id => ids.includes(id));
-    for (const id of sorted()) if (!S.shown.includes(id)) S.shown.unshift(id);            // uno nuevo entra arriba
+    // uno nuevo entra arriba; por nombre, en su sitio (detrás del que le precede en el alfabeto)
+    const now = sorted();
+    now.forEach((id, k) => { if (S.shown.includes(id)) return; if (order !== 'a-z') S.shown.unshift(id); else S.shown.splice(k ? S.shown.indexOf(now[k - 1]) + 1 : 0, 0, id); });
     if (S.undo && !S.undo.added) { /* el borrado, si vuelve, vuelve a su sitio: arrange(false) lo recoloca al restaurar */ }
   }
   function galleryPaint() {
@@ -1947,14 +1966,14 @@
     count.classList.toggle('is-casi', n >= MAX_LOOKS - 2);
     sheet.classList.toggle('is-vacia', !n);
     const chip = sheet.querySelector('[data-clon="orden"]');
-    chip.hidden = n < 6; chip.textContent = order.toUpperCase();
+    chip.hidden = n < 6; chip.textContent = ORDER_LABEL[order] || order.toUpperCase(); chip.setAttribute('aria-label', 'Orden: ' + (order === 'a-z' ? 'por nombre' : order) + '. Toca para cambiarlo');
     sheet.querySelector('#clonRejilla').innerHTML = S.shown.map(id => {
       const l = S.looks.find(x => x.id === id);
       // la miniatura de la referencia; un look antiguo sin ella enseña sus tintas
       const back = l.thumb && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(l.thumb) ? 'background-image:url(' + l.thumb + ')' : 'background:linear-gradient(135deg,' + l.palette.map(ink).join(',') + ')';
       const on = !!(cur && cur.id === l.id), kind = kindOf(l);
       return `<button class="hw clon-carta${on ? ' is-on' : ''}${l.fav ? ' is-fav' : ''}" type="button" role="option" aria-selected="${on}" data-id="${html(l.id)}" data-feel="slide" aria-label="${html(l.name)}${l.fav ? ', favorito' : ''}"><i class="clon-mini" style="${back}"><svg class="clon-tipo" viewBox="0 0 10 10" aria-hidden="true" data-tipo="${kind}">${SEALS[kind]}</svg>${l.fav ? '<em class="clon-estrellita" aria-hidden="true">★</em>' : ''}</i><span class="clon-firma" style="background:${signature(l)}"></span><b>${html(l.name)}</b></button>`;
-    }).join('') + (n >= MAX_LOOKS ? '<p class="clon-llena">Galería llena · el próximo look reemplaza al más viejo sin estrella.</p>' : '');
+    }).join('') + (n >= MAX_LOOKS ? '<p class="clon-llena">Galería llena · el próximo look reemplaza al más viejo sin estrella.</p>' : '') + '<button class="hw clon-recibe" type="button" data-clon="recibir" data-feel="key">＋ RECIBIR UN LOOK QUE TE PASARON</button>';
     const bar = sheet.querySelector('.clon-elegido'), name = sheet.querySelector('#clonNombre');
     bar.hidden = !cur;
     if (cur && document.activeElement !== name) name.value = cur.name;
@@ -2010,7 +2029,7 @@
   }
   function pillHide(kind) { if (pill && !pill.hidden && (!kind || pill.dataset.kind === kind)) { pill.hidden = true; clearTimeout(pillTimer); } }
   // Un look recién aprendido entra a la galería: a medio revelado la tecla de la galería da un sello.
-  function entered(look) {
+  function entered(look, arrived) {
     const b = $('deckShutter');
     if (S.looks.length === MAX_LOOKS && !S.out) { setTimeout(doubleWink, 0); setTimeout(() => mascot('llena', 160), 260); }
     else if (b) mascot('guino', 230);
@@ -2019,9 +2038,229 @@
       for (const host of [band, row]) { const k = host && host.querySelector('[data-clon="galeria"]'); if (k) { k.classList.remove('clon-sello'); void k.offsetWidth; k.classList.add('clon-sello'); } }
     }, 500);
     if (S.out) { undoArm(6000); pillShow('deshacer', 'Salió «' + S.out.name + '» para hacer sitio', ['deshacer', 'DESHACER', 'none'], 6000); }
-    else pillShow('guardado', look.name + ' · ' + (look.score == null ? '' : look.score + ' %'), ['renombrar', 'RENOMBRAR'], 5200, look.thumb);
-    say(S.looks.length === MAX_LOOKS ? MAX_LOOKS + ' / ' + MAX_LOOKS + ' · galería llena' : look.name + ' · ' + describe(look), 4200);
+    else pillShow('guardado', arrived ? 'LLEGÓ · ' + look.name : look.name + ' · ' + (look.score == null ? '' : look.score + ' %'), ['renombrar', 'RENOMBRAR'], arrived ? 6500 : 5200, look.thumb);
+    say(S.looks.length === MAX_LOOKS ? MAX_LOOKS + ' / ' + MAX_LOOKS + ' · galería llena' : arrived ? 'Te pasaron «' + look.name + '» · ya está en tus looks' : look.name + ' · ' + describe(look), 4200);
   }
+  // ── Pasar un look a otra persona ────────────────────────────────────────────
+  // FLIP no tiene servidor ni cuentas, así que el look VIAJA DENTRO del enlace (detrás de «#», la
+  // parte de una dirección que el navegador no le manda a nadie). Quien lo abre —desde un chat, o
+  // leyendo el QR con la cámara de su teléfono— lo recibe en su galería. Viaja lo que hace falta para
+  // pintar igual: tintas, tonos, trama, grano, halo y el reparto de color en 200 muestras de las 600
+  // (la diferencia medida es de 0,5 sobre 100: la cuarta parte de lo que se alcanza a notar). No
+  // viajan la miniatura de la referencia (puede ser la foto de alguien) ni la estrella. Son ~1 KB.
+  // Lo que llega es de fuera: se lee con formato fijo, cada número con su tope, y si algo no cuadra
+  // no entra nada.
+  const PASS_V = 1, PASS_M = 200, A41 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-/+.:';
+  const PASS_NUMS = ['error', 'back', 'rampMix', 'chroma', 'byLight', 'tone', 'sat', 'edge', 'vignette', 'pixel', 'soft', 'score', 'screen.freq', 'screen.angle', 'screen.strength', 'grain.amount', 'grain.cells', 'glow.amount', 'glow.size', 'mean.0', 'mean.1', 'ground.0', 'ground.1', 'ground.2', 'backdrop.0', 'backdrop.1', 'backdrop.2'];
+  const SCREEN_TYPES = ['none', 'bayer', 'dot', 'line', 'noise'];
+  // Las muestras de color, entresacadas: las de la figura (las primeras) y las del fondo, cada grupo por su lado.
+  function thinned(look) {
+    const N = look.ot ? Math.floor(look.ot.length / 6) : 0;
+    if (!N) return { ot: '', own: 0 };
+    const own = Math.round(clamp(look.otOwn || 0, 0, N));
+    if (N <= PASS_M) return { ot: look.ot.slice(0, N * 6), own };
+    const kOwn = Math.round(PASS_M * own / N), part = (from, count, keep) => { let out = ''; for (let k = 0; k < keep; k++) out += look.ot.substr((from + Math.min(count - 1, Math.floor((k + 0.5) * count / keep))) * 6, 6); return out; };
+    return { ot: (kOwn ? part(0, own, kOwn) : '') + (PASS_M - kOwn ? part(own, N - own, PASS_M - kOwn) : ''), own: kOwn };
+  }
+  // («bare»: sin nombre ni lo que cada quien le pone —la figura—; para saber si dos looks son el mismo)
+  function pack(look, bare) {
+    const name = new TextEncoder().encode(bare ? '' : String(look.name || '').slice(0, 18)), K = Math.min(8, look.palette.length), t = thinned(look);
+    const cdf = look.cdf || [], fig = look.cdfFig || [], ramp = look.ramp || [], M = t.ot.length / 6;
+    const buf = new DataView(new ArrayBuffer(4 + name.length + K * 8 + 1 + PASS_NUMS.length * 4 + 3 + (cdf.length + fig.length + ramp.length * 2) * 2 + 4 + M * 3 + 1));
+    let o = 0;
+    const u8 = v => { buf.setUint8(o, v); o += 1; }, u16 = v => { buf.setUint16(o, clamp(Math.round(v), 0, 65535)); o += 2; }, i16 = v => { buf.setInt16(o, clamp(Math.round(v), -32767, 32767)); o += 2; }, f32 = v => { buf.setFloat32(o, v); o += 4; };
+    u8(PASS_V); u8((look.limited ? 1 : 0) | (look.figure && !bare ? 2 : 0) | (look.named && !bare ? 4 : 0)); u8(K); u8(name.length);
+    name.forEach(u8);
+    for (let k = 0; k < K; k++) { const c = look.palette[k]; u16(c[0] * 10000); i16(c[1] * 10000); i16(c[2] * 10000); u16(((look.shares && look.shares[k]) || 0) * 10000); }
+    u8(Math.max(0, SCREEN_TYPES.indexOf(look.screen && look.screen.type)));
+    for (const path of PASS_NUMS) { const [a, b] = path.split('.'), v = b == null ? look[a] : look[a] == null ? null : look[a][b]; f32(typeof v === 'number' && isFinite(v) ? +v.toFixed(5) : NaN); }
+    u8(cdf.length); cdf.forEach(v => u16(v * 10000));
+    u8(fig.length); fig.forEach(v => u16(v * 10000));
+    u8(ramp.length); ramp.forEach(p => { i16(p[0] * 10000); i16(p[1] * 10000); });
+    u16(M); u16(t.own);
+    for (let k = 0; k < M * 3; k++) u8(parseInt(t.ot.substr(k * 2, 2), 16));
+    u8(0);                                                          // el cierre (con él, el texto acaba en letra o número: un chat no le come el final)
+    return new Uint8Array(buf.buffer);
+  }
+  function unpack(bytes) {
+    try {
+      const buf = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      let o = 0;
+      const u8 = () => buf.getUint8(o++), u16 = () => { o += 2; return buf.getUint16(o - 2); }, i16 = () => { o += 2; return buf.getInt16(o - 2); }, f32 = () => { o += 4; return buf.getFloat32(o - 4); };
+      if (u8() !== PASS_V) return null;
+      const flags = u8(), K = u8(), nameLen = u8();
+      if (K < 2 || K > 8 || o + nameLen > bytes.length) return null;
+      const rawName = new TextDecoder().decode(bytes.subarray(o, o + nameLen));
+      o += nameLen;
+      const palette = [], shares = [];
+      for (let k = 0; k < K; k++) { palette.push([Math.min(1, u16() / 10000), clamp(i16() / 10000, -0.5, 0.5), clamp(i16() / 10000, -0.5, 0.5)]); shares.push(Math.min(1, u16() / 10000)); }
+      const type = SCREEN_TYPES[u8()];
+      if (!type) return null;
+      const num = {};
+      for (const path of PASS_NUMS) { const v = f32(); num[path] = isFinite(v) ? +v.toFixed(5) : null; }
+      const list = (read, pairs) => { const n = u8(), out = []; for (let k = 0; k < n; k++) out.push(pairs ? [clamp(read() / 10000, -0.5, 0.5), clamp(read() / 10000, -0.5, 0.5)] : Math.min(1, read() / 10000)); return out; };
+      const cdf = list(u16), cdfFig = list(u16), ramp = list(i16, true);
+      if (cdf.length !== 33 || (cdfFig.length && cdfFig.length !== 33) || (ramp.length !== 16 && ramp.length !== 32)) return null;
+      const M = u16(), own = u16();
+      if (M > 600 || own > M) return null;
+      let ot = '';
+      for (let k = 0; k < M * 3; k++) ot += (256 + u8()).toString(16).slice(1);
+      if (u8() !== 0 || o !== bytes.length) return null;
+      const n = (key, def, lo, hi) => (num[key] == null ? def : clamp(num[key], lo, hi));
+      const three = key => (num[key + '.0'] == null || num[key + '.1'] == null || num[key + '.2'] == null ? null : [clamp(num[key + '.0'], 0, 1), clamp(num[key + '.1'], -0.5, 0.5), clamp(num[key + '.2'], -0.5, 0.5)]);
+      const look = {
+        v: 1, palette, shares, limited: !!(flags & 1), error: n('error', 0, 0, 10), back: n('back', 0, 0, 1), ground: three('ground'),
+        cdf, ramp, rampMix: n('rampMix', 0, 0, 1), mean: [n('mean.0', 0, -0.5, 0.5), n('mean.1', 0, -0.5, 0.5)], chroma: n('chroma', 0, 0, 1),
+        byLight: n('byLight', 1, 0, 1), backdrop: three('backdrop'), cdfFig: cdfFig.length ? cdfFig : null, otOwn: own,
+        pixel: Math.round(n('pixel', 0, 0, 320)), screen: { type, freq: n('screen.freq', 0, 0, 1000), angle: n('screen.angle', 0, -1000, 1000), strength: n('screen.strength', 0, 0, 10) },
+        grain: { amount: n('grain.amount', 0, 0, 10), cells: n('grain.cells', 0, 0, 1000) }, edge: n('edge', 0, 0, 10), vignette: n('vignette', 0, 0, 1), tone: n('tone', 1, 0, 1), sat: n('sat', 1, 0, 4),
+        score: num.score == null ? null : Math.round(clamp(num.score, 0, 100)),
+      };
+      if (M && !look.limited) look.ot = ot;
+      if (num.soft != null) look.soft = clamp(num.soft, 0, 0.2);
+      if (num['glow.amount'] != null) look.glow = { amount: clamp(num['glow.amount'], 0, 3), size: n('glow.size', 0.03, 0.001, 0.2) };
+      if (flags & 2) look.figure = true;
+      const name = rawName.replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase().slice(0, 18);
+      look.name = name || nameOf(look);
+      if (flags & 4 && name) look.named = true;
+      return look;
+    } catch (_) { return null; }
+  }
+  // En texto. Para un chat, base64 de dirección web. Para el QR, un alfabeto de 41 signos que el QR
+  // escribe en su modo corto (2 bytes en 3 signos): el código sale un tercio más pequeño.
+  const b64url = bytes => btoa(String.fromCharCode.apply(null, bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const unb64url = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+  function b41(bytes) {
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 2) { const two = i + 1 < bytes.length, v = bytes[i] + (two ? bytes[i + 1] * 256 : 0); out += A41[v % 41] + A41[Math.floor(v / 41) % 41] + (two ? A41[Math.floor(v / 1681)] : ''); }
+    return out;
+  }
+  function unb41(text) {
+    const out = [];
+    for (let i = 0; i < text.length; i += 3) {
+      const a = A41.indexOf(text[i]), b = i + 1 < text.length ? A41.indexOf(text[i + 1]) : -1, c = i + 2 < text.length ? A41.indexOf(text[i + 2]) : -2;
+      if (a < 0 || b < 0 || c === -1) return null;
+      const v = a + b * 41 + (c < 0 ? 0 : c * 1681);
+      if (v > (c < 0 ? 255 : 65535)) return null;
+      out.push(v & 255); if (c >= 0) out.push(v >> 8);
+    }
+    return Uint8Array.from(out);
+  }
+  const passBase = () => location.origin + location.pathname.replace(/[^/]*$/, '');
+  const passLink = look => passBase() + '#clon=' + b64url(pack(look));
+  const passQr = look => (typeof flipQR === 'undefined' ? null : flipQR.make([{ mode: 'byte', text: passBase() + '#' }, { mode: 'alnum', text: 'CLON:' + b41(pack(look)) }]));
+  function readPass(text) {
+    const find = s => {
+      let m = /#clon=([A-Za-z0-9_-]{24,8000})/.exec(s);
+      try { if (m) return unpack(unb64url(m[1])); m = /#CLON:([0-9A-Z\-\/+.:]{24,12000})/.exec(s); if (m) { const bytes = unb41(m[1]); return bytes && unpack(bytes); } } catch (_) {}
+      return null;
+    };
+    const s = String(text == null ? '' : text).slice(0, 20000);
+    let look = find(s);
+    if (!look && s.includes('%')) { try { look = find(decodeURIComponent(s)); } catch (_) {} }
+    return look;
+  }
+  // La miniatura de un look que llega: el look puesto sobre una escena de muestra (un atardecer con
+  // de todo: cielo, sol, sombra y un par de colores vivos). La de la referencia no viaja.
+  function previewOf(look) {
+    try {
+      const src = document.createElement('canvas'), out = document.createElement('canvas');
+      src.width = src.height = out.width = out.height = 96;
+      const c = src.getContext('2d'), sky = c.createLinearGradient(0, 0, 0, 60), land = c.createLinearGradient(0, 58, 0, 96);
+      sky.addColorStop(0, '#1F3F86'); sky.addColorStop(0.6, '#D98E6A'); sky.addColorStop(1, '#F6D58E');
+      land.addColorStop(0, '#3E5A3C'); land.addColorStop(1, '#0C120E');
+      c.fillStyle = sky; c.fillRect(0, 0, 96, 60);
+      c.fillStyle = '#FFF6DC'; c.beginPath(); c.arc(66, 40, 10, 0, 7); c.fill();
+      c.fillStyle = '#232B45'; c.beginPath(); c.moveTo(0, 60); c.lineTo(0, 50); c.lineTo(20, 32); c.lineTo(38, 50); c.lineTo(54, 42); c.lineTo(96, 58); c.lineTo(96, 60); c.fill();
+      c.fillStyle = land; c.fillRect(0, 58, 96, 38);
+      c.fillStyle = '#C8402E'; c.fillRect(12, 60, 20, 24); c.fillStyle = '#F1E2C2'; c.fillRect(17, 66, 5, 6); c.fillRect(24, 66, 5, 6);
+      c.fillStyle = '#2FA7B8'; c.beginPath(); c.arc(74, 78, 9, 0, 7); c.fill();
+      return renderOn(look, src, out) ? out.toDataURL('image/jpeg', 0.72) : '';
+    } catch (_) { return ''; }
+  }
+  const afterSplash = run => {
+    const splash = $('splash');
+    if (!splash || splash.classList.contains('hidden')) { run(); return; }
+    const mo = new MutationObserver(() => { if (splash.classList.contains('hidden')) { mo.disconnect(); setTimeout(run, 350); } });
+    mo.observe(splash, { attributes: true, attributeFilter: ['class'] });
+  };
+  // Llega un look (de un enlace, de un texto pegado o de un QR en el encuadre): entra a la galería y
+  // se pone en la cámara. Si ya estaba, no se duplica: se pone y ya.
+  function arrive(text) {
+    const got = readPass(text);
+    if (!got) return null;
+    const same = String(pack(got, true)), had = S.looks.find(l => { try { return String(pack(l, true)) === same; } catch (_) { return false; } });
+    if (had) {
+      use(had.id); S.aim = false; paint();
+      afterSplash(() => { pillShow('guardado', 'YA LO TENÍAS · ' + had.name, null, 4200, had.thumb); say('«' + had.name + '» ya estaba en tus looks', 3200); });
+      return had;
+    }
+    got.thumb = previewOf(got);
+    if (typeof camFamily !== 'undefined' && camFamily !== 'CLON' && typeof _setCamFamily === 'function') _setCamFamily('CLON');
+    const look = keep(got);
+    if (!look) { afterSplash(() => { say(MAX_LOOKS + ' favoritos · quita una estrella o borra uno para recibir otro look', 6500); gallery(true); }); return null; }
+    S.aim = false; paint();
+    afterSplash(() => { S.revealAt = performance.now(); entered(look, true); });
+    return look;
+  }
+  // El enlace con el que se abrió FLIP (o al que se saltó con FLIP abierto) trae un look: se recibe y se quita de la dirección.
+  function arriveFromUrl() {
+    if (!/#(clon=|CLON:)/.test(location.hash)) return null;
+    const whole = !!readPass(location.hash), look = whole ? arrive(location.hash) : null;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+    if (!whole) afterSplash(() => say('Ese enlace no trae un look completo · pide que te lo manden otra vez', 5200));
+    return look;
+  }
+  // La capa sobre la galería: PASAR (el QR y el enlace) o RECIBIR (pegar un enlace).
+  function layer(mode) {
+    if (!sheet) return;
+    const capa = sheet.querySelector('#clonCapa'), link = sheet.querySelector('#clonEnlace');
+    capa.hidden = !mode;
+    if (mode) { const head = sheet.querySelector('.clon-cabeza'); capa.dataset.modo = mode; capa.style.top = (head.offsetTop + head.offsetHeight - 2) + 'px'; }   // (justo bajo la cabecera, mida lo que mida en cada piel; dos puntos antes, que no asome lo de debajo)
+    else if (document.activeElement === link) link.blur();
+    sheet.classList.toggle('pasando', mode === 'pasar');
+    sheet.style.transform = '';
+  }
+  function passOpen(look) {
+    const qr = passQr(look), canvas = sheet.querySelector('#clonQr');
+    S.passing = look.id;
+    canvas.hidden = !qr;
+    if (qr) flipQR.paint(canvas, qr, 8);
+    sheet.querySelector('#clonPaseNombre').textContent = '«' + look.name + '»';
+    sheet.querySelector('#clonPaseDice').textContent = qr ? 'Que lo lean con la cámara de su teléfono, o mándales el enlace.' : 'Mándales el enlace: al abrirlo, el look entra a su FLIP.';
+    layer('pasar');
+  }
+  function passSend() {
+    const look = S.looks.find(l => l.id === S.passing) || current();
+    if (!look) return Promise.resolve(false);
+    const url = passLink(look), copied = () => { say('Enlace copiado · pégalo en un chat', 3600); mascot('guino', 230); return true; };
+    const byHand = () => {                                          // sin portapapeles moderno (o sin permiso): a la antigua
+      const area = document.createElement('textarea');
+      area.value = url; area.setAttribute('readonly', ''); area.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+      document.body.appendChild(area); area.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (_) {}
+      area.remove();
+      if (ok) return copied();
+      say('No pude copiar el enlace', 2600);
+      return false;
+    };
+    const copy = () => (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(url).then(copied, byHand) : Promise.resolve(byHand()));
+    if (!navigator.share) return copy();
+    return navigator.share({ title: 'FLIP · ' + look.name, text: 'Te paso mi look «' + look.name + '» para la cámara de FLIP', url }).then(() => true, error => (error && error.name === 'AbortError' ? false : copy()));
+  }
+  // RECIBIR: si lo copiado ya es un enlace de look, entra de un toque; si no, un campo donde pegarlo.
+  function receiveKey() {
+    const ask = text => {
+      sheet.querySelector('#clonEnlace').value = '';
+      sheet.querySelector('#clonLlegaDice').textContent = text ? 'Lo que tienes copiado no es un look de FLIP. Copia el enlace que te mandaron y pégalo aquí.' : 'Copia el enlace que te mandaron y pégalo aquí.';
+      layer('recibir');
+    };
+    const got = text => { if (text && arrive(text)) { layer(null); landed(); } else ask(text); };
+    if (!navigator.clipboard || !navigator.clipboard.readText) { ask(''); return Promise.resolve(); }
+    return navigator.clipboard.readText().then(got, () => ask(''));
+  }
+  function landed() { if (!sheet || sheet.hidden) return; arrange(false); galleryPaint(); const on = sheet.querySelector('.clon-carta.is-on'); if (on) on.scrollIntoView({ block: 'nearest' }); }
   function gallery(open, focusName) {
     if (!sheet) return false;
     const want = open == null ? sheet.hidden : !!open;
@@ -2038,7 +2277,7 @@
       const on = sheet.querySelector('.clon-carta.is-on'); if (on) on.scrollIntoView({ block: 'nearest' });
       if (focusName) setTimeout(() => sheet.querySelector('#clonNombre').focus(), 60);
     } else {
-      sheet.classList.remove('escribiendo'); S.sure = '';
+      sheet.classList.remove('escribiendo'); S.sure = ''; layer(null);
       if (document.activeElement && sheet.contains(document.activeElement)) document.activeElement.blur();
       if ((current() ? current().id : '') !== openedWith) mascot('guino', 230);            // se llevó otro look: acusa recibo
       // lo borrado sigue pudiéndose deshacer los segundos que le queden
@@ -2050,10 +2289,14 @@
   function galleryBuild() {
     sheet = flipShell.el('div', { class: 'clon-galeria', id: 'clonGaleria', role: 'dialog', 'aria-label': 'Galería de looks', hidden: '' }, `
       <header class="clon-cabeza"><i class="clon-asa" aria-hidden="true"></i><small>LOOKS</small><b id="clonCuenta"></b><button class="hw clon-tecla clon-orden" type="button" data-clon="orden" data-feel="key" aria-label="Cambiar el orden" hidden></button><button class="hw clon-tecla" type="button" data-clon="cerrar" data-feel="key">LISTO</button></header>
-      <div class="clon-elegido"><button class="hw clon-tecla clon-estrella" type="button" data-clon="fav" data-feel="switch" aria-pressed="false" aria-label="Favorito">★</button><input id="clonNombre" type="text" maxlength="18" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Nombre del look"><button class="hw clon-tecla clon-borra" type="button" data-clon="borrar" data-feel="none">BORRAR</button><p id="clonDice"></p></div>
+      <div class="clon-elegido"><button class="hw clon-tecla clon-estrella" type="button" data-clon="fav" data-feel="switch" aria-pressed="false" aria-label="Favorito">★</button><input id="clonNombre" type="text" maxlength="18" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Nombre del look"><button class="hw clon-tecla clon-pasa" type="button" data-clon="pasar" data-feel="drawerOpen" aria-label="Pasar este look a otra persona">PASAR</button><button class="hw clon-tecla clon-borra" type="button" data-clon="borrar" data-feel="none">BORRAR</button><p id="clonDice"></p></div>
       <div class="clon-rejilla" id="clonRejilla" role="listbox" aria-label="Looks guardados"></div>
-      <div class="clon-vacio"><i class="clon-cara" aria-hidden="true"></i><b>TODAVÍA NO HAY LOOKS</b><p>Apunta a un cartel, una portada o abre una foto. Aquí caben hasta ${MAX_LOOKS} cámaras tuyas.</p><div><button class="hw clon-tecla is-acento" type="button" data-clon="copiar-camara" data-feel="primary">COPIAR CON CÁMARA</button><button class="hw clon-tecla" type="button" data-clon="abrir-foto" data-feel="key">ABRIR FOTO</button></div></div>
-      <div class="clon-deshacer" hidden><i class="clon-cara" aria-hidden="true"></i><span></span><button class="hw clon-tecla" type="button" data-clon="deshacer" data-feel="none">DESHACER</button><u class="clon-tiempo" aria-hidden="true"></u></div>`);
+      <div class="clon-vacio"><i class="clon-cara" aria-hidden="true"></i><b>TODAVÍA NO HAY LOOKS</b><p>Apunta a un cartel, una portada o abre una foto. Aquí caben hasta ${MAX_LOOKS} cámaras tuyas.</p><div><button class="hw clon-tecla is-acento" type="button" data-clon="copiar-camara" data-feel="primary">COPIAR CON CÁMARA</button><button class="hw clon-tecla" type="button" data-clon="abrir-foto" data-feel="key">ABRIR FOTO</button></div><button class="hw clon-recibe" type="button" data-clon="recibir" data-feel="key">＋ RECIBIR UN LOOK QUE TE PASARON</button></div>
+      <div class="clon-deshacer" hidden><i class="clon-cara" aria-hidden="true"></i><span></span><button class="hw clon-tecla" type="button" data-clon="deshacer" data-feel="none">DESHACER</button><u class="clon-tiempo" aria-hidden="true"></u></div>
+      <div class="clon-capa" id="clonCapa" hidden>
+        <div class="clon-pase"><canvas id="clonQr" width="8" height="8" role="img" aria-label="Código QR con el look"></canvas><p><b id="clonPaseNombre"></b><span id="clonPaseDice"></span></p><div><button class="hw clon-tecla is-acento" type="button" data-clon="enviar" data-feel="primary">ENVIAR ENLACE</button><button class="hw clon-tecla" type="button" data-clon="capa-cerrar" data-feel="key">VOLVER</button></div></div>
+        <div class="clon-llega"><i class="clon-cara" aria-hidden="true"></i><b>RECIBIR UN LOOK</b><p id="clonLlegaDice"></p><input id="clonEnlace" type="text" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="PEGA AQUÍ EL ENLACE" aria-label="Enlace del look"><div><button class="hw clon-tecla" type="button" data-clon="capa-cerrar" data-feel="key">VOLVER</button></div></div>
+      </div>`);
     sheet.hidden = true;
     document.body.appendChild(sheet);
     pill = flipShell.el('div', { class: 'clon-pildora', id: 'clonPildora', role: 'status', hidden: '' }, '');
@@ -2072,19 +2315,35 @@
       if (!act) return;
       const what = act.dataset.clon;
       if (what === 'cerrar') gallery(false);
-      else if (what === 'orden') { order = ORDERS[(ORDERS.indexOf(order) + 1) % ORDERS.length]; try { localStorage.setItem(KEY + '.orden', order); } catch (_) {} arrange(true); galleryPaint(); sheet.querySelector('#clonRejilla').scrollTop = 0; }
+      else if (what === 'orden') { order = ORDERS[(ORDERS.indexOf(order) + 1) % ORDERS.length]; try { localStorage.setItem(KEY + '.orden', order); localStorage.setItem(KEY + '.ordenV', '2'); } catch (_) {} arrange(true); galleryPaint(); sheet.querySelector('#clonRejilla').scrollTop = 0; }
       else if (what === 'fav' && cur) { fav(cur.id); galleryPaint(); }
       else if (what === 'borrar') removeNow(event.clientX);
       else if (what === 'deshacer') undoNow(event.clientX);
       else if (what === 'copiar-camara') { gallery(false); S.aim = true; paint(); say('Encuadra la imagen que quieras copiar y toca CAPTURAR', 4200); }
       else if (what === 'abrir-foto') { gallery(false); openKey(); }
+      else if (what === 'pasar' && cur) passOpen(cur);
+      else if (what === 'enviar') passSend();
+      else if (what === 'recibir') receiveKey();
+      else if (what === 'capa-cerrar') layer(null);
     });
+    // el campo donde se pega un enlace: en cuanto trae un look, entra
+    const link = sheet.querySelector('#clonEnlace');
+    const tryLink = () => {
+      const text = link.value.trim();
+      if (!text) return;
+      if (arrive(text)) { link.value = ''; layer(null); landed(); }
+      else if (text.length > 12) sheet.querySelector('#clonLlegaDice').textContent = 'Ese texto no trae un look de FLIP. Copia el enlace completo y pégalo otra vez.';
+    };
+    link.addEventListener('input', tryLink);
+    link.addEventListener('focus', () => sheet.classList.add('escribiendo'));
+    link.addEventListener('blur', () => sheet.classList.remove('escribiendo'));
+    link.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); tryLink(); } else if (event.key === 'Escape') layer(null); event.stopPropagation(); });
     const commit = () => { const cur = current(); if (cur) { const before = cur.name, set = rename(cur.id, name.value); name.value = set || cur.name; if (set && set !== before) { sheet.classList.add('nombrado'); setTimeout(() => sheet.classList.remove('nombrado'), 160); } } galleryPaint(); };
     name.addEventListener('focus', () => { sheet.classList.add('escribiendo'); name.select(); tap('soft'); });
     name.addEventListener('blur', () => { sheet.classList.remove('escribiendo'); commit(); });
     name.addEventListener('input', () => { const at = name.selectionStart, up = name.value.toUpperCase(); if (up !== name.value) { name.value = up; try { name.setSelectionRange(at, at); } catch (_) {} } });
     name.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); tap('key'); name.blur(); } else if (event.key === 'Escape') { const cur = current(); name.value = cur ? cur.name : ''; name.blur(); } event.stopPropagation(); });
-    addEventListener('keydown', event => { if (event.key === 'Escape' && !sheet.hidden) gallery(false); });
+    addEventListener('keydown', event => { if (event.key !== 'Escape' || sheet.hidden) return; if (!sheet.querySelector('#clonCapa').hidden) layer(null); else gallery(false); });
     // tocar fuera (el visor) la cierra
     addEventListener('pointerdown', event => { if (!sheet.hidden && !event.target.closest('#clonGaleria, #clonPildora, [data-clon="galeria"]')) { tap('soft', event.clientX); gallery(false); } }, true);
     // y deslizar la cabecera hacia abajo: la hoja sigue al dedo y, pasado un tramo, se va
@@ -2145,8 +2404,23 @@
       syncVariants(); apply();
     } else syncVariants();                   // ya se sabe qué look estaba puesto: que quede a la mano
     paint();
+    arriveFromUrl();
+    addEventListener('hashchange', arriveFromUrl);
   }
   if (document.readyState === 'complete') mount(); else addEventListener('load', mount);
+
+  // Pone un look sobre una imagen suelta y lo deja en «out» (las pruebas, y la miniatura de un look que llega).
+  function renderOn(look, source, out, mask) {
+    if (!ensureGl()) return false;
+    surface(probe, 32, 24); probe.ctx.drawImage(source, 0, 0, 32, 24);
+    if (mask) { FIG.seq = -1; FIG.last = null; mask = mask.faces === undefined ? { data: feather(Float32Array.from(mask.data), mask.width, mask.height), width: mask.width, height: mask.height } : confirmFigure({ ...mask, seq: null }, performance.now()); }
+    const all = probe.ctx.getImageData(0, 0, 32, 24).data, own = mask && backOf(look) ? figurePixels(all, 32, 24, mask) : null;
+    const scene = own ? sceneOf(own.data, own.count) : sceneOf(all, 32 * 24); scene.version = Math.random();
+    G.look = null;
+    draw(own ? figureLook(look) : look, source, [0, 0, 1, 1], out.width, out.height, scene, { mirror: false, aim: false, reveal: 2, seed: 0.3, mask: own ? mask : null, back: own ? backOf(look) : null });
+    out.getContext('2d').drawImage(G.canvas, 0, 0, out.width, out.height);
+    return true;
+  }
 
   window.renderClon = renderClon;
   window.flipClon = {
@@ -2154,20 +2428,13 @@
     // (pruebas) pone un look sobre una imagen suelta y lo deja en «out»
     // (con «mask» —{ data, width, height }, 1 donde hay persona— y un look de fondo liso, como con la
     //  tecla FIGURA. Si la máscara trae «faces», se confirma como en vivo: solo lo que toca una cara)
-    _render(look, source, out, mask) {
-      if (!ensureGl()) return false;
-      surface(probe, 32, 24); probe.ctx.drawImage(source, 0, 0, 32, 24);
-      if (mask) { FIG.seq = -1; FIG.last = null; mask = mask.faces === undefined ? { data: feather(Float32Array.from(mask.data), mask.width, mask.height), width: mask.width, height: mask.height } : confirmFigure({ ...mask, seq: null }, performance.now()); }
-      const all = probe.ctx.getImageData(0, 0, 32, 24).data, own = mask && backOf(look) ? figurePixels(all, 32, 24, mask) : null;
-      const scene = own ? sceneOf(own.data, own.count) : sceneOf(all, 32 * 24); scene.version = Math.random();
-      G.look = null;
-      draw(own ? figureLook(look) : look, source, [0, 0, 1, 1], out.width, out.height, scene, { mirror: false, aim: false, reveal: 2, seed: 0.3, mask: own ? mask : null, back: own ? backOf(look) : null });
-      out.getContext('2d').drawImage(G.canvas, 0, 0, out.width, out.height);
-      return true;
-    },
+    _render: renderOn,
     learn: (source, w, h, region) => learn(source, w || source.width, h || source.height, region),
     adopt: (source, w, h, region) => adopt(source, w || source.width, h || source.height, region),
     keep, forget, restore, rename, fav, use, gallery, capture, MAX: MAX_LOOKS,
+    // pasar un look: su enlace, su QR, leer uno de un texto, y recibirlo (entra a la galería y se pone)
+    pass: { link: id => { const l = S.looks.find(x => x.id === id); return l ? passLink(l) : ''; }, qr: id => { const l = S.looks.find(x => x.id === id); return l ? passQr(l) : null; }, qrText: id => { const l = S.looks.find(x => x.id === id); return l ? passBase() + '#CLON:' + b41(pack(l)) : ''; }, read: readPass, pack, unpack, send: passSend },
+    arrive, order: () => order, shown: () => (S.shown || []).slice(),
     looks: () => JSON.parse(JSON.stringify(S.looks)),
     aim(on) { if (on != null) { S.aim = !!on; paint(); } return S.aim; },
     state: () => ({ looks: S.looks.length, aim: S.aim, busy: S.busy, frame: S.frame, ms: +S.ms.toFixed(2), gl: !!G.gl, failed: G.failed, lost: G.lost, current: current() ? current().id : null, figure: current() && backOf(current()) ? { on: !!current().figure, cut: !!S.figOn, share: S.figShare || 0, faces: typeof flipSilhouette !== 'undefined' ? flipSilhouette.status().faces : '' } : null }),
